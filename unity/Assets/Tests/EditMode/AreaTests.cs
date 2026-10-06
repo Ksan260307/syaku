@@ -248,10 +248,11 @@ namespace Shakutori.Tests
     public class SpeciesCatalogTests
     {
         [Test]
-        public void Catalog_Has16UniqueSpeciesWithTexts()
+        public void Catalog_Has18SpeciesAnd2RaresWithTexts()
         {
-            Assert.AreEqual(16, SpeciesCatalog.Count);
-            Assert.AreEqual(16, SpeciesCatalog.All.Select(s => s.id).Distinct().Count());
+            Assert.AreEqual(18, SpeciesCatalog.Count, "図鑑のコンプリートに必要なのは 18 しゅ");
+            Assert.AreEqual(2, SpeciesCatalog.RareCount);
+            Assert.AreEqual(20, SpeciesCatalog.All.Select(s => s.id).Distinct().Count());
             foreach (var s in SpeciesCatalog.All)
             {
                 Assert.IsFalse(string.IsNullOrEmpty(s.name), s.id);
@@ -266,8 +267,12 @@ namespace Shakutori.Tests
         [Test]
         public void Catalog_HasEveryRequestedCreature()
         {
-            foreach (var id in new[] { "ant", "snail", "butterfly", "otoshibumi", "grasshopper", "frog", "sparrow", "crow", "ladybug" })
+            foreach (var id in new[] { "ant", "snail", "butterfly", "otoshibumi", "grasshopper", "frog", "sparrow", "crow", "ladybug", "spider", "mantis" })
                 Assert.IsNotNull(SpeciesCatalog.Get(id), id);
+            Assert.AreEqual("ant", SpeciesCatalog.Get("ant_helmet").rareOf);
+            Assert.AreEqual("spider", SpeciesCatalog.Get("spider_sneaker").rareOf);
+            Assert.AreEqual(0.005f, SpeciesCatalog.Get("ant_helmet").rareChance, 1e-6f, "出現率 0.5%");
+            Assert.AreEqual(0.005f, SpeciesCatalog.Get("spider_sneaker").rareChance, 1e-6f);
             Assert.IsNull(SpeciesCatalog.Get("dragon"));
         }
 
@@ -362,7 +367,8 @@ namespace Shakutori.Tests
             Assert.IsTrue(Skins.IsUnlocked(Skins.Get("sakura"), Stats(0, 5, 0)));
             Assert.IsTrue(Skins.IsUnlocked(Skins.Get("sorairo"), Stats(0, 0, 4)));
             Assert.IsFalse(Skins.IsUnlocked(Skins.Get("kogane"), Stats(99, 99, 15)));
-            Assert.IsTrue(Skins.IsUnlocked(Skins.Get("kogane"), Stats(0, 0, 16)));
+            Assert.IsFalse(Skins.IsUnlocked(Skins.Get("kogane"), Stats(0, 0, 17)));
+            Assert.IsTrue(Skins.IsUnlocked(Skins.Get("kogane"), Stats(0, 0, 18)));
         }
 
         [Test]
@@ -826,8 +832,10 @@ namespace Shakutori.Tests
         {
             var forest = _gen.Mobs.Select(m => m.species);
             var river = new[] { "waterstrider", "dragonfly", "crab", "riversnail", "frog", "firefly" };
-            foreach (var s in SpeciesCatalog.All)
+            foreach (var s in SpeciesCatalog.Regular)
                 Assert.IsTrue(forest.Contains(s.id) || river.Contains(s.id), $"{s.id} がどこにもいない");
+            foreach (var r in SpeciesCatalog.Rares)
+                Assert.IsTrue(forest.Contains(r.rareOf), $"{r.id} の元になる {r.rareOf} が森にいる");
         }
 
         [Test]

@@ -77,11 +77,13 @@ class CreatureKitTests(unittest.TestCase):
             self.assertIsNotNone(col, f"{name} に頂点カラーがない")
             self.assertEqual(len(col.data), len(ob.data.loops), name)
 
-    def test_portrait_list_covers_16_species(self):
+    def test_portrait_list_covers_all_species(self):
+        # ふつうの 18 種と、レアの 2 種
         ids = [c[0] for c in cr.CREATURES]
-        self.assertEqual(len(ids), 16)
-        self.assertEqual(len(set(ids)), 16)
-        for need in ("ant", "snail", "butterfly", "otoshibumi", "grasshopper", "frog", "sparrow", "crow", "ladybug"):
+        self.assertEqual(len(ids), 20)
+        self.assertEqual(len(set(ids)), 20)
+        for need in ("ant", "snail", "butterfly", "otoshibumi", "grasshopper", "frog", "sparrow", "crow", "ladybug",
+                     "spider", "mantis", "ant_helmet", "spider_sneaker"):
             self.assertIn(need, ids)
 
     def test_sizes_match_the_inchworm_scale(self):

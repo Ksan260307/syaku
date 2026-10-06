@@ -38,15 +38,24 @@ namespace Shakutori.Tests
         }
 
         [Test]
-        public void Walk_OverEdge_WrapsDownTheSide()
+        public void Walk_OverVerticalEdge_IsACliffNotAWrap()
         {
+            // 80 度より急なふち（垂直な面）へは回り込まず、「がけ」として止まる（そのまま進めば落ちる）
             TestUtil.Box(new Vector3(0, 0.5f, -1f), new Vector3(4, 1, 3));   // 上面 y=1, 前の面 z=0.5
-            bool ok = SurfaceProbe.Walk(new SurfacePoint(new Vector3(0, 1, 0), Vector3.up), Vector3.forward, 1.0f, out var r, out var dir);
-            Assert.IsTrue(ok);
-            Assert.AreEqual(0.5f, r.point.z, 0.05f, "前の面に回り込む");
-            Assert.Less(r.point.y, 0.8f);
-            TestUtil.AssertVector(Vector3.forward, r.normal, 0.1f);
-            Assert.Less(dir.y, -0.9f, "進む向きは下");
+            bool ok = SurfaceProbe.Walk(new SurfacePoint(new Vector3(0, 1, 0), Vector3.up), Vector3.forward, 1.0f, out var r, out _, out bool offEdge);
+            Assert.IsFalse(ok, $"垂直な面に回り込んだ n={r.normal}");
+            Assert.IsTrue(offEdge);
+            Assert.AreEqual("cliff", SurfaceProbe.LastFail);
+        }
+
+        [Test]
+        public void Walk_UpAWall_GoesOverTheTopEdge()
+        {
+            // 下から登ってきたときは、垂直な壁から上の面へ回り込める
+            TestUtil.Box(new Vector3(0, 0.5f, -1f), new Vector3(4, 1, 3));   // 前の面 z=0.5
+            bool ok = SurfaceProbe.Walk(new SurfacePoint(new Vector3(0, 0.6f, 0.5f), Vector3.forward), Vector3.up, 0.8f, out var r, out _);
+            Assert.IsTrue(ok, SurfaceProbe.LastFail);
+            Assert.Greater(r.normal.y, 0.9f, "上の面に乗った");
         }
 
         [Test]

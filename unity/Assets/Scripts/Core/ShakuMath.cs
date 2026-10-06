@@ -7,9 +7,13 @@ namespace Shakutori
     {
         public const int SurfaceLayer = 6;   // しゃくとりむしが這える面（地形・岩・キノコなど）
         public const int PlayerLayer = 7;
+        public const int CreatureLayer = 8;  // 乗れるいきもの（しゃくとりむしは這えるが、いきもの同士や地形の配置には使わない）
         public const int WaterLayer = 4;     // Unity 標準の Water レイヤー
 
         public static int SurfaceMask => 1 << SurfaceLayer;
+        public static int CreatureMask => 1 << CreatureLayer;
+        /// <summary>しゃくとりむしが這える面（地形・物・乗れるいきもの）。</summary>
+        public static int WalkableMask => SurfaceMask | CreatureMask;
 
         /// <summary>しゃくとりむしの体長（ワールド単位）。世界のスケールはこれを基準にしている。</summary>
         public const float BodyLength = 1.0f;

@@ -613,6 +613,15 @@ namespace Shakutori
                 Vector2[] spots = { meadow + new Vector2(-2f, -4f), new Vector2(6f, 13f), new Vector2(-2f, -16f), ForestLayout.AcornPlaza + new Vector2(2f, 4f), new Vector2(20f, 12f) };
                 foreach (var p in spots) g.path.Add(ForestLayout.Ground(p.x, p.y));
             }
+            // ハエトリグモ（切り株の上・苔の丘・はじまりの苔原の近く）
+            AddMob("spider", TopSurface(ForestLayout.Stump + new Vector2(1.5f, -1f)), 2, 2.5f);
+            AddMob("spider", ForestLayout.Ground(moss.x + 5f, moss.y + 4f), 1, 2.5f);
+            AddMob("spider", ForestLayout.Ground(-7f, 4f), 1, 2f);
+            AddMob("spider", ForestLayout.Ground(ForestLayout.AcornPlaza.x - 4f, ForestLayout.AcornPlaza.y + 5f), 1, 2f);
+            // オオカマキリ（花の草原の草むら・大樹の根もと）
+            AddMob("mantis", ForestLayout.Ground(meadow.x + 7f, meadow.y - 7f), 1, 3f);
+            AddMob("mantis", ForestLayout.Ground(meadow.x - 9f, meadow.y + 5f), 1, 3f);
+            AddMob("mantis", ForestLayout.Ground(ForestLayout.GreatTree.x + 10f, ForestLayout.GreatTree.y - 20f), 1, 3f);
             // カラス（高い場所に下りて見張る）
             {
                 var g = AddMob("crow", TopSurface(ForestLayout.Stump), 1, 2f);

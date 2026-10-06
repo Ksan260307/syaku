@@ -8,13 +8,23 @@ namespace Shakutori
     /// <summary>
     /// フィールドをうろつくいきもの（モブ）。アリの行列・はばたくチョウ・跳ねるバッタ・飛び立つ鳥など。
     /// 数が多いので GameObject は作らず、毎フレーム行列を計算して GPU インスタンシングで描く。
+    /// 脚は 1 本ずつ別の部品で、進んだ距離に合わせて交互に動かす。
     /// どれかの個体に近づくと、その種がいきもの図鑑に登録される。
+    /// 大きないきもの（かたつむり・カブトムシ・カエル・カニ・カマキリ）には当たり判定があり、登って乗れる。
     /// </summary>
+    [DefaultExecutionOrder(-50)]
     public class Creatures : MonoBehaviour
     {
         public WorldAssets assets;
         public bool Active { get; set; }
         public event Action<SpeciesDef> Discovered;
+        /// <summary>見つけたいきものと、その場所（演出用）。</summary>
+        public event Action<SpeciesDef, Vector3> DiscoveredAt;
+
+        /// <summary>テスト用：レアのいきものが出る確率を上書きする（null で本来の確率）。</summary>
+        public static float? RareChanceOverride;
+        /// <summary>小さな体の世界での重力（しゃくとりむしの落下と同じ）。</summary>
+        public const float Gravity = 9f;
 
         class Mob
         {
@@ -38,23 +48,54 @@ namespace Shakutori
             public int landIndex;
             // 行列
             public float pathS;
-            // 水面・空中
+            public bool carrying;
+            // 水面・空中・跳躍
             public Vector3 vel;
             public Vector3 target;
             public bool resting;
             public float joy;
+            // 脚
+            public Vector3 prevPos;
+            public float gait;
+            public float moveSpeed;
+            // カマキリ・だんごむし
+            public float raise;
+            public float curled;
+            // 当たり判定（乗れるいきもの）
+            public Transform collider;
+        }
+
+        public struct MobInfo
+        {
+            public Vector3 pos, up, fwd;
+            public bool airborne, carrying, curled;
+            public float raise, gait, moveSpeed;
+            public string species;
         }
 
         readonly List<Mob> _mobs = new List<Mob>();
         readonly Dictionary<(Mesh, Material), List<Matrix4x4>> _draw = new Dictionary<(Mesh, Material), List<Matrix4x4>>();
         readonly List<Matrix4x4[]> _pool = new List<Matrix4x4[]>();
+        readonly Dictionary<string, Mesh> _meshCache = new Dictionary<string, Mesh>();
         System.Random _rng = new System.Random(1);
         AreaLayout _area = Areas.Forest;
+        Transform _colliderRoot;
         int _frame;
 
         public int MobCount => _mobs.Count;
 
         float R(float a, float b) => a + (b - a) * (float)_rng.NextDouble();
+
+        Mesh M(string name)
+        {
+            if (string.IsNullOrEmpty(name) || assets == null) return null;
+            if (!_meshCache.TryGetValue(name, out var m))
+            {
+                m = assets.Get(name);
+                _meshCache[name] = m;
+            }
+            return m;
+        }
 
         public int CountOf(string species)
         {
@@ -63,26 +104,67 @@ namespace Shakutori
             return n;
         }
 
-        public Vector3 PositionOf(string species, int index = 0)
+        /// <summary>レアのいきものが何匹いるか。</summary>
+        public int RareCount
         {
-            int n = 0;
-            foreach (var m in _mobs)
+            get
             {
-                if (m.sp.id != species) continue;
-                if (n++ == index) return m.pos;
+                int n = 0;
+                foreach (var m in _mobs) if (m.sp.IsRare) n++;
+                return n;
             }
-            return Vector3.zero;
         }
 
-        public bool IsAirborne(string species, int index = 0)
+        Mob Find(string species, int index)
         {
             int n = 0;
             foreach (var m in _mobs)
             {
                 if (m.sp.id != species) continue;
-                if (n++ == index) return m.airborne;
+                if (n++ == index) return m;
             }
-            return false;
+            return null;
+        }
+
+        public Vector3 PositionOf(string species, int index = 0) => Find(species, index)?.pos ?? Vector3.zero;
+
+        public bool IsAirborne(string species, int index = 0) => Find(species, index)?.airborne ?? false;
+
+        public MobInfo Info(string species, int index = 0)
+        {
+            var m = Find(species, index);
+            if (m == null) return default;
+            return new MobInfo
+            {
+                pos = m.pos, up = m.up, fwd = m.fwd, airborne = m.airborne, carrying = m.carrying, curled = m.curled > 0f,
+                raise = m.raise, gait = m.gait, moveSpeed = m.moveSpeed, species = m.sp.id,
+            };
+        }
+
+        /// <summary>テスト用：個体の位置を動かす。</summary>
+        public void SetPosition(string species, int index, Vector3 p)
+        {
+            var m = Find(species, index);
+            if (m == null) return;
+            m.pos = p;
+            m.prevPos = p;
+            m.home = p;
+        }
+
+        /// <summary>近くにいる、まだ図鑑にのっていないいきものの場所（ミニマップの「？」用）。</summary>
+        public int UndiscoveredNear(Vector3 p, float radius, List<Vector3> results, int max = 4)
+        {
+            results.Clear();
+            float r2 = radius * radius;
+            foreach (var m in _mobs)
+            {
+                if (results.Count >= max) break;
+                if (IsDiscovered(m.sp.id)) continue;
+                Vector3 d = m.pos - p;
+                d.y = 0f;
+                if (d.sqrMagnitude < r2) results.Add(m.pos);
+            }
+            return results.Count;
         }
 
         public IEnumerable<string> SpeciesHere()
@@ -94,25 +176,61 @@ namespace Shakutori
 
         public static bool IsDiscovered(string species) => SaveSystem.Data.creatures.Contains(species);
 
-        public static int DiscoveredCount => SaveSystem.Data.creatures.Count;
+        /// <summary>見つけたふつうのいきものの数（レアはふくまない）。</summary>
+        public static int DiscoveredCount
+        {
+            get
+            {
+                int n = 0;
+                foreach (var s in SpeciesCatalog.Regular) if (IsDiscovered(s.id)) n++;
+                return n;
+            }
+        }
 
-        public void Clear() => _mobs.Clear();
+        public static int RareDiscoveredCount
+        {
+            get
+            {
+                int n = 0;
+                foreach (var s in SpeciesCatalog.Rares) if (IsDiscovered(s.id)) n++;
+                return n;
+            }
+        }
+
+        public void Clear()
+        {
+            _mobs.Clear();
+            if (_colliderRoot != null)
+            {
+                if (Application.isPlaying) Destroy(_colliderRoot.gameObject);
+                else DestroyImmediate(_colliderRoot.gameObject);
+                _colliderRoot = null;
+            }
+        }
+
+        void OnDestroy() => Clear();
 
         // ------------------------------------------------------------------
         // 生成
         // ------------------------------------------------------------------
         public void Build(WorldGenerator world)
         {
-            _mobs.Clear();
+            Clear();
+            _meshCache.Clear();
             _area = world.Area;
             _rng = new System.Random(world.seed + 31 * world.Area.Id.Length);
+            // レアは遊ぶたびにちがう（決まった場所にいつもいるわけではない）
+            var rareRng = new System.Random(Environment.TickCount ^ world.Area.Id.GetHashCode());
             foreach (var g in world.Mobs)
             {
-                var sp = SpeciesCatalog.Get(g.species);
-                if (sp == null) continue;
+                var baseSp = SpeciesCatalog.Get(g.species);
+                if (baseSp == null) continue;
+                var rare = SpeciesCatalog.RareVariantOf(baseSp.id);
                 float pathLen = PathLength(g.path);
                 for (int i = 0; i < g.count; i++)
                 {
+                    var sp = baseSp;
+                    if (rare != null && rareRng.NextDouble() < (RareChanceOverride ?? rare.rareChance)) sp = rare;
                     var m = new Mob
                     {
                         sp = sp,
@@ -146,9 +264,29 @@ namespace Shakutori
                     }
                     if (sp.kind == MobKind.Skater) m.pos.y = g.center.y;
                     else if (sp.kind != MobKind.Flutter && sp.kind != MobKind.Hover) SnapToSurface(m, 2.5f, 6f);
+                    m.prevPos = m.pos;
+                    if (sp.rideable) MakeCollider(m);
                     _mobs.Add(m);
                 }
             }
+            UpdateColliders();
+        }
+
+        void MakeCollider(Mob m)
+        {
+            Mesh mesh = M(m.sp.body);
+            if (mesh == null) return;
+            if (_colliderRoot == null)
+            {
+                _colliderRoot = new GameObject("CreatureColliders").transform;
+                _colliderRoot.SetParent(transform, false);
+            }
+            var go = new GameObject("Mob_" + m.sp.id);
+            go.transform.SetParent(_colliderRoot, false);
+            go.layer = ShakuConst.CreatureLayer;
+            go.AddComponent<MeshCollider>().sharedMesh = mesh;
+            go.AddComponent<MovingPlatform>();
+            m.collider = go.transform;
         }
 
         static float PathLength(List<Vector3> path)
@@ -178,19 +316,29 @@ namespace Shakutori
             return path[0];
         }
 
+        /// <summary>
+        /// 面にのせる。壁登りをしないいきもの（鳥・カエル・カマキリなど）は、体をほとんどかたむけない。
+        /// </summary>
         bool SnapToSurface(Mob m, float above, float below)
         {
-            Vector3 up = m.up.sqrMagnitude > 0.5f ? m.up : Vector3.up;
+            Vector3 up = m.sp.climbs && m.up.sqrMagnitude > 0.5f ? m.up : Vector3.up;
             if (Physics.Raycast(m.pos + up * above, -up, out var hit, above + below, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)
                 || Physics.Raycast(m.pos + Vector3.up * above, Vector3.down, out hit, above + below, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
             {
                 m.pos = hit.point;
-                m.up = Vector3.Slerp(m.up, hit.normal, 0.35f).normalized;
+                m.up = m.sp.climbs ? Vector3.Slerp(m.up, hit.normal, 0.35f).normalized : UprightUp(hit.normal);
                 return true;
             }
             m.pos.y = _area.Height(m.pos.x, m.pos.z);
             m.up = Vector3.Slerp(m.up, Vector3.up, 0.2f);
             return false;
+        }
+
+        /// <summary>壁登りをしないいきものの「上」：地面の向きに 12 度までしかかたむけない。</summary>
+        public static Vector3 UprightUp(Vector3 groundNormal)
+        {
+            if (groundNormal.y <= 0f) return Vector3.up;
+            return Vector3.RotateTowards(Vector3.up, groundNormal.normalized, 12f * Mathf.Deg2Rad, 0f).normalized;
         }
 
         float GroundOrWater(Vector3 p)
@@ -214,33 +362,72 @@ namespace Shakutori
             for (int i = 0; i < _mobs.Count; i++)
             {
                 var m = _mobs[i];
-                m.anim += dt;
-                bool near = (m.pos - camPos).sqrMagnitude < 45f * 45f;
+                float d2 = (m.pos - camPos).sqrMagnitude;
+                // 遠くのいきものは、間引いて動かす（行列は毎フレーム描く）
+                bool far = d2 > 70f * 70f;
+                if (far && (i + _frame) % 3 != 0) continue;
+                float sdt = far ? dt * 3f : dt;
+                m.anim += sdt;
+                bool near = d2 < 45f * 45f;
                 switch (m.sp.kind)
                 {
                     case MobKind.Marcher:
-                        if (m.group.path.Count > 1) UpdateMarcher(m, dt, near);
-                        else UpdateCrawler(m, dt, near, i);
+                        if (m.group.path.Count > 1) UpdateMarcher(m, sdt, near);
+                        else UpdateCrawler(m, sdt, near, i, head);
                         break;
-                    case MobKind.Crawler: UpdateCrawler(m, dt, near, i); break;
-                    case MobKind.Flutter: UpdateFlutter(m, dt); break;
-                    case MobKind.Hopper: UpdateHopper(m, dt, head); break;
-                    case MobKind.Bird: UpdateBird(m, dt, head); break;
-                    case MobKind.Skater: UpdateSkater(m, dt); break;
-                    case MobKind.Hover: UpdateHover(m, dt); break;
+                    case MobKind.Crawler: UpdateCrawler(m, sdt, near, i, head); break;
+                    case MobKind.Flutter: UpdateFlutter(m, sdt); break;
+                    case MobKind.Hopper: UpdateHopper(m, sdt, head); break;
+                    case MobKind.Bird: UpdateBird(m, sdt, head); break;
+                    case MobKind.Skater: UpdateSkater(m, sdt); break;
+                    case MobKind.Hover: UpdateHover(m, sdt); break;
+                    case MobKind.Pouncer: UpdatePouncer(m, sdt, near, i, head); break;
+                    case MobKind.Stalker: UpdateStalker(m, sdt, head); break;
                 }
-                if (m.joy > 0f) m.joy = Mathf.Max(0f, m.joy - dt * 0.8f);
+                if (m.joy > 0f) m.joy = Mathf.Max(0f, m.joy - sdt * 0.8f);
+                // 近くのスズメはときどきさえずり、カエルはけろけろ鳴く
+                if (near && Application.isPlaying && d2 < 25f * 25f)
+                {
+                    float vol = Mathf.Clamp01(1f - Mathf.Sqrt(d2) / 25f);
+                    if (m.sp.id == "sparrow" && !m.airborne && R(0f, 1f) < sdt * 0.06f) AudioManager.Instance?.Chirp(0.35f * vol);
+                    else if (m.sp.id == "frog" && !m.airborne && R(0f, 1f) < sdt * 0.04f) AudioManager.Instance?.Croak(0.4f * vol);
+                }
+
+                // 脚：進んだ距離だけ歩く位相を進める
+                Vector3 moved = m.pos - m.prevPos;
+                moved -= m.up * Vector3.Dot(moved, m.up);
+                float dist = moved.magnitude;
+                m.moveSpeed = Mathf.Lerp(m.moveSpeed, dist / sdt, 1f - Mathf.Exp(-10f * sdt));
+                if (!m.airborne) m.gait += dist / Mathf.Max(0.02f, m.sp.stride) * Mathf.PI;
+                m.prevPos = m.pos;
 
                 if (Active && !IsDiscovered(m.sp.id))
                 {
                     Vector3 c = m.pos + m.up * (0.3f * m.scale);
-                    if ((head - c).sqrMagnitude < m.sp.discoverRadius * m.sp.discoverRadius) Discover(m.sp);
+                    if ((head - c).sqrMagnitude < m.sp.discoverRadius * m.sp.discoverRadius) Discover(m.sp, m.pos);
                 }
             }
+            UpdateColliders();
             Draw(camPos);
         }
 
-        public void Discover(SpeciesDef sp)
+        void UpdateColliders()
+        {
+            bool any = false;
+            foreach (var m in _mobs)
+            {
+                if (m.collider == null) continue;
+                Vector3 f = ShakuMath.ProjectOnPlaneSafe(m.fwd, m.up, Vector3.forward);
+                m.collider.SetPositionAndRotation(m.pos, Quaternion.LookRotation(-f, m.up));
+                m.collider.localScale = Vector3.one * m.scale;
+                any = true;
+            }
+            if (any) Physics.SyncTransforms();
+        }
+
+        public void Discover(SpeciesDef sp) => Discover(sp, Vector3.zero);
+
+        void Discover(SpeciesDef sp, Vector3 where)
         {
             if (IsDiscovered(sp.id)) return;
             SaveSystem.Data.creatures.Add(sp.id);
@@ -248,11 +435,33 @@ namespace Shakutori
             foreach (var m in _mobs)
                 if (m.sp == sp) m.joy = 1f;
             Discovered?.Invoke(sp);
+            DiscoveredAt?.Invoke(sp, where);
         }
 
-        void UpdateCrawler(Mob m, float dt, bool near, int index)
+        /// <summary>近くのしゃくとりむしをよける向き（ぶつからないように少しそれる）。</summary>
+        static Vector3 Avoid(Mob m, Vector3 head, float radius)
+        {
+            Vector3 away = m.pos - head;
+            away -= m.up * Vector3.Dot(away, m.up);
+            float d = away.magnitude;
+            if (d > radius || d < 1e-4f) return Vector3.zero;
+            return away / d * (1f - d / radius);
+        }
+
+        void UpdateCrawler(Mob m, float dt, bool near, int index, Vector3 head)
         {
             m.timer -= dt;
+            bool pillbug = m.sp.id == "pillbug";
+            if (pillbug)
+            {
+                // だんごむし：近づくと、くるんとまるくなる
+                if ((head - m.pos).sqrMagnitude < 1.3f * 1.3f) m.curled = 4f;
+                if (m.curled > 0f)
+                {
+                    m.curled -= dt;
+                    return;
+                }
+            }
             if (m.group.path.Count == 1 && m.radius > 0f)
             {
                 // 中心のまわりをぐるり（キノコの根元のかたつむり）
@@ -284,6 +493,13 @@ namespace Shakutori
                     m.fwd = f.normalized;
                 }
             }
+            // しゃくとりむしに近いと、少しよけて歩く
+            Vector3 avoid = Avoid(m, head, 0.9f);
+            if (avoid.sqrMagnitude > 0.0001f)
+            {
+                m.fwd = Vector3.Slerp(m.fwd, (m.fwd + avoid * 2f).normalized, dt * 4f);
+                m.speedMul = Mathf.Max(m.speedMul, 0.8f);
+            }
             Vector3 move = m.sp.sideways ? Vector3.Cross(m.up, m.fwd) : m.fwd;
             m.pos += move * (m.sp.speed * m.speedMul * dt);
             if (near || (index + _frame) % 4 == 0) SnapToSurface(m, 0.8f, 2.5f);
@@ -292,8 +508,11 @@ namespace Shakutori
 
         void UpdateMarcher(Mob m, float dt, bool near)
         {
+            float total = PathLength(m.group.path);
             m.pathS += m.sp.speed * dt * (0.9f + 0.2f * Mathf.Sin(m.phase));
             Vector3 p = PathPoint(m.group.path, m.pathS, out var dir);
+            // 行列の帰り道では、食べものを運んでいる
+            m.carrying = Mathf.Repeat(m.pathS, Mathf.Max(total, 0.01f)) > total * 0.5f;
             Vector3 side = Vector3.Cross(Vector3.up, dir);
             p += side * Mathf.Sin(m.anim * 3f + m.phase) * 0.06f;
             m.pos = p;
@@ -322,12 +541,64 @@ namespace Shakutori
                 goal.y = ground + m.height + Mathf.Sin(t * 2.3f) * 0.7f;
             }
             Vector3 d = goal - m.pos;
-            Vector3 v = Vector3.ClampMagnitude(d * 1.5f, m.sp.speed);
-            m.pos += v * dt;
-            Vector3 hv = new Vector3(v.x, 0f, v.z);
+            // 風に流されながら、はばたいて目的地へ（速度に慣性をつける）
+            Vector3 want = Vector3.ClampMagnitude(d * 1.5f, m.sp.speed) + (m.resting ? Vector3.zero : Wind.At(m.pos) * 0.5f);
+            m.vel = Vector3.Lerp(m.vel, want, 1f - Mathf.Exp(-3f * dt));
+            m.pos += m.vel * dt;
+            Vector3 hv = new Vector3(m.vel.x, 0f, m.vel.z);
             if (hv.sqrMagnitude > 0.01f) m.fwd = Vector3.Slerp(m.fwd, hv.normalized, dt * 4f);
             m.up = Vector3.up;
             m.airborne = !m.resting || d.magnitude > 0.3f;
+        }
+
+        /// <summary>重力で放物線をえがいて跳ぶ。peak は高い方の端から、さらに上がる高さ。</summary>
+        void StartJump(Mob m, Vector3 to, float peak)
+        {
+            float top = Mathf.Max(m.pos.y, to.y) + Mathf.Max(0.05f, peak);
+            float vy = Mathf.Sqrt(2f * Gravity * (top - m.pos.y));
+            float tUp = vy / Gravity;
+            float tDown = Mathf.Sqrt(2f * (top - to.y) / Gravity);
+            float T = Mathf.Max(0.15f, tUp + tDown);
+            Vector3 h = to - m.pos;
+            h.y = 0f;
+            m.vel = h / T + Vector3.up * vy;
+            m.from = m.pos;
+            m.to = to;
+            m.dur = T;
+            m.t = 0f;
+            m.airborne = true;
+            if (h.sqrMagnitude > 1e-4f) m.fwd = h.normalized;
+        }
+
+        /// <summary>跳んでいる間：重力で落ちて、地面にとどいたら着地する。</summary>
+        bool UpdateJump(Mob m, float dt)
+        {
+            m.t += dt;
+            m.vel += Vector3.down * Gravity * dt;
+            Vector3 next = m.pos + m.vel * dt;
+            if (m.vel.y < 0f && Physics.Raycast(m.pos + Vector3.up * 0.05f, (next - m.pos).normalized, out var hit, (next - m.pos).magnitude + 0.06f,
+                    ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
+            {
+                m.pos = hit.point;
+                Land(m);
+                return true;
+            }
+            m.pos = next;
+            if (m.t > m.dur * 1.6f || m.pos.y < GroundOrWater(m.pos) - 0.3f)
+            {
+                m.pos = m.to;
+                Land(m);
+                return true;
+            }
+            return false;
+        }
+
+        void Land(Mob m)
+        {
+            m.airborne = false;
+            m.vel = Vector3.zero;
+            SnapToSurface(m, 1f, 3f);
+            m.joy = Mathf.Max(m.joy, 0.25f);   // 着地でぽよんと
         }
 
         void UpdateHopper(Mob m, float dt, Vector3 head)
@@ -335,15 +606,7 @@ namespace Shakutori
             bool frog = m.sp.id == "frog";
             if (m.airborne)
             {
-                m.t += dt / m.dur;
-                float k = Mathf.Clamp01(m.t);
-                m.pos = Vector3.Lerp(m.from, m.to, k) + Vector3.up * (m.arc * 4f * k * (1f - k));
-                if (k >= 1f)
-                {
-                    m.airborne = false;
-                    m.pos = m.to;
-                    SnapToSurface(m, 1f, 3f);
-                }
+                UpdateJump(m, dt);
                 return;
             }
             m.timer -= dt;
@@ -361,15 +624,85 @@ namespace Shakutori
                 toHome.y = 0f;
                 if (toHome.magnitude > m.radius + 1f && !scared) continue;
                 if (!Physics.Raycast(target + Vector3.up * 6f, Vector3.down, out var hit, 14f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)) continue;
-                if (_area.IsUnderwater(hit.point) || !_area.InPlayArea(hit.point)) continue;
-                m.from = m.pos;
-                m.to = hit.point;
-                m.t = 0f;
-                m.dur = frog ? 0.45f : R(0.6f, 0.85f);
-                m.arc = frog ? 0.7f : R(1.2f, 2f);
-                m.airborne = true;
-                m.fwd = dir;
+                if (_area.IsUnderwater(hit.point) || !_area.InPlayArea(hit.point) || hit.normal.y < 0.6f) continue;
+                StartJump(m, hit.point, frog ? 0.7f : R(1.2f, 2f));
                 break;
+            }
+        }
+
+        void UpdatePouncer(Mob m, float dt, bool near, int index, Vector3 head)
+        {
+            if (m.airborne)
+            {
+                UpdateJump(m, dt);
+                return;
+            }
+            Vector3 toWorm = head - m.pos;
+            toWorm -= m.up * Vector3.Dot(toWorm, m.up);
+            if (toWorm.magnitude < 3f)
+            {
+                // ハエトリグモ：しゃくとりむしが気になって、じっと見つめる
+                m.fwd = Vector3.Slerp(m.fwd, toWorm.normalized, dt * 5f);
+                m.speedMul = 0f;
+                return;
+            }
+            m.timer -= dt;
+            if (m.timer <= 0f)
+            {
+                float roll = R(0f, 1f);
+                if (roll < 0.25f)
+                {
+                    // ぴょん
+                    Vector3 dir = Quaternion.AngleAxis(R(-60f, 60f), Vector3.up) * Vector3.ProjectOnPlane(m.fwd, Vector3.up).normalized;
+                    Vector3 toHome = m.home - m.pos;
+                    toHome.y = 0f;
+                    if (toHome.magnitude > m.radius) dir = toHome.normalized;
+                    Vector3 target = m.pos + dir * R(0.4f, 1.0f);
+                    if (Physics.Raycast(target + Vector3.up * 2f, Vector3.down, out var hit, 5f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)
+                        && !_area.IsUnderwater(hit.point) && hit.normal.y > 0.3f)
+                        StartJump(m, hit.point, R(0.15f, 0.35f));
+                    m.timer = R(1.5f, 3f);
+                    return;
+                }
+                // ちょこちょこ歩いては止まる
+                m.speedMul = roll < 0.55f ? 0f : R(0.9f, 1.4f);
+                m.timer = R(0.4f, 1.4f);
+                m.fwd = (Quaternion.AngleAxis(R(-80f, 80f), m.up) * m.fwd).normalized;
+            }
+            m.pos += m.fwd * (m.sp.speed * m.speedMul * dt);
+            if (near || (index + _frame) % 4 == 0) SnapToSurface(m, 0.6f, 2f);
+            m.fwd = ShakuMath.ProjectOnPlaneSafe(m.fwd, m.up, m.fwd);
+        }
+
+        void UpdateStalker(Mob m, float dt, Vector3 head)
+        {
+            Vector3 toWorm = head - m.pos;
+            toWorm.y = 0f;
+            bool alert = toWorm.magnitude < 6f;
+            // カマキリ：近づくと向きを変え、かまを持ち上げる
+            m.raise = Mathf.MoveTowards(m.raise, alert ? 1f : 0f, dt * (alert ? 2.5f : 0.8f));
+            if (alert)
+            {
+                m.fwd = Vector3.Slerp(m.fwd, toWorm.normalized, dt * 1.6f);
+                m.speedMul = 0f;
+                return;
+            }
+            m.timer -= dt;
+            if (m.timer <= 0f)
+            {
+                bool walk = R(0f, 1f) < 0.35f;
+                m.speedMul = walk ? 1f : 0f;
+                m.timer = walk ? R(1.5f, 3f) : R(4f, 9f);
+                Vector3 toHome = m.home - m.pos;
+                toHome.y = 0f;
+                Vector3 f = Quaternion.AngleAxis(R(-50f, 50f), Vector3.up) * m.fwd;
+                if (toHome.magnitude > m.radius) f = toHome.normalized;
+                m.fwd = Vector3.ProjectOnPlane(f, Vector3.up).normalized;
+            }
+            if (m.speedMul > 0f)
+            {
+                m.pos += m.fwd * (m.sp.speed * m.speedMul * dt);
+                SnapToSurface(m, 1f, 3f);
             }
         }
 
@@ -384,6 +717,7 @@ namespace Shakutori
                 Vector3 p = Vector3.Lerp(m.from, m.to, e);
                 p.y += m.arc * Mathf.Sin(Mathf.PI * Mathf.Pow(k, 0.85f));
                 Vector3 dir = p - m.pos;
+                m.vel = dir / Mathf.Max(dt, 1e-4f);
                 m.pos = p;
                 Vector3 hd = new Vector3(dir.x, 0f, dir.z);
                 if (hd.sqrMagnitude > 1e-5f) m.fwd = Vector3.Slerp(m.fwd, hd.normalized, dt * 5f);
@@ -416,6 +750,10 @@ namespace Shakutori
                 toHome.y = 0f;
                 if (toHome.magnitude > 4f * (crow ? 3f : 1f)) m.fwd = toHome.normalized;
                 m.target = m.pos + m.fwd * (crow ? R(1.5f, 3f) : R(0.5f, 1.2f));
+                // 急な所（キノコのかさのふちなど）へは行かない
+                if (Physics.Raycast(m.target + Vector3.up * 3f, Vector3.down, out var th, 8f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)
+                    && (th.normal.y < 0.85f || Mathf.Abs(th.point.y - m.pos.y) > 0.6f * m.scale))
+                    m.target = m.pos;
                 m.resting = R(0f, 1f) < 0.4f;   // ついばむ
                 if (crow && R(0f, 1f) < 0.07f) Caw(m, 0.6f);
             }
@@ -427,6 +765,27 @@ namespace Shakutori
                 if (d.magnitude > step) m.pos += d.normalized * step;
                 SnapToSurface(m, 3f, 6f);
             }
+        }
+
+        /// <summary>鳥が下りられる平らな場所（中心のまわりで、いちばん平らで上を向いた所）。</summary>
+        static bool FlatLanding(Vector3 around, float spread, out Vector3 spot)
+        {
+            spot = around;
+            float best = -1f;
+            for (int i = 0; i < 9; i++)
+            {
+                float a = i * 2.39996f;
+                float r = i == 0 ? 0f : spread * Mathf.Sqrt(i / 8f);
+                Vector3 p = around + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * r;
+                if (!Physics.Raycast(p + Vector3.up * 60f, Vector3.down, out var hit, 120f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)) continue;
+                if (hit.normal.y > best)
+                {
+                    best = hit.normal.y;
+                    spot = hit.point;
+                }
+                if (best > 0.97f) break;
+            }
+            return best > 0.85f;
         }
 
         void TakeOff(Mob m, bool crow)
@@ -444,8 +803,8 @@ namespace Shakutori
                 float a = R(0f, Mathf.PI * 2f);
                 dest = m.home + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * R(6f, 14f);
             }
-            if (Physics.Raycast(dest + Vector3.up * 60f, Vector3.down, out var hit, 120f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
-                dest = hit.point;
+            if (FlatLanding(dest, crow ? 3f : 1.5f, out var spot)) dest = spot;
+            else if (spots.Count > 0 && FlatLanding(spots[m.landIndex], crow ? 3f : 1.5f, out spot)) dest = spot;
             m.from = m.pos;
             m.to = dest;
             m.t = 0f;
@@ -505,9 +864,10 @@ namespace Shakutori
             Vector3 goal = new Vector3(m.target.x, ground + m.height + Mathf.Sin(m.anim * 1.3f + m.phase) * 0.5f, m.target.z);
             Vector3 d = goal - m.pos;
             float speed = firefly ? m.sp.speed : m.sp.speed * (d.magnitude > 1f ? 1f : 0.3f);
-            Vector3 v = Vector3.ClampMagnitude(d * 2f, speed);
-            m.pos += v * dt;
-            Vector3 hv = new Vector3(v.x, 0f, v.z);
+            Vector3 want = Vector3.ClampMagnitude(d * 2f, speed) + Wind.At(m.pos) * (firefly ? 0.3f : 0.15f);
+            m.vel = Vector3.Lerp(m.vel, want, 1f - Mathf.Exp(-(firefly ? 2f : 6f) * dt));
+            m.pos += m.vel * dt;
+            Vector3 hv = new Vector3(m.vel.x, 0f, m.vel.z);
             if (hv.sqrMagnitude > 0.04f) m.fwd = Vector3.Slerp(m.fwd, hv.normalized, dt * 5f);
             m.up = Vector3.up;
             m.airborne = true;
@@ -533,44 +893,129 @@ namespace Shakutori
             foreach (var l in _draw.Values) l.Clear();
             foreach (var m in _mobs)
             {
-                if ((m.pos - camPos).sqrMagnitude > 110f * 110f) continue;
+                float d2 = (m.pos - camPos).sqrMagnitude;
+                if (d2 > 110f * 110f) continue;
                 Vector3 f = ShakuMath.ProjectOnPlaneSafe(m.fwd, m.up, Vector3.forward);
                 Quaternion rot = Quaternion.LookRotation(-f, m.up);
                 float s = m.scale;
                 if (m.joy > 0f) s *= 1f + 0.22f * Mathf.Abs(Mathf.Sin(m.joy * Mathf.PI * 4f)) * m.joy;
                 if (m.sp.kind == MobKind.Hopper && !m.airborne) s *= 1f + 0.03f * Mathf.Sin(m.anim * 3f + m.phase);
+                Vector3 scale3 = Vector3.one * s;
+                if (m.sp.id == "snail" && m.moveSpeed > 0.01f) scale3.z *= 1f + 0.06f * Mathf.Sin(m.anim * 2.4f);   // のびちぢみ
+                if (m.sp.kind == MobKind.Hopper && m.airborne) scale3.z *= 1.12f;                                     // 跳ぶときは体がのびる
+                if (m.sp.kind == MobKind.Stalker) rot *= Quaternion.Euler(0f, 0f, Mathf.Sin(m.anim * 1.1f + m.phase) * 4f * (1f - m.raise));   // 葉のようにゆらゆら
                 if (m.sp.kind == MobKind.Bird && !m.airborne && m.resting)
-                    rot = rot * Quaternion.Euler(-25f * Mathf.Max(0f, Mathf.Sin(m.anim * 9f)), 0f, 0f);
-                Vector3 bob = m.sp.kind == MobKind.Bird && !m.airborne && !m.resting ? m.up * (Mathf.Abs(Mathf.Sin(m.anim * 9f)) * 0.12f * s) : Vector3.zero;
-                Matrix4x4 body = Matrix4x4.TRS(m.pos + bob, rot, Vector3.one * s);
-                Add(assets.Get(m.sp.body), assets.creature, body);
-                for (int pi = 0; pi < m.sp.parts.Length; pi++)
+                    rot *= Quaternion.Euler(-25f * Mathf.Max(0f, Mathf.Sin(m.anim * 9f)), 0f, 0f);
+                Vector3 bob = Vector3.zero;
+                if (m.sp.kind == MobKind.Bird && !m.airborne && !m.resting) bob = m.up * (Mathf.Abs(Mathf.Sin(m.anim * 9f)) * 0.12f * s);
+                else if (m.sp.rig != null && m.moveSpeed > 0.02f) bob = m.up * (Mathf.Abs(Mathf.Sin(m.gait)) * 0.012f * s);   // 歩くと体が少し上下する
+                Matrix4x4 body = Matrix4x4.TRS(m.pos + bob, rot, scale3);
+
+                string bodyMesh = m.sp.id == "pillbug" && m.curled > 0f ? "PillBug_Ball" : m.sp.body;
+                Add(M(bodyMesh), assets.creature, body);
+
+                // 脚（遠くは省く）
+                if (m.sp.rig != null && d2 < 60f * 60f && !(m.sp.id == "pillbug" && m.curled > 0f))
+                {
+                    var legs = CreatureRig.Legs(m.sp.rig);
+                    float moving = Mathf.Clamp01(m.moveSpeed / Mathf.Max(0.02f, m.sp.speed * 0.25f));
+                    float swing = m.sp.legSwing * moving;
+                    float lift = m.sp.legLift * moving;
+                    float gait = m.gait;
+                    if (moving < 0.05f)
+                    {
+                        // 止まっているときも、ときどき足をもぞもぞ
+                        swing = 3f;
+                        lift = 2f;
+                        gait = m.anim * 1.7f + m.phase;
+                    }
+                    if (m.airborne) { swing = 0f; lift = 10f; gait = 0f; }
+                    var kind = m.sp.gait;
+                    for (int li = 0; li < legs.Length; li++)
+                    {
+                        Mesh lm = M(legs[li].mesh + m.sp.legSuffix);
+                        if (lm == null) lm = M(legs[li].mesh);
+                        for (int side = 0; side < 2; side++)
+                            Add(lm, assets.creature, body * CreatureRig.LegMatrix(legs[li], li, side == 1, gait, swing, lift, kind, legs.Length));
+                    }
+                }
+
+                // レアのいきもののまわりには、光のつぶがくるくる回る（気づきやすいように）
+                if (m.sp.IsRare)
+                {
+                    Mesh spark = M("Firefly_Glow");
+                    for (int k = 0; k < 3; k++)
+                    {
+                        float a = m.anim * 2.2f + k * 2.094f;
+                        Vector3 o = new Vector3(Mathf.Cos(a) * 0.35f, 0.25f + 0.08f * Mathf.Sin(a * 1.7f), Mathf.Sin(a) * 0.35f);
+                        Add(spark, assets.creatureGlow, Matrix4x4.TRS(m.pos + o * m.scale, Quaternion.identity, Vector3.one * 0.45f));
+                    }
+                }
+                bool farParts = d2 > 75f * 75f;
+                for (int pi = 0; pi < m.sp.parts.Length && !farParts; pi++)
                 {
                     var part = m.sp.parts[pi];
-                    Mesh pm = assets.Get(part.mesh);
+                    Mesh pm = M(part.mesh);
+                    if (pm == null) continue;
                     if (part.glow)
                     {
                         float pulse = 0.55f + 0.6f * Mathf.Pow(Mathf.Max(0f, Mathf.Sin(m.anim * 2.4f + m.phase)), 3f);
                         Add(pm, assets.creatureGlow, body * Matrix4x4.Scale(Vector3.one * pulse));
                         continue;
                     }
+                    if (part.fixedPart)
+                    {
+                        Add(pm, assets.creature, body);
+                        continue;
+                    }
+                    if (part.onlyCarrying)
+                    {
+                        if (m.carrying) Add(pm, assets.creature, body * Matrix4x4.Translate(part.offset));
+                        continue;
+                    }
+                    if (part.mesh == "Mantis_Arm")
+                    {
+                        // かまを持ち上げる（近づくと高く）
+                        float raise = m.raise * 62f + Mathf.Sin(m.anim * 2f + m.phase) * 3f;
+                        for (int side = 0; side < 2; side++)
+                        {
+                            float mm = side == 0 ? 1f : -1f;
+                            var local = Matrix4x4.TRS(new Vector3(part.offset.x * mm, part.offset.y, part.offset.z), Quaternion.Euler(raise, 0f, 0f), new Vector3(mm, 1f, 1f));
+                            Add(pm, assets.creature, body * local);
+                        }
+                        continue;
+                    }
+                    if (part.mesh == "Grasshopper_Hind")
+                    {
+                        // 跳ぶときは後ろ足をけり出す
+                        float kick = m.airborne ? -38f : 0f;
+                        for (int side = 0; side < 2; side++)
+                        {
+                            float mm = side == 0 ? 1f : -1f;
+                            var local = Matrix4x4.TRS(new Vector3(part.offset.x * mm, part.offset.y, part.offset.z), Quaternion.Euler(kick, 0f, 0f), new Vector3(mm, 1f, 1f));
+                            Add(pm, assets.creature, body * local);
+                        }
+                        continue;
+                    }
+                    if (m.sp.kind == MobKind.Bird)
+                    {
+                        // 鳥の羽：地上では体の横にたたみ、飛ぶときは広げてはばたく（Blender で作った向きのまま変換）
+                        float flap = part.flapAmp * Mathf.Sin((m.anim + m.phase) * part.flapHz * Mathf.PI * 2f);
+                        if (m.airborne && m.vel.y < -1f) flap = 18f + 6f * Mathf.Sin(m.anim * 4f);   // 下りるときは滑空
+                        Add(pm, assets.creatureWing, body * CreatureRig.BirdWing(m.sp.birdSize, true, !m.airborne, flap));
+                        Add(pm, assets.creatureWing, body * CreatureRig.BirdWing(m.sp.birdSize, false, !m.airborne, flap));
+                        continue;
+                    }
                     float yaw = part.restYaw;
                     float roll = part.restRoll;
-                    float flap = Mathf.Sin((m.anim + m.phase) * part.flapHz * Mathf.PI * 2f + pi * 1.3f);
+                    float flapS = Mathf.Sin((m.anim + m.phase) * part.flapHz * Mathf.PI * 2f + pi * 1.3f);
                     switch (m.sp.kind)
                     {
                         case MobKind.Flutter:
-                            roll = m.airborne ? part.restRoll + part.flapAmp * flap : 70f + 12f * Mathf.Sin(m.anim * 2f);
-                            break;
-                        case MobKind.Bird:
-                            if (m.airborne)
-                            {
-                                yaw = 0f;
-                                roll = part.flapAmp * flap;
-                            }
+                            roll = m.airborne ? part.restRoll + part.flapAmp * flapS : 70f + 12f * Mathf.Sin(m.anim * 2f);
                             break;
                         default:
-                            roll = part.flapAmp * flap;
+                            roll = part.flapAmp * flapS;
                             break;
                     }
                     int sides = part.pair ? 2 : 1;

@@ -28,6 +28,14 @@ namespace Shakutori
         /// <summary>タッチ操作ができる端末か（スマホ・タブレット・タッチ対応 PC）。</summary>
         public static bool TouchCapable => Touchscreen.current != null || Application.isMobilePlatform;
         public static bool CollectionPressed { get; private set; }
+        /// <summary>糸をねらっている（F / 右クリック / LT / 画面の「ねらう」を押している間）。</summary>
+        public static bool AimHeld { get; private set; }
+        public static bool VirtualAim;
+        /// <summary>カメラを後ろに戻す（中ボタン / X キー / R3）。</summary>
+        public static bool RecenterPressed { get; private set; }
+        /// <summary>写真モード（F2）。</summary>
+        public static bool PhotoPressed { get; private set; }
+        public static bool VirtualRecenter;
 
         // 画面上のボタン・スティック（UI から設定）
         public static Vector2 VirtualMove;
@@ -36,10 +44,15 @@ namespace Shakutori
         static bool _virtualSilkPressed;
         static bool _virtualSilkHeld;
         static Vector2 _lookAccum;
+        static bool _sprintLatch, _aimLatch, _aimWasDown;
+
+        /// <summary>「はやく」の切りかえを解除する（設定を切ったとき）。</summary>
+        public static void ClearSprintLatch() => _sprintLatch = false;
         static float _zoomAccum;
 
         public static float LookSensitivity = 1f;
         public static bool InvertY;
+        public static bool InvertX;
 
         public static void AddLook(Vector2 pixels) => _lookAccum += pixels;
 
@@ -69,17 +82,26 @@ namespace Shakutori
             var pad = Gamepad.current;
 
             Vector2 move = Vector2.zero;
-            bool sprint = false, silkP = false, silkH = false, stand = false, pause = false, map = false, help = false, confirm = false, any = false, book = false;
+            bool sprint = false, silkP = false, silkH = false, stand = false, pause = false, map = false, help = false, confirm = false, any = false, book = false, aim = false, recenter = false, photo = false;
             if (kb != null)
             {
                 if (kb.wKey.isPressed || kb.upArrowKey.isPressed) move.y += 1f;
                 if (kb.sKey.isPressed || kb.downArrowKey.isPressed) move.y -= 1f;
                 if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) move.x += 1f;
                 if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) move.x -= 1f;
-                sprint |= kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed;
+                // 設定で「切りかえ」にすると、Shift を押すたびに「はやく」が入ったり切れたりする
+                if (SaveSystem.Settings.sprintToggle)
+                {
+                    if (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame) _sprintLatch = !_sprintLatch;
+                    sprint |= _sprintLatch;
+                }
+                else sprint |= kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed;
                 silkP |= kb.spaceKey.wasPressedThisFrame;
                 silkH |= kb.spaceKey.isPressed;
                 stand |= kb.eKey.isPressed;
+                aim |= kb.fKey.isPressed;
+                recenter |= kb.xKey.wasPressedThisFrame;
+                photo |= kb.f2Key.wasPressedThisFrame;
                 pause |= kb.escapeKey.wasPressedThisFrame || kb.pKey.wasPressedThisFrame;
                 map |= kb.mKey.wasPressedThisFrame || kb.tabKey.wasPressedThisFrame;
                 help |= kb.hKey.wasPressedThisFrame;
@@ -94,18 +116,30 @@ namespace Shakutori
             {
                 float wheel = mouse.scroll.ReadValue().y;
                 if (Mathf.Abs(wheel) > 0.01f) _zoomAccum += Mathf.Sign(wheel) * 0.6f;
+                // 右ボタンを押している間は、ねらいながらマウスで見まわせる
+                recenter |= mouse.middleButton.wasPressedThisFrame;
+                if (mouse.rightButton.isPressed)
+                {
+                    aim = true;
+                    _lookAccum += mouse.delta.ReadValue();
+                }
             }
             Vector2 padLook = Vector2.zero;
             if (pad != null)
             {
                 Vector2 ls = pad.leftStick.ReadValue();
                 if (ls.magnitude > 0.18f) { move += ls; UsingGamepad = true; }
+                // 十字キーでも進める
+                Vector2 dp = pad.dpad.ReadValue();
+                if (dp.sqrMagnitude > 0.1f) { move += dp; UsingGamepad = true; }
                 Vector2 rs = pad.rightStick.ReadValue();
                 if (rs.magnitude > 0.15f) { padLook = rs * 520f * Time.unscaledDeltaTime; UsingGamepad = true; }
                 sprint |= pad.rightTrigger.isPressed || pad.buttonEast.isPressed;
                 silkP |= pad.buttonSouth.wasPressedThisFrame;
                 silkH |= pad.buttonSouth.isPressed;
-                stand |= pad.buttonNorth.isPressed || pad.leftTrigger.isPressed;
+                stand |= pad.buttonNorth.isPressed;
+                aim |= pad.leftTrigger.isPressed;
+                recenter |= pad.rightStickButton.wasPressedThisFrame;
                 pause |= pad.startButton.wasPressedThisFrame;
                 map |= pad.selectButton.wasPressedThisFrame;
                 book |= pad.buttonWest.wasPressedThisFrame;
@@ -126,6 +160,21 @@ namespace Shakutori
             SilkPressed = silkP || _virtualSilkPressed;
             SilkHeld = silkH || _virtualSilkHeld;
             StandHeld = stand || VirtualStand;
+            // 設定で「切りかえ」にすると、押すたびにねらう／やめる（長押しが苦手な人向け）
+            if (SaveSystem.Settings.aimToggle)
+            {
+                if (aim && !_aimWasDown) _aimLatch = !_aimLatch;
+                _aimWasDown = aim;
+                AimHeld = _aimLatch || VirtualAim;
+            }
+            else
+            {
+                _aimLatch = false;
+                AimHeld = aim || VirtualAim;
+            }
+            RecenterPressed = recenter || VirtualRecenter;
+            VirtualRecenter = false;
+            PhotoPressed = photo;
             PausePressed = pause;
             MapPressed = map;
             HelpPressed = help;
@@ -137,6 +186,7 @@ namespace Shakutori
             Vector2 look = _lookAccum * 0.8f + padLook;
             look *= LookSensitivity;
             if (InvertY) look.y = -look.y;
+            if (InvertX) look.x = -look.x;
             Look = look;
             Zoom = _zoomAccum;
             _lookAccum = Vector2.zero;

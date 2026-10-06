@@ -41,7 +41,8 @@ foreach ($mode in @("EditMode", "PlayMode")) {
         "-batchmode", "-projectPath", (Join-Path $root "unity"), "-runTests", "-testPlatform", $mode,
         "-testResults", $xml, "-logFile", $log)
     if (-not (Test-Path $xml)) { $failed += $mode; Write-Host "結果ファイルがありません。ログ: $log"; continue }
-    [xml]$r = Get-Content $xml
+    # 結果は UTF-8（日本語のメッセージをふくむ）。PowerShell 5.1 の既定の文字コードで読むとこわれるので明示する
+    [xml]$r = Get-Content -Raw -Encoding UTF8 $xml
     $run = $r."test-run"
     Write-Host ("  {0}: total={1} passed={2} failed={3}" -f $mode, $run.total, $run.passed, $run.failed)
     foreach ($tc in $r.SelectNodes("//test-case[@result='Failed']")) {

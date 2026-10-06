@@ -91,6 +91,7 @@ namespace Shakutori.EditorTools
             var layers = tm.FindProperty("layers");
             layers.GetArrayElementAtIndex(ShakuConst.SurfaceLayer).stringValue = "Surface";
             layers.GetArrayElementAtIndex(ShakuConst.PlayerLayer).stringValue = "Player";
+            layers.GetArrayElementAtIndex(ShakuConst.CreatureLayer).stringValue = "Creature";
             tm.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -630,6 +631,11 @@ namespace Shakutori.EditorTools
             audio.travel = Clip("travel");
             audio.unlock = Clip("unlock");
             audio.caw = Clip("caw");
+            audio.fall = Clip("fall");
+            audio.splash = Clip("splash");
+            audio.rare = Clip("rare");
+            audio.chirp = Clip("chirp");
+            audio.croak = Clip("croak");
             var creatures = game.AddComponent<Creatures>();
             creatures.assets = assets;
 

@@ -98,7 +98,7 @@ class AudioTests(unittest.TestCase):
     def test_generated_audio_assets_exist(self):
         d = os.path.join(ROOT, "unity", "Assets", "Audio")
         for n in ["music_forest", "ambience_forest", "step_1", "step_2", "step_3", "collect", "discover", "click", "silk", "land", "complete",
-                  "ambience_river", "creature", "travel", "unlock", "caw"]:
+                  "ambience_river", "creature", "travel", "unlock", "caw", "fall", "splash", "rare", "chirp", "croak"]:
             p = os.path.join(d, n + ".wav")
             self.assertTrue(os.path.isfile(p), p)
             with wave.open(p) as w:
@@ -187,12 +187,12 @@ class FontTests(unittest.TestCase):
 
 
 class CheckBuildTests(unittest.TestCase):
-    def make_site(self, loader="Game.loader.js", template_ok=True, extra_dir=None):
+    def make_site(self, loader="Game.loader.js", template_ok=True, extra_dir=None, jslib=True):
         site = tempfile.mkdtemp()
         os.makedirs(os.path.join(site, "Build"))
         for n in (loader, "Game.data.unityweb", "Game.framework.js.unityweb", "Game.wasm.unityweb"):
             with open(os.path.join(site, "Build", n), "wb") as f:
-                f.write(b"x" * 10)
+                f.write(b"function _ShakuRegisterPageEvents(){}" if "framework" in n and jslib else b"x" * 10)
         html = 'const buildUrl = "Build"; const loaderUrl = buildUrl + "/Game.loader.js";'
         if not template_ok:
             html += " {{{ DATA_FILENAME }}}"
@@ -202,7 +202,8 @@ class CheckBuildTests(unittest.TestCase):
             os.makedirs(os.path.join(site, extra_dir))
         return site
 
-    def run_check(self, site):
+    def run_check(self, site, cleanup=True):
+        # cleanup: テスト用に作った一時フォルダを消す（本物の docs/ は消さない）
         old = sys.argv
         sys.argv = ["check_build.py", site]
         try:
@@ -213,7 +214,8 @@ class CheckBuildTests(unittest.TestCase):
             return e.code
         finally:
             sys.argv = old
-            shutil.rmtree(site, ignore_errors=True)
+            if cleanup:
+                shutil.rmtree(site, ignore_errors=True)
 
     def test_valid_site_passes(self):
         self.assertEqual(self.run_check(self.make_site()), 0)
@@ -226,6 +228,15 @@ class CheckBuildTests(unittest.TestCase):
 
     def test_debug_info_fails(self):
         self.assertEqual(self.run_check(self.make_site(extra_dir="Game_BurstDebugInformation_DoNotShip")), 1)
+
+    def test_missing_jslib_fails(self):
+        self.assertEqual(self.run_check(self.make_site(jslib=False)), 1)
+
+    def test_real_build_has_jslib_and_manifest(self):
+        docs = os.path.join(ROOT, "docs")
+        if os.path.isdir(os.path.join(docs, "Build")):
+            self.assertEqual(self.run_check(docs, cleanup=False), 0)
+            self.assertTrue(os.path.isdir(os.path.join(docs, "Build")), "検査で docs/ を消さない")
 
     def test_missing_index_fails(self):
         site = tempfile.mkdtemp()

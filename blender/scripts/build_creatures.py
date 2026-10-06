@@ -64,13 +64,64 @@ def seg_body(mb, y0, y1, half_w, half_h, colfn, rings=40, seg=24, prof=None, rid
         mb.F[k] = tuple(reversed(mb.F[k]))
 
 
-def legs(mb, roots, color, tip_color=None, radius=0.012):
+# 脚を別メッシュにして Unity で動かすため、legs() の呼び出しを記録できるようにする
+_LEG_CAPTURE = None
+RIG = {}        # 体の名前 -> [(脚メッシュ名, 付け根, 先), ...]（Blender 座標・右側だけ）
+
+
+def legs(mb, roots, color, tip_color=None, radius=0.012, tip_disc=0.0):
     """roots: [(付け根, 膝, 先), ...]"""
     tip_color = tip_color or color
+    if _LEG_CAPTURE is not None:
+        _LEG_CAPTURE.append((roots, color, tip_color, radius, tip_disc))
+        return
+    if tip_disc > 0.0:
+        for base, knee, tip in roots:
+            water_dimple(mb, Vector(tip), tip_disc)
     for base, knee, tip in roots:
         pts = [Vector(base), Vector(knee), Vector(tip)]
         tube(mb, pts, [radius, radius * 0.8, radius * 0.4], 6,
              lambda t, a, p, d: mixc(color, tip_color, sstep(0.5, 1.0, t)))
+
+
+def water_dimple(mb, c, r):
+    """アメンボの足先の水面のくぼみ"""
+    c = Vector((c.x, c.y, 0.003 if abs(c.z) < 0.02 else c.z))
+    ring = [mb.v(c + Vector((math.cos(a) * r, math.sin(a) * r, 0)), hexc("#dff4ff")) for a in [TAU * j / 12 for j in range(12)]]
+    cen = mb.v(c, hexc("#ffffff"))
+    for j in range(12):
+        mb.f(cen, ring[j], ring[(j + 1) % 12])
+
+
+def sneaker(mb, at, direction, size, upper=None):
+    """小さなスニーカー（ゴム底・つま先・ひも）。at は足の先、direction はつま先の向き"""
+    upper = upper or hexc("#e8433a")
+    f = Vector((direction.x, direction.y, 0.0))
+    if f.length < 1e-6:
+        f = Vector((0, 1, 0))
+    f.normalize()
+    side = Vector((-f.y, f.x, 0.0))
+    up = Vector((0, 0, 1))
+    m = Matrix((
+        (side.x, f.x, up.x, at.x),
+        (side.y, f.y, up.y, at.y),
+        (side.z, f.z, up.z, at.z),
+        (0, 0, 0, 1)))
+    tmp = MB()
+    L = size
+    # 白いゴム底
+    uv_sphere(tmp, Vector((0, L * 0.15, L * 0.08)), 1.0, lambda n: hexc("#fbfbf6"), seg=14, rings=7,
+              scale=Vector((L * 0.32, L * 0.62, L * 0.1)))
+    # 甲（色つき）とつま先（白）
+    uv_sphere(tmp, Vector((0, L * 0.05, L * 0.22)), 1.0, lambda n: upper if n.y < 0.55 else hexc("#ffffff"), seg=14, rings=9,
+              scale=Vector((L * 0.28, L * 0.5, L * 0.2)))
+    # ひも
+    for k in range(3):
+        y = L * (-0.02 + 0.12 * k)
+        tube(tmp, [Vector((-L * 0.14, y, L * 0.38)), Vector((L * 0.14, y, L * 0.38))], [L * 0.025, L * 0.025], 5, lambda t, a, p, d: hexc("#ffffff"))
+    # はき口
+    uv_sphere(tmp, Vector((0, -L * 0.2, L * 0.34)), 1.0, lambda n: hexc("#2a2a2a"), seg=10, rings=6, scale=Vector((L * 0.15, L * 0.12, L * 0.05)))
+    mb.add(tmp, m)
 
 
 def cute_eye(mb, center, r, look, white=True):
@@ -83,6 +134,40 @@ def cute_eye(mb, center, r, look, white=True):
     else:
         uv_sphere(mb, Vector(center), r, lambda n: mixc(BLACK, hexc("#2c3a6a"), sstep(0.2, -0.8, n.z)), seg=12, rings=8)
         uv_sphere(mb, Vector(center) + look * r * 0.8 + Vector((0, 0, r * 0.35)), r * 0.3, lambda n: WHITE, seg=6, rings=4)
+
+
+def split_legs(maker, name, leg_variant=None):
+    """maker() を脚なしで作り、右側の脚を 1 本ずつ付け根が原点の別メッシュにする。
+    leg_variant(i, mb, base, knee, tip) で足先に飾り（スニーカーなど）をつけた別の脚も作れる"""
+    global _LEG_CAPTURE
+    _LEG_CAPTURE = []
+    body = maker()
+    captured = _LEG_CAPTURE
+    _LEG_CAPTURE = None
+    right = []
+    for roots, color, tipc, radius, disc in captured:
+        for base, knee, tip in roots:
+            if base[0] > 1e-6:
+                right.append((Vector(base), Vector(knee), Vector(tip), color, tipc, radius, disc))
+    out = [body]
+    rig = []
+    for i, (b, k, t, color, tipc, radius, disc) in enumerate(right):
+        mb = MB()
+        tube(mb, [Vector((0, 0, 0)), k - b, t - b], [radius, radius * 0.8, radius * 0.4], 6,
+             lambda tt, a, p, d, c=color, tc=tipc: mixc(c, tc, sstep(0.5, 1.0, tt)))
+        if disc > 0.0:
+            water_dimple(mb, t - b, disc)
+        leg = build(mb, f"{name}_Leg{i + 1}")
+        out.append(leg)
+        rig.append((leg.name, b, t))
+        if leg_variant:
+            mb2 = MB()
+            tube(mb2, [Vector((0, 0, 0)), k - b, t - b], [radius, radius * 0.8, radius * 0.4], 6,
+                 lambda tt, a, p, d, c=color, tc=tipc: mixc(c, tc, sstep(0.5, 1.0, tt)))
+            leg_variant(i, mb2, Vector((0, 0, 0)), k - b, t - b)
+            out.append(build(mb2, f"{name}_Leg{i + 1}_Sneaker"))
+    RIG[name] = rig
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -274,22 +359,16 @@ def make_water_strider():
     for sx in (-1, 1):
         cute_eye(mb, (0.035 * sx, 0.29, 0.17), 0.02, (0.4 * sx, 1, 0.1), white=False)
         tube(mb, [Vector((0.02 * sx, 0.31, 0.17)), Vector((0.07 * sx, 0.42, 0.2))], [0.006, 0.0], 5, lambda t, a, p, d: body)
+    # 前足（短い）・中足（こぐ）・後ろ足（かじ）
+    for sx in (-1, 1):
+        legs(mb, [((0.03 * sx, 0.22, 0.13), (0.1 * sx, 0.32, 0.12), (0.12 * sx, 0.38, 0.05))], body, radius=0.01)
     long_legs = [
         ((0.03, 0.1, 0.12), (0.45, 0.35, 0.22), (0.85, 0.75, 0.0)),
         ((0.03, -0.05, 0.12), (0.4, -0.25, 0.2), (0.7, -0.75, 0.0)),
     ]
     for (b, k, t) in long_legs:
         for sx in (-1, 1):
-            pts = [Vector((b[0] * sx, b[1], b[2])), Vector((k[0] * sx, k[1], k[2])), Vector((t[0] * sx, t[1], t[2]))]
-            tube(mb, pts, [0.012, 0.009, 0.005], 5, lambda tt, a, p, d: body)
-            # 水面のくぼみ
-            c = Vector((t[0] * sx, t[1], 0.003))
-            ring = [mb.v(c + Vector((math.cos(a) * 0.07, math.sin(a) * 0.07, 0)), hexc("#dff4ff")) for a in [TAU * j / 12 for j in range(12)]]
-            cen = mb.v(c, hexc("#ffffff"))
-            for j in range(12):
-                mb.f(cen, ring[j], ring[(j + 1) % 12])
-    for sx in (-1, 1):
-        legs(mb, [((0.03 * sx, 0.22, 0.13), (0.1 * sx, 0.32, 0.12), (0.12 * sx, 0.38, 0.05))], body, radius=0.01)
+            legs(mb, [((b[0] * sx, b[1], b[2]), (k[0] * sx, k[1], k[2]), (t[0] * sx, t[1], t[2]))], body, radius=0.012, tip_disc=0.07)
     return build(mb, "WaterStrider")
 
 
@@ -495,19 +574,37 @@ def make_grasshopper():
         a0 = Vector((0.04 * sx, 0.64, 0.42))
         tube(mb, [a0, a0 + Vector((0.08 * sx, 0.25, 0.18)), a0 + Vector((0.16 * sx, 0.55, 0.22))], [0.012, 0.009, 0.0], 5,
              lambda t, a, p, d: tan)
-        # 後ろ足（大きなもも）
-        hip = Vector((0.1 * sx, -0.05, 0.25))
-        knee = Vector((0.2 * sx, -0.55, 0.62))
-        foot = Vector((0.22 * sx, -0.9, 0.0))
-        tube(mb, [hip, hip.lerp(knee, 0.5) + Vector((0.03 * sx, 0, 0.04)), knee], [0.06, 0.07, 0.035], 10,
-             lambda t, a, p, d: mixc(green, dark, t * 0.4))
-        tube(mb, [knee, foot], [0.025, 0.015], 6, lambda t, a, p, d: mixc(dark, hexc("#7a5a3a"), t))
+        # 後ろ足（大きなもも）。脚を分けるときは Grasshopper_Hind として別に作る
+        if _LEG_CAPTURE is None:
+            grasshopper_hind(mb, sx)
     roots = []
     for y in (0.35, 0.18):
         for sx in (-1, 1):
             roots.append(((0.08 * sx, y, 0.15), (0.18 * sx, y + 0.06, 0.15), (0.24 * sx, y + 0.1, 0.0)))
     legs(mb, roots, dark, radius=0.02)
     return build(mb, "Grasshopper")
+
+
+GRASSHOPPER_HIP = Vector((0.1, -0.05, 0.25))
+
+
+def grasshopper_hind(mb, sx, origin=None):
+    green = hexc("#7ab648")
+    dark = hexc("#4f8a30")
+    o = origin if origin is not None else Vector((0, 0, 0))
+    hip = Vector((GRASSHOPPER_HIP.x * sx, GRASSHOPPER_HIP.y, GRASSHOPPER_HIP.z)) - o
+    knee = Vector((0.2 * sx, -0.55, 0.62)) - o
+    foot = Vector((0.22 * sx, -0.9, 0.0)) - o
+    tube(mb, [hip, hip.lerp(knee, 0.5) + Vector((0.03 * sx, 0, 0.04)), knee], [0.06, 0.07, 0.035], 10,
+         lambda t, a, p, d: mixc(green, dark, t * 0.4))
+    tube(mb, [knee, foot], [0.025, 0.015], 6, lambda t, a, p, d: mixc(dark, hexc("#7a5a3a"), t))
+
+
+def make_grasshopper_hind():
+    """右の後ろ足（付け根が原点）。跳ぶときにのばす"""
+    mb = MB()
+    grasshopper_hind(mb, 1, origin=GRASSHOPPER_HIP)
+    return build(mb, "Grasshopper_Hind")
 
 
 def make_otoshibumi():
@@ -538,6 +635,204 @@ def make_otoshibumi():
             roots.append(((0.05 * sx, y, 0.06), (0.11 * sx, y + 0.02, 0.07), (0.14 * sx, y + 0.03, 0.0)))
     legs(mb, roots, BLACK, radius=0.008)
     return build(mb, "Otoshibumi")
+
+
+def spider_legs():
+    """ハエトリグモの 8 本の脚（右側の 4 本、左は鏡うつし）"""
+    roots = []
+    spec = [  # 付け根 y, 先の y, 太さ
+        (0.11, 0.3, 0.026),
+        (0.07, 0.13, 0.02),
+        (0.03, -0.06, 0.02),
+        (-0.01, -0.25, 0.022),
+    ]
+    for y0, y1, r in spec:
+        roots.append(((0.06, y0, 0.12), (0.2, (y0 + y1) * 0.5, 0.22), (0.3, y1, 0.0), r))
+    return roots
+
+
+def make_spider():
+    """ハエトリグモ：大きな前の目が特ちょう。ぴょんと跳ねる"""
+    mb = MB()
+    dark = hexc("#2b221c")
+    fur = hexc("#5a4632")
+    white = hexc("#f2ece0")
+
+    def abdomen(n):
+        c = mixc(dark, fur, sstep(-0.3, 0.6, n.z) * 0.7)
+        if n.z > 0.2 and abs(n.x) < 0.12:
+            c = white
+        if n.z > 0.0 and abs(abs(n.x) - 0.55) < 0.08 and n.y < 0.3:
+            c = mixc(c, white, 0.8)
+        return c
+    uv_sphere(mb, Vector((0, -0.17, 0.14)), 1.0, abdomen, seg=22, rings=14, scale=Vector((0.12, 0.15, 0.11)))
+    uv_sphere(mb, Vector((0, -0.04, 0.13)), 0.03, lambda n: dark, seg=8, rings=5)
+
+    def ceph(n):
+        c = mixc(dark, fur, sstep(0.3, 0.9, n.z) * 0.5)
+        if n.z > 0.1 and abs(n.y + 0.2) < 0.15:
+            c = mixc(c, hexc("#d8c9a8"), 0.7)
+        return c
+    uv_sphere(mb, Vector((0, 0.06, 0.13)), 1.0, ceph, seg=22, rings=14, scale=Vector((0.11, 0.12, 0.085)))
+    for sx in (-1, 1):
+        cute_eye(mb, (0.036 * sx, 0.165, 0.15), 0.04, (0.15 * sx, 1, 0.0), white=False)   # 大きな前の目
+        cute_eye(mb, (0.082 * sx, 0.14, 0.17), 0.018, (0.8 * sx, 0.5, 0.2), white=False)
+        uv_sphere(mb, Vector((0.075 * sx, 0.04, 0.2)), 0.013, lambda n: BLACK, seg=6, rings=4)
+        # 触肢
+        tube(mb, [Vector((0.025 * sx, 0.17, 0.08)), Vector((0.05 * sx, 0.22, 0.07)), Vector((0.05 * sx, 0.25, 0.03))], [0.014, 0.012, 0.011], 6,
+             lambda t, a, p, d: mixc(dark, hexc("#d8c9a8"), sstep(0.6, 1.0, t)))
+    roots = spider_legs()
+    for b, k, t, r in roots:
+        for sx in (-1, 1):
+            legs(mb, [((b[0] * sx, b[1], b[2]), (k[0] * sx, k[1], k[2]), (t[0] * sx, t[1], t[2]))], dark, fur, radius=r)
+    return build(mb, "Spider")
+
+
+def spider_sneaker_variant(i, mb, base, knee, tip):
+    d = Vector((tip.x - knee.x, tip.y - knee.y, 0.0))
+    colors = [hexc("#e8433a"), hexc("#3a7be8"), hexc("#f2c53a"), hexc("#3ab86a")]
+    sneaker(mb, tip, d, 0.075, colors[i % len(colors)])
+
+
+def make_mantis():
+    """オオカマキリ：長い首と、かまの前足"""
+    mb = MB()
+    green = hexc("#7fbf4a")
+    dark = hexc("#4f8a2e")
+    pale = hexc("#c9e68a")
+
+    def wings(t, a, p):
+        c = mixc(green, dark, sstep(0.6, 1.0, math.sin(a)) * 0.25)
+        if abs(p.x - 0.06) < 0.008 and math.sin(a) > 0.3:
+            c = mixc(c, hexc("#3f7a22"), 0.8)
+        if abs(p.x + 0.06) < 0.008 and math.sin(a) > 0.3:
+            c = mixc(c, hexc("#3f7a22"), 0.8)
+        return mixc(c, pale, sstep(-0.2, -0.7, math.sin(a)))
+    seg_body(mb, -1.25, -0.05, 0.17, 0.14, wings, rings=40, seg=22, z0=0.42,
+             prof=lambda t: (math.sin(math.pi * min(1.0, t * 0.9 + 0.12)) ** 0.5, math.sin(math.pi * t) ** 0.6), flat=0.7)
+    neck = [Vector((0, -0.08, 0.46)), Vector((0, 0.15, 0.55)), Vector((0, 0.4, 0.68)), Vector((0, 0.56, 0.76))]
+    tube(mb, neck, [0.06, 0.05, 0.045, 0.04], 10, lambda t, a, p, d: mixc(green, pale, sstep(-0.3, -0.8, d.z)))
+    uv_sphere(mb, Vector((0, 0.63, 0.8)), 1.0, lambda n: mixc(green, pale, sstep(-0.2, -0.8, n.z)), seg=18, rings=10,
+              scale=Vector((0.12, 0.07, 0.085)))
+    uv_sphere(mb, Vector((0, 0.7, 0.74)), 1.0, lambda n: pale, seg=10, rings=6, scale=Vector((0.05, 0.04, 0.05)))
+    for sx in (-1, 1):
+        uv_sphere(mb, Vector((0.12 * sx, 0.63, 0.84)), 0.055, lambda n: mixc(hexc("#b8e06a"), hexc("#e8f6b0"), sstep(0.0, 0.9, n.z)), seg=14, rings=9)
+        uv_sphere(mb, Vector((0.15 * sx, 0.66, 0.85)), 0.016, lambda n: BLACK, seg=6, rings=4)
+        a0 = Vector((0.03 * sx, 0.67, 0.87))
+        tube(mb, [a0, a0 + Vector((0.1 * sx, 0.25, 0.25)), a0 + Vector((0.22 * sx, 0.5, 0.3))], [0.008, 0.006, 0.0], 5,
+             lambda t, a, p, d: dark)
+    roots = []
+    for (b, k, t) in (((0.05, -0.02, 0.44), (0.36, 0.08, 0.52), (0.5, 0.26, 0.0)),
+                      ((0.05, -0.18, 0.44), (0.42, -0.34, 0.54), (0.56, -0.7, 0.0))):
+        for sx in (-1, 1):
+            roots.append(((b[0] * sx, b[1], b[2]), (k[0] * sx, k[1], k[2]), (t[0] * sx, t[1], t[2])))
+    legs(mb, roots, green, dark, radius=0.024)
+    return build(mb, "Mantis")
+
+
+MANTIS_SHOULDER = Vector((0.05, 0.42, 0.66))
+
+
+def mantis_arm(mb, sx, origin):
+    green = hexc("#7fbf4a")
+    pale = hexc("#c9e68a")
+    o = origin
+    s0 = Vector((MANTIS_SHOULDER.x * sx, MANTIS_SHOULDER.y, MANTIS_SHOULDER.z)) - o
+    coxa = s0 + Vector((0.03 * sx, 0.12, -0.2))
+    femur = coxa + Vector((0.01 * sx, 0.3, 0.12))
+    tibia = femur + Vector((0.0, -0.16, -0.1))
+    tube(mb, [s0, coxa], [0.045, 0.038], 8, lambda t, a, p, d: green)
+    tube(mb, [coxa, coxa.lerp(femur, 0.5) + Vector((0, 0, 0.02)), femur], [0.04, 0.045, 0.03], 8, lambda t, a, p, d: mixc(green, pale, t * 0.3))
+    tube(mb, [femur, tibia, tibia + Vector((0, -0.04, -0.06))], [0.028, 0.022, 0.0], 7, lambda t, a, p, d: pale)
+    for k in range(4):   # とげ
+        q = coxa.lerp(femur, 0.25 + 0.18 * k)
+        tube(mb, [q, q + Vector((0, 0.01, -0.05))], [0.01, 0.0], 4, lambda t, a, p, d: hexc("#3f6a22"))
+
+
+def make_mantis_arm():
+    """右のかま（肩が原点）。いきものが近づくと持ち上げる"""
+    mb = MB()
+    mantis_arm(mb, 1, MANTIS_SHOULDER)
+    return build(mb, "Mantis_Arm")
+
+
+def make_ant_helmet():
+    """工事現場のヘルメット（アリの頭にのせる。アリと同じ座標）"""
+    mb = MB()
+    yellow = hexc("#f6c21c")
+    head = Vector((0, 0.125, 0.12))
+    r = 0.052
+
+    def dome(n):
+        if n.z < 0.12:
+            return hexc("#e0a810")
+        if abs(n.x) < 0.09 and n.z > 0.2:
+            return hexc("#ffd84a")   # まんなかのすじ
+        return yellow
+    uv_sphere(mb, head, r, dome, seg=20, rings=12, scale=Vector((1.0, 1.08, 0.82)))
+    # つば（前が長い）
+    ring = []
+    for j in range(24):
+        a = TAU * j / 24
+        f = 1.0 + 0.45 * max(0.0, math.sin(a))
+        ring.append(Vector((math.cos(a) * r * 1.22, math.sin(a) * r * 1.22 * f, 0.0)))
+    top = [mb.v(head + v + Vector((0, 0, -0.012)), yellow) for v in ring]
+    inner = [mb.v(head + v * 0.78 + Vector((0, 0, -0.008)), yellow) for v in ring]
+    bot = [mb.v(head + v + Vector((0, 0, -0.02)), hexc("#d89a10")) for v in ring]
+    n = len(ring)
+    for j in range(n):
+        k = (j + 1) % n
+        mb.f(inner[j], inner[k], top[k], top[j])
+        mb.f(top[j], top[k], bot[k], bot[j])
+        mb.f(bot[j], bot[k], inner[k], inner[j])
+    # 緑十字（安全）
+    c = head + Vector((0, r * 0.98, r * 0.2))
+    for dx, dz, w, h in ((0, 0, 0.012, 0.03), (0, 0, 0.03, 0.012)):
+        uv_sphere(mb, c, 1.0, lambda nn: hexc("#2fa04a"), seg=6, rings=4, scale=Vector((w * 0.5, 0.006, h * 0.5)))
+    return build(mb, "Ant_Helmet")
+
+
+def make_crumb():
+    """アリが運ぶ食べもののかけら"""
+    mb = MB()
+    rnd = random.Random(7)
+    uv_sphere(mb, Vector((0, 0, 0)), 1.0, lambda n: mixc(hexc("#e8d2a0"), hexc("#c9a46a"), 0.5 + 0.5 * n.z), seg=10, rings=7,
+              scale=Vector((0.045, 0.05, 0.035)))
+    return build(mb, "Crumb")
+
+
+def make_pillbug_ball():
+    """まるくなっただんごむし"""
+    mb = MB()
+    plate = hexc("#5f6676")
+    rim = hexc("#9aa1b0")
+
+    def col(n):
+        f = (math.atan2(n.z, n.y) / TAU * 10) % 1.0
+        return mixc(plate, rim, sstep(0.75, 0.95, f) * 0.8)
+    uv_sphere(mb, Vector((0, 0, 0.13)), 0.13, col, seg=22, rings=16)
+    return build(mb, "PillBug_Ball")
+
+
+# ---------------------------------------------------------------------------
+# 当たり判定用のメッシュ（見た目のメッシュは部品が重なっているので、登るときに中へ入りこんでしまう）
+# 柄からかさの裏へなめらかにつながる、すき間のないひとつの回転体にする
+# ---------------------------------------------------------------------------
+COLLIDER_PROFILES = {
+    "Mushroom_Red_Col": [(0.0, -0.3), (0.9, -0.3), (0.9, -0.05), (0.84, 0.3), (0.75, 0.6), (0.56, 1.0), (0.46, 2.0), (0.43, 3.4), (0.46, 4.2),
+                         (0.62, 4.55), (1.2, 4.72), (2.2, 4.66), (2.85, 4.62), (3.1, 4.72), (3.12, 4.88), (2.95, 5.2), (2.55, 5.65),
+                         (1.9, 6.08), (1.0, 6.38), (0.0, 6.48)],
+    "Mushroom_Brown_Col": [(0.0, -0.3), (1.18, -0.3), (1.18, -0.05), (1.12, 0.35), (1.05, 1.0), (0.82, 1.9), (0.74, 2.25), (0.95, 2.46),
+                           (1.7, 2.45), (2.2, 2.5), (2.35, 2.7), (2.25, 3.05), (1.85, 3.45), (1.1, 3.75), (0.0, 3.85)],
+    "Mushroom_Glow_Col": [(0.0, -0.2), (0.48, -0.2), (0.48, 0.0), (0.45, 0.3), (0.32, 1.0), (0.27, 1.55), (0.4, 1.73), (0.6, 1.75),
+                          (1.15, 1.72), (1.25, 1.85), (1.05, 2.15), (0.6, 2.42), (0.0, 2.52)],
+}
+
+
+def make_collider(name):
+    mb = MB()
+    lathe(mb, COLLIDER_PROFILES[name], 20, lambda t, a, p: hexc("#ffffff"))
+    return build(mb, name)
 
 
 def make_cradle():
@@ -803,7 +1098,7 @@ def make_root_arch():
 # 図鑑の絵
 # ---------------------------------------------------------------------------
 CREATURES = [
-    ("ant", ["Ant"]),
+    ("ant", ["Ant", "Crumb_Portrait"]),
     ("snail", ["Snail"]),
     ("butterfly", ["Butterfly_Body", "Butterfly_Wing", "Butterfly_Wing_L"]),
     ("otoshibumi", ["Otoshibumi", "Cradle_Portrait"]),
@@ -819,7 +1114,18 @@ CREATURES = [
     ("crab", ["Crab"]),
     ("riversnail", ["RiverSnail"]),
     ("firefly", ["Firefly_Body", "Firefly_Glow"]),
+    ("spider", ["Spider"]),
+    ("mantis", ["Mantis", "Mantis_Arm_R", "Mantis_Arm_L"]),
+    ("ant_helmet", ["Ant", "Ant_Helmet"]),
+    ("spider_sneaker", ["Spider"]),
 ]
+
+# 図鑑の絵で脚をつける体（脚メッシュのコピーを付け根に置く）。スニーカーグモだけ脚の種類がちがう
+PORTRAIT_LEGS = {
+    "ant": "Ant", "ladybug": "Ladybug", "beetle": "Beetle", "waterstrider": "WaterStrider", "crab": "Crab",
+    "grasshopper": "Grasshopper", "otoshibumi": "Otoshibumi", "spider": "Spider", "mantis": "Mantis",
+    "ant_helmet": "Ant", "spider_sneaker": "Spider",
+}
 
 
 def pose_portrait_copies(objs):
@@ -861,6 +1167,36 @@ def pose_portrait_copies(objs):
             c.rotation_euler = (0.0, -0.25 * sx, -1.35 * sx)
             objs[nm] = c
         w.hide_render = True
+    arm = objs.get("Mantis_Arm")
+    if arm:
+        for nm, sx in (("Mantis_Arm_R", 1), ("Mantis_Arm_L", -1)):
+            c = arm.copy()
+            c.data = arm.data
+            c.name = nm
+            bpy.context.scene.collection.objects.link(c)
+            c.scale = (sx, 1, 1)
+            c.location = (MANTIS_SHOULDER.x * sx, MANTIS_SHOULDER.y, MANTIS_SHOULDER.z)
+            objs[nm] = c
+        arm.hide_render = True
+    crumb = objs.get("Crumb")
+    if crumb:
+        c = crumb.copy()
+        c.data = crumb.data
+        c.name = "Crumb_Portrait"
+        bpy.context.scene.collection.objects.link(c)
+        c.location = (0, 0.2, 0.08)
+        objs["Crumb_Portrait"] = c
+    hind = objs.get("Grasshopper_Hind")
+    if hind:
+        for nm, sx in (("Grasshopper_Hind_R", 1), ("Grasshopper_Hind_L", -1)):
+            c = hind.copy()
+            c.data = hind.data
+            c.name = nm
+            bpy.context.scene.collection.objects.link(c)
+            c.scale = (sx, 1, 1)
+            c.location = (GRASSHOPPER_HIP.x * sx, GRASSHOPPER_HIP.y, GRASSHOPPER_HIP.z)
+            objs[nm] = c
+        hind.hide_render = True
     cr = objs.get("Cradle")
     if cr:
         c = cr.copy()
@@ -870,6 +1206,64 @@ def pose_portrait_copies(objs):
         c.location = (0.45, -0.2, 0.0)
         c.scale = (0.6, 0.6, 0.6)
         objs["Cradle_Portrait"] = c
+
+
+def portrait_leg_names(objs, cid):
+    """図鑑の絵のために、脚メッシュのコピーを左右の付け根に置く（名前の一覧を返す）"""
+    body = PORTRAIT_LEGS.get(cid)
+    if not body or body not in RIG:
+        return []
+    sneaker = cid == "spider_sneaker"
+    names = []
+    for i, (leg_name, base, tip) in enumerate(RIG[body]):
+        src = objs.get(leg_name + ("_Sneaker" if sneaker else ""))
+        if src is None:
+            continue
+        for sx in (1, -1):
+            nm = f"{cid}_{leg_name}_{'R' if sx > 0 else 'L'}"
+            if nm not in objs:
+                c = src.copy()
+                c.data = src.data
+                c.name = nm
+                bpy.context.scene.collection.objects.link(c)
+                c.scale = (sx, 1, 1)
+                c.location = (base.x * sx, base.y, base.z)
+                objs[nm] = c
+            names.append(nm)
+    return names
+
+
+def write_rig(path):
+    """Unity 用の脚の付け根の一覧（C#）を書き出す。Blender (x, y, z) → Unity (-x, z, -y)"""
+    def u(v):
+        return f"new Vector3({-v.x:.4f}f, {v.z:.4f}f, {-v.y:.4f}f)"
+    lines = [
+        "// 自動生成ファイル（blender/scripts/build_creatures.py）。手で編集しないこと。",
+        "using System.Collections.Generic;",
+        "using UnityEngine;",
+        "",
+        "namespace Shakutori",
+        "{",
+        "    public static partial class CreatureRig",
+        "    {",
+        "        static readonly Dictionary<string, LegMount[]> Generated = new Dictionary<string, LegMount[]>",
+        "        {",
+    ]
+    for body, legs_ in RIG.items():
+        items = ", ".join(f'new LegMount("{n}", {u(b)}, {u(t)})' for n, b, t in legs_)
+        lines.append(f'            {{ "{body}", new[] {{ {items} }} }},')
+    lines += [
+        "        };",
+        "",
+        f"        public static readonly Vector3 GrasshopperHip = {u(GRASSHOPPER_HIP)};",
+        f"        public static readonly Vector3 MantisShoulder = {u(MANTIS_SHOULDER)};",
+        "    }",
+        "}",
+        "",
+    ]
+    with open(path, "w", encoding="utf-8", newline="\n") as f:
+        f.write("\n".join(lines))
+    print("wrote", path)
 
 
 def render_portraits(objs, out_dir):
@@ -893,6 +1287,9 @@ def render_portraits(objs, out_dir):
     scene.camera = cam
     cam_data.lens = 70
     for cid, names in CREATURES:
+        names = list(names) + portrait_leg_names(objs, cid)
+        if cid == "grasshopper":
+            names += ["Grasshopper_Hind_R", "Grasshopper_Hind_L"]
         for o in scene.objects:
             if o.type == "MESH":
                 o.hide_render = o.name not in names
@@ -920,11 +1317,16 @@ def main():
     os.makedirs(fbx_dir, exist_ok=True)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     kit.VC_MATERIAL = None
+    walkers = [
+        (make_ladybug, "Ladybug", None), (make_ant, "Ant", None), (make_beetle, "Beetle", None),
+        (make_water_strider, "WaterStrider", None), (make_crab, "Crab", None), (make_grasshopper, "Grasshopper", None),
+        (make_otoshibumi, "Otoshibumi", None), (make_spider, "Spider", spider_sneaker_variant), (make_mantis, "Mantis", None),
+    ]
     makers = [
-        make_ladybug, make_snail, make_ant, make_pillbug, make_butterfly_body, make_butterfly_wing, make_beetle,
-        make_water_strider, make_dragonfly_body, make_dragonfly_wing, make_frog, make_crab, make_river_snail,
+        make_snail, make_pillbug, make_butterfly_body, make_butterfly_wing,
+        make_dragonfly_body, make_dragonfly_wing, make_frog, make_river_snail,
         make_firefly_body, make_firefly_glow,
-        make_grasshopper, make_otoshibumi, make_cradle, make_anthill,
+        make_cradle, make_anthill, make_grasshopper_hind, make_mantis_arm, make_ant_helmet, make_crumb, make_pillbug_ball,
         lambda: make_bird_body("Sparrow_Body", 5.5, False), lambda: make_bird_wing("Sparrow_Wing", 5.5, False),
         lambda: make_bird_body("Crow_Body", 18.0, True), lambda: make_bird_wing("Crow_Wing", 18.0, True),
         lambda: make_river_stone("RiverStone_A", 1, (1.6, 1.2, 0.55), (hexc("#8d96a3"), hexc("#b7b2a5"))),
@@ -933,16 +1335,30 @@ def main():
         make_horsetail, make_iris, make_root_arch,
     ]
     objs = {}
+    for mk, name, variant in walkers:
+        for ob in split_legs(mk, name, variant):
+            kit.export_fbx(ob, fbx_dir)
+            objs[ob.name] = ob
+            print("exported", ob.name, len(ob.data.vertices), "verts")
     for mk in makers:
         ob = mk()
         kit.export_fbx(ob, fbx_dir)
         objs[ob.name] = ob
         print("exported", ob.name, len(ob.data.vertices), "verts")
+    for cname in COLLIDER_PROFILES:
+        ob = make_collider(cname)
+        kit.export_fbx(ob, fbx_dir)
+        ob.hide_render = True
+        ob.hide_set(True)
+        print("exported", ob.name, len(ob.data.vertices), "verts")
+    here = os.path.dirname(os.path.abspath(__file__))
+    write_rig(os.path.join(here, "..", "..", "unity", "Assets", "Scripts", "Gameplay", "CreatureRig.g.cs"))
     pose_portrait_copies(objs)
     render_portraits(objs, png_dir)
     x = 0.0
     for name, ob in objs.items():
-        if name.startswith(("Butterfly_Wing_", "Dragonfly_Wing_", "Sparrow_Wing_", "Crow_Wing_", "Cradle_Portrait")):
+        if name.startswith(("Butterfly_Wing_", "Dragonfly_Wing_", "Sparrow_Wing_", "Crow_Wing_", "Cradle_Portrait", "Mantis_Arm_",
+                            "Grasshopper_Hind_", "Crumb_Portrait")) or "_Leg" in name:
             continue
         w = max(ob.dimensions.x, 0.5)
         ob.location.x += x

@@ -244,6 +244,7 @@ namespace Shakutori
 
         void LateUpdate()
         {
+            Wind.Publish(Time.time);
             if (_pollen != null && followTarget != null)
                 _pollen.transform.position = followTarget.position;
         }

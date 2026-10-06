@@ -196,6 +196,28 @@ namespace Shakutori
         }
 
         /// <summary>
+        /// 落ちるとき：おなかを内側にしてくるんと丸まる（C の字）。spin で回転しながら落ちる。
+        /// </summary>
+        public void BuildCurl(Vector3 center, Vector3 axis, Vector3 facing, float length, float total, float spin)
+        {
+            int K = Count - 1;
+            Vector3 ax = axis.sqrMagnitude > 1e-6f ? axis.normalized : Vector3.right;
+            Vector3 A = ShakuMath.ProjectOnPlaneSafe(facing, ax, ShakuMath.AnyPerpendicular(ax)).normalized;
+            Vector3 B = Vector3.Cross(ax, A);
+            total = Mathf.Max(0.5f, total);
+            float r = length / total;
+            for (int k = 0; k <= K; k++)
+            {
+                float u = k / (float)K;
+                float ang = spin + (u - 0.5f) * total;
+                Vector3 radial = A * Mathf.Cos(ang) + B * Mathf.Sin(ang);
+                pos[k] = center + radial * r;
+                tan[k] = (-A * Mathf.Sin(ang) + B * Mathf.Cos(ang)).normalized;
+                up[k] = radial;
+            }
+        }
+
+        /// <summary>
         /// 糸にぶら下がる：頭を上にして体はたれ下がり、ゆるく丸まってくねる。
         /// </summary>
         public void BuildHang(Vector3 head, Vector3 facing, float length, float curl, float wiggle)

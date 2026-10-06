@@ -6,7 +6,10 @@ WebGL ビルド（公開用フォルダ）の検査。CI のデプロイ前に�
  - index.html が実在するローダーを参照している
  - GitHub の 100MB 制限を超えるファイルがない
  - 配布してはいけないデバッグ情報（*_DoNotShip）が含まれていない
+ - ページの出来事（タブを閉じる前のセーブ）を伝える jslib が組みこまれている
+ - ホーム画面に追加するための manifest がある
 """
+import gzip
 import os
 import re
 import sys
@@ -44,6 +47,17 @@ def main():
         fail(f"index.html が参照する {m.group(1)} がありません")
     if "{{{" in html:
         fail("index.html に未展開のテンプレート変数が残っています")
+    if 'rel="manifest"' in html and not os.path.isfile(os.path.join(site, "manifest.webmanifest")):
+        fail("manifest.webmanifest がありません")
+    fw = os.path.join(build, need["framework"][0])
+    with open(fw, "rb") as f:
+        raw = f.read()
+    # .gz だけでなく .unityweb（中身は gzip）も、先頭の印を見てほどく
+    if raw[:2] == bytes([0x1F, 0x8B]):
+        raw = gzip.decompress(raw)
+    code = raw.decode("utf-8", errors="replace")
+    if "ShakuRegisterPageEvents" not in code:
+        fail("ページの出来事を伝える jslib（ShakutoriPage.jslib）が組みこまれていません")
     total = 0
     for root, dirs, fs in os.walk(site):
         for d in dirs:

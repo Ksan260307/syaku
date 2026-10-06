@@ -21,6 +21,7 @@ namespace Shakutori.Tests
         public static IEnumerator Boot(bool keepSave = false)
         {
             if (!keepSave) SaveSystem.ResetAll();
+            GameManager.Assists = false;   // ヒントや画質の自動調整は、テストごとに結果が変わらないよう切る
             Time.timeScale = 1f;
             ResetInput();
             SceneManager.LoadScene("Forest", LoadSceneMode.Single);
@@ -97,6 +98,7 @@ namespace Shakutori.Tests
             GameInput.VirtualSprint = false;
             GameInput.VirtualStand = false;
             GameInput.SetVirtualSilk(false);
+            GameInput.VirtualAim = false;
         }
 
         /// <summary>カメラを指定の向き（水平）へ向ける。</summary>

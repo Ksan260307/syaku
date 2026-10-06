@@ -1676,3 +1676,295 @@
 .portrait .row-buttons {
     flex-wrap: wrap;
 }
+
+/* ===================================================================
+   糸をねらう・オートセーブ・レア・ファストトラベル・設定
+   =================================================================== */
+.reticle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 64px;
+    height: 64px;
+    margin-left: -32px;
+    margin-top: -32px;
+    align-items: center;
+    justify-content: center;
+}
+
+.reticle-ring {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 32px;
+    border-width: 3px;
+    border-color: rgba(255, 255, 255, 0.55);
+    transition-property: border-color, scale;
+    transition-duration: 0.15s;
+}
+
+.reticle-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.8);
+}
+
+.reticle--ok .reticle-ring {
+    border-color: rgb(150, 240, 170);
+    scale: 0.85 0.85;
+}
+
+.reticle--ok .reticle-dot {
+    background-color: rgb(150, 240, 170);
+}
+
+.reticle--far .reticle-ring {
+    border-color: rgba(255, 190, 150, 0.8);
+}
+
+.reticle-text {
+    position: absolute;
+    top: 72px;
+    width: 420px;
+    -unity-text-align: middle-center;
+    font-size: 19px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.save-indicator {
+    position: absolute;
+    right: 32px;
+    bottom: 28px;
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 18px;
+    background-color: rgba(28, 40, 34, 0.45);
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: 0.4s;
+}
+
+.save-indicator--show {
+    opacity: 1;
+}
+
+.save-leaf {
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    border-top-left-radius: 2px;
+    background-color: rgb(150, 210, 110);
+    rotate: 0deg;
+    transition-property: rotate;
+    transition-duration: 1.2s;
+}
+
+.save-indicator--show .save-leaf {
+    rotate: 360deg;
+}
+
+.save-text {
+    margin-left: 8px;
+    font-size: 16px;
+    color: rgb(230, 245, 220);
+}
+
+.touch-ui .save-indicator {
+    bottom: auto;
+    top: 250px;
+    right: 110px;
+}
+
+.creature-card--rare {
+    border-color: rgb(240, 196, 70);
+    background-color: rgba(255, 249, 226, 0.97);
+}
+
+.creature-card--rare .creature-card-sub {
+    color: rgb(214, 140, 20);
+}
+
+.zukan-section {
+    width: 100%;
+    font-size: 18px;
+    -unity-font-style: bold;
+    color: rgb(170, 120, 30);
+    margin: 10px 5px 2px 5px;
+}
+
+.zukan-card--rare {
+    border-color: rgb(236, 196, 92);
+    background-color: rgb(255, 248, 224);
+}
+
+.zukan-new {
+    position: absolute;
+    right: 4px;
+    top: 4px;
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: rgb(255, 255, 255);
+    background-color: rgb(232, 96, 70);
+    border-radius: 8px;
+    padding: 1px 6px;
+}
+
+.legend-go {
+    height: 36px;
+    min-width: 72px;
+    margin-left: 6px;
+    border-radius: 18px;
+    border-width: 2px;
+    border-color: rgb(120, 170, 80);
+    background-color: rgb(214, 238, 190);
+    color: rgb(60, 90, 40);
+    font-size: 15px;
+    -unity-font-style: bold;
+    flex-shrink: 0;
+}
+
+.settings {
+    max-height: 430px;
+}
+
+.settings-head {
+    font-size: 17px;
+    -unity-font-style: bold;
+    color: rgb(150, 110, 60);
+    margin: 8px 0 2px 0;
+}
+
+.settings .unity-toggle {
+    margin: 4px 0;
+}
+
+.short .settings {
+    max-height: 250px;
+}
+
+.portrait .settings {
+    max-height: 560px;
+}
+
+/* ===================================================================
+   改善：タイトル・読み込み・メニュー・地図・写真モード・クレジット
+   =================================================================== */
+.title-progress {
+    margin-top: 14px;
+    font-size: 19px;
+    color: rgb(255, 244, 214);
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.75);
+    -unity-text-align: middle-center;
+}
+
+.btn-small-title {
+    height: 44px;
+    font-size: 18px;
+}
+
+.version {
+    position: absolute;
+    right: 18px;
+    bottom: 12px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.loading-tip {
+    margin-top: 26px;
+    font-size: 18px;
+    color: rgb(190, 214, 176);
+    white-space: normal;
+    -unity-text-align: middle-center;
+    max-width: 900px;
+}
+
+.pause-summary {
+    font-size: 17px;
+    color: rgb(130, 106, 76);
+    -unity-text-align: middle-center;
+    margin: -8px 0 8px 0;
+    white-space: normal;
+}
+
+.photo-hint {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 18px;
+    font-size: 17px;
+    -unity-text-align: middle-center;
+    color: rgba(255, 255, 255, 0.75);
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+.map-hint {
+    position: absolute;
+    border-radius: 999px;
+    border-width: 2px;
+    border-color: rgba(150, 235, 255, 0.85);
+    background-color: rgba(150, 235, 255, 0.18);
+}
+
+.legend-here {
+    font-size: 14px;
+    color: rgb(255, 255, 255);
+    background-color: rgb(120, 170, 80);
+    border-radius: 8px;
+    padding: 1px 8px;
+    margin-left: 6px;
+    flex-shrink: 0;
+}
+
+.map-creature {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    background-color: rgba(255, 220, 110, 0.9);
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgb(90, 60, 20);
+    padding: 0;
+}
+
+.zukan-filters {
+    flex-direction: row;
+    width: 100%;
+    margin: 0 5px 4px 5px;
+}
+
+.toast--tip {
+    border-color: rgba(255, 220, 140, 0.8);
+    background-color: rgba(60, 50, 28, 0.62);
+}
+
+.credits-window {
+    width: 760px;
+}
+
+.credits-text {
+    font-size: 18px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    color: rgb(90, 74, 58);
+    margin-bottom: 14px;
+}
+
+.portrait .credits-window {
+    width: 94%;
+}
+
+.zukan-filters .chip {
+    min-width: 84px;
+    height: 34px;
+    margin: 0 8px 0 0;
+    font-size: 16px;
+}

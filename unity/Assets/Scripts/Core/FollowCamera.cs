@@ -25,6 +25,25 @@ namespace Shakutori
         float _sinceManual = 10f;
         bool _init;
         Camera _cam;
+        float _aimBlend;
+        float _shake;
+
+        /// <summary>着地などで、カメラを少しゆらす（「画面のゆれをへらす」設定なら弱く）。</summary>
+        public void Shake(float amount)
+        {
+            float k = SaveSystem.Settings.reduceMotion ? 0.2f : 1f;
+            _shake = Mathf.Max(_shake, Mathf.Clamp01(amount) * k);
+        }
+
+        /// <summary>カメラをしゃくとりむしの後ろへ戻す。</summary>
+        public void Recenter()
+        {
+            if (target == null) return;
+            Vector3 h = Vector3.ProjectOnPlane(target.Heading, Vector3.up);
+            if (h.sqrMagnitude > 1e-4f) yaw = Mathf.Atan2(h.x, h.z) * Mathf.Rad2Deg;
+            pitch = 20f;
+            _sinceManual = 0f;
+        }
 
         void Awake()
         {
@@ -56,6 +75,7 @@ namespace Shakutori
             }
             else if (Time.timeScale > 0f)
             {
+                if (GameInput.RecenterPressed) Recenter();
                 Vector2 look = GameInput.Look;
                 if (look.sqrMagnitude > 0.0001f)
                 {
@@ -66,11 +86,19 @@ namespace Shakutori
                 else _sinceManual += dt;
 
                 float z = GameInput.Zoom;
-                if (Mathf.Abs(z) > 0.001f) distance = Mathf.Clamp(distance * (1f - z * 0.12f), minDistance, maxDistance);
+                if (Mathf.Abs(z) > 0.001f)
+                {
+                    distance = Mathf.Clamp(distance * (1f - z * 0.12f), minDistance, maxDistance);
+                    // カメラの距離は覚えておく（次に遊ぶときも同じ距離）
+                    SaveSystem.Settings.cameraDistance = distance;
+                    SaveSystem.SaveSettingsSoon();
+                }
+                // 落ちているときは、少し下（落ちる先）を見る
+                if (target.IsFalling) pitch = Mathf.Lerp(pitch, 42f, ShakuMath.DampFactor(3f, dt));
 
                 // 歩いているときは、しばらくすると後ろへ回り込む
                 // （こちらへ向かって歩いているときに回り込むと、ぐるぐる回り続けてしまうので行わない）
-                if (_sinceManual > autoFollowDelay && target.IsMoving && target.SurfaceUp.y > 0.6f)
+                if (SaveSystem.Settings.autoCamera && _sinceManual > autoFollowDelay && target.IsMoving && target.SurfaceUp.y > 0.6f)
                 {
                     Vector3 h = Vector3.ProjectOnPlane(target.Heading, Vector3.up);
                     Vector3 camFlat = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
@@ -86,18 +114,33 @@ namespace Shakutori
                 // 背伸びしたら少し見上げる
                 if (target.IsStanding) pitch = Mathf.Lerp(pitch, Mathf.Min(pitch, 6f), ShakuMath.DampFactor(1.5f, dt));
             }
+            _aimBlend = Mathf.MoveTowards(_aimBlend, !titleMode && target.IsAiming ? 1f : 0f, dt * 4f);
+            if (_cam != null)
+            {
+                float fov = Mathf.Clamp(SaveSystem.Settings.fov, 40f, 70f) - 6f * _aimBlend;
+                _cam.fieldOfView = Mathf.Lerp(_cam.fieldOfView, fov, ShakuMath.DampFactor(8f, dt));
+            }
             Apply(dt, false);
+            if (_shake > 0.001f)
+            {
+                float t = Time.unscaledTime * 38f;
+                transform.position += transform.rotation * new Vector3(Mathf.Sin(t) * 0.04f, Mathf.Sin(t * 1.3f + 1f) * 0.05f, 0f) * _shake;
+                _shake = Mathf.MoveTowards(_shake, 0f, dt * 2.5f);
+            }
         }
 
         void Apply(float dt, bool snap)
         {
             Vector3 want = target.CameraFocus;
+            // 糸をねらうときは、肩ごしに少し寄る
+            if (_aimBlend > 0f) want += Quaternion.Euler(0f, yaw, 0f) * Vector3.right * (0.35f * _aimBlend) + Vector3.up * (0.2f * _aimBlend);
             _focus = snap ? want : Vector3.SmoothDamp(_focus, want, ref _focusVel, 0.12f, Mathf.Infinity, Mathf.Max(dt, 1e-4f));
             Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
             Vector3 back = rot * Vector3.back;
 
-            float d = distance;
-            if (Physics.SphereCast(_focus, 0.1f, back, out var hit, distance, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
+            float baseDist = Mathf.Lerp(distance, Mathf.Min(distance, 2.2f), _aimBlend);
+            float d = baseDist;
+            if (Physics.SphereCast(_focus, 0.1f, back, out var hit, baseDist, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
                 d = Mathf.Max(0.35f, hit.distance - 0.05f);
             if (snap) _currentDist = d;
             else _currentDist = d < _currentDist ? Mathf.Lerp(_currentDist, d, ShakuMath.DampFactor(25f, dt)) : Mathf.Lerp(_currentDist, d, ShakuMath.DampFactor(3f, dt));

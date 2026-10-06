@@ -33,6 +33,8 @@ namespace Shakutori
             public Transform tr;
             public bool taken;
             public float phase;
+            public float wobble;       // しゃくとりむしが近づくと、ぷるぷるゆれる
+            public float flyT = -1f;   // 取ったあと、しゃくとりむしへ吸いこまれていく
         }
 
         readonly List<Drop> _drops = new List<Drop>();
@@ -122,14 +124,35 @@ namespace Shakutori
         void Update()
         {
             float t = Time.time;
+            var wormNow = InchwormController.Instance;
+            Vector3 headNow = wormNow != null ? wormNow.HeadPosition : new Vector3(9999f, 0f, 0f);
             foreach (var d in _drops)
             {
+                if (d.flyT >= 0f)
+                {
+                    // 取ったしずくは、くるくる小さくなりながら頭へ
+                    d.flyT += Time.deltaTime / 0.28f;
+                    float e = ShakuMath.Smooth01(d.flyT);
+                    d.tr.position = Vector3.Lerp(d.basePos + Vector3.up * 0.1f, headNow, e) + Vector3.up * Mathf.Sin(Mathf.PI * e) * 0.35f;
+                    d.tr.localScale = Vector3.one * dropScale * Mathf.Lerp(1.2f, 0.1f, e);
+                    if (d.flyT >= 1f)
+                    {
+                        d.flyT = -1f;
+                        d.tr.gameObject.SetActive(false);
+                    }
+                    continue;
+                }
                 if (d.taken) continue;
                 float bob = Mathf.Sin(t * 2f + d.phase) * 0.05f;
                 d.tr.position = d.basePos + Vector3.up * (0.04f + bob);
                 d.tr.rotation = Quaternion.Euler(0f, t * 40f + d.phase * 30f, 0f);
-                float pulse = 1f + Mathf.Sin(t * 3.1f + d.phase) * 0.06f;
-                d.tr.localScale = Vector3.one * dropScale * pulse;
+                // 近づくとぷるぷる（ばねのように）、ときどききらっと光るように大きくなる
+                float near = Mathf.Clamp01(1f - ((headNow - d.basePos).magnitude - 0.6f) / 2.5f);
+                d.wobble = Mathf.Lerp(d.wobble, near, 1f - Mathf.Exp(-6f * Time.deltaTime));
+                float jiggle = d.wobble * 0.14f * Mathf.Sin(t * 17f + d.phase);
+                float glint = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(t * 0.7f + d.phase * 3.7f)), 40f) * 0.25f;
+                float pulse = 1f + Mathf.Sin(t * 3.1f + d.phase) * 0.06f + glint;
+                d.tr.localScale = new Vector3(1f + jiggle, 1f - jiggle, 1f + jiggle) * dropScale * pulse;
             }
             if (!Active) return;
             var worm = InchwormController.Instance;
@@ -144,7 +167,7 @@ namespace Shakutori
                 if ((head - c).sqrMagnitude < r2 || (mid - c).sqrMagnitude < r2 * 0.8f)
                 {
                     d.taken = true;
-                    d.tr.gameObject.SetActive(false);
+                    d.flyT = 0f;
                     CollectedDrops++;
                     if (!SaveSystem.Data.drops.Contains(d.id)) SaveSystem.Data.drops.Add(d.id);
                     SaveSystem.Save();

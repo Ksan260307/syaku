@@ -462,7 +462,8 @@ namespace Shakutori
                     go.transform.localScale = Vector3.one * scale;
                 }
                 go.layer = ShakuConst.SurfaceLayer;
-                go.AddComponent<MeshCollider>().sharedMesh = m;
+                // 登りやすいように作った当たり判定用のメッシュがあれば、そちらを使う
+                go.AddComponent<MeshCollider>().sharedMesh = assets.TryGet(meshName + "_Col") ?? m;
             }
             return go;
         }

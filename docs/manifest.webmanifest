@@ -1,0 +1,12 @@
+{
+  "name": "しゃくとりの森 — Inchworm Forest",
+  "short_name": "しゃくとりの森",
+  "start_url": ".",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#263a28",
+  "theme_color": "#263a28",
+  "icons": [
+    { "src": "icon.png", "sizes": "256x256", "type": "image/png", "purpose": "any" }
+  ]
+}

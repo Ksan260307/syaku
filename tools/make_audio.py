@@ -437,6 +437,68 @@ def crow_caw(dur=0.36, f0=560.0):
     return (s / 6 + rasp) * env
 
 
+def make_motion_sfx():
+    # 落ちる（ひゅるる…と下がる笛のような音 + 風）
+    total = 0.9
+    t = t_axis(total)
+    k = t / total
+    whistle = np.sin(2 * np.pi * np.cumsum(1500 - 900 * k) / SR) * np.exp(-k * 1.5) * 0.25
+    wind = shaped_noise(len(t), 0.6, 600, 4000) * np.sin(np.pi * k) * 0.5
+    write("fall.wav", fade_tail(whistle + wind))
+
+    # 水に落ちる（ぽちゃん + しぶき）
+    total = 1.1
+    t = t_axis(total)
+    plop = np.sin(2 * np.pi * np.cumsum(260 + 900 * np.exp(-t * 18)) / SR) * np.exp(-t * 9) * 0.8
+    spray = shaped_noise(len(t), 0.2, 1500, 9000) * np.exp(-t * 6) * 0.35
+    bub = np.zeros_like(t)
+    for _ in range(14):
+        st = int(rng.uniform(0.05, 0.6) * SR)
+        b = bubble(rng.uniform(500, 1400), rng.uniform(0.02, 0.05))
+        bub[st:st + len(b)] += b[: len(bub) - st] * rng.uniform(0.1, 0.25)
+    write("splash.wav", fade_tail(plop + spray + bub))
+
+    # レアないきもの（きらきらのファンファーレ）
+    total = 3.2
+    buf = np.zeros((int(total * SR), 2))
+    for k2, note in enumerate([72, 76, 79, 84, 88, 91, 96]):
+        add(buf, int(k2 * 0.06 * SR), celesta(midi(note), 1.8), pan=-0.6 + k2 * 0.2, gain=0.55, wrap=False)
+    for j, note in enumerate([60, 64, 67, 72]):
+        add(buf, int((0.5 + j * 0.03) * SR), kalimba(midi(note), 2.4, bright=0.9), pan=0.1 * j, gain=0.5, wrap=False)
+    t = t_axis(total)
+    shimmer = shaped_noise(len(t), 0.0, 7000, 15000) * np.exp(-t * 1.8) * 0.08
+    buf[:, 0] += shimmer
+    buf[:, 1] += np.roll(shimmer, 180)
+    buf = circular_reverb(buf, seconds=1.8, mix=0.3)
+    buf[-int(0.4 * SR):] *= np.linspace(1, 0, int(0.4 * SR))[:, None]
+    write("rare.wav", buf)
+
+
+def make_creature_calls():
+    # スズメの「ちゅん、ちゅん」
+    total = 0.9
+    buf = np.zeros((int(total * SR), 2))
+    t0 = 0.0
+    for _ in range(3):
+        add(buf, int(t0 * SR), bird_chirp(rng.uniform(3300, 3700), rng.uniform(4300, 5000), rng.uniform(0.06, 0.08)), pan=0.1, gain=0.8, wrap=False)
+        t0 += rng.uniform(0.16, 0.24)
+    buf = circular_reverb(buf, seconds=0.6, mix=0.2)
+    buf[-int(0.1 * SR):] *= np.linspace(1, 0, int(0.1 * SR))[:, None]
+    write("chirp.wav", buf)
+
+    # アマガエルの「けろけろ」
+    total = 1.0
+    buf = np.zeros((int(total * SR), 2))
+    for k in range(4):
+        tk = t_axis(0.11)
+        kero = np.sign(np.sin(2 * np.pi * 190 * tk)) * np.sin(2 * np.pi * 18 * tk) ** 2 * np.exp(-tk * 14)
+        kero = np.convolve(kero, np.ones(10) / 10, mode="same")
+        add(buf, int(k * 0.19 * SR), kero, pan=0.0, gain=0.7, wrap=False)
+    buf = circular_reverb(buf, seconds=0.5, mix=0.18)
+    buf[-int(0.1 * SR):] *= np.linspace(1, 0, int(0.1 * SR))[:, None]
+    write("croak.wav", buf)
+
+
 def make_area_sfx():
     # いきものを見つけた（ぴこん♪）
     total = 1.8
@@ -494,3 +556,5 @@ if __name__ == "__main__":
     make_music()
     make_river_ambience()
     make_area_sfx()
+    make_motion_sfx()
+    make_creature_calls()

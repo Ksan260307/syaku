@@ -325,7 +325,7 @@ namespace Shakutori.Tests
             yield return Frames(2);
             Assert.IsTrue(UI.IsCollectionOpen);
             Assert.IsFalse(Worm.InputEnabled, "図鑑を開いているあいだは動かない");
-            Assert.AreEqual(SpeciesCatalog.Count, UI.ZukanCardCount);
+            Assert.AreEqual(SpeciesCatalog.All.Count, UI.ZukanCardCount, "レアのページもある");
             UI.SelectSpecies("ant");
             Assert.AreEqual(SpeciesCatalog.Get("ant").name, UI.ZukanDetailName);
             UI.SelectSpecies("crow");

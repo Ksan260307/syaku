@@ -550,6 +550,12 @@ namespace Shakutori
             AddMob("grasshopper", RiverLayout.Ground(-32f, -18f), 2, 8f);
             AddMob("grasshopper", RiverLayout.Ground(32f, 10f), 2, 8f);
             AddMob("ladybug", RiverLayout.Ground(-24f, 8f), 2, 4f);
+            // ハエトリグモ（橋のたもと・岸の石）とオオカマキリ（岸の草むら）
+            AddMob("spider", TopSurface(new Vector2(_bridgeA.x - 1.5f, _bridgeA.z)), 1, 2f);
+            AddMob("spider", RiverLayout.Ground(-44f, -14f), 2, 2.5f);
+            AddMob("spider", TopSurface(new Vector2(ic.x - 1f, ic.y + 2f)), 1, 1.5f);
+            AddMob("mantis", RiverLayout.Ground(-36f, 6f), 1, 3f);
+            AddMob("mantis", RiverLayout.Ground(30f, 22f), 1, 3f);
             AddMob("ant", RiverLayout.Ground(26f, -36f), 3, 5f);
             {
                 var g = AddMob("sparrow", RiverLayout.Ground(-28f, -6f), 2, 3f);

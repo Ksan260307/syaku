@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
+using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
@@ -26,6 +28,32 @@ namespace Shakutori
 
         float _saveTimer;
         float _gateCooldown;
+        float _stuckTime, _lastStuckHint = -999f;
+        public const float AutosaveInterval = 20f;
+
+        /// <summary>
+        /// 一度だけのヒントや、重いときに画質を自動で下げる機能。
+        /// 総合テストでは結果が毎回同じになるよう切っておく（ヒントのテストだけ入れる）。
+        /// </summary>
+        public static bool Assists = true;
+
+        float _playingFor;            // 探検をはじめてからの時間（ヒントを出しはじめるまで）
+        float _lastTip = -999f;
+        float _assistTimer;
+        float _fpsAvg = 60f, _slowTime;
+        bool _autoLowered;
+        int _combo;
+        float _lastDropTime = -99f;
+        float _rumbleUntil;
+        public bool PhotoMode => ui != null && ui.IsPhotoMode;
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [DllImport("__Internal")] static extern void ShakuRegisterPageEvents();
+        [DllImport("__Internal")] static extern void ShakuVibrate(int ms);
+#else
+        static void ShakuRegisterPageEvents() { }
+        static void ShakuVibrate(int ms) { }
+#endif
         bool _starting;
         ProgressStats _stats;
         Renderer _wormRenderer;
@@ -55,12 +83,42 @@ namespace Shakutori
             followCamera.SnapToTarget();
             _stats = ProgressStats.FromSave();
 
-            worm.Stepped += (p, head) => AudioManager.Instance?.Step(head);
-            worm.SilkStarted += () => AudioManager.Instance?.Silk();
+            worm.Stepped += (p, head) =>
+            {
+                AudioManager.Instance?.Step(head, SurfaceAt(p));
+                if (head) SaveSystem.Data.steps++;
+            };
+            ui.CreatureSource = creatures;
+            ui.PhotoRequested += TogglePhoto;
+            worm.SilkStarted += () =>
+            {
+                AudioManager.Instance?.Silk();
+                SaveSystem.Data.silkUses++;
+            };
+            worm.Fell += () => AudioManager.Instance?.Fall();
+            worm.HitGround += OnHitGround;
+            worm.Splashed += OnSplash;
             worm.Landed += () => AudioManager.Instance?.Land();
             collectibles.DropCollected += OnDrop;
             collectibles.LandmarkDiscovered += OnLandmark;
-            if (creatures != null) creatures.Discovered += OnCreature;
+            if (creatures != null)
+            {
+                creatures.Discovered += OnCreature;
+                creatures.DiscoveredAt += (sp, pos) =>
+                {
+                    if (pos == Vector3.zero) return;
+                    fx.Burst(pos + Vector3.up * 0.3f, sp.IsRare ? 80 : 30);
+                    worm.LookAt(pos, 1.6f);   // 見つけたいきもののほうを見る
+                };
+            }
+            ui.FastTravelRequested += id => FastTravel(id);
+            ui.RescueRequested += Rescue;
+            ui.SaveRequested += () =>
+            {
+                SaveProgress();
+                ui.Toast("セーブしました", "icon-book");
+            };
+            ShakuRegisterPageEvents();
             ui.ContinuePressed += () => StartGame(true);
             ui.NewGamePressed += () => StartGame(false);
             ui.ResumePressed += Resume;
@@ -68,7 +126,11 @@ namespace Shakutori
             ui.ResetPressed += () => StartGame(false);
             ui.QualityChanged += ApplyQuality;
             ui.TravelRequested += id => TravelTo(id);
-            ui.SkinSelected += id => ApplySkin();
+            ui.SkinSelected += id =>
+            {
+                ApplySkin();
+                worm.Cheer();
+            };
 
             ui.SetLoading(1f, "準備ができました");
             yield return new WaitForSecondsRealtime(0.3f);
@@ -81,6 +143,7 @@ namespace Shakutori
         IEnumerator BuildArea(AreaLayout area, Action<float, string> progress)
         {
             Areas.Current = area;
+            worm.ClearSafeHistory();
             if (creatures != null) creatures.Clear();
             yield return world.Generate(area, progress);
             collectibles.Build(world.DewdropPoints, area);
@@ -142,10 +205,14 @@ namespace Shakutori
             ui.ShowTitle(false);
             followCamera.titleMode = false;
             followCamera.pitch = 20f;
-            followCamera.distance = 3.1f;
+            // 前に合わせたカメラの距離を使う
+            float saved = SaveSystem.Settings.cameraDistance;
+            followCamera.distance = saved > 0f ? Mathf.Clamp(saved, followCamera.minDistance, followCamera.maxDistance) : 3.1f;
             followCamera.SnapToTarget();
             ui.Fade(false);
             State = GameState.Playing;
+            _playingFor = 0f;
+            AnnounceRare();
             worm.InputEnabled = true;
             collectibles.Active = true;
             if (creatures != null) creatures.Active = true;
@@ -161,6 +228,12 @@ namespace Shakutori
         {
             bool playing = State == GameState.Playing;
             ui.TickHud(playing && !ui.AnyOverlayOpen);
+            SaveSystem.FlushSettings();
+            if (Time.unscaledTime > _rumbleUntil && _rumbleUntil > 0f)
+            {
+                _rumbleUntil = 0f;
+                Gamepad.current?.SetMotorSpeeds(0f, 0f);
+            }
             switch (State)
             {
                 case GameState.Title:
@@ -169,7 +242,16 @@ namespace Shakutori
                     break;
                 case GameState.Playing:
                     SaveSystem.Data.playTime += Time.deltaTime;
-                    if (GameInput.PausePressed)
+                    _playingFor += Time.deltaTime;
+                    if (ui.IsPhotoMode)
+                    {
+                        // 写真モード：Esc・F2 でもどる（カメラは動かせる）
+                        if (GameInput.PausePressed || GameInput.PhotoPressed) TogglePhoto();
+                        worm.InputEnabled = false;
+                        break;
+                    }
+                    if (GameInput.PhotoPressed && !ui.AnyOverlayOpen) TogglePhoto();
+                    else if (GameInput.PausePressed)
                     {
                         if (!ui.Back()) Pause();
                     }
@@ -179,11 +261,17 @@ namespace Shakutori
                     if (ui.IsPauseOpen) Pause();
                     worm.InputEnabled = !ui.AnyOverlayOpen;
                     UpdateGates();
-                    _saveTimer += Time.deltaTime;
-                    if (_saveTimer > 8f)
+                    UpdateStats();
+                    UpdateStuck();
+                    UpdateAssists();
+                    if (SaveSystem.Settings.autosave)
                     {
-                        _saveTimer = 0f;
-                        SaveProgress();
+                        _saveTimer += Time.deltaTime;
+                        if (_saveTimer > AutosaveInterval)
+                        {
+                            _saveTimer = 0f;
+                            SaveProgress();
+                        }
                     }
                     break;
                 case GameState.Paused:
@@ -207,7 +295,7 @@ namespace Shakutori
                 float d = new Vector2(head.x - g.position.x, head.z - g.position.z).magnitude;
                 var target = Areas.Get(g.def.targetArea);
                 if (target == null) continue;
-                if (d < 7f) hint = $"トンネルを抜けると「{target.Subtitle}」へ";
+                if (d < 7f) hint = GateHintText(target);
                 if (d < g.def.radius && _gateCooldown <= 0f && worm.State != InchwormController.Mode.Hang && !ui.AnyOverlayOpen)
                 {
                     TravelTo(target.Id);
@@ -215,6 +303,15 @@ namespace Shakutori
                 }
             }
             ui.GateHint = hint;
+        }
+
+        /// <summary>トンネルの近くのヒント。行ったことがあれば、行き先で集めた数も出す。</summary>
+        public static string GateHintText(AreaLayout target)
+        {
+            string text = $"トンネルを抜けると「{target.Subtitle}」へ";
+            if (!SaveSystem.Data.visited.Contains(target.Id)) return text + "（まだ行ったことがない場所）";
+            if (SaveSystem.Data.completedAreas.Contains(target.Id)) return text + "（★ めぐり終えた）";
+            return text + $"（{target.DropName} {Collectibles.CollectedIn(target)} / {target.DropCount}）";
         }
 
         /// <summary>別のエリアへ移動する（トンネル・地図から）。</summary>
@@ -264,6 +361,7 @@ namespace Shakutori
             if (creatures != null) creatures.Active = true;
             ui.ShowAreaBanner(to);
             AudioManager.Instance?.Discover();
+            AnnounceRare();
             CheckProgress();
         }
 
@@ -277,6 +375,7 @@ namespace Shakutori
             if (State != GameState.Playing) return;
             State = GameState.Paused;
             worm.InputEnabled = false;
+            ui.SetPhotoMode(false);
             if (!ui.IsPauseOpen) ui.ShowPause(true);
             Time.timeScale = 0f;
             SaveProgress();
@@ -288,6 +387,18 @@ namespace Shakutori
             Time.timeScale = 1f;
             if (State == GameState.Paused) State = GameState.Playing;
             SaveSystem.SaveSettings();
+        }
+
+        /// <summary>写真モード（表示を消して景色をながめる）を切りかえる。メニューからも呼ばれる。</summary>
+        public void TogglePhoto()
+        {
+            if (State == GameState.Paused) Resume();
+            if (State != GameState.Playing) return;
+            bool on = !ui.IsPhotoMode;
+            if (on && ui.AnyOverlayOpen) ui.CloseAllOverlays();
+            ui.SetPhotoMode(on);
+            worm.InputEnabled = !on;
+            AudioManager.Instance?.Click();
         }
 
         public void GoToTitle()
@@ -325,14 +436,217 @@ namespace Shakutori
             if (pause && State == GameState.Playing) SaveProgress();
         }
 
+        void OnApplicationFocus(bool focus)
+        {
+            if (!focus && State == GameState.Playing && SaveSystem.Settings.autosave) SaveProgress();
+        }
+
+        /// <summary>ブラウザのタブが隠れたとき（jslib から SendMessage で呼ばれる）：保存して音を止める。</summary>
+        public void OnPageHidden()
+        {
+            if (State == GameState.Playing || State == GameState.Paused) SaveProgress();
+            SaveSystem.FlushSettings(true);
+            // もどってきたとき、いきなり動いていないようにメニューを開いておく
+            if (State == GameState.Playing && !ui.IsPhotoMode) Pause();
+            AudioListener.pause = true;
+        }
+
+        public void OnPageVisible()
+        {
+            AudioListener.pause = false;
+        }
+
+        // ------------------------------------------------------------------
+        // 落下・きろく・救済
+        // ------------------------------------------------------------------
+        void OnHitGround(float speed)
+        {
+            SaveSystem.Data.falls++;
+            float k = Mathf.Clamp01(speed / 8f);
+            AudioManager.Instance?.Thud(k);
+            fx.Burst(worm.CenterPosition, 6 + Mathf.RoundToInt(18f * k));
+            followCamera.Shake(0.25f + 0.6f * k);
+            if (k > 0.6f && SaveSystem.Settings.vibration)
+            {
+                ShakuVibrate(40);
+                Rumble(0.6f * k, 0.18f);
+            }
+        }
+
+        /// <summary>ゲームパッドをふるわせる（設定で「振動」が入っているときだけ）。</summary>
+        void Rumble(float strength, float seconds)
+        {
+            if (!SaveSystem.Settings.vibration || Gamepad.current == null) return;
+            Gamepad.current.SetMotorSpeeds(strength * 0.6f, strength);
+            _rumbleUntil = Time.unscaledTime + seconds;
+        }
+
+        /// <summary>足もとの物から、足音の種類を決める。</summary>
+        AudioManager.Surface SurfaceAt(Vector3 p)
+        {
+            Vector3 up = worm.SurfaceUp;
+            if (Physics.Raycast(p + up * 0.15f, -up, out var hit, 0.45f, SurfaceProbe.Mask, QueryTriggerInteraction.Ignore))
+                return AudioManager.Classify(hit.collider.name, hit.collider.gameObject.layer);
+            return AudioManager.Surface.Ground;
+        }
+
+        /// <summary>めずらしいいきものがこのエリアにいれば、それとなく知らせる。</summary>
+        void AnnounceRare()
+        {
+            if (creatures != null && creatures.RareCount > 0)
+                ui.Toast("どこかで、めずらしいいきものの気配がする…", "icon-book", 4f);
+        }
+
+        /// <summary>
+        /// 一度だけのヒント・川の水音・重いときの画質調整（0.5 秒ごと）。
+        /// </summary>
+        void UpdateAssists()
+        {
+            // フレームレートの平均（重さの目安）
+            float dt = Mathf.Max(Time.unscaledDeltaTime, 1e-4f);
+            _fpsAvg = Mathf.Lerp(_fpsAvg, 1f / dt, 0.05f);
+
+            _assistTimer -= Time.deltaTime;
+            if (_assistTimer > 0f) return;
+            _assistTimer = 0.5f;
+
+            // 川辺では、川に近いほど水の音を大きく
+            Vector3 c = worm.CenterPosition;
+            float near = 0f;
+            if (Areas.Current == Areas.River)
+                near = 1f - Mathf.Clamp01((RiverLayout.DistToRiver(c.x, c.z) - RiverLayout.HalfWidth(c.z)) / 14f);
+            AudioManager.Instance?.SetWaterNearness(near);
+
+            if (!Assists) return;
+
+            // 自動の画質で重いときは、一度だけ軽くする
+            if (SaveSystem.Settings.quality < 0 && !_autoLowered && _playingFor > 8f)
+            {
+                _slowTime = _fpsAvg < 22f ? _slowTime + 0.5f : Mathf.Max(0f, _slowTime - 0.5f);
+                if (_slowTime > 10f)
+                {
+                    _autoLowered = true;
+                    ApplyQuality(0);
+                    ui.Toast("動きが重いので、画質を「かるい」にしました（メニューで変えられます）", "icon-menu", 4f);
+                }
+            }
+
+            // 一度だけのヒント（はじめてそうなったとき）
+            if (_playingFor < 12f || Time.unscaledTime - _lastTip < 25f || ui.AnyOverlayOpen) return;
+            bool shown = false;
+            if (worm.OnSteepSurface)
+                shown = ui.Tip("wall", "壁にはりついているときに糸のボタンを押すと、はなれて落ちられます");
+            else if (worm.State == InchwormController.Mode.Hang)
+                shown = ui.Tip("hang", "糸を長押しするとのぼれます。「はやく」で早くおりられます");
+            else if (worm.IsBlocked && worm.CanDropSilk)
+                shown = ui.Tip("cliff", "がけの上では、糸を出してぶら下がればおりられます");
+            else if (!string.IsNullOrEmpty(ui.GateHint))
+                shown = ui.Tip("tunnel", "木の根のトンネルを抜けると、別のエリアへ行けます");
+            else if (creatures != null && creatures.UndiscoveredNear(c, 12f, _tipNear, 1) > 0)
+                shown = ui.Tip("creature", "ミニマップの「？」は、まだ図鑑にのっていないいきもの。近づいてみよう");
+            else if (collectibles.DiscoveredPlaces >= 2)
+                shown = ui.Tip("map", "地図を開くと、見つけた名所へ「ここへ」ですぐ移動できます");
+            else if (_playingFor > 90f)
+                shown = ui.Tip("aim", "「ねらう」で好きな場所に糸を飛ばして、たぐり寄せられます");
+            if (shown) _lastTip = Time.unscaledTime;
+        }
+
+        readonly System.Collections.Generic.List<Vector3> _tipNear = new System.Collections.Generic.List<Vector3>();
+
+        void OnSplash()
+        {
+            AudioManager.Instance?.Splash();
+            fx.Burst(worm.CenterPosition, 40);
+            ui.Toast("ぽちゃん！ 水に落ちてしまった…", "icon-drop");
+        }
+
+        void UpdateStats()
+        {
+            Vector3 h = worm.HeadPosition;
+            float above = h.y - Areas.Current.Height(h.x, h.z);
+            if (above > SaveSystem.Data.highest && above < 200f) SaveSystem.Data.highest = above;
+        }
+
+        /// <summary>前に進もうとしても長く動けないときは、救済方法を教える。</summary>
+        void UpdateStuck()
+        {
+            bool pushing = GameInput.Move.sqrMagnitude > 0.25f && !ui.AnyOverlayOpen;
+            _stuckTime = pushing && worm.IsBlocked ? _stuckTime + Time.deltaTime : 0f;
+            if (_stuckTime > 6f && Time.time - _lastStuckHint > 60f)
+            {
+                _lastStuckHint = Time.time;
+                ui.Toast("動けないときは、メニューの「動けなくなったら」でもどれます", "icon-menu");
+            }
+        }
+
+        /// <summary>動けなくなったとき：最後に安全だった場所へ。そこもだめならエリアのはじまりの場所へ。</summary>
+        public void Rescue()
+        {
+            if (State != GameState.Playing && State != GameState.Paused) return;
+            Resume();
+            var area = Areas.Current;
+            worm.ReturnToSafety();
+            Vector3 p = worm.TailPoint;
+            if (!area.InPlayArea(p) || area.IsUnderwater(p) || p.y < area.Height(p.x, p.z) - 1f)
+                worm.Spawn(world.SpawnPoint, world.SpawnForward);
+            followCamera.Recenter();
+            followCamera.SnapToTarget();
+            ui.Toast("安全な場所にもどりました", "icon-place");
+            SaveProgress();
+        }
+
+        /// <summary>地図から、見つけた名所へ移動する。</summary>
+        public bool FastTravel(int landmarkId)
+        {
+            if (State != GameState.Playing) return false;
+            var lm = Areas.Current.Landmarks.Find(l => l.id == landmarkId);
+            if (lm == null || !collectibles.IsDiscovered(landmarkId)) return false;
+            StartCoroutine(FastTravelRoutine(lm));
+            return true;
+        }
+
+        IEnumerator FastTravelRoutine(LandmarkDef lm)
+        {
+            State = GameState.Traveling;
+            worm.InputEnabled = false;
+            AudioManager.Instance?.Travel();
+            ui.Fade(true);
+            yield return new WaitForSecondsRealtime(0.55f);
+            Vector3 p = world.TopSurface(lm.position);
+            Vector3 toCenter = new Vector3(-lm.position.x, 0f, -lm.position.y);
+            Vector3 fwd = toCenter.sqrMagnitude > 0.01f ? toCenter.normalized : Vector3.forward;
+            worm.Spawn(p, fwd);
+            followCamera.yaw = Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
+            followCamera.SnapToTarget();
+            yield return new WaitForSecondsRealtime(0.15f);
+            ui.Fade(false);
+            State = GameState.Playing;
+            worm.InputEnabled = true;
+            ui.Toast($"「{lm.name}」へ移動しました", "icon-place");
+            SaveProgress();
+        }
+
         // ------------------------------------------------------------------
         // 集める・見つける
         // ------------------------------------------------------------------
         void OnDrop(int count, Vector3 pos)
         {
-            AudioManager.Instance?.Collect(count);
+            // つづけて取ると「れんぞく」
+            _combo = Time.time - _lastDropTime < 4f ? _combo + 1 : 1;
+            _lastDropTime = Time.time;
+            AudioManager.Instance?.Collect(count + _combo - 1);
             fx.Burst(pos);
-            ui.Toast($"{collectibles.Area.DropName}  {count} / {collectibles.TotalDrops}");
+            worm.Cheer();
+            string text = $"{collectibles.Area.DropName}  {count} / {collectibles.TotalDrops}";
+            if (_combo >= 3) text += $"　れんぞく ×{_combo}！";
+            ui.Toast(text);
+            if (count == collectibles.TotalDrops)
+            {
+                // このエリアのしずくをぜんぶ集めた
+                fx.Burst(worm.CenterPosition + Vector3.up * 0.5f, 120);
+                ui.Toast($"この{collectibles.Area.DisplayName}の{collectibles.Area.DropName}を、ぜんぶ集めた！", "icon-drop", 4f);
+                AudioManager.Instance?.Unlock();
+            }
             ui.RefreshCounts();
             CheckProgress();
         }
@@ -341,13 +655,29 @@ namespace Shakutori
         {
             AudioManager.Instance?.Discover();
             ui.ShowBanner(lm);
+            fx.Burst(worm.HeadPosition + Vector3.up * 0.4f, 50);
+            if (collectibles.DiscoveredPlaces == collectibles.TotalPlaces)
+                ui.Toast($"{collectibles.Area.DisplayName}の名所を、ぜんぶ見つけた！", "icon-place", 4f);
             CheckProgress();
         }
 
         void OnCreature(SpeciesDef sp)
         {
-            AudioManager.Instance?.Creature();
+            if (sp.IsRare) AudioManager.Instance?.Rare();
+            else AudioManager.Instance?.Creature();
+            if (SaveSystem.Settings.vibration) ShakuVibrate(sp.IsRare ? 120 : 30);
+            if (sp.IsRare) Rumble(0.5f, 0.3f);
             ui.ShowCreature(sp);
+            // 図鑑がうまった（レアはべつ）
+            var tips = SaveSystem.Data.tipsShown;
+            if (!sp.IsRare && Creatures.DiscoveredCount >= SpeciesCatalog.Count && !tips.Contains("zukan-complete"))
+            {
+                tips.Add("zukan-complete");
+                AudioManager.Instance?.Complete();
+                fx.Burst(worm.CenterPosition + Vector3.up * 0.5f, 150);
+                ui.Toast($"いきもの図鑑の {SpeciesCatalog.Count} 種が、ぜんぶうまった！", "icon-book", 5f);
+            }
+            SaveProgress();
             CheckProgress();
         }
 

@@ -57,6 +57,14 @@ namespace Shakutori
             return null;
         }
 
+        /// <summary>なければ null（警告を出さない）。</summary>
+        public Mesh TryGet(string meshName)
+        {
+            foreach (var m in meshes)
+                if (m.name == meshName) return m.mesh;
+            return null;
+        }
+
         public Mesh Get(string meshName)
         {
             if (_lookup == null || _lookup.Count != meshes.Count)

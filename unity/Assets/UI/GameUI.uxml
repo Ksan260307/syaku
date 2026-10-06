@@ -57,13 +57,24 @@
                 <ui:VisualElement class="banner-deco banner-deco-bottom" picking-mode="Ignore" />
             </ui:VisualElement>
 
-            <ui:VisualElement name="creature-card" class="creature-card" picking-mode="Ignore">
+            <ui:VisualElement name="reticle" class="reticle hidden" picking-mode="Ignore">
+                <ui:VisualElement class="reticle-ring" picking-mode="Ignore" />
+                <ui:VisualElement class="reticle-dot" picking-mode="Ignore" />
+                <ui:Label name="reticle-text" text="" class="reticle-text" picking-mode="Ignore" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="save-indicator" class="save-indicator" picking-mode="Ignore">
+                <ui:VisualElement class="save-leaf" picking-mode="Ignore" />
+                <ui:Label text="オートセーブ" class="save-text" picking-mode="Ignore" />
+            </ui:VisualElement>
+
+            <ui:VisualElement name="creature-card" class="creature-card">
                 <ui:VisualElement name="creature-card-img" class="creature-card-img" picking-mode="Ignore" />
                 <ui:VisualElement class="creature-card-text" picking-mode="Ignore">
-                    <ui:Label text="いきものを見つけた！" class="creature-card-sub" picking-mode="Ignore" />
+                    <ui:Label name="creature-card-sub" text="いきものを見つけた！" class="creature-card-sub" picking-mode="Ignore" />
                     <ui:Label name="creature-card-name" text="" class="creature-card-name" picking-mode="Ignore" />
                     <ui:Label name="creature-card-desc" text="" class="creature-card-desc" picking-mode="Ignore" />
-                    <ui:Label text="図鑑に登録しました" class="creature-card-note" picking-mode="Ignore" />
+                    <ui:Label text="図鑑に登録しました（タップで図鑑）" class="creature-card-note" picking-mode="Ignore" />
                 </ui:VisualElement>
             </ui:VisualElement>
 
@@ -86,11 +97,14 @@
                     <ui:VisualElement name="btn-dash" class="touch-button">
                         <ui:Label text="はやく" class="touch-label" picking-mode="Ignore" />
                     </ui:VisualElement>
+                    <ui:VisualElement name="btn-aim" class="touch-button">
+                        <ui:Label text="ねらう" class="touch-label" picking-mode="Ignore" />
+                    </ui:VisualElement>
                     <ui:VisualElement name="btn-stand" class="touch-button">
                         <ui:Label text="背伸び" class="touch-label" picking-mode="Ignore" />
                     </ui:VisualElement>
                     <ui:VisualElement name="btn-silk" class="touch-button touch-button-big">
-                        <ui:Label text="糸" class="touch-label touch-label-big" picking-mode="Ignore" />
+                        <ui:Label name="btn-silk-label" text="糸" class="touch-label touch-label-big" picking-mode="Ignore" />
                     </ui:VisualElement>
                 </ui:VisualElement>
             </ui:VisualElement>
@@ -106,10 +120,13 @@
                     <ui:Button name="btn-continue" text="つづきから" class="btn btn-primary btn-large" />
                     <ui:Button name="btn-new" text="はじめる" class="btn btn-large" />
                     <ui:Button name="btn-howto" text="あそびかた" class="btn" />
+                    <ui:Button name="btn-credits" text="クレジット" class="btn btn-small-title" />
                 </ui:VisualElement>
+                <ui:Label name="title-progress" text="" class="title-progress" picking-mode="Ignore" />
             </ui:VisualElement>
             <ui:Label text="小さなしゃくとりむしになって、森と川辺をのんびり探検しよう。" class="title-hint" picking-mode="Ignore" />
             <ui:Label text="キーボード＆マウス / ゲームパッド / スマホ・タブレット 対応" class="title-hint title-hint-small" picking-mode="Ignore" />
+            <ui:Label name="version" text="" class="version" picking-mode="Ignore" />
         </ui:VisualElement>
 
         <!-- ===== 地図 ===== -->
@@ -168,23 +185,47 @@
         <ui:VisualElement name="pause-overlay" class="overlay hidden">
             <ui:VisualElement class="window pause-window">
                 <ui:Label text="メニュー" class="window-title" picking-mode="Ignore" />
+                <ui:Label name="pause-summary" text="" class="pause-summary" picking-mode="Ignore" />
                 <ui:Button name="resume" text="つづける" class="btn btn-primary" />
                 <ui:VisualElement class="row-buttons">
                     <ui:Button name="pause-howto" text="あそびかた" class="btn btn-small" />
                     <ui:Button name="pause-collection" text="図鑑・きせかえ" class="btn btn-small" />
+                    <ui:Button name="save-now" text="いますぐセーブ" class="btn btn-small" />
                 </ui:VisualElement>
-                <ui:VisualElement class="settings">
+                <ui:ScrollView name="settings-scroll" class="settings">
+                    <ui:Label text="カメラと操作" class="settings-head" picking-mode="Ignore" />
                     <ui:Slider name="set-sens" label="カメラ感度" low-value="0.3" high-value="2.5" value="1" />
+                    <ui:Slider name="set-fov" label="見える広さ" low-value="40" high-value="70" value="50" />
                     <ui:Toggle name="set-invert" label="カメラの上下を反転" />
+                    <ui:Toggle name="set-invertx" label="カメラの左右を反転" />
+                    <ui:Toggle name="set-autocam" label="カメラが自動で後ろへ回る" />
+                    <ui:Toggle name="set-minimap" label="ミニマップを回転させる" />
+                    <ui:Toggle name="set-sprinttoggle" label="「はやく」を押すたびに切りかえる" />
+                    <ui:Toggle name="set-aimtoggle" label="「ねらう」を押すたびに切りかえる" />
+                    <ui:Toggle name="set-help" label="操作説明を表示する" />
+                    <ui:Label text="音" class="settings-head" picking-mode="Ignore" />
                     <ui:Slider name="set-music" label="BGM の音量" low-value="0" high-value="1" value="0.55" />
-                    <ui:Slider name="set-sfx" label="効果音・環境音" low-value="0" high-value="1" value="0.8" />
+                    <ui:Slider name="set-sfx" label="効果音の音量" low-value="0" high-value="1" value="0.8" />
+                    <ui:Slider name="set-ambience" label="環境音の音量" low-value="0" high-value="1" value="0.8" />
+                    <ui:Label text="表示と保存" class="settings-head" picking-mode="Ignore" />
                     <ui:VisualElement class="quality-row">
                         <ui:Label text="画質" class="quality-label" picking-mode="Ignore" />
                         <ui:Button name="q-low" text="かるい" class="chip" />
                         <ui:Button name="q-high" text="きれい" class="chip" />
                     </ui:VisualElement>
-                </ui:VisualElement>
+                    <ui:VisualElement class="quality-row">
+                        <ui:Label text="文字の大きさ" class="quality-label" picking-mode="Ignore" />
+                        <ui:Button name="t-normal" text="ふつう" class="chip" />
+                        <ui:Button name="t-large" text="大きい" class="chip" />
+                    </ui:VisualElement>
+                    <ui:Toggle name="set-autosave" label="オートセーブ" />
+                    <ui:Toggle name="set-motion" label="画面のゆれをへらす" />
+                    <ui:Toggle name="set-vibrate" label="スマホをふるわせる" />
+                    <ui:Button name="reset-settings" text="設定を最初にもどす" class="btn btn-small" />
+                </ui:ScrollView>
                 <ui:VisualElement class="row-buttons">
+                    <ui:Button name="rescue" text="動けなくなったら" class="btn btn-small" />
+                    <ui:Button name="photo" text="写真モード" class="btn btn-small" />
                     <ui:Button name="fullscreen" text="全画面" class="btn btn-small" />
                     <ui:Button name="to-title" text="タイトルへ" class="btn btn-small" />
                     <ui:Button name="reset" text="最初からやり直す" class="btn btn-small btn-danger" />
@@ -214,6 +255,17 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
+        <!-- ===== クレジット ===== -->
+        <ui:VisualElement name="credits-overlay" class="overlay hidden">
+            <ui:VisualElement class="window credits-window">
+                <ui:Label text="クレジット" class="window-title" picking-mode="Ignore" />
+                <ui:Label name="credits-text" text="" class="credits-text" picking-mode="Ignore" />
+                <ui:Button name="credits-close" text="とじる" class="btn btn-primary" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:Label name="photo-hint" text="写真モード（F2 / 画面をタップでもどる）" class="photo-hint hidden" picking-mode="Ignore" />
+
         <!-- ===== クリア ===== -->
         <ui:VisualElement name="complete-overlay" class="overlay hidden">
             <ui:VisualElement class="window complete-window">
@@ -233,6 +285,7 @@
                 <ui:VisualElement name="loading-fill" class="loading-fill" picking-mode="Ignore" />
             </ui:VisualElement>
             <ui:Label name="loading-text" text="森を準備しています" class="loading-text" picking-mode="Ignore" />
+            <ui:Label name="loading-tip" text="" class="loading-tip" picking-mode="Ignore" />
         </ui:VisualElement>
 
         <ui:VisualElement name="fade" class="fade" picking-mode="Ignore" />
