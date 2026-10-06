@@ -1,0 +1,40 @@
+# Unity
+unity/[Ll]ibrary/
+unity/[Tt]emp/
+unity/[Oo]bj/
+unity/[Bb]uild/
+unity/[Bb]uilds/
+unity/[Ll]ogs/
+unity/[Uu]ser[Ss]ettings/
+unity/[Mm]emoryCaptures/
+unity/[Rr]ecordings/
+unity/.vs/
+unity/.idea/
+unity/*.csproj
+unity/*.sln
+unity/*.slnx
+unity/*.suo
+unity/*.user
+unity/*.pidb
+unity/*.booproj
+unity/*.svd
+unity/*.pdb
+unity/*.mdb
+unity/*.opendb
+unity/*.VC.db
+unity/Assets/Plugins/Editor/JetBrains*
+unity/Assets/AssetStoreTools*
+unity/sysinfo.txt
+unity/crashlytics-build.properties
+
+# Blender
+*.blend1
+blender/previews/
+
+# Local build output (CI 用の公開ビルドは docs/ ではなく artifacts で配信)
+/WebGLBuild/
+/build-tmp/
+
+# OS
+.DS_Store
+Thumbs.db
