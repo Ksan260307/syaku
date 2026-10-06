@@ -48,6 +48,8 @@ namespace Shakutori
         public float RearAmount => _rear;
         public Vector3 TailPoint => _tail.point;
         public Vector3 HeadPoint => _head.point;
+        /// <summary>葉っぱの舟など、動く足場に乗っているか。</summary>
+        public bool OnMovingPlatform => _tail.platform != null || _head.platform != null;
 
         public event Action<Vector3, bool> Stepped;   // 位置, 頭か
         public event Action SilkStarted;
@@ -94,8 +96,9 @@ namespace Shakutori
         public void Spawn(Vector3 point, Vector3 forward)
         {
             Vector3 n = Vector3.up;
-            if (SurfaceProbe.Snap(point + Vector3.up * 0.5f, Vector3.up, 3f, out var sp)) { point = sp.point; n = sp.normal; }
-            _tail = new SurfacePoint(point, n);
+            bool snapped = SurfaceProbe.Snap(point + Vector3.up * 0.5f, Vector3.up, 3f, out var sp);
+            if (snapped) { point = sp.point; n = sp.normal; }
+            _tail = snapped ? sp : new SurfacePoint(point, n);   // 舟の上なら舟といっしょに動く
             if (SurfaceProbe.Walk(_tail, forward, extendRatio * L, out var h, out _)) _head = h;
             else _head = new SurfacePoint(point + forward.normalized * extendRatio * L, n);
             State = Mode.Idle;
@@ -111,8 +114,8 @@ namespace Shakutori
 
         public void Spawn(Vector3 tailPoint, Vector3 tailNormal, Vector3 headPoint, Vector3 headNormal)
         {
-            _tail = new SurfacePoint(tailPoint, tailNormal);
-            _head = new SurfacePoint(headPoint, headNormal);
+            _tail = AttachToPlatform(tailPoint, tailNormal);
+            _head = AttachToPlatform(headPoint, headNormal);
             State = Mode.Idle;
             _rear = 0f;
             _blendT = 1f;
@@ -121,6 +124,13 @@ namespace Shakutori
             _curve.CopyFrom(_target);
             body.Apply(_curve);
             MarkSafe();
+        }
+
+        /// <summary>その点の下が動く足場なら、足場に乗った点として返す（位置はそのまま）。</summary>
+        static SurfacePoint AttachToPlatform(Vector3 p, Vector3 n)
+        {
+            if (SurfaceProbe.Snap(p + n * 0.1f, n, 0.3f, out var sp) && sp.platform != null) return sp;
+            return new SurfacePoint(p, n);
         }
 
         public void GetSaveState(out Vector3 tail, out Vector3 tailN, out Vector3 head, out Vector3 headN)
@@ -171,6 +181,11 @@ namespace Shakutori
             float dt = Time.deltaTime;
             if (dt <= 0f) return;
             _swayPhase += dt;
+            // 動く足場（葉っぱの舟）に乗っていれば一緒に動く
+            _tail = _tail.Updated();
+            _head = _head.Updated();
+            _from = _from.Updated();
+            _to = _to.Updated();
 
             Vector3 avgN = (_tail.normal + _head.normal).normalized;
             if (avgN.sqrMagnitude < 0.5f) avgN = _tail.normal;
@@ -451,7 +466,7 @@ namespace Shakutori
             if (!SurfaceProbe.Raycast(probe, Vector3.down, 1.6f, out _))
             {
                 // ある程度下に地面があること（世界の外へ落ちない）
-                if (SurfaceProbe.GroundBelow(probe, 200f, out var g) && !ForestLayout.IsUnderwater(g.point))
+                if (SurfaceProbe.GroundBelow(probe, 200f, out var g) && !Areas.Current.IsUnderwater(g.point))
                     CanDropSilk = true;
             }
         }
@@ -516,21 +531,22 @@ namespace Shakutori
             if (_blendT >= 1f && SurfaceProbe.Raycast(_hangPos, Vector3.down, L * 0.95f, out var ground))
             {
                 Vector3 gn = SurfaceProbe.SmoothNormal(ground);
-                if (gn.y > 0.35f && !ForestLayout.IsUnderwater(ground.point)) Land(ground.point, gn);
-                else if (ForestLayout.IsUnderwater(ground.point) && _silkLen > 0.5f)
+                if (gn.y > 0.35f && !Areas.Current.IsUnderwater(ground.point)) Land(SurfacePoint.On(ground.point, gn, ground.collider));
+                else if (Areas.Current.IsUnderwater(ground.point) && _silkLen > 0.5f)
                 {
                     // 水には入れないので、それ以上は下りない
                     _silkLen = Mathf.Min(_silkLen, Vector3.Distance(_silkAnchor, _hangPos));
                 }
             }
             // 水面より下には行かせない
-            if (ForestLayout.IsUnderwater(_hangPos - Vector3.up * L * 0.9f))
+            if (Areas.Current.IsUnderwater(_hangPos - Vector3.up * L * 0.9f))
                 _silkLen = Mathf.Max(0.3f, _silkLen - (sprint ? silkFastSpeed : silkDescendSpeed) * dt);
         }
 
-        void Land(Vector3 point, Vector3 normal)
+        void Land(SurfacePoint tail)
         {
-            var tail = new SurfacePoint(point, normal);
+            Vector3 point = tail.point;
+            Vector3 normal = tail.normal;
             Vector3 f = ShakuMath.ProjectOnPlaneSafe(_hangFacing, normal, ShakuMath.AnyPerpendicular(normal));
             BeginTransition(0.5f);
             _tail = tail;

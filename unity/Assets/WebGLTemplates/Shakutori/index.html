@@ -3,9 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes">
-  <meta name="description" content="小さなしゃくとりむしになって、アニメ調の森をのんびり探検する 3D オープンワールド。">
+  <meta name="description" content="小さなしゃくとりむしになって、アニメ調の森と川辺をのんびり探検する 3D オープンワールド。スマホ・タブレットでも遊べます。">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta property="og:title" content="しゃくとりの森 — Inchworm Forest">
-  <meta property="og:description" content="小さなしゃくとりむしになって、森をのんびり探検しよう。">
+  <meta property="og:description" content="小さなしゃくとりむしになって、森と川辺をのんびり探検しよう。">
   <meta property="og:image" content="icon.png">
   <meta name="theme-color" content="#263a28">
   <title>しゃくとりの森 — Inchworm Forest</title>
@@ -18,6 +21,8 @@
       overscroll-behavior: none;
       font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
       -webkit-user-select: none; user-select: none;
+      -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+      touch-action: none;
     }
     #unity-canvas {
       position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh;
@@ -58,6 +63,9 @@
       "高い所からは、糸を出してゆっくり下りられます",
       "E キーを長押しすると、背伸びしてあたりを見わたせます",
       "森のどこかに 45 個の「森のしずく」がかくれています",
+      "森の東のはしの、木の根のトンネルを抜けると川辺に出られます",
+      "いきものに近づくと、図鑑に登録されます",
+      "スマホでは、画面の左側に指を置くとスティックが出ます",
     ];
     let tipIndex = 0;
     const tipEl = document.getElementById("tip");
@@ -99,8 +107,22 @@
       autoSyncPersistentDataPath: true,
     };
 
-    const mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    // iPadOS の Safari は Mac と名乗るので、タッチ点の数でも判定する
+    const mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1;
     config.devicePixelRatio = Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2);
+
+    // iOS のピンチ・ダブルタップ拡大やスクロールでページが動かないようにする
+    const stop = (e) => e.preventDefault();
+    document.addEventListener("gesturestart", stop, { passive: false });
+    document.addEventListener("gesturechange", stop, { passive: false });
+    document.addEventListener("dblclick", stop, { passive: false });
+    document.addEventListener("touchmove", (e) => { if (e.touches.length > 1 || e.target === canvas) e.preventDefault(); }, { passive: false });
+    let lastTouchEnd = 0;
+    document.addEventListener("touchend", (e) => {
+      const now = Date.now();
+      if (now - lastTouchEnd < 320) e.preventDefault();
+      lastTouchEnd = now;
+    }, { passive: false });
 
     const script = document.createElement("script");
     script.src = loaderUrl;

@@ -50,3 +50,6 @@ unity/Assets/StreamingAssets.meta
 
 # ローカル開発用
 .claude/
+
+# Unity Test Runner の一時シーン
+unity/Assets/InitTestScene*

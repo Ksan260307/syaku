@@ -97,11 +97,42 @@ class AudioTests(unittest.TestCase):
 
     def test_generated_audio_assets_exist(self):
         d = os.path.join(ROOT, "unity", "Assets", "Audio")
-        for n in ["music_forest", "ambience_forest", "step_1", "step_2", "step_3", "collect", "discover", "click", "silk", "land", "complete"]:
+        for n in ["music_forest", "ambience_forest", "step_1", "step_2", "step_3", "collect", "discover", "click", "silk", "land", "complete",
+                  "ambience_river", "creature", "travel", "unlock", "caw"]:
             p = os.path.join(d, n + ".wav")
             self.assertTrue(os.path.isfile(p), p)
             with wave.open(p) as w:
                 self.assertGreater(w.getnframes(), 1000)
+
+
+    def test_bubble_rises_in_pitch(self):
+        b = audio.bubble(500.0, 0.04)
+        self.assertEqual(len(b), int(0.04 * audio.SR))
+        half = len(b) // 2
+        # 後半のほうがゼロ交差が多い（音程が上がる）
+        zc = lambda x: int(np.sum(np.abs(np.diff(np.sign(x))) > 0))
+        self.assertGreater(zc(b[half:]), zc(b[:half]))
+        self.assertLess(abs(b[-1]), 0.2, "減衰して終わる")
+
+    def test_crow_caw_is_a_harsh_mid_voice(self):
+        c = audio.crow_caw(0.36, 560.0)
+        spec = np.abs(np.fft.rfft(c))
+        f = np.fft.rfftfreq(len(c), 1 / audio.SR)
+        centroid = float(np.sum(f * spec) / np.sum(spec))
+        self.assertGreater(centroid, 700.0)
+        self.assertLess(centroid, 3500.0)
+        self.assertLess(abs(c[0]), 0.05, "立ち上がりはなめらか")
+
+    def test_river_ambience_loops_seamlessly(self):
+        p = os.path.join(ROOT, "unity", "Assets", "Audio", "ambience_river.wav")
+        with wave.open(p) as w:
+            self.assertEqual(w.getnchannels(), 2)
+            n = w.getnframes()
+            self.assertGreater(n / w.getframerate(), 30.0)
+            x = np.frombuffer(w.readframes(n), dtype=np.int16).reshape(-1, 2).astype(np.float64) / 32767
+        jump = np.abs(x[0] - x[-1]).max()
+        typical = np.abs(np.diff(x[:, 0])).mean() * 6 + 0.05
+        self.assertLess(jump, typical + 0.15, "ループのつなぎ目で音がとばない")
 
 
 class IconTests(unittest.TestCase):
@@ -117,10 +148,12 @@ class IconTests(unittest.TestCase):
         try:
             icons.OUT = tmp
             with redirect_stdout(io.StringIO()):
-                for fn in (icons.icon_drop, icons.icon_place, icons.icon_unknown, icons.icon_player, icons.icon_menu, icons.icon_map, icons.banner_deco):
+                for fn in (icons.icon_drop, icons.icon_place, icons.icon_unknown, icons.icon_player, icons.icon_menu, icons.icon_map, icons.banner_deco,
+                           icons.icon_bug, icons.icon_book, icons.icon_fullscreen, icons.icon_lock, icons.icon_gate):
                     fn()
             from PIL import Image
-            for n in ["icon_drop.png", "icon_place.png", "icon_unknown.png", "icon_player.png", "icon_menu.png", "icon_map.png", "banner_deco.png"]:
+            for n in ["icon_drop.png", "icon_place.png", "icon_unknown.png", "icon_player.png", "icon_menu.png", "icon_map.png", "banner_deco.png",
+                      "icon_bug.png", "icon_book.png", "icon_fullscreen.png", "icon_lock.png", "icon_gate.png"]:
                 im = Image.open(os.path.join(tmp, n))
                 self.assertEqual(im.mode, "RGBA")
                 alpha = np.array(im)[:, :, 3]

@@ -1,0 +1,135 @@
+"""
+いきもの・川辺アセット生成スクリプトのテスト（Blender の中で実行する）。
+  blender -b --factory-startup --python blender/tests/test_creatures_kit.py
+失敗すると終了コード 1 を返す。
+"""
+import os
+import sys
+import tempfile
+import unittest
+
+import bpy
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
+import build_forest_kit as kit  # noqa: E402
+import build_creatures as cr  # noqa: E402
+
+
+def reset():
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    kit.VC_MATERIAL = None
+
+
+def size(ob):
+    xs = [v.co.x for v in ob.data.vertices]
+    ys = [v.co.y for v in ob.data.vertices]
+    zs = [v.co.z for v in ob.data.vertices]
+    return max(xs) - min(xs), max(ys) - min(ys), max(zs) - min(zs)
+
+
+def zmin(ob):
+    return min(v.co.z for v in ob.data.vertices)
+
+
+MAKERS = {
+    "Ladybug": cr.make_ladybug,
+    "Snail": cr.make_snail,
+    "Ant": cr.make_ant,
+    "PillBug": cr.make_pillbug,
+    "Butterfly_Body": cr.make_butterfly_body,
+    "Butterfly_Wing": cr.make_butterfly_wing,
+    "Beetle": cr.make_beetle,
+    "WaterStrider": cr.make_water_strider,
+    "Dragonfly_Body": cr.make_dragonfly_body,
+    "Dragonfly_Wing": cr.make_dragonfly_wing,
+    "Frog": cr.make_frog,
+    "Crab": cr.make_crab,
+    "RiverSnail": cr.make_river_snail,
+    "Firefly_Body": cr.make_firefly_body,
+    "Firefly_Glow": cr.make_firefly_glow,
+    "Grasshopper": cr.make_grasshopper,
+    "Otoshibumi": cr.make_otoshibumi,
+    "Cradle": cr.make_cradle,
+    "AntHill": cr.make_anthill,
+    "Sparrow_Body": lambda: cr.make_bird_body("Sparrow_Body", 5.5, False),
+    "Sparrow_Wing": lambda: cr.make_bird_wing("Sparrow_Wing", 5.5, False),
+    "Crow_Body": lambda: cr.make_bird_body("Crow_Body", 18.0, True),
+    "Crow_Wing": lambda: cr.make_bird_wing("Crow_Wing", 18.0, True),
+    "RiverStone_A": lambda: cr.make_river_stone("RiverStone_A", 1, (1.6, 1.2, 0.55), (kit.hexc("#8d96a3"), kit.hexc("#b7b2a5"))),
+    "Horsetail": cr.make_horsetail,
+    "Iris": cr.make_iris,
+    "RootArch": cr.make_root_arch,
+}
+
+
+class CreatureKitTests(unittest.TestCase):
+    def setUp(self):
+        reset()
+
+    def test_every_asset_builds_with_vertex_colors(self):
+        for name, mk in MAKERS.items():
+            ob = mk()
+            self.assertEqual(ob.name, name)
+            self.assertGreater(len(ob.data.vertices), 20, name)
+            self.assertGreater(len(ob.data.polygons), 10, name)
+            col = ob.data.color_attributes.get("Col")
+            self.assertIsNotNone(col, f"{name} に頂点カラーがない")
+            self.assertEqual(len(col.data), len(ob.data.loops), name)
+
+    def test_portrait_list_covers_16_species(self):
+        ids = [c[0] for c in cr.CREATURES]
+        self.assertEqual(len(ids), 16)
+        self.assertEqual(len(set(ids)), 16)
+        for need in ("ant", "snail", "butterfly", "otoshibumi", "grasshopper", "frog", "sparrow", "crow", "ladybug"):
+            self.assertIn(need, ids)
+
+    def test_sizes_match_the_inchworm_scale(self):
+        # しゃくとりむしの体長 = 1。アリは小さく、カラスはとても大きい
+        ant = max(size(cr.make_ant()))
+        sparrow = max(size(cr.make_bird_body("Sparrow_Body", 5.5, False)))
+        crow = max(size(cr.make_bird_body("Crow_Body", 18.0, True)))
+        self.assertLess(ant, 1.0)
+        self.assertGreater(sparrow, 3.0)
+        self.assertGreater(crow, sparrow * 2.5)
+
+    def test_creatures_stand_on_the_ground(self):
+        # 足もと（z の最小）がほぼ 0：地面に置いたときに浮いたり沈んだりしない
+        for name in ("Ant", "Ladybug", "Frog", "Crab", "Grasshopper", "Sparrow_Body"):
+            ob = MAKERS[name]()
+            self.assertAlmostEqual(zmin(ob), 0.0, delta=0.15 * max(size(ob)), msg=name)
+
+    def test_wings_are_thin(self):
+        for name in ("Butterfly_Wing", "Dragonfly_Wing", "Sparrow_Wing", "Crow_Wing"):
+            ob = MAKERS[name]()
+            s = sorted(size(ob))
+            self.assertLess(s[0], s[2] * 0.35, f"{name} が厚すぎる")
+
+    def test_river_stone_is_flat_and_root_arch_is_open(self):
+        st = MAKERS["RiverStone_A"]()
+        sx, sy, sz = size(st)
+        self.assertLess(sz, min(sx, sy) * 0.6, "川石は平たい")
+        arch = cr.make_root_arch()
+        ax, ay, az = size(arch)
+        self.assertGreater(az, 3.0, "しゃくとりむしがくぐれる高さ")
+        # 根のアーチの真ん中・下のほうには何もない（くぐれる）
+        hole = [v for v in arch.data.vertices if abs(v.co.x) < 1.0 and 0.2 < v.co.z < 1.8 and abs(v.co.y) < 1.0]
+        self.assertEqual(len(hole), 0)
+
+    def test_export_writes_fbx(self):
+        tmp = tempfile.mkdtemp()
+        ob = cr.make_ladybug()
+        kit.export_fbx(ob, tmp)
+        p = os.path.join(tmp, "Ladybug.fbx")
+        self.assertTrue(os.path.isfile(p))
+        self.assertGreater(os.path.getsize(p), 2000)
+
+
+def main():
+    suite = unittest.defaultTestLoader.loadTestsFromTestCase(CreatureKitTests)
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    sys.exit(0 if result.wasSuccessful() else 1)
+
+
+if __name__ == "__main__":
+    main()

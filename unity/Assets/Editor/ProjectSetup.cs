@@ -241,7 +241,7 @@ namespace Shakutori.EditorTools
                 return new Color(val, val, val, 1f);
             }, false, TextureWrapMode.Repeat);
 
-            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/UI/Icons" }))
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/UI/Icons", "Assets/UI/Creatures" }))
             {
                 string p = AssetDatabase.GUIDToAssetPath(guid);
                 var imp = (TextureImporter)AssetImporter.GetAtPath(p);
@@ -402,6 +402,37 @@ namespace Shakutori.EditorTools
                 m.SetFloat("_SpecularSize", 0.045f);
                 m.SetColor("_ShadowTint", new Color(0.7f, 0.78f, 0.95f));
                 m.SetFloat("_ShadowBrightness", 1.1f);
+                Keyword(m, "_HUE_SHIFT", "_HueShiftOn", true);   // きせかえ
+                m.SetFloat("_HueShift", 0f);
+                m.SetFloat("_SatMul", 1f);
+                m.SetFloat("_ValMul", 1f);
+            });
+            assets.river = Mat("M_River", "Shakutori/ToonRiver", m => { });
+            assets.waterfall = Mat("M_Waterfall", "Shakutori/Waterfall", m => { });
+            assets.creature = Mat("M_Creature", "Shakutori/ToonLit", m =>
+            {
+                m.SetFloat("_OutlineWidth", 0.4f);
+                m.SetFloat("_OutlineSmoothNormals", 0f);
+                m.SetFloat("_RimStrength", 0.45f);
+                m.SetFloat("_SpecularStrength", 0.5f);
+                m.SetFloat("_SpecularSize", 0.04f);
+                m.SetFloat("_ShadowBrightness", 1.1f);
+            });
+            assets.creatureWing = Mat("M_CreatureWing", "Shakutori/ToonLit", m =>
+            {
+                m.SetFloat("_Cull", 0f);   // 羽は両面
+                m.SetFloat("_OutlineWidth", 0f);
+                m.SetFloat("_RimStrength", 0.6f);
+                m.SetFloat("_ShadowBrightness", 1.2f);
+                m.SetShaderPassEnabled("SRPDefaultUnlit", false);
+            });
+            assets.creatureGlow = Mat("M_CreatureGlow", "Shakutori/ToonLit", m =>
+            {
+                m.SetFloat("_OutlineWidth", 0f);
+                m.SetColor("_EmissionColor", new Color(1.2f, 1.5f, 0.35f) * 2.2f);
+                m.SetFloat("_RimStrength", 0f);
+                m.SetFloat("_ShadowBrightness", 1.4f);
+                m.SetShaderPassEnabled("SRPDefaultUnlit", false);
             });
             Mat("M_Sky", "Shakutori/ForestSky", m => { });
             assets.sunCookie = tex.cookie;
@@ -415,6 +446,14 @@ namespace Shakutori.EditorTools
                 assets.meshes.Add(new WorldAssets.NamedMesh { name = Path.GetFileNameWithoutExtension(p), mesh = mesh });
                 var b = mesh.bounds;
                 Debug.Log($"[Setup] mesh {Path.GetFileNameWithoutExtension(p)} verts={mesh.vertexCount} bounds center={b.center} size={b.size}");
+            }
+            // いきもの図鑑の絵（Blender で描き出したもの）
+            assets.portraits.Clear();
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/UI/Creatures" }))
+            {
+                string p = AssetDatabase.GUIDToAssetPath(guid);
+                var t = AssetDatabase.LoadAssetAtPath<Texture2D>(p);
+                if (t != null) assets.portraits.Add(new WorldAssets.NamedTexture { name = Path.GetFileNameWithoutExtension(p), texture = t });
             }
             EditorUtility.SetDirty(assets);
             return assets;
@@ -586,6 +625,13 @@ namespace Shakutori.EditorTools
             audio.silk = Clip("silk");
             audio.land = Clip("land");
             audio.complete = Clip("complete");
+            audio.riverAmbience = Clip("ambience_river");
+            audio.creature = Clip("creature");
+            audio.travel = Clip("travel");
+            audio.unlock = Clip("unlock");
+            audio.caw = Clip("caw");
+            var creatures = game.AddComponent<Creatures>();
+            creatures.assets = assets;
 
             // UI
             var uiGo = new GameObject("UI");
@@ -606,6 +652,7 @@ namespace Shakutori.EditorTools
             gm.followCamera = follow;
             gm.ui = gui;
             gm.collectibles = col;
+            gm.creatures = creatures;
             gm.fx = fx;
             gm.postVolume = vol;
 

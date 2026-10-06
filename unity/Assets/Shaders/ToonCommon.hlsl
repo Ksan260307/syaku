@@ -40,6 +40,23 @@ float3 ShakuApplyWind(float3 positionWS, float weight, float strength, float pha
     return positionWS + offset;
 }
 
+// 色相・彩度・明度をずらす（しゃくとりむしのきせかえ用）
+half3 ShakuHueShift(half3 c, half hueDeg, half sat, half val)
+{
+    float4 K = float4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    float4 p = lerp(float4(c.bg, K.wz), float4(c.gb, K.xy), step(c.b, c.g));
+    float4 q = lerp(float4(p.xyw, c.r), float4(c.r, p.yzx), step(p.x, c.r));
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-6;
+    float3 hsv = float3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+    hsv.x = frac(hsv.x + hueDeg / 360.0);
+    hsv.y = saturate(hsv.y * sat);
+    hsv.z *= val;
+    float4 K2 = float4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    float3 pp = abs(frac(hsv.xxx + K2.xyz) * 6.0 - K2.www);
+    return hsv.z * lerp(K2.xxx, saturate(pp - K2.xxx), hsv.y);
+}
+
 float ShakuObjectPhase()
 {
     float3 o = GetObjectToWorldMatrix()._m03_m13_m23;

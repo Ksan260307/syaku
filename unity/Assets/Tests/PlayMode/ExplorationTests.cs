@@ -125,7 +125,9 @@ namespace Shakutori.Tests
             foreach (var lm in ForestLayout.Landmarks) Col.Discover(lm);
             Assert.AreEqual(Col.TotalPlaces, Col.DiscoveredPlaces);
             yield return WaitUntil(() => UI.IsCompleteOpen, 6f, "クリア画面");
-            Assert.IsTrue(SaveSystem.Data.completed);
+            CollectionAssert.Contains(SaveSystem.Data.completedAreas, "forest", "森をめぐり終えた");
+            Assert.IsFalse(SaveSystem.Data.completed, "川辺といきものが残っているので、ぜんぶのクリアではない");
+            Assert.AreEqual("森をめぐり終えました！", UI.Root.Q<Label>("complete-title").text);
             StringAssert.Contains("45", UI.Root.Q<Label>("complete-text").text);
         }
     }

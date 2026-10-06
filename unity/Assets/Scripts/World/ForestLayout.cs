@@ -7,6 +7,7 @@ namespace Shakutori
     public class LandmarkDef
     {
         public int id;
+        public string areaId = "forest";
         public string name;
         public string english;
         public string description;
@@ -43,6 +44,8 @@ namespace Shakutori
         public static readonly Vector2 Meadow = new Vector2(34f, 38f);
         public static readonly Vector2 AcornPlaza = new Vector2(-38f, -32f);
         public static readonly Vector2 MossHill = new Vector2(-22f, 20f);
+        /// <summary>川辺へ続く木の根のトンネル（森の東の端）</summary>
+        public static readonly Vector2 Gate = new Vector2(58.5f, -15f);
 
         static List<LandmarkDef> _landmarks;
         static List<Vector2[]> _trails;
@@ -104,6 +107,7 @@ namespace Shakutori
                         new[] { new Vector2(-2, -4), new Vector2(-16, -14), new Vector2(-30, -26) },
                         new[] { new Vector2(-3, 1), new Vector2(-14, 6), new Vector2(-24, 4), new Vector2(-33, -1) },
                         new[] { new Vector2(-1, 26), new Vector2(-10, 36), new Vector2(-18, 46) },
+                        new[] { new Vector2(16, -18), new Vector2(32, -17), new Vector2(46, -14), new Vector2(55, -15) },
                     };
                 }
                 return _trails;
@@ -195,6 +199,12 @@ namespace Shakutori
                     best = Mathf.Min(best, ShakuMath.DistToSegment(p, t[i], t[i + 1]));
             float wob = (Mathf.PerlinNoise(x * 0.3f + 40f, z * 0.3f) - 0.5f) * 0.9f;
             return ShakuMath.SmoothStep(2.1f, 0.9f, best + wob);
+        }
+
+        /// <summary>その場所の水面の高さ（水がなければ十分に低い値）。</summary>
+        public static float WaterLevelAt(float x, float z)
+        {
+            return Vector2.Distance(new Vector2(x, z), Pond) < PondRadius * 1.25f ? WaterLevel : -999f;
         }
 
         public static bool IsUnderwater(Vector3 p)

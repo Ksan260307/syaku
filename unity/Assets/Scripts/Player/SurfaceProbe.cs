@@ -7,11 +7,44 @@ namespace Shakutori
     {
         public Vector3 point;
         public Vector3 normal;
+        public Transform platform;     // 動く足場に乗っているとき
+        public Vector3 localPoint;
+        public Vector3 localNormal;
 
         public SurfacePoint(Vector3 p, Vector3 n)
         {
             point = p;
             normal = n;
+            platform = null;
+            localPoint = Vector3.zero;
+            localNormal = Vector3.up;
+        }
+
+        /// <summary>当たった物が動く足場なら、その上の相対位置も覚えておく。</summary>
+        public static SurfacePoint On(Vector3 p, Vector3 n, Collider c)
+        {
+            var sp = new SurfacePoint(p, n);
+            if (c != null)
+            {
+                var mp = c.GetComponentInParent<MovingPlatform>();
+                if (mp != null)
+                {
+                    sp.platform = mp.transform;
+                    sp.localPoint = mp.transform.InverseTransformPoint(p);
+                    sp.localNormal = mp.transform.InverseTransformDirection(n);
+                }
+            }
+            return sp;
+        }
+
+        /// <summary>足場が動いていれば、いまの位置に更新したもの。</summary>
+        public SurfacePoint Updated()
+        {
+            if (platform == null) return this;
+            var sp = this;
+            sp.point = platform.TransformPoint(localPoint);
+            sp.normal = platform.TransformDirection(localNormal).normalized;
+            return sp;
         }
     }
 
@@ -59,9 +92,13 @@ namespace Shakutori
             return Physics.Raycast(origin, dir, out hit, dist, Mask, QueryTriggerInteraction.Ignore);
         }
 
+        const float HopHeight = 0.45f;   // 舟の乗り降りで上がれる高さ
+        const float HopDrop = 0.5f;      // 舟の乗り降りで下りられる高さ（ふつうより少し大きい）
+
         static bool Valid(Vector3 p)
         {
-            return ForestLayout.InPlayArea(p) && !ForestLayout.IsUnderwater(p);
+            var area = Areas.Current;
+            return area.InPlayArea(p) && !area.IsUnderwater(p);
         }
 
         /// <summary>
@@ -75,6 +112,8 @@ namespace Shakutori
             Vector3 d = ShakuMath.ProjectOnPlaneSafe(dir, n, ShakuMath.AnyPerpendicular(n));
             result = start;
             endDir = d;
+            Collider lastCol = null;
+            bool onPlatform = start.platform != null;
             float remaining = distance;
             const float step = 0.11f;
             const float lift = 0.05f;
@@ -93,6 +132,7 @@ namespace Shakutori
                         if (!Valid(wall.point)) return false;
                         Vector3 nd = ShakuMath.ProjectOnPlaneSafe(n, wn, ShakuMath.AnyPerpendicular(wn));
                         remaining -= Mathf.Max(wall.distance, 0.02f);
+                        lastCol = wall.collider;
                         p = wall.point;
                         n = wn;
                         d = nd;
@@ -100,13 +140,33 @@ namespace Shakutori
                     }
                 }
 
-                // 2) 少し先で表面に下ろす（坂やでこぼこ）
                 Vector3 ahead = origin + d * s;
+
+                // 1.5) 動く足場（葉っぱの舟）と地面のあいだの乗り降り：少し高さがちがっても乗り移れる
+                if (Raycast(ahead + n * HopHeight, -n, HopHeight + lift + s * 1.2f + HopDrop, out var hop)
+                    && Vector3.Dot(hop.normal, n) > 0.5f)
+                {
+                    bool hopPlatform = hop.collider.GetComponentInParent<MovingPlatform>() != null;
+                    if (hopPlatform != onPlatform && Valid(hop.point))
+                    {
+                        Vector3 hn = SmoothNormal(hop);
+                        d = ShakuMath.ProjectOnPlaneSafe(Quaternion.FromToRotation(n, hn) * d, hn, d);
+                        lastCol = hop.collider;
+                        p = hop.point;
+                        n = hn;
+                        onPlatform = hopPlatform;
+                        remaining -= s;
+                        continue;
+                    }
+                }
+
+                // 2) 少し先で表面に下ろす（坂やでこぼこ）
                 if (Raycast(ahead, -n, lift + s * 1.2f + 0.04f, out var down))
                 {
                     Vector3 dn = SmoothNormal(down);
                     if (!Valid(down.point)) return false;
                     d = ShakuMath.ProjectOnPlaneSafe(Quaternion.FromToRotation(n, dn) * d, dn, d);
+                    lastCol = down.collider;
                     p = down.point;
                     n = dn;
                     remaining -= s;
@@ -120,6 +180,7 @@ namespace Shakutori
                     Vector3 en = SmoothNormal(edge);
                     if (!Valid(edge.point)) return false;
                     d = ShakuMath.ProjectOnPlaneSafe(Quaternion.FromToRotation(n, en) * d, en, -n);
+                    lastCol = edge.collider;
                     p = edge.point;
                     n = en;
                     remaining -= s;
@@ -127,7 +188,8 @@ namespace Shakutori
                 }
                 return false;
             }
-            result = new SurfacePoint(p, n);
+            result = lastCol != null ? SurfacePoint.On(p, n, lastCol) : start;
+            if (lastCol == null) result = new SurfacePoint(p, n);
             endDir = d;
             return true;
         }
@@ -138,7 +200,7 @@ namespace Shakutori
             result = new SurfacePoint(point, normal);
             if (Raycast(point + normal * range * 0.5f, -normal, range, out var hit))
             {
-                result = new SurfacePoint(hit.point, SmoothNormal(hit));
+                result = SurfacePoint.On(hit.point, SmoothNormal(hit), hit.collider);
                 return true;
             }
             return false;

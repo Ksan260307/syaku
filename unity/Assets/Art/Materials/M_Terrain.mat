@@ -40,18 +40,22 @@ Material:
     - _Cull: 2
     - _DetailScale: 0.11
     - _DetailStrength: 0.32
+    - _HueShift: 0
+    - _HueShiftOn: 0
     - _NearFade: 0
     - _NearFadeDistance: 1
     - _OutlineSmoothNormals: 1
     - _OutlineWidth: 0
     - _RimStrength: 0.05
     - _RimWidth: 0.28
+    - _SatMul: 1
     - _ShadowBrightness: 1
     - _ShadowSoftness: 0.12
     - _ShadowThreshold: 0.5
     - _SpecularSize: 0.05
     - _SpecularStrength: 0
     - _Terrain: 1
+    - _ValMul: 1
     - _VertexColorSRGB: 1
     - _Wind: 0
     - _WindStrength: 0.3

@@ -1,9 +1,9 @@
 ﻿# しゃくとりの森: すべてのテストを実行する
 #   powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1 [-Only EditMode|PlayMode|Tools|Blender]
 #  - Tools   : Python ツールの単体テスト
-#  - Blender : Blender アセット生成スクリプトの単体テスト
+#  - Blender : Blender アセット生成スクリプトの単体テスト（森の小物・いきもの・川辺）
 #  - EditMode: Unity の単体テスト（数学・地形・体の曲線・表面探索・保存・UI・シェーダー・世界生成…）
-#  - PlayMode: Unity の総合テスト（実際のシーンで歩く・登る・糸・しずく・名所・保存・クリア）
+#  - PlayMode: Unity の総合テスト（歩く・登る・糸・しずく・名所・保存・クリア・エリア移動・舟・いきもの・図鑑・きせかえ・タッチ）
 param(
     [string]$Only = "",
     [string]$Unity = "C:\Program Files\Unity\Hub\Editor\6000.5.4f1\Editor\Unity.exe",
@@ -25,8 +25,10 @@ if (Want "Tools") {
 
 if (Want "Blender") {
     Write-Host "== Blender kit"
-    & $Blender -b --factory-startup --python-exit-code 1 --python (Join-Path $root "blender/tests/test_forest_kit.py")
-    if ($LASTEXITCODE -ne 0) { $failed += "Blender" }
+    foreach ($t in @("test_forest_kit.py", "test_creatures_kit.py")) {
+        & $Blender -b --factory-startup --python-exit-code 1 --python (Join-Path $root "blender/tests/$t")
+        if ($LASTEXITCODE -ne 0) { $failed += "Blender($t)" }
+    }
 }
 
 foreach ($mode in @("EditMode", "PlayMode")) {

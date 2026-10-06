@@ -13,7 +13,12 @@ namespace Shakutori
         public float playTime;
         public bool hasPosition;
         public Vector3 tail, tailNormal, head, headNormal;
-        public bool completed;
+        public bool completed;                                     // ぜんぶ集めた
+        public string area = "forest";                             // いまいるエリア
+        public List<string> creatures = new List<string>();        // 見つけたいきもの
+        public List<string> visited = new List<string>();          // 行ったことのあるエリア
+        public List<string> completedAreas = new List<string>();   // しずくと名所をぜんぶ見つけたエリア
+        public string skin = "wakaba";
     }
 
     [Serializable]
@@ -44,7 +49,7 @@ namespace Shakutori
                 if (PlayerPrefs.HasKey(SaveKey))
                 {
                     Data = JsonUtility.FromJson<SaveData>(PlayerPrefs.GetString(SaveKey)) ?? new SaveData();
-                    HasSave = Data.hasPosition || Data.drops.Count > 0 || Data.places.Count > 0;
+                    HasSave = Data.hasPosition || Data.drops.Count > 0 || Data.places.Count > 0 || Data.creatures.Count > 0;
                 }
                 if (PlayerPrefs.HasKey(SettingsKey))
                     Settings = JsonUtility.FromJson<SettingsData>(PlayerPrefs.GetString(SettingsKey)) ?? new SettingsData();

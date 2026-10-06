@@ -37,6 +37,12 @@ Shader "Shakutori/ToonLit"
         [Toggle(_NEAR_FADE)] _NearFade ("Fade Near Camera", Float) = 0
         _NearFadeDistance ("Near Fade Distance", Float) = 1.0
         [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 2
+
+        [Header(Skin)]
+        [Toggle(_HUE_SHIFT)] _HueShiftOn ("Hue Shift", Float) = 0
+        _HueShift ("Hue Shift (deg)", Float) = 0
+        _SatMul ("Saturation", Float) = 1
+        _ValMul ("Value", Float) = 1
     }
 
     SubShader
@@ -57,6 +63,7 @@ Shader "Shakutori/ToonLit"
             #pragma shader_feature_local _TERRAIN
             #pragma shader_feature_local _WIND
             #pragma shader_feature_local _NEAR_FADE
+            #pragma shader_feature_local _HUE_SHIFT
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile_fragment _ _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
@@ -133,6 +140,7 @@ Shader "Shakutori/ToonLit"
             #pragma shader_feature_local _TERRAIN
             #pragma shader_feature_local _WIND
             #pragma shader_feature_local _NEAR_FADE
+            #pragma shader_feature_local _HUE_SHIFT
             #pragma multi_compile_instancing
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Fog.hlsl"
 

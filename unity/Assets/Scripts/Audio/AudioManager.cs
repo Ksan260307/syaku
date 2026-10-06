@@ -16,8 +16,15 @@ namespace Shakutori
         public AudioClip silk;
         public AudioClip land;
         public AudioClip complete;
+        public AudioClip riverAmbience;
+        public AudioClip creature;
+        public AudioClip travel;
+        public AudioClip unlock;
+        public AudioClip caw;
 
-        AudioSource _music, _amb;
+        AudioSource _music, _amb, _amb2;
+        float _ambMix;   // 0 = 森, 1 = 川
+        float _ambMixTarget;
         AudioSource[] _sfx;
         int _next;
         float _musicTarget, _ambTarget;
@@ -34,6 +41,10 @@ namespace Shakutori
             _amb.loop = true;
             _amb.playOnAwake = false;
             _amb.volume = 0f;
+            _amb2 = gameObject.AddComponent<AudioSource>();
+            _amb2.loop = true;
+            _amb2.playOnAwake = false;
+            _amb2.volume = 0f;
             _sfx = new AudioSource[8];
             for (int i = 0; i < _sfx.Length; i++)
             {
@@ -49,6 +60,13 @@ namespace Shakutori
             _started = true;
             if (music != null) { _music.clip = music; _music.Play(); }
             if (ambience != null) { _amb.clip = ambience; _amb.Play(); }
+            if (riverAmbience != null) { _amb2.clip = riverAmbience; _amb2.Play(); }
+        }
+
+        /// <summary>エリアに合わせて環境音を切り替える（ゆっくりクロスフェード）。</summary>
+        public void SetArea(string areaId)
+        {
+            _ambMixTarget = areaId == "river" ? 1f : 0f;
         }
 
         void Update()
@@ -58,7 +76,9 @@ namespace Shakutori
             _ambTarget = Mathf.Clamp01(s.sfx) * 0.5f;
             float k = ShakuMath.DampFactor(1.2f, Time.unscaledDeltaTime);
             _music.volume = Mathf.Lerp(_music.volume, _started ? _musicTarget : 0f, k);
-            _amb.volume = Mathf.Lerp(_amb.volume, _started ? _ambTarget : 0f, k);
+            _ambMix = Mathf.MoveTowards(_ambMix, _ambMixTarget, Time.unscaledDeltaTime * 0.5f);
+            _amb.volume = Mathf.Lerp(_amb.volume, _started ? _ambTarget * (1f - _ambMix) : 0f, k);
+            _amb2.volume = Mathf.Lerp(_amb2.volume, _started ? _ambTarget * 1.1f * _ambMix : 0f, k);
         }
 
         public void Play(AudioClip clip, float volume = 1f, float pitch = 1f)
@@ -83,5 +103,9 @@ namespace Shakutori
         public void Silk() => Play(silk, 0.55f);
         public void Land() => Play(land, 0.5f);
         public void Complete() => Play(complete, 0.9f);
+        public void Creature() => Play(creature, 0.85f);
+        public void Travel() => Play(travel, 0.8f);
+        public void Unlock() => Play(unlock, 0.8f);
+        public void Caw(float volume) => Play(caw, volume, Random.Range(0.92f, 1.05f));
     }
 }

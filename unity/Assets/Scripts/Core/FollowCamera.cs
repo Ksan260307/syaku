@@ -75,7 +75,9 @@ namespace Shakutori
                     Vector3 h = Vector3.ProjectOnPlane(target.Heading, Vector3.up);
                     Vector3 camFlat = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
                     bool towardCamera = Vector3.Dot(camFlat.normalized, h.normalized) < -0.25f;
-                    if (h.sqrMagnitude > 0.01f && !towardCamera)
+                    // 手前へ入力しているあいだも回り込まない（障害物でそれたときに回り続けないように）
+                    bool pullingBack = GameInput.Move.y < -0.3f;
+                    if (h.sqrMagnitude > 0.01f && !towardCamera && !pullingBack)
                     {
                         float want = Mathf.Atan2(h.x, h.z) * Mathf.Rad2Deg;
                         yaw = Mathf.LerpAngle(yaw, want, ShakuMath.DampFactor(0.6f, dt));
@@ -102,7 +104,7 @@ namespace Shakutori
 
             Vector3 pos = _focus + back * _currentDist;
             // 地面より下には行かない
-            float ground = ForestLayout.Height(pos.x, pos.z) + 0.12f;
+            float ground = Areas.Current.Height(pos.x, pos.z) + 0.12f;
             if (pos.y < ground) pos.y = ground;
             transform.SetPositionAndRotation(pos, Quaternion.LookRotation(_focus - pos, Vector3.up));
         }

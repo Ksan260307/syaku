@@ -5,25 +5,30 @@ using UnityEngine.Rendering;
 
 namespace Shakutori
 {
-    /// <summary>森のしずく（収集物）と名所（発見ポイント）の管理。</summary>
+    /// <summary>森のしずく（収集物）と名所（発見ポイント）の管理。いまいるエリアのものを扱う。</summary>
     public class Collectibles : MonoBehaviour
     {
         public WorldAssets assets;
         public float pickupRadius = 0.7f;
         public float dropScale = 0.34f;
 
-        public event Action<int, Vector3> DropCollected;      // 何個目か, 位置
+        public event Action<int, Vector3> DropCollected;      // このエリアで何個目か, 位置
         public event Action<LandmarkDef> LandmarkDiscovered;
 
+        public AreaLayout Area { get; private set; } = Areas.Forest;
         public int TotalDrops => _drops.Count;
         public int CollectedDrops { get; private set; }
-        public int TotalPlaces => ForestLayout.Landmarks.Count;
+        public int TotalPlaces => Area.Landmarks.Count;
         public int DiscoveredPlaces { get; private set; }
         public bool Active { get; set; }
 
+        /// <summary>すべてのエリアの合計。</summary>
+        public static int AllCollectedDrops => SaveSystem.Data.drops.Count;
+        public static int AllDiscoveredPlaces => SaveSystem.Data.places.Count;
+
         class Drop
         {
-            public int id;
+            public int id;        // 保存用の ID（エリアごとにずらしてある）
             public Vector3 basePos;
             public Transform tr;
             public bool taken;
@@ -36,11 +41,16 @@ namespace Shakutori
 
         public IReadOnlyCollection<int> DiscoveredIds => _places;
 
-        public bool IsDropTaken(int id) => id >= 0 && id < _drops.Count && _drops[id].taken;
-        public Vector3 DropPosition(int id) => _drops[id].basePos;
+        /// <summary>このエリアの i 番目のしずく。</summary>
+        public bool IsDropTaken(int index) => index >= 0 && index < _drops.Count && _drops[index].taken;
+        public Vector3 DropPosition(int index) => _drops[index].basePos;
+        public int DropSaveId(int index) => _drops[index].id;
 
-        public void Build(List<Vector3> points)
+        public void Build(List<Vector3> points) => Build(points, Areas.Current);
+
+        public void Build(List<Vector3> points, AreaLayout area)
         {
+            Area = area;
             if (_root != null)
             {
                 if (Application.isPlaying) Destroy(_root.gameObject);
@@ -60,7 +70,7 @@ namespace Shakutori
                 mr.sharedMaterial = assets.dewdrop;
                 mr.shadowCastingMode = ShadowCastingMode.Off;
                 mr.receiveShadows = false;
-                _drops.Add(new Drop { id = i, basePos = points[i], tr = go.transform, phase = i * 1.37f });
+                _drops.Add(new Drop { id = area.DropIdOffset + i, basePos = points[i], tr = go.transform, phase = i * 1.37f });
             }
             ApplySave();
         }
@@ -77,10 +87,37 @@ namespace Shakutori
             }
             _places.Clear();
             foreach (int p in save.places) _places.Add(p);
-            DiscoveredPlaces = _places.Count;
+            DiscoveredPlaces = CountPlaces(Area);
+        }
+
+        int CountPlaces(AreaLayout area)
+        {
+            int n = 0;
+            foreach (var lm in area.Landmarks)
+                if (_places.Contains(lm.id)) n++;
+            return n;
         }
 
         public bool IsDiscovered(int id) => _places.Contains(id);
+
+        /// <summary>そのエリアで集めたしずくの数（保存データから）。</summary>
+        public static int CollectedIn(AreaLayout area)
+        {
+            int n = 0;
+            foreach (int id in SaveSystem.Data.drops)
+                if (Areas.AreaOfDrop(id) == area) n++;
+            return n;
+        }
+
+        public static int DiscoveredIn(AreaLayout area)
+        {
+            int n = 0;
+            foreach (var lm in area.Landmarks)
+                if (SaveSystem.Data.places.Contains(lm.id)) n++;
+            return n;
+        }
+
+        public static bool IsAreaComplete(AreaLayout area) => CollectedIn(area) >= area.DropCount && DiscoveredIn(area) >= area.Landmarks.Count;
 
         void Update()
         {
@@ -114,7 +151,7 @@ namespace Shakutori
                     DropCollected?.Invoke(CollectedDrops, c);
                 }
             }
-            foreach (var lm in ForestLayout.Landmarks)
+            foreach (var lm in Area.Landmarks)
             {
                 if (_places.Contains(lm.id)) continue;
                 if (IsInside(lm, head)) Discover(lm);
@@ -133,7 +170,7 @@ namespace Shakutori
             if (Vector2.Distance(xz, lm.position) > lm.radius) return false;
             if (lm.minHeightAboveGround > 0f)
             {
-                float g = ForestLayout.Height(lm.position.x, lm.position.y);
+                float g = Areas.Get(lm.areaId).Height(lm.position.x, lm.position.y);
                 return p.y > g + lm.minHeightAboveGround;
             }
             return true;
@@ -143,7 +180,7 @@ namespace Shakutori
         {
             if (_places.Contains(lm.id)) return;
             _places.Add(lm.id);
-            DiscoveredPlaces = _places.Count;
+            DiscoveredPlaces = CountPlaces(Area);
             if (!SaveSystem.Data.places.Contains(lm.id)) SaveSystem.Data.places.Add(lm.id);
             SaveSystem.Save();
             LandmarkDiscovered?.Invoke(lm);

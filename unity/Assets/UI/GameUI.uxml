@@ -6,15 +6,21 @@
         <!-- ===== HUD ===== -->
         <ui:VisualElement name="hud" class="hud" picking-mode="Ignore">
             <ui:VisualElement name="objectives" class="hud-panel objectives" picking-mode="Ignore">
+                <ui:Label name="area-title" text="森" class="area-title" picking-mode="Ignore" />
                 <ui:VisualElement class="obj-row" picking-mode="Ignore">
                     <ui:VisualElement class="icon icon-drop" picking-mode="Ignore" />
-                    <ui:Label text="森のしずく" class="obj-label" picking-mode="Ignore" />
+                    <ui:Label name="drop-label" text="森のしずく" class="obj-label" picking-mode="Ignore" />
                     <ui:Label name="drop-count" text="0 / 45" class="obj-count" picking-mode="Ignore" />
                 </ui:VisualElement>
                 <ui:VisualElement class="obj-row" picking-mode="Ignore">
                     <ui:VisualElement class="icon icon-place" picking-mode="Ignore" />
                     <ui:Label text="名所" class="obj-label" picking-mode="Ignore" />
                     <ui:Label name="place-count" text="0 / 9" class="obj-count" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:VisualElement class="obj-row" picking-mode="Ignore">
+                    <ui:VisualElement class="icon icon-bug" picking-mode="Ignore" />
+                    <ui:Label text="いきもの" class="obj-label" picking-mode="Ignore" />
+                    <ui:Label name="creature-count" text="0 / 16" class="obj-count" picking-mode="Ignore" />
                 </ui:VisualElement>
             </ui:VisualElement>
             <ui:Label name="area-name" text="" class="area-name" picking-mode="Ignore" />
@@ -31,8 +37,14 @@
                     <ui:Button name="map-button" class="round-button">
                         <ui:VisualElement class="icon icon-map" picking-mode="Ignore" />
                     </ui:Button>
+                    <ui:Button name="collection-button" class="round-button">
+                        <ui:VisualElement class="icon icon-book" picking-mode="Ignore" />
+                    </ui:Button>
                     <ui:Button name="menu-button" class="round-button">
                         <ui:VisualElement class="icon icon-menu" picking-mode="Ignore" />
+                    </ui:Button>
+                    <ui:Button name="fullscreen-button" class="round-button touch-only">
+                        <ui:VisualElement class="icon icon-fullscreen" picking-mode="Ignore" />
                     </ui:Button>
                 </ui:VisualElement>
             </ui:VisualElement>
@@ -45,7 +57,16 @@
                 <ui:VisualElement class="banner-deco banner-deco-bottom" picking-mode="Ignore" />
             </ui:VisualElement>
 
-            <ui:VisualElement name="toasts" class="toasts" picking-mode="Ignore" />
+            <ui:VisualElement name="creature-card" class="creature-card" picking-mode="Ignore">
+                <ui:VisualElement name="creature-card-img" class="creature-card-img" picking-mode="Ignore" />
+                <ui:VisualElement class="creature-card-text" picking-mode="Ignore">
+                    <ui:Label text="いきものを見つけた！" class="creature-card-sub" picking-mode="Ignore" />
+                    <ui:Label name="creature-card-name" text="" class="creature-card-name" picking-mode="Ignore" />
+                    <ui:Label name="creature-card-desc" text="" class="creature-card-desc" picking-mode="Ignore" />
+                    <ui:Label text="図鑑に登録しました" class="creature-card-note" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
 
             <ui:VisualElement name="prompt" class="prompt" picking-mode="Ignore">
                 <ui:Label name="prompt-key" text="Space" class="keycap" picking-mode="Ignore" />
@@ -54,9 +75,11 @@
 
             <ui:VisualElement name="help" class="hud-panel help" picking-mode="Ignore" />
             <ui:Label name="help-hint" text="H : 操作説明" class="help-hint" picking-mode="Ignore" />
+            <ui:Label name="rotate-hint" text="スマホを横向きにすると遊びやすいよ" class="rotate-hint hidden" picking-mode="Ignore" />
 
             <ui:VisualElement name="touch" class="touch" picking-mode="Ignore">
-                <ui:VisualElement name="joystick" class="joystick">
+                <ui:VisualElement name="move-zone" class="move-zone" />
+                <ui:VisualElement name="joystick" class="joystick" picking-mode="Ignore">
                     <ui:VisualElement name="joystick-knob" class="joystick-knob" picking-mode="Ignore" />
                 </ui:VisualElement>
                 <ui:VisualElement class="touch-buttons" picking-mode="Ignore">
@@ -73,10 +96,26 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
+        <!-- ===== タイトル（ウィンドウより下に置き、あそびかた・確認を上に重ねる） ===== -->
+        <ui:VisualElement name="title-overlay" class="title-overlay hidden">
+            <ui:VisualElement class="title-vignette" picking-mode="Ignore" />
+            <ui:VisualElement class="title-box" picking-mode="Ignore">
+                <ui:Label text="しゃくとりの森" name="logo" class="logo" picking-mode="Ignore" />
+                <ui:Label text="— INCHWORM FOREST —" class="logo-sub" picking-mode="Ignore" />
+                <ui:VisualElement class="title-buttons" picking-mode="Ignore">
+                    <ui:Button name="btn-continue" text="つづきから" class="btn btn-primary btn-large" />
+                    <ui:Button name="btn-new" text="はじめる" class="btn btn-large" />
+                    <ui:Button name="btn-howto" text="あそびかた" class="btn" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:Label text="小さなしゃくとりむしになって、森と川辺をのんびり探検しよう。" class="title-hint" picking-mode="Ignore" />
+            <ui:Label text="キーボード＆マウス / ゲームパッド / スマホ・タブレット 対応" class="title-hint title-hint-small" picking-mode="Ignore" />
+        </ui:VisualElement>
+
         <!-- ===== 地図 ===== -->
         <ui:VisualElement name="map-overlay" class="overlay hidden">
             <ui:VisualElement class="window map-window">
-                <ui:Label text="森の地図" class="window-title" picking-mode="Ignore" />
+                <ui:Label name="map-title" text="森の地図" class="window-title" picking-mode="Ignore" />
                 <ui:VisualElement class="map-body" picking-mode="Ignore">
                     <ui:VisualElement name="bigmap" class="bigmap" picking-mode="Ignore">
                         <ui:VisualElement name="bigmap-player" class="bigmap-player" picking-mode="Ignore" />
@@ -84,9 +123,44 @@
                     <ui:VisualElement class="map-side" picking-mode="Ignore">
                         <ui:Label name="map-summary" text="" class="map-summary" picking-mode="Ignore" />
                         <ui:ScrollView name="map-legend" class="map-legend" />
+                        <ui:Label text="エリアへ移動" class="map-areas-title" picking-mode="Ignore" />
+                        <ui:VisualElement name="map-areas" class="map-areas" picking-mode="Ignore" />
                     </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:Button name="map-close" text="とじる" class="btn btn-primary" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ===== コレクション（図鑑・きせかえ・きろく） ===== -->
+        <ui:VisualElement name="collection-overlay" class="overlay hidden">
+            <ui:VisualElement class="window collection-window">
+                <ui:VisualElement class="tabs">
+                    <ui:Button name="tab-zukan" text="いきもの図鑑" class="tab tab--on" />
+                    <ui:Button name="tab-skin" text="きせかえ" class="tab" />
+                    <ui:Button name="tab-record" text="きろく" class="tab" />
+                </ui:VisualElement>
+                <ui:VisualElement name="page-zukan" class="page">
+                    <ui:Label name="zukan-count" text="" class="page-sub" picking-mode="Ignore" />
+                    <ui:VisualElement class="zukan-body">
+                        <ui:ScrollView name="zukan-grid" class="zukan-grid" />
+                        <ui:VisualElement name="zukan-detail" class="zukan-detail" picking-mode="Ignore">
+                            <ui:VisualElement name="zukan-img" class="zukan-img" picking-mode="Ignore" />
+                            <ui:VisualElement class="zukan-text" picking-mode="Ignore">
+                                <ui:Label name="zukan-name" text="" class="zukan-name" picking-mode="Ignore" />
+                                <ui:Label name="zukan-area" text="" class="zukan-area" picking-mode="Ignore" />
+                                <ui:Label name="zukan-desc" text="" class="zukan-desc" picking-mode="Ignore" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="page-skin" class="page hidden">
+                    <ui:Label text="集めた数で、しゃくとりむしの色をえらべるようになります。" class="page-sub" picking-mode="Ignore" />
+                    <ui:VisualElement name="skin-grid" class="skin-grid" />
+                </ui:VisualElement>
+                <ui:VisualElement name="page-record" class="page hidden">
+                    <ui:VisualElement name="record-list" class="record-list" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:Button name="collection-close" text="とじる" class="btn btn-primary" />
             </ui:VisualElement>
         </ui:VisualElement>
 
@@ -95,7 +169,10 @@
             <ui:VisualElement class="window pause-window">
                 <ui:Label text="メニュー" class="window-title" picking-mode="Ignore" />
                 <ui:Button name="resume" text="つづける" class="btn btn-primary" />
-                <ui:Button name="pause-howto" text="あそびかた" class="btn" />
+                <ui:VisualElement class="row-buttons">
+                    <ui:Button name="pause-howto" text="あそびかた" class="btn btn-small" />
+                    <ui:Button name="pause-collection" text="図鑑・きせかえ" class="btn btn-small" />
+                </ui:VisualElement>
                 <ui:VisualElement class="settings">
                     <ui:Slider name="set-sens" label="カメラ感度" low-value="0.3" high-value="2.5" value="1" />
                     <ui:Toggle name="set-invert" label="カメラの上下を反転" />
@@ -108,6 +185,7 @@
                     </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:VisualElement class="row-buttons">
+                    <ui:Button name="fullscreen" text="全画面" class="btn btn-small" />
                     <ui:Button name="to-title" text="タイトルへ" class="btn btn-small" />
                     <ui:Button name="reset" text="最初からやり直す" class="btn btn-small btn-danger" />
                 </ui:VisualElement>
@@ -118,9 +196,9 @@
         <ui:VisualElement name="howto-overlay" class="overlay hidden">
             <ui:VisualElement class="window howto-window">
                 <ui:Label text="あそびかた" class="window-title" picking-mode="Ignore" />
-                <ui:Label class="howto-lead" text="あなたは小さなしゃくとりむし。体を「Ω」の字に曲げては伸ばして、少しずつ進みます。&#10;森のどこかにある「森のしずく」を集め、9つの名所を見つけよう。戦いはありません。" picking-mode="Ignore" />
+                <ui:Label class="howto-lead" text="あなたは小さなしゃくとりむし。体を「Ω」の字に曲げては伸ばして、少しずつ進みます。&#10;森のしずくを集め、名所をめぐり、いろんないきものに会いに行こう。戦いはありません。" picking-mode="Ignore" />
                 <ui:VisualElement name="howto-grid" class="howto-grid" picking-mode="Ignore" />
-                <ui:Label class="howto-tip" text="ヒント：キノコの柄や切り株の壁も、しゃくとりむしなら登れます。高い所からは糸を出して下りられます。" picking-mode="Ignore" />
+                <ui:Label class="howto-tip" text="ヒント：森の東のはしにある木の根のトンネルを抜けると、川辺に行けます。いきものに近づくと図鑑に登録され、集めた数できせかえが増えます。" picking-mode="Ignore" />
                 <ui:Button name="howto-close" text="わかった！" class="btn btn-primary" />
             </ui:VisualElement>
         </ui:VisualElement>
@@ -139,27 +217,14 @@
         <!-- ===== クリア ===== -->
         <ui:VisualElement name="complete-overlay" class="overlay hidden">
             <ui:VisualElement class="window complete-window">
-                <ui:Label text="森をめぐり終えました！" class="window-title complete-title" picking-mode="Ignore" />
+                <ui:Label name="complete-title" text="森をめぐり終えました！" class="window-title complete-title" picking-mode="Ignore" />
                 <ui:Label name="complete-text" text="" class="complete-text" picking-mode="Ignore" />
-                <ui:Button name="complete-close" text="このまま森を散歩する" class="btn btn-primary" />
+                <ui:Button name="complete-close" text="このまま散歩をつづける" class="btn btn-primary" />
             </ui:VisualElement>
         </ui:VisualElement>
 
-        <!-- ===== タイトル ===== -->
-        <ui:VisualElement name="title-overlay" class="title-overlay hidden">
-            <ui:VisualElement class="title-vignette" picking-mode="Ignore" />
-            <ui:VisualElement class="title-box" picking-mode="Ignore">
-                <ui:Label text="しゃくとりの森" name="logo" class="logo" picking-mode="Ignore" />
-                <ui:Label text="— INCHWORM FOREST —" class="logo-sub" picking-mode="Ignore" />
-                <ui:VisualElement class="title-buttons" picking-mode="Ignore">
-                    <ui:Button name="btn-continue" text="つづきから" class="btn btn-primary btn-large" />
-                    <ui:Button name="btn-new" text="はじめる" class="btn btn-large" />
-                    <ui:Button name="btn-howto" text="あそびかた" class="btn" />
-                </ui:VisualElement>
-            </ui:VisualElement>
-            <ui:Label text="小さなしゃくとりむしになって、森をのんびり探検しよう。" class="title-hint" picking-mode="Ignore" />
-            <ui:Label text="キーボード＆マウス / ゲームパッド / タッチ 対応" class="title-hint title-hint-small" picking-mode="Ignore" />
-        </ui:VisualElement>
+        <!-- 通知（ウィンドウの上にも出す） -->
+        <ui:VisualElement name="toasts" class="toasts" picking-mode="Ignore" />
 
         <!-- ===== 読み込み ===== -->
         <ui:VisualElement name="loading" class="loading">

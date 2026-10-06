@@ -4,7 +4,8 @@
 出力: unity/Assets/Audio/*.wav
  - music_forest.wav   : 80BPM・ヘ長調のやさしいループ曲（パッド + カリンバ + チェレスタ + ベース）
  - ambience_forest.wav: 風・葉ずれ・小鳥のさえずり（つなぎ目のないループ）
- - 効果音: 足音、しずく、発見、クリック、糸、着地、クリア
+ - ambience_river.wav : せせらぎ・遠くの滝・カエル（川辺）
+ - 効果音: 足音、しずく、発見、クリック、糸、着地、クリア、いきもの発見、エリア移動、きせかえ解放、カラス
 """
 import os
 import wave
@@ -370,8 +371,126 @@ def make_sfx():
     write("complete.wav", buf)
 
 
+# ---------------------------------------------------------------------------
+# 川辺（追加分）
+# ---------------------------------------------------------------------------
+def bubble(f0, dur):
+    """せせらぎの泡（音程が上がる短い音）"""
+    t = t_axis(dur)
+    f = f0 * (1 + 2.2 * t / dur)
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    return np.sin(ph) * np.exp(-t * (5.0 / dur)) * np.sin(np.pi * np.minimum(t / 0.004, 1) / 2)
+
+
+def make_river_ambience():
+    total = 48.0
+    n = int(total * SR)
+    buf = np.zeros((n, 2))
+    t = np.arange(n) / SR
+    # 遠くの滝（低いざーっという音）
+    for ch in range(2):
+        fall = shaped_noise(n, 1.2, 80, 2400)
+        buf[:, ch] += fall * (0.32 + 0.04 * np.sin(2 * np.pi * t * (2 / total) + ch))
+    # 水面のさらさら
+    hiss = shaped_noise(n, 0.4, 900, 6000)
+    flow = 0.6 + 0.4 * np.sin(2 * np.pi * t * (5 / total)) ** 2
+    buf[:, 0] += hiss * flow * 0.12
+    buf[:, 1] += np.roll(hiss, SR // 5) * flow * 0.12
+    # ちょろちょろ（泡の粒）
+    bub = np.zeros((n, 2))
+    count = int(total * 26)
+    for _ in range(count):
+        start = int(rng.uniform(0, total) * SR)
+        b = bubble(rng.uniform(350, 1300), rng.uniform(0.012, 0.045))
+        add(bub, start, b, pan=rng.uniform(-0.7, 0.7), gain=rng.uniform(0.05, 0.22))
+    bub = circular_reverb(bub, seconds=0.8, mix=0.25)
+    buf += bub
+    # ときどき小鳥とカエル
+    time = 2.0
+    while time < total - 1.0:
+        if rng.uniform() < 0.6:
+            song = bird_song(int(rng.choice([0, 2])))
+            add(buf, int(time * SR), song, pan=rng.uniform(-0.8, 0.8), gain=rng.uniform(0.05, 0.14))
+        else:
+            for k in range(int(rng.integers(2, 4))):
+                tk = t_axis(0.09)
+                kero = np.sign(np.sin(2 * np.pi * 180 * tk)) * np.sin(2 * np.pi * 22 * tk) ** 2 * np.exp(-tk * 18)
+                kero = np.convolve(kero, np.ones(12) / 12, mode="same")
+                add(buf, int((time + k * 0.16) * SR), kero, pan=rng.uniform(-0.6, 0.6), gain=0.12)
+        time += rng.uniform(3.0, 7.0)
+    write("ambience_river.wav", buf)
+
+
+def crow_caw(dur=0.36, f0=560.0):
+    """カラスの「かあ」：倍音の多い声 + かすれ"""
+    t = t_axis(dur)
+    k = t / dur
+    f = f0 * (1.05 - 0.18 * k) * (1 + 0.012 * np.sin(2 * np.pi * 31 * t))
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    s = np.zeros_like(t)
+    for h in range(1, 14):
+        fh = f0 * h
+        formant = np.exp(-((fh - 1250) / 520) ** 2) + 0.6 * np.exp(-((fh - 2500) / 700) ** 2) + 0.25
+        s += np.sin(h * ph) * formant / h ** 0.6
+    rasp = shaped_noise(len(t), 0.2, 900, 3500) * 0.35
+    env = np.sin(np.pi * np.minimum(k / 0.12, 1) / 2) * np.exp(-np.maximum(k - 0.35, 0) * 4)
+    return (s / 6 + rasp) * env
+
+
+def make_area_sfx():
+    # いきものを見つけた（ぴこん♪）
+    total = 1.8
+    buf = np.zeros((int(total * SR), 2))
+    for k, note in enumerate([79, 84, 91]):
+        add(buf, int(k * 0.09 * SR), kalimba(midi(note), 1.4, bright=1.2), pan=-0.2 + k * 0.2, gain=0.7, wrap=False)
+    add(buf, int(0.27 * SR), celesta(midi(96), 1.3), pan=0.3, gain=0.4, wrap=False)
+    buf = circular_reverb(buf, seconds=1.0, mix=0.22)
+    buf[-int(0.2 * SR):] *= np.linspace(1, 0, int(0.2 * SR))[:, None]
+    write("creature.wav", buf)
+
+    # エリア移動（木の根のトンネルをくぐる：ふわっと吸い込まれる音）
+    total = 2.2
+    t = t_axis(total)
+    k = t / total
+    whoosh = shaped_noise(len(t), 0.8, 200, 5000)
+    sweep = np.sin(2 * np.pi * np.cumsum(220 + 900 * k ** 2) / SR) * 0.15
+    env = np.sin(np.pi * k) ** 2
+    buf = np.zeros((len(t), 2))
+    buf[:, 0] = (whoosh * 0.6 + sweep) * env
+    buf[:, 1] = (np.roll(whoosh, 300) * 0.6 + sweep) * env
+    for j, note in enumerate([72, 76, 79, 84]):
+        add(buf, int((0.9 + j * 0.08) * SR), celesta(midi(note), 1.2), pan=-0.3 + j * 0.2, gain=0.35, wrap=False)
+    buf = circular_reverb(buf, seconds=1.4, mix=0.3)
+    buf[-int(0.3 * SR):] *= np.linspace(1, 0, int(0.3 * SR))[:, None]
+    write("travel.wav", buf)
+
+    # きせかえ解放（きらきら）
+    total = 2.4
+    buf = np.zeros((int(total * SR), 2))
+    for k, note in enumerate([77, 81, 84, 89, 93]):
+        add(buf, int(k * 0.07 * SR), celesta(midi(note), 1.6), pan=-0.5 + k * 0.25, gain=0.6, wrap=False)
+    t = t_axis(total)
+    shimmer = shaped_noise(len(t), 0.0, 7000, 15000) * np.exp(-t * 2.5) * 0.06
+    buf[:, 0] += shimmer
+    buf[:, 1] += np.roll(shimmer, 150)
+    buf = circular_reverb(buf, seconds=1.5, mix=0.28)
+    buf[-int(0.3 * SR):] *= np.linspace(1, 0, int(0.3 * SR))[:, None]
+    write("unlock.wav", buf)
+
+    # カラス（かあ、かあ）
+    total = 1.4
+    buf = np.zeros((int(total * SR), 2))
+    add(buf, 0, crow_caw(0.36, 560), pan=0.1, gain=0.8, wrap=False)
+    add(buf, int(0.5 * SR), crow_caw(0.4, 530), pan=0.1, gain=0.75, wrap=False)
+    buf = circular_reverb(buf, seconds=1.2, mix=0.25)
+    buf[-int(0.15 * SR):] *= np.linspace(1, 0, int(0.15 * SR))[:, None]
+    write("caw.wav", buf)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     make_sfx()
     make_ambience()
     make_music()
+    make_river_ambience()
+    make_area_sfx()

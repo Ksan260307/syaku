@@ -76,6 +76,8 @@ namespace Shakutori.Tests
             Assert.IsNotNull(gm.ui);
             Assert.IsNotNull(gm.collectibles);
             Assert.IsNotNull(gm.fx);
+            Assert.IsNotNull(gm.creatures, "いきもの");
+            Assert.IsNotNull(gm.creatures.assets);
             Assert.IsNotNull(gm.postVolume);
             Assert.IsNotNull(gm.postVolume.sharedProfile);
 
@@ -122,6 +124,12 @@ namespace Shakutori.Tests
             Assert.IsNotNull(a.complete);
             Assert.Greater(a.music.length, 30f);
             Assert.Greater(a.ambience.length, 20f);
+            Assert.IsNotNull(a.riverAmbience);
+            Assert.Greater(a.riverAmbience.length, 20f);
+            Assert.IsNotNull(a.creature);
+            Assert.IsNotNull(a.travel);
+            Assert.IsNotNull(a.unlock);
+            Assert.IsNotNull(a.caw);
         }
 
         [TestCase("M_Prop", "Shakutori/ToonLit")]

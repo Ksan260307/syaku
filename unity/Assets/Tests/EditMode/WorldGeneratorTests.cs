@@ -23,6 +23,7 @@ namespace Shakutori.Tests
             _gen.assets = TestUtil.LoadWorldAssets();
             _gen.instanced = go.AddComponent<InstancedRenderer>();
             _gen.sun = sun;
+            Areas.Current = Areas.Forest;
             _gen.GenerateNow();
         }
 

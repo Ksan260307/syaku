@@ -380,9 +380,9 @@
 .touch {
     position: absolute;
     left: 0;
+    top: 0;
     right: 0;
     bottom: 0;
-    height: 360px;
 }
 
 .joystick {
@@ -872,4 +872,807 @@
 
 .fade--on {
     opacity: 1;
+}
+
+/* ===================================================================
+   追加：エリア・いきもの図鑑・きせかえ・スマホ対応
+   =================================================================== */
+
+.icon-bug { background-image: url("Icons/icon_bug.png"); }
+.icon-book { background-image: url("Icons/icon_book.png"); width: 34px; height: 34px; }
+.icon-fullscreen { background-image: url("Icons/icon_fullscreen.png"); width: 30px; height: 30px; }
+.icon-lock { background-image: url("Icons/icon_lock.png"); }
+.map-marker--gate { background-image: url("Icons/icon_gate.png"); }
+
+.area-title {
+    font-size: 15px;
+    letter-spacing: 4px;
+    color: rgb(255, 232, 170);
+    margin-bottom: 2px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.area-name {
+    top: 246px;
+}
+
+/* ---- いきもの発見カード ---- */
+.creature-card {
+    position: absolute;
+    right: 28px;
+    bottom: 140px;
+    flex-direction: row;
+    align-items: center;
+    background-color: rgba(252, 248, 238, 0.95);
+    border-radius: 20px;
+    border-width: 3px;
+    border-color: rgb(214, 186, 128);
+    padding: 10px 18px 10px 10px;
+    width: 470px;
+    opacity: 0;
+    translate: 60px 0;
+    transition-property: opacity, translate;
+    transition-duration: 0.5s;
+}
+
+.creature-card--show {
+    opacity: 1;
+    translate: 0 0;
+}
+
+.creature-card-img {
+    width: 120px;
+    height: 120px;
+    border-radius: 16px;
+    background-color: rgba(220, 230, 200, 0.6);
+    -unity-background-scale-mode: scale-to-fit;
+    flex-shrink: 0;
+}
+
+.creature-card-text {
+    flex-shrink: 1;
+    margin-left: 14px;
+}
+
+.creature-card-sub {
+    font-size: 16px;
+    color: rgb(190, 130, 40);
+    letter-spacing: 2px;
+}
+
+.creature-card-name {
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: rgb(74, 62, 50);
+}
+
+.creature-card-desc {
+    font-size: 15px;
+    white-space: normal;
+    color: rgb(110, 94, 76);
+}
+
+.creature-card-note {
+    font-size: 13px;
+    color: rgb(120, 160, 90);
+    margin-top: 4px;
+}
+
+/* ---- 地図：エリア移動 ---- */
+.map-areas-title {
+    font-size: 18px;
+    color: rgb(110, 82, 50);
+    margin-top: 12px;
+    -unity-font-style: bold;
+}
+
+.map-areas {
+    flex-direction: row;
+    margin-top: 6px;
+}
+
+.area-chip {
+    flex-grow: 1;
+    height: 52px;
+    margin-right: 8px;
+    border-radius: 26px;
+    border-width: 2px;
+    border-color: rgb(214, 186, 128);
+    background-color: rgb(246, 238, 220);
+    color: rgb(90, 70, 50);
+    font-size: 19px;
+    -unity-font-style: bold;
+}
+
+.area-chip--here {
+    background-color: rgb(196, 226, 150);
+    border-color: rgb(120, 170, 80);
+}
+
+.area-chip--locked {
+    color: rgb(170, 155, 135);
+}
+
+/* ---- コレクション ---- */
+.collection-window {
+    width: 1180px;
+    height: 820px;
+}
+
+.tabs {
+    flex-direction: row;
+    margin-bottom: 12px;
+}
+
+.tab {
+    flex-grow: 1;
+    height: 54px;
+    margin-right: 8px;
+    border-radius: 16px;
+    border-width: 2px;
+    border-color: rgb(214, 186, 128);
+    background-color: rgb(246, 238, 220);
+    color: rgb(120, 96, 70);
+    font-size: 21px;
+    -unity-font-style: bold;
+}
+
+.tab--on {
+    background-color: rgb(244, 205, 110);
+    color: rgb(70, 50, 20);
+    border-color: rgb(196, 152, 70);
+}
+
+.page {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.page-sub {
+    font-size: 18px;
+    color: rgb(120, 100, 76);
+    margin-bottom: 8px;
+    white-space: normal;
+}
+
+.zukan-body {
+    flex-direction: row;
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.zukan-grid {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.zukan-grid .unity-scroll-view__content-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.zukan-card {
+    width: 150px;
+    height: 176px;
+    margin: 5px;
+    border-radius: 16px;
+    border-width: 2px;
+    border-color: rgb(225, 205, 160);
+    background-color: rgb(250, 244, 230);
+    align-items: center;
+    padding: 6px;
+}
+
+.zukan-card:hover {
+    border-color: rgb(196, 152, 70);
+}
+
+.zukan-card--selected {
+    border-color: rgb(120, 170, 80);
+    background-color: rgb(236, 246, 220);
+}
+
+.zukan-card-img {
+    width: 120px;
+    height: 120px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.zukan-card-img--unknown {
+    -unity-background-image-tint-color: rgba(60, 50, 40, 0.85);
+}
+
+.zukan-card-name {
+    font-size: 17px;
+    -unity-font-style: bold;
+    color: rgb(80, 64, 48);
+    -unity-text-align: middle-center;
+}
+
+.zukan-detail {
+    width: 330px;
+    flex-shrink: 0;
+    margin-left: 14px;
+    padding: 14px;
+    border-radius: 18px;
+    background-color: rgba(220, 200, 160, 0.25);
+    align-items: center;
+}
+
+.zukan-img {
+    width: 240px;
+    height: 240px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.zukan-name {
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: rgb(74, 62, 50);
+    margin-top: 6px;
+}
+
+.zukan-area {
+    font-size: 16px;
+    color: rgb(140, 120, 90);
+    margin-bottom: 8px;
+}
+
+.zukan-desc {
+    font-size: 18px;
+    white-space: normal;
+    color: rgb(90, 74, 58);
+}
+
+.skin-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.skin-card {
+    width: 250px;
+    height: 150px;
+    margin: 6px;
+    border-radius: 18px;
+    border-width: 3px;
+    border-color: rgb(225, 205, 160);
+    background-color: rgb(250, 244, 230);
+    flex-direction: row;
+    align-items: center;
+    padding: 10px;
+}
+
+.skin-card--on {
+    border-color: rgb(120, 170, 80);
+    background-color: rgb(236, 246, 220);
+}
+
+.skin-card--locked {
+    opacity: 0.6;
+}
+
+.skin-swatch {
+    width: 74px;
+    height: 74px;
+    border-radius: 37px;
+    border-width: 3px;
+    border-color: rgb(255, 255, 255);
+    flex-shrink: 0;
+}
+
+.skin-text {
+    margin-left: 12px;
+    flex-shrink: 1;
+}
+
+.skin-name {
+    font-size: 22px;
+    -unity-font-style: bold;
+    color: rgb(74, 62, 50);
+}
+
+.skin-cond {
+    font-size: 14px;
+    color: rgb(130, 112, 92);
+    white-space: normal;
+}
+
+.record-row {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 12px 16px;
+    margin-bottom: 6px;
+    border-radius: 14px;
+    background-color: rgba(220, 200, 160, 0.22);
+}
+
+.record-label {
+    font-size: 21px;
+    color: rgb(80, 64, 48);
+}
+
+.record-value {
+    font-size: 21px;
+    -unity-font-style: bold;
+    color: rgb(110, 82, 50);
+}
+
+/* ---- スマホ・タブレット ---- */
+.touch-only {
+    display: none;
+}
+
+.touch-ui .touch-only {
+    display: flex;
+}
+
+.move-zone {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 46%;
+    height: 78%;
+}
+
+.joystick {
+    opacity: 0.45;
+    transition-property: opacity;
+    transition-duration: 0.2s;
+}
+
+.joystick--active {
+    opacity: 1;
+}
+
+.touch-ui .round-button {
+    width: 72px;
+    height: 72px;
+    border-radius: 36px;
+}
+
+.touch-ui .btn {
+    height: 66px;
+}
+
+.touch-ui .help {
+    bottom: auto;
+    top: 290px;
+}
+
+.rotate-hint {
+    position: absolute;
+    top: 46%;
+    left: 0;
+    right: 0;
+    -unity-text-align: middle-center;
+    font-size: 26px;
+    color: rgb(255, 250, 235);
+    background-color: rgba(28, 40, 34, 0.6);
+    padding: 14px 0;
+}
+
+.zukan-text {
+    align-items: center;
+    flex-shrink: 1;
+}
+
+.touch-ui .prompt {
+    bottom: 236px;
+}
+
+.touch-ui .help-hint {
+    display: none;
+}
+
+/* ===================================================================
+   画面の形に合わせたレイアウト
+   .short    : 横長で背が低い（横向きのスマホ）
+   .portrait : 縦長（縦向きのスマホ・タブレット）
+   .compact  : どちらか
+   =================================================================== */
+.compact .window {
+    min-width: 0;
+}
+
+.compact .minimap {
+    width: 170px;
+    height: 170px;
+    border-radius: 85px;
+}
+
+.compact .minimap-mask {
+    border-radius: 81px;
+}
+
+.compact .minimap-player {
+    left: 66px;
+    top: 66px;
+}
+
+.compact .minimap-north {
+    left: 71px;
+}
+
+.compact .objectives {
+    left: 14px;
+    top: 12px;
+    min-width: 0;
+    padding: 6px 14px;
+}
+
+.compact .obj-row {
+    padding: 2px 0;
+}
+
+.compact .obj-label {
+    font-size: 18px;
+}
+
+.compact .obj-count {
+    font-size: 20px;
+    margin-left: 12px;
+}
+
+.compact .area-name {
+    left: 18px;
+    top: 186px;
+    font-size: 18px;
+}
+
+.compact .top-right {
+    right: 14px;
+    top: 12px;
+}
+
+.compact .round-button {
+    margin-bottom: 8px;
+}
+
+.compact .banner-title {
+    font-size: 44px;
+}
+
+.compact .banner-deco {
+    width: 360px;
+}
+
+.compact .banner-desc {
+    font-size: 18px;
+}
+
+.compact .creature-card-img {
+    width: 88px;
+    height: 88px;
+}
+
+.compact .creature-card-name {
+    font-size: 24px;
+}
+
+.compact .logo {
+    font-size: 80px;
+}
+
+.compact .logo-sub {
+    margin-bottom: 18px;
+    letter-spacing: 6px;
+}
+
+.compact .title-hint {
+    bottom: 40px;
+    font-size: 17px;
+}
+
+.compact .title-hint-small {
+    bottom: 14px;
+    font-size: 14px;
+}
+
+.compact .loading-logo {
+    font-size: 54px;
+}
+
+.compact .loading-bar {
+    width: 360px;
+}
+
+.compact .skin-card {
+    width: 46%;
+    height: 120px;
+}
+
+.compact .skin-swatch {
+    width: 60px;
+    height: 60px;
+    border-radius: 30px;
+}
+
+.compact .zukan-card {
+    width: 124px;
+    height: 150px;
+}
+
+.compact .zukan-card-img {
+    width: 96px;
+    height: 96px;
+}
+
+/* ---- 横向きのスマホ（背が低い） ---- */
+.short .window {
+    padding: 12px 24px 14px 24px;
+}
+
+.short .window-title {
+    font-size: 28px;
+    margin-bottom: 6px;
+}
+
+.short .btn {
+    height: 50px;
+    margin: 4px 0;
+}
+
+.short .btn-small {
+    height: 46px;
+    margin: 4px 6px;
+}
+
+.short .btn-large {
+    height: 56px;
+}
+
+.short .row-buttons {
+    margin-top: 4px;
+}
+
+.short .settings {
+    margin: 6px 0 2px 0;
+    padding: 6px 14px;
+}
+
+.short .map-window {
+    width: 96%;
+}
+
+.short .bigmap {
+    width: 430px;
+    height: 430px;
+}
+
+.short .map-body {
+    margin-bottom: 6px;
+}
+
+.short .area-chip {
+    height: 46px;
+    font-size: 17px;
+}
+
+.short .collection-window {
+    width: 96%;
+    height: 96%;
+}
+
+.short .tab {
+    height: 46px;
+    font-size: 19px;
+}
+
+.short .tabs {
+    margin-bottom: 6px;
+}
+
+.short .zukan-detail {
+    width: 280px;
+    padding: 8px;
+}
+
+.short .zukan-img {
+    width: 150px;
+    height: 150px;
+}
+
+.short .zukan-name {
+    font-size: 24px;
+}
+
+.short .zukan-desc {
+    font-size: 16px;
+}
+
+.short .howto-window {
+    width: 96%;
+}
+
+.short .howto-lead {
+    font-size: 17px;
+    margin-bottom: 6px;
+}
+
+.short .howto-item {
+    padding: 2px 0;
+}
+
+.short .howto-tip {
+    font-size: 15px;
+    margin: 2px 0 6px 0;
+}
+
+.short .pause-window,
+.short .complete-window {
+    width: 70%;
+}
+
+.short .banner {
+    top: 70px;
+}
+
+.short .toasts {
+    top: 200px;
+    right: 100px;
+}
+
+.short .creature-card {
+    top: 14px;
+    bottom: auto;
+    right: 290px;
+    width: 420px;
+    padding: 6px 12px 6px 6px;
+}
+
+.short .help {
+    top: 214px;
+    bottom: auto;
+}
+
+.short .title-box {
+    margin-top: -30px;
+}
+
+/* ---- 縦向き ---- */
+.portrait .map-window,
+.portrait .collection-window,
+.portrait .howto-window,
+.portrait .complete-window,
+.portrait .pause-window,
+.portrait .confirm-window {
+    width: 94%;
+}
+
+.portrait .window {
+    padding: 18px 20px 20px 20px;
+}
+
+.portrait .collection-window {
+    height: 92%;
+}
+
+.portrait .map-body,
+.portrait .zukan-body {
+    flex-direction: column;
+}
+
+.portrait .bigmap {
+    width: 480px;
+    height: 480px;
+    align-self: center;
+}
+
+.portrait .map-side {
+    margin-left: 0;
+    margin-top: 10px;
+}
+
+.portrait .map-legend {
+    max-height: 300px;
+}
+
+.portrait .zukan-detail {
+    width: auto;
+    margin-left: 0;
+    margin-top: 8px;
+    flex-direction: row;
+    align-items: flex-start;
+}
+
+.portrait .zukan-text {
+    align-items: flex-start;
+    margin-left: 12px;
+}
+
+.portrait .zukan-img {
+    width: 130px;
+    height: 130px;
+    flex-shrink: 0;
+}
+
+.portrait .howto-item {
+    width: 100%;
+}
+
+.portrait .banner {
+    top: 250px;
+}
+
+.portrait .toasts {
+    top: 360px;
+    right: 14px;
+}
+
+.portrait .creature-card {
+    left: 14px;
+    right: 14px;
+    width: auto;
+    bottom: 330px;
+}
+
+.portrait .title-hint {
+    left: 20px;
+    right: 20px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.portrait .move-zone {
+    width: 60%;
+    height: 55%;
+}
+
+.portrait .touch-buttons {
+    right: 20px;
+    bottom: 36px;
+    flex-direction: column-reverse;
+    align-items: flex-end;
+}
+
+.portrait .touch-button {
+    margin-left: 0;
+    margin-top: 14px;
+}
+
+.portrait .minimap {
+    width: 140px;
+    height: 140px;
+    border-radius: 70px;
+}
+
+.portrait .minimap-mask {
+    border-radius: 66px;
+}
+
+.portrait .minimap-player {
+    left: 51px;
+    top: 51px;
+}
+
+.portrait .minimap-north {
+    left: 56px;
+}
+
+.portrait .obj-label {
+    font-size: 16px;
+    margin-left: 6px;
+}
+
+.portrait .obj-count {
+    font-size: 18px;
+    margin-left: 8px;
+}
+
+.portrait .logo {
+    font-size: 58px;
+    letter-spacing: 4px;
+}
+
+.portrait .logo-sub {
+    font-size: 18px;
+    letter-spacing: 4px;
+}
+
+.portrait .prompt {
+    bottom: 250px;
+}
+
+.portrait .row-buttons {
+    flex-wrap: wrap;
 }

@@ -17,16 +17,34 @@ MonoBehaviour:
     mesh: {fileID: 7648665362807402327, guid: 801d0b9c4664d5a4dabc60fdbd0f6c6f, type: 3}
   - name: AcornCap
     mesh: {fileID: -6268780836564065794, guid: 076cf0b2eb2993f49a8d170a5b3c197d, type: 3}
+  - name: Ant
+    mesh: {fileID: -6427917474867546475, guid: 8f08ab006a2fe0549b054060af73fe28, type: 3}
+  - name: AntHill
+    mesh: {fileID: 2500244732374666971, guid: 903732463444f844f839c9c6018ee4e3, type: 3}
+  - name: Beetle
+    mesh: {fileID: -7711841939779332968, guid: 36147d2b4fb8ecf4ba09db4c64286155, type: 3}
   - name: Bellflower
     mesh: {fileID: -6631587410609359577, guid: 40a17317429ec544b8ba57c4ab4eb821, type: 3}
   - name: BgTrunk_A
     mesh: {fileID: -672235871324121875, guid: 958e622505befe843a8f6f6b8fb3f2c4, type: 3}
   - name: BgTrunk_B
     mesh: {fileID: 3625745103105099721, guid: 530c5a00165a92345a772294b512d973, type: 3}
+  - name: Butterfly_Body
+    mesh: {fileID: -4666602664778142010, guid: 88c92ca68e5c1aa45aff6cf70048a055, type: 3}
+  - name: Butterfly_Wing
+    mesh: {fileID: 4390107610048414304, guid: 367d21dd71fbf8a40b9fe86c263faf78, type: 3}
   - name: Clover_A
     mesh: {fileID: 832611055651994780, guid: b7b27f962fa103c41943c8c052c06dd9, type: 3}
   - name: Clover_B
     mesh: {fileID: -4778820943216205989, guid: 47a3d3bf6438ea046b537f1076e97e52, type: 3}
+  - name: Crab
+    mesh: {fileID: 3077898677918171208, guid: 965d9db93fdb7594188e513eb8d306a4, type: 3}
+  - name: Cradle
+    mesh: {fileID: -7061774764952219584, guid: d020c45ccfee5bb4982039e2e4744b20, type: 3}
+  - name: Crow_Body
+    mesh: {fileID: -6359236477956113890, guid: 99ff6d618f3105a4f972ea3aeab5f081, type: 3}
+  - name: Crow_Wing
+    mesh: {fileID: 3900200146045287825, guid: 969e53c01f2e77a4692ec5629aa09cb9, type: 3}
   - name: Daisy
     mesh: {fileID: 1368239412487327046, guid: 38f26ce6082329b4ca414a77f2d3c377, type: 3}
   - name: Dandelion
@@ -35,22 +53,40 @@ MonoBehaviour:
     mesh: {fileID: 63436090672580052, guid: de8c0c8bae10ae546a63c59d8489868b, type: 3}
   - name: Dewdrop
     mesh: {fileID: 9008849617216650565, guid: 575e8893cab913b4aa7d5c535766ab35, type: 3}
+  - name: Dragonfly_Body
+    mesh: {fileID: 5684112063607262173, guid: f7aadfe8a133e0f4686ccf8625da2dec, type: 3}
+  - name: Dragonfly_Wing
+    mesh: {fileID: -7612532519775068519, guid: 50be40fd9daff834cbed3cb0c43cd7e6, type: 3}
   - name: Fern_A
     mesh: {fileID: -7157571015503710841, guid: 7444fd63e8381e24eaec510ad877fb37, type: 3}
   - name: Fern_B
     mesh: {fileID: 5159679835122556001, guid: 5e7c912a2c0d9bc47bb82336324f4ac2, type: 3}
+  - name: Firefly_Body
+    mesh: {fileID: 1173725507862548048, guid: 18f3b11574716fe40b8fb1c8ec83852f, type: 3}
+  - name: Firefly_Glow
+    mesh: {fileID: -6662472806075925294, guid: 7f0d849b8f18c6c499ac49a57be38a4c, type: 3}
+  - name: Frog
+    mesh: {fileID: -4454997591212173726, guid: 482545432cd2b8b498468bae68b7667f, type: 3}
   - name: Grass_A
     mesh: {fileID: -4099415766749746972, guid: b1c32dd35866ace469307a28b7dc439a, type: 3}
   - name: Grass_B
     mesh: {fileID: -8055563185624932068, guid: 33c53addd1577b442a352d7c364a8fa7, type: 3}
   - name: Grass_C
     mesh: {fileID: 4553639701868992803, guid: 77ed166655966674493f282baad5212c, type: 3}
+  - name: Grasshopper
+    mesh: {fileID: 2755667786903245990, guid: d9ad63a9f8bed094cb427900d10ca83e, type: 3}
   - name: GreatTree
     mesh: {fileID: 3387797446468001537, guid: 5544122e31e5bcc4e81cebe448a6d7e3, type: 3}
   - name: HollowLog
     mesh: {fileID: 4769565808284150128, guid: d5cab0f74d390b94b93661531ead7a0f, type: 3}
+  - name: Horsetail
+    mesh: {fileID: 7579281221193300042, guid: a35edf4e078fcb746ad6a38cb90a21a9, type: 3}
   - name: Inchworm
     mesh: {fileID: -7065828297190242328, guid: 87b4e529b10de504da6c471ca9e8700e, type: 3}
+  - name: Iris
+    mesh: {fileID: -3322546712403220151, guid: 7eebc446dcf1ce545bd5542313574479, type: 3}
+  - name: Ladybug
+    mesh: {fileID: -1469867499135885838, guid: a51adb2e040c1e8428a34c4b9918d366, type: 3}
   - name: Leaf_Maple_Red
     mesh: {fileID: 3871032105472768938, guid: 2373fabe1917d124592a8ec3c92ae9d1, type: 3}
   - name: Leaf_Maple_Yellow
@@ -73,10 +109,22 @@ MonoBehaviour:
     mesh: {fileID: -118117794063028711, guid: 50098405710d4064ea1387e3f0bc8a97, type: 3}
   - name: Mushroom_Red
     mesh: {fileID: 8732430369344902774, guid: e1d904f8394f2b24a9f4285366b673c1, type: 3}
+  - name: Otoshibumi
+    mesh: {fileID: 2481780481965206165, guid: 32912da873407944fb24652dfe65f4e2, type: 3}
+  - name: PillBug
+    mesh: {fileID: 5023893518569675436, guid: 8a5c8f0766bd5d4408d0317f8c936605, type: 3}
   - name: Pinecone
     mesh: {fileID: 2804762351221276474, guid: 4b67eebb6bd4ebe4b83be139d69c54b7, type: 3}
   - name: Reed
     mesh: {fileID: -3890688692072204658, guid: d2031b7f5c7d72f46b73012333597776, type: 3}
+  - name: RiverSnail
+    mesh: {fileID: -9040684250955034890, guid: 5cece7af51bd6e04ca5c12de29faa8ff, type: 3}
+  - name: RiverStone_A
+    mesh: {fileID: 9174538308068863655, guid: 903fa7d838f75e946910ed93393d859e, type: 3}
+  - name: RiverStone_B
+    mesh: {fileID: -8423140119587628266, guid: 74d8bc87e1318fe48a756235796fd03d, type: 3}
+  - name: RiverStone_C
+    mesh: {fileID: 788895249798429306, guid: 51bc6b2a818c58b4c9bbfb1821120f67, type: 3}
   - name: Rock_A
     mesh: {fileID: 2649995349246831342, guid: 99013a01bd17bf048ba3cda04c0704e0, type: 3}
   - name: Rock_B
@@ -85,6 +133,14 @@ MonoBehaviour:
     mesh: {fileID: -101496668972229048, guid: 14e4bda9b7d775445aafeace09d3b297, type: 3}
   - name: Rock_D
     mesh: {fileID: 7998580582834682927, guid: 2e4c10c25482a524cb93aa352779cdd3, type: 3}
+  - name: RootArch
+    mesh: {fileID: -4083301915040451429, guid: 158127f0f84bb9b449a15fcafd5164c4, type: 3}
+  - name: Snail
+    mesh: {fileID: 2833990666634714160, guid: 2f673947adb625540a5092c2408d0fb1, type: 3}
+  - name: Sparrow_Body
+    mesh: {fileID: -9054712840017786085, guid: 2149518db93b4bc4f9369cf8b8325170, type: 3}
+  - name: Sparrow_Wing
+    mesh: {fileID: 2847704281731873798, guid: 7b28842e9be474a4ba11be509f6f56ae, type: 3}
   - name: Sprout
     mesh: {fileID: 8952576610483757627, guid: 19b582b5bc67de6449a00c8cdfaf6099, type: 3}
   - name: Strawberry
@@ -97,6 +153,41 @@ MonoBehaviour:
     mesh: {fileID: -3568724568143279270, guid: 2d1344d139666024eb4b4da5eb5432f2, type: 3}
   - name: WaterLily
     mesh: {fileID: 4474497185685083731, guid: cf910820ad5d2af4c84907b51a1673b1, type: 3}
+  - name: WaterStrider
+    mesh: {fileID: 1618216054588895661, guid: 48bc72eba75fdf141af1b3140eea6821, type: 3}
+  portraits:
+  - name: ant
+    texture: {fileID: 2800000, guid: 2a57c240507214542a9abb159f93b8e2, type: 3}
+  - name: beetle
+    texture: {fileID: 2800000, guid: 781c31494f9f4a44599969b7fbd85fa1, type: 3}
+  - name: butterfly
+    texture: {fileID: 2800000, guid: 91fdf26368cd4cd40944bbc0715d7fba, type: 3}
+  - name: crab
+    texture: {fileID: 2800000, guid: ffd5d77192a095844886f3643c152d2c, type: 3}
+  - name: crow
+    texture: {fileID: 2800000, guid: ab53711ee930c6243a16bd17e2ded5ea, type: 3}
+  - name: dragonfly
+    texture: {fileID: 2800000, guid: ed10e467a92a6a04b876ffc6e642b46f, type: 3}
+  - name: firefly
+    texture: {fileID: 2800000, guid: d60e50d0356b16b47a0d6cca719fbbfe, type: 3}
+  - name: frog
+    texture: {fileID: 2800000, guid: 8fcaf1b260f3bf949a6ee7132e70a1d3, type: 3}
+  - name: grasshopper
+    texture: {fileID: 2800000, guid: 31a4d271760ef9549b51921e6a9c827e, type: 3}
+  - name: ladybug
+    texture: {fileID: 2800000, guid: 6ab90112b8809e243855985771340812, type: 3}
+  - name: otoshibumi
+    texture: {fileID: 2800000, guid: 4be4f69b9ae56504ab4f118c0cffc10b, type: 3}
+  - name: pillbug
+    texture: {fileID: 2800000, guid: acf7880d888187d47ad92b1e18c83508, type: 3}
+  - name: riversnail
+    texture: {fileID: 2800000, guid: f1f06a4d47074084da33da2f4f8f5f3a, type: 3}
+  - name: snail
+    texture: {fileID: 2800000, guid: a76a29a25746df0438034d7ed04e213c, type: 3}
+  - name: sparrow
+    texture: {fileID: 2800000, guid: 23fddbdf808c5e843a6b9dd1759f79e1, type: 3}
+  - name: waterstrider
+    texture: {fileID: 2800000, guid: 5189426165d8db240afa746472fc8c72, type: 3}
   prop: {fileID: 2100000, guid: a7965964abebd0a4da0383ab074e54e2, type: 2}
   propGlossy: {fileID: 2100000, guid: d9a315e8ef8c4f546a6208deeb6df9e7, type: 2}
   bark: {fileID: 2100000, guid: 16db4c8b7a994db44b8a03ce3efd3938, type: 2}
@@ -110,4 +201,9 @@ MonoBehaviour:
   particle: {fileID: 2100000, guid: 1b57e0e31f366cd429c12467645e74b9, type: 2}
   silk: {fileID: 2100000, guid: b23fb35b16068cb4d8ce1e86d0601b67, type: 2}
   worm: {fileID: 2100000, guid: ac285d6d44a5bc64182456330748b1e5, type: 2}
+  river: {fileID: 2100000, guid: d3f01413383aefd4797e1da9528b62d4, type: 2}
+  waterfall: {fileID: 2100000, guid: 6c82c146f9459f949bfc4c209d1a22af, type: 2}
+  creature: {fileID: 2100000, guid: 2c5ca66a9ba2c0c498313f76aac8ba25, type: 2}
+  creatureWing: {fileID: 2100000, guid: d1e537e3dbb188f4e9a54638a7398e9e, type: 2}
+  creatureGlow: {fileID: 2100000, guid: 956c42b1a60d6e84daa5718c8579b501, type: 2}
   sunCookie: {fileID: 2800000, guid: 11d4622ca0f4c3e4eadbbeac8afa0d92, type: 3}

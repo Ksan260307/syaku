@@ -220,6 +220,77 @@ def app_icon():
     print("wrote app icon")
 
 
+def icon_bug():
+    """いきもの（てんとう虫のシルエット）"""
+    n = 64
+    im = canvas(n)
+    d = ImageDraw.Draw(im)
+    u = n * S
+    d.ellipse([u * 0.18, u * 0.28, u * 0.82, u * 0.88], fill=(255, 248, 225, 255))
+    d.ellipse([u * 0.23, u * 0.33, u * 0.77, u * 0.83], fill=(235, 80, 60, 255))
+    d.line([(u * 0.5, u * 0.33), (u * 0.5, u * 0.83)], fill=(40, 30, 30, 255), width=3 * S)
+    for cx, cy in ((0.37, 0.5), (0.63, 0.5), (0.36, 0.68), (0.64, 0.68)):
+        d.ellipse([u * (cx - 0.055), u * (cy - 0.055), u * (cx + 0.055), u * (cy + 0.055)], fill=(40, 30, 30, 255))
+    d.ellipse([u * 0.36, u * 0.12, u * 0.64, u * 0.38], fill=(40, 30, 30, 255))
+    d.ellipse([u * 0.41, u * 0.2, u * 0.47, u * 0.26], fill=(255, 255, 255, 255))
+    d.ellipse([u * 0.53, u * 0.2, u * 0.59, u * 0.26], fill=(255, 255, 255, 255))
+    save(im, "icon_bug.png", n)
+
+
+def icon_book():
+    n = 64
+    im = canvas(n)
+    d = ImageDraw.Draw(im)
+    u = n * S
+    d.rounded_rectangle([u * 0.16, u * 0.2, u * 0.84, u * 0.82], radius=6 * S, fill=(255, 248, 225, 255))
+    d.line([(u * 0.5, u * 0.22), (u * 0.5, u * 0.8)], fill=(150, 125, 90, 255), width=3 * S)
+    for y in (0.35, 0.47, 0.59):
+        d.line([(u * 0.24, u * y), (u * 0.43, u * y)], fill=(180, 160, 120, 255), width=2 * S)
+    d.ellipse([u * 0.56, u * 0.34, u * 0.76, u * 0.54], fill=(120, 200, 90, 255))
+    d.ellipse([u * 0.6, u * 0.6, u * 0.72, u * 0.72], fill=(235, 110, 80, 255))
+    save(im, "icon_book.png", n)
+
+
+def icon_fullscreen():
+    n = 64
+    im = canvas(n)
+    d = ImageDraw.Draw(im)
+    u = n * S
+    w = 5 * S
+    c = (255, 248, 225, 255)
+    for (x, y, dx, dy) in ((0.2, 0.2, 1, 1), (0.8, 0.2, -1, 1), (0.2, 0.8, 1, -1), (0.8, 0.8, -1, -1)):
+        d.line([(u * x, u * y), (u * (x + dx * 0.2), u * y)], fill=c, width=w)
+        d.line([(u * x, u * y), (u * x, u * (y + dy * 0.2))], fill=c, width=w)
+    save(im, "icon_fullscreen.png", n)
+
+
+def icon_lock():
+    n = 64
+    im = canvas(n)
+    d = ImageDraw.Draw(im)
+    u = n * S
+    d.arc([u * 0.3, u * 0.12, u * 0.7, u * 0.56], start=180, end=360, fill=(150, 130, 100, 255), width=6 * S)
+    d.line([(u * 0.3, u * 0.34), (u * 0.3, u * 0.46)], fill=(150, 130, 100, 255), width=6 * S)
+    d.line([(u * 0.7, u * 0.34), (u * 0.7, u * 0.46)], fill=(150, 130, 100, 255), width=6 * S)
+    d.rounded_rectangle([u * 0.2, u * 0.44, u * 0.8, u * 0.88], radius=6 * S, fill=(200, 175, 125, 255))
+    d.ellipse([u * 0.45, u * 0.58, u * 0.55, u * 0.68], fill=(110, 90, 60, 255))
+    save(im, "icon_lock.png", n)
+
+
+def icon_gate():
+    """エリア移動（木の根のトンネル）"""
+    n = 64
+    im = canvas(n)
+    d = ImageDraw.Draw(im)
+    u = n * S
+    d.ellipse([u * 0.1, u * 0.1, u * 0.9, u * 0.9], fill=(255, 248, 225, 240))
+    d.pieslice([u * 0.2, u * 0.2, u * 0.8, u * 0.95], start=180, end=360, fill=(120, 84, 52, 255))
+    d.rectangle([u * 0.2, u * 0.56, u * 0.8, u * 0.78], fill=(120, 84, 52, 255))
+    d.pieslice([u * 0.32, u * 0.34, u * 0.68, u * 0.98], start=180, end=360, fill=(120, 220, 255, 255))
+    d.rectangle([u * 0.32, u * 0.64, u * 0.68, u * 0.78], fill=(120, 220, 255, 255))
+    save(im, "icon_gate.png", n)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     icon_drop()
@@ -230,4 +301,9 @@ if __name__ == "__main__":
     icon_map()
     banner_deco()
     vignette()
+    icon_bug()
+    icon_book()
+    icon_fullscreen()
+    icon_lock()
+    icon_gate()
     app_icon()

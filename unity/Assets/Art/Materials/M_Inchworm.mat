@@ -11,7 +11,8 @@ Material:
   m_Shader: {fileID: 4800000, guid: 2d7762ca86128d04fb28467455c04f7a, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
+  m_ValidKeywords:
+  - _HUE_SHIFT
   m_InvalidKeywords:
   - _VERTEXCOLORSRGB_ON
   m_LightmapFlags: 4
@@ -37,18 +38,22 @@ Material:
     - _Cull: 2
     - _DetailScale: 0.35
     - _DetailStrength: 0.3
+    - _HueShift: 0
+    - _HueShiftOn: 1
     - _NearFade: 0
     - _NearFadeDistance: 1
     - _OutlineSmoothNormals: 0
     - _OutlineWidth: 0.55
     - _RimStrength: 0.5
     - _RimWidth: 0.32
+    - _SatMul: 1
     - _ShadowBrightness: 1.1
     - _ShadowSoftness: 0.05
     - _ShadowThreshold: 0.5
     - _SpecularSize: 0.045
     - _SpecularStrength: 0.45
     - _Terrain: 0
+    - _ValMul: 1
     - _VertexColorSRGB: 1
     - _Wind: 0
     - _WindStrength: 0.3

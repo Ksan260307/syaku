@@ -15,7 +15,15 @@ namespace Shakutori
             public Mesh mesh;
         }
 
+        [Serializable]
+        public struct NamedTexture
+        {
+            public string name;
+            public Texture2D texture;
+        }
+
         public List<NamedMesh> meshes = new List<NamedMesh>();
+        public List<NamedTexture> portraits = new List<NamedTexture>();
 
         [Header("Materials")]
         public Material prop;          // 岩・キノコ・落ち葉など（輪郭線あり）
@@ -31,11 +39,23 @@ namespace Shakutori
         public Material particle;
         public Material silk;
         public Material worm;
+        public Material river;         // 流れる川
+        public Material waterfall;     // 滝
+        public Material creature;      // いきもの
+        public Material creatureWing;  // 羽（両面）
+        public Material creatureGlow;  // ホタルの光
 
         [Header("Textures")]
         public Texture2D sunCookie;
 
         Dictionary<string, Mesh> _lookup;
+
+        public Texture2D Portrait(string id)
+        {
+            foreach (var p in portraits)
+                if (p.name == id) return p.texture;
+            return null;
+        }
 
         public Mesh Get(string meshName)
         {

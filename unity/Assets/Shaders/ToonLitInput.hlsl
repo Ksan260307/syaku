@@ -29,6 +29,9 @@ CBUFFER_START(UnityPerMaterial)
     half _WindStrength;
     half _NearFadeDistance;
     half _Cull;
+    half _HueShift;
+    half _SatMul;
+    half _ValMul;
 CBUFFER_END
 
 ShakuToonParams ShakuGetParams()
@@ -59,6 +62,9 @@ half3 ShakuAlbedo(half4 vcolor, float2 uv, float3 positionWS)
 {
     half3 albedo = _BaseColor.rgb * ShakuVertexColor(vcolor.rgb, _VertexColorSRGB);
     albedo *= SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, uv).rgb;
+#if defined(_HUE_SHIFT)
+    albedo = ShakuHueShift(albedo, _HueShift, _SatMul, _ValMul);
+#endif
 #if defined(_TERRAIN)
     half d1 = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, positionWS.xz * _DetailScale).r;
     half d2 = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, positionWS.xz * _DetailScale * 0.173 + 0.31).g;
