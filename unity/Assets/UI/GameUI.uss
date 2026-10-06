@@ -1,0 +1,875 @@
+/* しゃくとりの森 UI — やわらかいクリーム色と金のアクセント */
+
+.root {
+    flex-grow: 1;
+    color: rgb(255, 255, 255);
+    font-size: 22px;
+}
+
+.hidden {
+    display: none;
+}
+
+.look-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.hud {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    transition-property: opacity;
+    transition-duration: 0.5s;
+}
+
+.hud--hidden {
+    opacity: 0;
+}
+
+.icon {
+    width: 30px;
+    height: 30px;
+    -unity-background-scale-mode: scale-to-fit;
+    flex-shrink: 0;
+}
+
+.icon-drop { background-image: url("Icons/icon_drop.png"); }
+.icon-place { background-image: url("Icons/icon_place.png"); }
+.icon-map { background-image: url("Icons/icon_map.png"); width: 34px; height: 34px; }
+.icon-menu { background-image: url("Icons/icon_menu.png"); width: 34px; height: 34px; }
+
+.hud-panel {
+    background-color: rgba(28, 40, 34, 0.42);
+    border-radius: 16px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.22);
+    padding: 10px 18px;
+}
+
+/* ---- 目標 ---- */
+.objectives {
+    position: absolute;
+    left: 28px;
+    top: 24px;
+    min-width: 270px;
+}
+
+.obj-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.obj-label {
+    margin-left: 10px;
+    flex-grow: 1;
+    font-size: 21px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.obj-count {
+    font-size: 23px;
+    -unity-font-style: bold;
+    margin-left: 18px;
+    color: rgb(255, 238, 190);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    transition-property: scale, color;
+    transition-duration: 0.25s;
+}
+
+.obj-count--pop {
+    scale: 1.35 1.35;
+    color: rgb(170, 245, 255);
+}
+
+.area-name {
+    position: absolute;
+    left: 32px;
+    top: 128px;
+    font-size: 20px;
+    color: rgb(255, 246, 220);
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+    opacity: 0.95;
+    transition-property: opacity;
+    transition-duration: 0.6s;
+}
+
+/* ---- ミニマップ ---- */
+.top-right {
+    position: absolute;
+    right: 28px;
+    top: 22px;
+    flex-direction: row;
+    align-items: flex-start;
+}
+
+.minimap {
+    width: 220px;
+    height: 220px;
+    border-radius: 110px;
+    border-width: 4px;
+    border-color: rgba(255, 244, 214, 0.9);
+    background-color: rgba(20, 30, 25, 0.6);
+}
+
+.minimap-mask {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 106px;
+    overflow: hidden;
+}
+
+.minimap-image {
+    position: absolute;
+    width: 440px;
+    height: 440px;
+    -unity-background-scale-mode: stretch-to-fill;
+}
+
+.minimap-player {
+    position: absolute;
+    width: 30px;
+    height: 30px;
+    left: 91px;
+    top: 91px;
+    background-image: url("Icons/icon_player.png");
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.minimap-north {
+    position: absolute;
+    left: 96px;
+    top: -14px;
+    width: 20px;
+    height: 24px;
+    font-size: 16px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgb(120, 70, 40);
+    background-color: rgb(255, 244, 214);
+    border-radius: 8px;
+}
+
+.map-marker {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.map-marker--place { background-image: url("Icons/icon_place.png"); }
+.map-marker--unknown { background-image: url("Icons/icon_unknown.png"); }
+
+.map-dot {
+    position: absolute;
+    width: 9px;
+    height: 9px;
+    border-radius: 5px;
+    background-color: rgb(150, 235, 255);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.9);
+}
+
+.top-buttons {
+    flex-direction: column;
+    margin-left: 12px;
+}
+
+.round-button {
+    width: 56px;
+    height: 56px;
+    border-radius: 28px;
+    margin: 0 0 10px 0;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(28, 40, 34, 0.5);
+    border-width: 2px;
+    border-color: rgba(255, 244, 214, 0.75);
+    transition-property: scale, background-color;
+    transition-duration: 0.15s;
+}
+
+.round-button:hover {
+    background-color: rgba(60, 80, 66, 0.75);
+    scale: 1.06 1.06;
+}
+
+.round-button:active {
+    scale: 0.94 0.94;
+}
+
+/* ---- 発見バナー ---- */
+.banner {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 150px;
+    align-items: center;
+    opacity: 0;
+    translate: 0 -16px;
+    transition-property: opacity, translate;
+    transition-duration: 0.8s;
+}
+
+.banner--show {
+    opacity: 1;
+    translate: 0 0;
+}
+
+.banner-deco {
+    width: 520px;
+    height: 22px;
+    background-image: url("Icons/banner_deco.png");
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.banner-deco-bottom {
+    rotate: 180deg;
+    margin-top: 6px;
+}
+
+.banner-sub {
+    font-size: 20px;
+    color: rgb(255, 236, 180);
+    letter-spacing: 6px;
+    margin-top: 6px;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.banner-title {
+    font-size: 64px;
+    color: rgb(255, 255, 255);
+    letter-spacing: 6px;
+    -unity-font-style: bold;
+    text-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+    -unity-text-outline-width: 0.5px;
+    -unity-text-outline-color: rgba(90, 60, 30, 0.6);
+}
+
+.banner-desc {
+    font-size: 22px;
+    color: rgb(250, 248, 240);
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+    margin-top: 2px;
+}
+
+/* ---- トースト ---- */
+.toasts {
+    position: absolute;
+    right: 32px;
+    top: 330px;
+    align-items: flex-end;
+}
+
+.toast {
+    flex-direction: row;
+    align-items: center;
+    background-color: rgba(28, 40, 34, 0.55);
+    border-radius: 20px;
+    border-width: 1px;
+    border-color: rgba(170, 240, 255, 0.6);
+    padding: 6px 16px;
+    margin-bottom: 8px;
+    opacity: 0;
+    translate: 40px 0;
+    transition-property: opacity, translate;
+    transition-duration: 0.35s;
+}
+
+.toast--show {
+    opacity: 1;
+    translate: 0 0;
+}
+
+.toast-label {
+    margin-left: 8px;
+    font-size: 21px;
+    color: rgb(225, 250, 255);
+}
+
+/* ---- 操作のヒント ---- */
+.prompt {
+    position: absolute;
+    bottom: 120px;
+    left: 0;
+    right: 0;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: 0.3s;
+}
+
+.prompt--show {
+    opacity: 1;
+}
+
+.keycap {
+    background-color: rgb(255, 248, 230);
+    color: rgb(80, 60, 40);
+    border-radius: 8px;
+    border-bottom-width: 3px;
+    border-color: rgb(200, 175, 125);
+    padding: 3px 12px;
+    font-size: 20px;
+    -unity-font-style: bold;
+    margin-right: 10px;
+}
+
+.prompt-text {
+    font-size: 23px;
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.7);
+}
+
+.help {
+    position: absolute;
+    left: 28px;
+    bottom: 26px;
+    transition-property: opacity, translate;
+    transition-duration: 0.4s;
+}
+
+.help--hidden {
+    opacity: 0;
+    translate: -30px 0;
+}
+
+.help-row {
+    flex-direction: row;
+    align-items: center;
+    margin: 3px 0;
+}
+
+.help-key {
+    min-width: 128px;
+    flex-direction: row;
+}
+
+.help-key .keycap {
+    font-size: 16px;
+    padding: 1px 8px;
+    margin-right: 4px;
+}
+
+.help-text {
+    font-size: 18px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.help-hint {
+    position: absolute;
+    left: 30px;
+    bottom: 22px;
+    font-size: 16px;
+    opacity: 0.75;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+
+/* ---- タッチ ---- */
+.touch {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 360px;
+}
+
+.joystick {
+    position: absolute;
+    left: 70px;
+    bottom: 60px;
+    width: 230px;
+    height: 230px;
+    border-radius: 115px;
+    background-color: rgba(255, 255, 255, 0.14);
+    border-width: 3px;
+    border-color: rgba(255, 255, 255, 0.45);
+}
+
+.joystick-knob {
+    position: absolute;
+    left: 70px;
+    top: 70px;
+    width: 84px;
+    height: 84px;
+    border-radius: 42px;
+    background-color: rgba(255, 250, 235, 0.85);
+    border-width: 2px;
+    border-color: rgba(200, 175, 125, 0.9);
+}
+
+.touch-buttons {
+    position: absolute;
+    right: 60px;
+    bottom: 60px;
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.touch-button {
+    width: 112px;
+    height: 112px;
+    border-radius: 56px;
+    margin-left: 18px;
+    background-color: rgba(28, 40, 34, 0.5);
+    border-width: 3px;
+    border-color: rgba(255, 244, 214, 0.8);
+    align-items: center;
+    justify-content: center;
+}
+
+.touch-button--on {
+    background-color: rgba(240, 200, 105, 0.85);
+}
+
+.touch-button-big {
+    width: 150px;
+    height: 150px;
+    border-radius: 75px;
+}
+
+.touch-label {
+    font-size: 22px;
+    -unity-font-style: bold;
+}
+
+.touch-label-big {
+    font-size: 40px;
+}
+
+/* ---- ウィンドウ共通 ---- */
+.overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(10, 18, 14, 0.55);
+    align-items: center;
+    justify-content: center;
+}
+
+.window {
+    background-color: rgba(252, 248, 238, 0.97);
+    border-radius: 24px;
+    border-width: 3px;
+    border-color: rgb(214, 186, 128);
+    padding: 26px 40px 30px 40px;
+    align-items: stretch;
+    color: rgb(74, 62, 50);
+    min-width: 520px;
+}
+
+.window-title {
+    font-size: 36px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgb(110, 82, 50);
+    margin-bottom: 16px;
+    letter-spacing: 4px;
+}
+
+.btn {
+    height: 56px;
+    margin: 6px 0;
+    border-radius: 28px;
+    border-width: 2px;
+    border-color: rgb(214, 186, 128);
+    background-color: rgb(246, 238, 220);
+    color: rgb(90, 70, 50);
+    font-size: 23px;
+    -unity-font-style: bold;
+    transition-property: scale, background-color;
+    transition-duration: 0.15s;
+}
+
+.btn:hover {
+    background-color: rgb(255, 248, 232);
+    scale: 1.03 1.03;
+}
+
+.btn:active {
+    scale: 0.97 0.97;
+}
+
+.btn:focus {
+    border-color: rgb(120, 190, 120);
+}
+
+.btn-primary {
+    background-color: rgb(244, 205, 110);
+    border-color: rgb(196, 152, 70);
+    color: rgb(70, 50, 20);
+}
+
+.btn-primary:hover {
+    background-color: rgb(252, 218, 132);
+}
+
+.btn-danger {
+    color: rgb(170, 70, 60);
+}
+
+.btn-large {
+    height: 66px;
+    font-size: 27px;
+    width: 320px;
+}
+
+.btn-small {
+    flex-grow: 1;
+    height: 48px;
+    font-size: 19px;
+    margin: 6px 6px;
+}
+
+.row-buttons {
+    flex-direction: row;
+    margin-top: 10px;
+}
+
+.settings {
+    margin: 12px 0 4px 0;
+    padding: 12px 16px;
+    border-radius: 14px;
+    background-color: rgba(220, 200, 160, 0.22);
+}
+
+.settings .unity-label {
+    color: rgb(90, 70, 50);
+    font-size: 19px;
+    min-width: 190px;
+}
+
+.settings .unity-base-slider__tracker {
+    background-color: rgb(225, 210, 180);
+    border-color: rgb(200, 180, 140);
+}
+
+.settings .unity-base-slider__dragger {
+    background-color: rgb(244, 205, 110);
+    border-color: rgb(196, 152, 70);
+}
+
+.quality-row {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 6px;
+}
+
+.quality-label {
+    min-width: 190px;
+    font-size: 19px;
+    color: rgb(90, 70, 50);
+}
+
+.chip {
+    height: 40px;
+    min-width: 110px;
+    border-radius: 20px;
+    border-width: 2px;
+    border-color: rgb(214, 186, 128);
+    background-color: rgb(246, 238, 220);
+    color: rgb(90, 70, 50);
+    font-size: 18px;
+    margin-right: 8px;
+}
+
+.chip--on {
+    background-color: rgb(244, 205, 110);
+    border-color: rgb(196, 152, 70);
+}
+
+/* ---- 地図 ---- */
+.map-window {
+    width: 1160px;
+}
+
+.map-body {
+    flex-direction: row;
+    margin-bottom: 14px;
+}
+
+.bigmap {
+    width: 620px;
+    height: 620px;
+    border-radius: 18px;
+    border-width: 3px;
+    border-color: rgb(214, 186, 128);
+    overflow: hidden;
+    -unity-background-scale-mode: stretch-to-fill;
+}
+
+.bigmap-player {
+    position: absolute;
+    width: 36px;
+    height: 36px;
+    background-image: url("Icons/icon_player.png");
+    -unity-background-scale-mode: scale-to-fit;
+}
+
+.bigmap-label {
+    position: absolute;
+    font-size: 16px;
+    color: rgb(255, 255, 255);
+    -unity-font-style: bold;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    -unity-text-align: middle-center;
+    width: 200px;
+}
+
+.map-side {
+    flex-grow: 1;
+    margin-left: 24px;
+}
+
+.map-summary {
+    font-size: 20px;
+    color: rgb(110, 82, 50);
+    margin-bottom: 10px;
+    white-space: normal;
+}
+
+.map-legend {
+    flex-grow: 1;
+}
+
+.legend-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 7px 10px;
+    margin-bottom: 4px;
+    border-radius: 12px;
+    background-color: rgba(220, 200, 160, 0.22);
+}
+
+.legend-name {
+    font-size: 20px;
+    margin-left: 10px;
+    color: rgb(80, 64, 48);
+    -unity-font-style: bold;
+}
+
+.legend-name--unknown {
+    color: rgb(160, 145, 125);
+}
+
+.legend-desc {
+    font-size: 15px;
+    color: rgb(130, 112, 92);
+    white-space: normal;
+    margin-left: 10px;
+}
+
+/* ---- あそびかた ---- */
+.howto-window {
+    width: 900px;
+}
+
+.howto-lead {
+    font-size: 20px;
+    white-space: normal;
+    margin-bottom: 14px;
+    color: rgb(90, 74, 58);
+}
+
+.howto-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.howto-item {
+    width: 50%;
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 0;
+}
+
+.howto-item .keycap {
+    background-color: rgb(238, 226, 200);
+    font-size: 17px;
+    margin-right: 6px;
+}
+
+.howto-item-text {
+    font-size: 19px;
+    margin-left: 8px;
+    color: rgb(80, 64, 48);
+}
+
+.howto-tip {
+    font-size: 17px;
+    white-space: normal;
+    color: rgb(120, 140, 90);
+    margin: 6px 0 12px 0;
+}
+
+.confirm-window {
+    width: 560px;
+}
+
+.confirm-text {
+    font-size: 22px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    margin: 10px 0 16px 0;
+}
+
+.complete-window {
+    width: 640px;
+}
+
+.complete-title {
+    color: rgb(190, 130, 40);
+}
+
+.complete-text {
+    font-size: 21px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    margin-bottom: 18px;
+}
+
+/* ---- タイトル ---- */
+.title-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    transition-property: opacity;
+    transition-duration: 0.8s;
+}
+
+.title-overlay--out {
+    opacity: 0;
+}
+
+.title-vignette {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-image: url("Icons/vignette.png");
+    -unity-background-scale-mode: stretch-to-fill;
+}
+
+.title-box {
+    align-items: center;
+    margin-top: -40px;
+}
+
+.logo {
+    font-size: 118px;
+    color: rgb(255, 253, 244);
+    letter-spacing: 10px;
+    text-shadow: 0 6px 18px rgba(30, 50, 20, 0.6);
+    -unity-text-outline-width: 1px;
+    -unity-text-outline-color: rgba(70, 110, 50, 0.55);
+}
+
+.logo-sub {
+    font-size: 24px;
+    letter-spacing: 12px;
+    color: rgb(255, 238, 190);
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+    margin-bottom: 40px;
+}
+
+.title-buttons {
+    align-items: center;
+}
+
+.title-buttons .btn {
+    width: 320px;
+}
+
+.title-hint {
+    position: absolute;
+    bottom: 64px;
+    font-size: 21px;
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.75);
+}
+
+.title-hint-small {
+    bottom: 30px;
+    font-size: 16px;
+    opacity: 0.8;
+}
+
+/* ---- 読み込み ---- */
+.loading {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgb(38, 58, 40);
+    align-items: center;
+    justify-content: center;
+    transition-property: opacity;
+    transition-duration: 0.8s;
+}
+
+.loading--out {
+    opacity: 0;
+}
+
+.loading-logo {
+    font-size: 72px;
+    letter-spacing: 8px;
+    color: rgb(240, 248, 225);
+    margin-bottom: 30px;
+}
+
+.loading-bar {
+    width: 480px;
+    height: 12px;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.15);
+    overflow: hidden;
+}
+
+.loading-fill {
+    width: 0%;
+    height: 100%;
+    background-color: rgb(170, 220, 110);
+    border-radius: 6px;
+}
+
+.loading-text {
+    margin-top: 16px;
+    font-size: 20px;
+    color: rgb(210, 230, 200);
+}
+
+.fade {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgb(0, 0, 0);
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: 0.6s;
+}
+
+.fade--on {
+    opacity: 1;
+}

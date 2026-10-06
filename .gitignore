@@ -38,3 +38,15 @@ blender/previews/
 # OS
 .DS_Store
 Thumbs.db
+
+# Python
+__pycache__/
+
+# Unity が生成するもの
+unity/Data/
+unity/Assets/Resources/PerformanceTestRun*
+unity/Assets/StreamingAssets/
+unity/Assets/StreamingAssets.meta
+
+# ローカル開発用
+.claude/

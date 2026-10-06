@@ -1,0 +1,113 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a34e3b2f323130945b3924fecca81a7e, type: 3}
+  m_Name: WorldAssets
+  m_EditorClassIdentifier: Assembly-CSharp::Shakutori.WorldAssets
+  meshes:
+  - name: Acorn
+    mesh: {fileID: 7648665362807402327, guid: 801d0b9c4664d5a4dabc60fdbd0f6c6f, type: 3}
+  - name: AcornCap
+    mesh: {fileID: -6268780836564065794, guid: 076cf0b2eb2993f49a8d170a5b3c197d, type: 3}
+  - name: Bellflower
+    mesh: {fileID: -6631587410609359577, guid: 40a17317429ec544b8ba57c4ab4eb821, type: 3}
+  - name: BgTrunk_A
+    mesh: {fileID: -672235871324121875, guid: 958e622505befe843a8f6f6b8fb3f2c4, type: 3}
+  - name: BgTrunk_B
+    mesh: {fileID: 3625745103105099721, guid: 530c5a00165a92345a772294b512d973, type: 3}
+  - name: Clover_A
+    mesh: {fileID: 832611055651994780, guid: b7b27f962fa103c41943c8c052c06dd9, type: 3}
+  - name: Clover_B
+    mesh: {fileID: -4778820943216205989, guid: 47a3d3bf6438ea046b537f1076e97e52, type: 3}
+  - name: Daisy
+    mesh: {fileID: 1368239412487327046, guid: 38f26ce6082329b4ca414a77f2d3c377, type: 3}
+  - name: Dandelion
+    mesh: {fileID: 112697432492775751, guid: 4175fcdc1bf0ac14e8f13c23a2a1353d, type: 3}
+  - name: DandelionPuff
+    mesh: {fileID: 63436090672580052, guid: de8c0c8bae10ae546a63c59d8489868b, type: 3}
+  - name: Dewdrop
+    mesh: {fileID: 9008849617216650565, guid: 575e8893cab913b4aa7d5c535766ab35, type: 3}
+  - name: Fern_A
+    mesh: {fileID: -7157571015503710841, guid: 7444fd63e8381e24eaec510ad877fb37, type: 3}
+  - name: Fern_B
+    mesh: {fileID: 5159679835122556001, guid: 5e7c912a2c0d9bc47bb82336324f4ac2, type: 3}
+  - name: Grass_A
+    mesh: {fileID: -4099415766749746972, guid: b1c32dd35866ace469307a28b7dc439a, type: 3}
+  - name: Grass_B
+    mesh: {fileID: -8055563185624932068, guid: 33c53addd1577b442a352d7c364a8fa7, type: 3}
+  - name: Grass_C
+    mesh: {fileID: 4553639701868992803, guid: 77ed166655966674493f282baad5212c, type: 3}
+  - name: GreatTree
+    mesh: {fileID: 3387797446468001537, guid: 5544122e31e5bcc4e81cebe448a6d7e3, type: 3}
+  - name: HollowLog
+    mesh: {fileID: 4769565808284150128, guid: d5cab0f74d390b94b93661531ead7a0f, type: 3}
+  - name: Inchworm
+    mesh: {fileID: -7065828297190242328, guid: 87b4e529b10de504da6c471ca9e8700e, type: 3}
+  - name: Leaf_Maple_Red
+    mesh: {fileID: 3871032105472768938, guid: 2373fabe1917d124592a8ec3c92ae9d1, type: 3}
+  - name: Leaf_Maple_Yellow
+    mesh: {fileID: -8783101512628070116, guid: 5264fdd0f30d06b4392720fa08bc239b, type: 3}
+  - name: Leaf_Oak_Brown
+    mesh: {fileID: -8093955575672970569, guid: 2de28fa4dcfec704a949567dff170cba, type: 3}
+  - name: Leaf_Oak_Green
+    mesh: {fileID: -6760348188023850989, guid: 3a2ce7ed76a105046a57cb54f11f9331, type: 3}
+  - name: Leaf_Oak_Orange
+    mesh: {fileID: 7599996138912870513, guid: d86d8b781478a114db915c37c37fd1b1, type: 3}
+  - name: LilyPad
+    mesh: {fileID: -4913708079383263833, guid: b9162904febb5464b92892bb92d355b7, type: 3}
+  - name: Moss
+    mesh: {fileID: 1917060837040722765, guid: 3d9d17b1c21e4a64d8f2b848fa27170b, type: 3}
+  - name: Mushroom_Brown
+    mesh: {fileID: -6464232304797740508, guid: 38fc1a4a0aa80654dac6ce46f501f443, type: 3}
+  - name: Mushroom_Cluster
+    mesh: {fileID: 8422160037211889625, guid: 7f1d4d63bfef4d8438c1659713e189ed, type: 3}
+  - name: Mushroom_Glow
+    mesh: {fileID: -118117794063028711, guid: 50098405710d4064ea1387e3f0bc8a97, type: 3}
+  - name: Mushroom_Red
+    mesh: {fileID: 8732430369344902774, guid: e1d904f8394f2b24a9f4285366b673c1, type: 3}
+  - name: Pinecone
+    mesh: {fileID: 2804762351221276474, guid: 4b67eebb6bd4ebe4b83be139d69c54b7, type: 3}
+  - name: Reed
+    mesh: {fileID: -3890688692072204658, guid: d2031b7f5c7d72f46b73012333597776, type: 3}
+  - name: Rock_A
+    mesh: {fileID: 2649995349246831342, guid: 99013a01bd17bf048ba3cda04c0704e0, type: 3}
+  - name: Rock_B
+    mesh: {fileID: 1617438343633297580, guid: 04f2331a6ce1be446a9d6f67fd8da0f8, type: 3}
+  - name: Rock_C
+    mesh: {fileID: -101496668972229048, guid: 14e4bda9b7d775445aafeace09d3b297, type: 3}
+  - name: Rock_D
+    mesh: {fileID: 7998580582834682927, guid: 2e4c10c25482a524cb93aa352779cdd3, type: 3}
+  - name: Sprout
+    mesh: {fileID: 8952576610483757627, guid: 19b582b5bc67de6449a00c8cdfaf6099, type: 3}
+  - name: Strawberry
+    mesh: {fileID: 3840383602836954559, guid: 15080bed2a2c1dc42933d2ce094f121d, type: 3}
+  - name: Stump
+    mesh: {fileID: -3727755857921736763, guid: 4a85af426b8ef424890624be9f699061, type: 3}
+  - name: Twig_A
+    mesh: {fileID: -6296972413218348916, guid: cdb6c645970d1e64aaa919afd52acab7, type: 3}
+  - name: Twig_B
+    mesh: {fileID: -3568724568143279270, guid: 2d1344d139666024eb4b4da5eb5432f2, type: 3}
+  - name: WaterLily
+    mesh: {fileID: 4474497185685083731, guid: cf910820ad5d2af4c84907b51a1673b1, type: 3}
+  prop: {fileID: 2100000, guid: a7965964abebd0a4da0383ab074e54e2, type: 2}
+  propGlossy: {fileID: 2100000, guid: d9a315e8ef8c4f546a6208deeb6df9e7, type: 2}
+  bark: {fileID: 2100000, guid: 16db4c8b7a994db44b8a03ce3efd3938, type: 2}
+  glow: {fileID: 2100000, guid: e6db167111ef2bb448bc392c8ae267f6, type: 2}
+  terrain: {fileID: 2100000, guid: e9d69ef692f0b05468809da337170e58, type: 2}
+  foliage: {fileID: 2100000, guid: ffb36d328b61cc84d85e199587d54224, type: 2}
+  flowers: {fileID: 2100000, guid: c7cbd04378bd03a4ea0941f9f67919a5, type: 2}
+  water: {fileID: 2100000, guid: b6beb706e1af9fd42875806b04fdfe0e, type: 2}
+  lightShaft: {fileID: 2100000, guid: 46e781bb74e9ae647bb495ca976b8025, type: 2}
+  dewdrop: {fileID: 2100000, guid: 379f1932880ced34d84e673080ba2ef7, type: 2}
+  particle: {fileID: 2100000, guid: 1b57e0e31f366cd429c12467645e74b9, type: 2}
+  silk: {fileID: 2100000, guid: b23fb35b16068cb4d8ce1e86d0601b67, type: 2}
+  worm: {fileID: 2100000, guid: ac285d6d44a5bc64182456330748b1e5, type: 2}
+  sunCookie: {fileID: 2800000, guid: 11d4622ca0f4c3e4eadbbeac8afa0d92, type: 3}

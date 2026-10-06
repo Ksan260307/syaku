@@ -1,0 +1,184 @@
+name: Build & Deploy to GitHub Pages
+
+# main へ push すると GitHub Pages に公開する。
+#  - リポジトリに Unity のライセンス（Secrets: UNITY_LICENSE / UNITY_EMAIL / UNITY_PASSWORD）があれば
+#    GitHub Actions 上で Unity (game-ci) を使って WebGL をビルドして公開する。
+#  - ライセンスが無ければ、リポジトリに含まれるビルド済みの docs/ をそのまま公開する
+#    （ローカルで tools/build_webgl.ps1 を実行すると docs/ が更新される）。
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "blender/previews/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  checks: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check Unity license
+    runs-on: ubuntu-latest
+    outputs:
+      has_license: ${{ steps.lic.outputs.has_license }}
+    steps:
+      - id: lic
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        run: |
+          if [ -n "$UNITY_LICENSE" ] || [ -n "$UNITY_SERIAL" ]; then
+            echo "has_license=true" >> "$GITHUB_OUTPUT"
+            echo "Unity のライセンスが見つかったので、クラウドでビルドします。"
+          else
+            echo "has_license=false" >> "$GITHUB_OUTPUT"
+            echo "Unity のライセンスが未設定なので、ビルド済みの docs/ を公開します。"
+          fi
+
+  tools-test:
+    name: Unit tests (Python tools)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install numpy pillow fonttools
+      - run: python -m unittest discover -s tools/tests -v
+
+  test:
+    name: Unit & integration tests (Unity)
+    needs: check
+    if: needs.check.outputs.has_license == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: unity/Library
+          key: Library-Test-${{ hashFiles('unity/Assets/**', 'unity/Packages/**', 'unity/ProjectSettings/**') }}
+          restore-keys: |
+            Library-Test-
+
+      - name: Run EditMode (unit) and PlayMode (integration) tests
+        uses: game-ci/unity-test-runner@v4
+        id: tests
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          projectPath: unity
+          testMode: all
+          artifactsPath: test-results
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          checkName: Unity test results
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: ${{ steps.tests.outputs.artifactsPath }}
+
+  build:
+    name: Build WebGL (Unity)
+    needs: [check, test, tools-test]
+    if: needs.check.outputs.has_license == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          df -h
+
+      - uses: actions/cache@v4
+        with:
+          path: unity/Library
+          key: Library-WebGL-${{ hashFiles('unity/Assets/**', 'unity/Packages/**', 'unity/ProjectSettings/**') }}
+          restore-keys: |
+            Library-WebGL-
+
+      - name: Build with Unity
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          projectPath: unity
+          targetPlatform: WebGL
+          buildMethod: Shakutori.EditorTools.BuildScript.BuildWebGL
+          buildsPath: build
+          buildName: WebGL
+          allowDirtyBuild: true
+
+      - name: Prepare site
+        run: |
+          OUT=$(dirname "$(find build -name index.html -path '*WebGL*' | head -n 1)")
+          echo "build output: $OUT"
+          mkdir -p site
+          cp -r "$OUT"/. site/
+          rm -rf site/*_DoNotShip
+          touch site/.nojekyll
+          du -sh site
+
+      - name: Check build
+        run: python3 tools/check_build.py site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  prebuilt:
+    name: Use prebuilt docs/
+    needs: [check, tools-test]
+    if: needs.check.outputs.has_license != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare site
+        run: |
+          if [ ! -f docs/index.html ]; then
+            echo "::error::docs/index.html がありません。ローカルで tools/build_webgl.ps1 を実行するか、Unity ライセンスの Secrets を設定してください。"
+            exit 1
+          fi
+          mkdir -p site
+          cp -r docs/. site/
+          touch site/.nojekyll
+          du -sh site
+
+      - name: Check build
+        run: python3 tools/check_build.py site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: [build, prebuilt]
+    if: always() && (needs.build.result == 'success' || needs.prebuilt.result == 'success')
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
