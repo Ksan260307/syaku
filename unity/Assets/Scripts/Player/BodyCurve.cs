@@ -46,6 +46,17 @@ namespace Shakutori
             }
         }
 
+        /// <summary>pivot を中心に、体全体を回す。</summary>
+        public void RotateAround(Vector3 pivot, Quaternion q)
+        {
+            for (int i = 0; i < Count; i++)
+            {
+                pos[i] = pivot + q * (pos[i] - pivot);
+                tan[i] = q * tan[i];
+                up[i] = q * up[i];
+            }
+        }
+
         public void RecomputeTangents()
         {
             int n = Count;

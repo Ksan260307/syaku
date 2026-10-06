@@ -465,6 +465,7 @@ namespace Shakutori
             float k = Mathf.Clamp01(speed / 8f);
             AudioManager.Instance?.Thud(k);
             fx.Burst(worm.CenterPosition, 6 + Mathf.RoundToInt(18f * k));
+            if (creatures != null) creatures.Disturb(worm.CenterPosition, 2f + 5f * k);   // 落ちた音に、近くのいきものがおどろく
             followCamera.Shake(0.25f + 0.6f * k);
             if (k > 0.6f && SaveSystem.Settings.vibration)
             {
@@ -557,6 +558,7 @@ namespace Shakutori
         {
             AudioManager.Instance?.Splash();
             fx.Burst(worm.CenterPosition, 40);
+            if (creatures != null) creatures.Disturb(worm.CenterPosition, 5f);
             ui.Toast("ぽちゃん！ 水に落ちてしまった…", "icon-drop");
         }
 

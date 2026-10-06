@@ -100,7 +100,7 @@ namespace Shakutori
                 // （こちらへ向かって歩いているときに回り込むと、ぐるぐる回り続けてしまうので行わない）
                 if (SaveSystem.Settings.autoCamera && _sinceManual > autoFollowDelay && target.IsMoving && target.SurfaceUp.y > 0.6f)
                 {
-                    Vector3 h = Vector3.ProjectOnPlane(target.Heading, Vector3.up);
+                    Vector3 h = Vector3.ProjectOnPlane(target.CameraHeading, Vector3.up);
                     Vector3 camFlat = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
                     bool towardCamera = Vector3.Dot(camFlat.normalized, h.normalized) < -0.25f;
                     // 手前へ入力しているあいだも回り込まない（障害物でそれたときに回り続けないように）

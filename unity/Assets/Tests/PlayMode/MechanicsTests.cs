@@ -72,12 +72,14 @@ namespace Shakutori.Tests
             yield return null;
             yield return null;
             GameInput.SetVirtualSilk(false);
-            Assert.AreEqual(InchwormController.Mode.Fall, Worm.State, "はなれて落ちる");
+            Assert.IsTrue(Worm.IsAboutToFall || Worm.State == InchwormController.Mode.Fall, "体をちぢめて、はなれる準備");
+            yield return WaitUntil(() => Worm.State == InchwormController.Mode.Fall, 0.4f, "はなれて落ちる");
             // 落ちている間は丸まっている（頭と尾が近い）
             yield return Seconds(0.25f);
             if (Worm.State == InchwormController.Mode.Fall)
                 Assert.Less(Vector3.Distance(Worm.Curve.Head, Worm.Curve.Tail), 0.6f, "くるんと丸まる");
             yield return WaitUntil(() => Worm.State != InchwormController.Mode.Fall, 6f, "着地");
+            yield return Seconds(0.6f);   // 体を開いた形から、地面に沿った形へもどるまで
             Assert.Greater(hitSpeed, 0.5f, "着地した");
             Assert.AreEqual(falls + 1, SaveSystem.Data.falls, "きろくに残る");
             Assert.Less(Worm.HeadPosition.y - GroundAt(Worm.HeadPosition), 1.2f, "地面に下りた");

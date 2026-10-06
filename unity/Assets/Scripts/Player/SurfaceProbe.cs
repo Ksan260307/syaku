@@ -110,7 +110,7 @@ namespace Shakutori
             return nd.normalized.y < -0.3f;
         }
 
-        static bool Valid(Vector3 p)
+        public static bool Valid(Vector3 p)
         {
             var area = Areas.Current;
             return area.InPlayArea(p) && !area.IsUnderwater(p);

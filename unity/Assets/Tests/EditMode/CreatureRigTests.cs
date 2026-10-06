@@ -205,6 +205,14 @@ namespace Shakutori.Tests
         }
 
         [Test]
+        public void Flowers_AreRecordedForButterflies()
+        {
+            Assert.Greater(_gen.FlowerPoints.Count, 30, "チョウやトンボがとまる花");
+            foreach (var f in _gen.FlowerPoints)
+                Assert.Greater(f.y - ForestLayout.Height(f.x, f.z), 1f, $"花の頭は地面より高い {f}");
+        }
+
+        [Test]
         public void NewSpecies_AreSpawned()
         {
             var c = Build(0f);

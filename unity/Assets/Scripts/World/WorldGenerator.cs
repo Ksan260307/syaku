@@ -45,6 +45,9 @@ namespace Shakutori
         public Texture2D MapTexture { get; private set; }
         public AreaLayout Area { get; private set; } = Areas.Forest;
         public readonly List<Vector3> DewdropPoints = new List<Vector3>();
+        /// <summary>花の頭の位置（チョウやトンボがとまる）。</summary>
+        public readonly List<Vector3> FlowerPoints = new List<Vector3>();
+        static readonly HashSet<string> FlowerMeshes = new HashSet<string> { "Daisy", "Bellflower", "Dandelion", "DandelionPuff", "Strawberry", "Iris" };
         public readonly List<MobGroup> Mobs = new List<MobGroup>();
         public readonly List<GateInstance> Gates = new List<GateInstance>();
         public Vector3 SpawnPoint { get; private set; }
@@ -203,6 +206,7 @@ namespace Shakutori
             Ferry = null;
             _specialCap = Vector3.zero;
             DewdropPoints.Clear();
+            FlowerPoints.Clear();
             Mobs.Clear();
             Gates.Clear();
             if (instanced != null) instanced.Clear();
@@ -436,6 +440,12 @@ namespace Shakutori
             Mesh m = assets.Get(meshName);
             if (m == null || mat == null) return null;
             var mtx = Matrix4x4.TRS(pos, rot, Vector3.one * scale);
+            if (FlowerMeshes.Contains(meshName))
+            {
+                // 花の頭（いちばん上）の位置を覚えておく
+                Bounds b = m.bounds;
+                FlowerPoints.Add(pos + rot * (new Vector3(b.center.x, b.max.y * 0.95f, b.center.z) * scale));
+            }
             GameObject go = null;
             if (asRenderer)
             {
