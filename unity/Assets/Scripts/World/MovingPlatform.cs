@@ -48,6 +48,7 @@ namespace Shakutori
     [DefaultExecutionOrder(-60)]
     public class RiverFerry : MonoBehaviour
     {
+        static readonly Unity.Profiling.ProfilerMarker s_Ferry = new Unity.Profiling.ProfilerMarker("Shaku.Ferry");
         public Vector3 dockA;
         public Vector3 dockB;
         public Quaternion baseRotation = Quaternion.identity;
@@ -115,6 +116,7 @@ namespace Shakutori
 
         void Update()
         {
+            using var prof = s_Ferry.Auto();   // 処理時間の計測（パフォーマンスの調整用）
             float dt = Time.deltaTime;
             _clock += dt;
             // 乗っているしゃくとりむしの重さで、しずんで、乗った側へかたむく

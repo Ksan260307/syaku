@@ -19,6 +19,8 @@ namespace Shakutori
     [DefaultExecutionOrder(-50)]
     public class Creatures : MonoBehaviour
     {
+        static readonly Unity.Profiling.ProfilerMarker s_CreatureDraw = new Unity.Profiling.ProfilerMarker("Shaku.CreatureDraw");
+        static readonly Unity.Profiling.ProfilerMarker s_Creatures = new Unity.Profiling.ProfilerMarker("Shaku.Creatures");
         public WorldAssets assets;
         public bool Active { get; set; }
         public event Action<SpeciesDef> Discovered;
@@ -32,6 +34,8 @@ namespace Shakutori
         public static float? RareChanceOverride;
         /// <summary>小さな体の世界での重力（しゃくとりむしの落下と同じ）。</summary>
         public const float Gravity = ShakuPhysics.Gravity;
+        /// <summary>いきものを描く距離（画質「かるい」では短く）。</summary>
+        public static float DrawDistance = 110f;
         /// <summary>小さな虫が足場から落ちるときの空気のてい抗（最高速度はおよそ 4.7）。</summary>
         public const float FallLinearDrag = 0.3f, FallQuadraticDrag = 0.35f;
         /// <summary>脚でふんばる分、地面のまさつより、すべりにくい。</summary>
@@ -659,6 +663,7 @@ namespace Shakutori
         // ------------------------------------------------------------------
         void Update()
         {
+            using var prof = s_Creatures.Auto();   // 処理時間の計測（パフォーマンスの調整用）
             float frame = Time.deltaTime;
             if (frame <= 0f || _mobs.Count == 0) return;
             // 長いフレームは分けて計算する（フレームレートが低くても、いきものの時間がおくれない）
@@ -678,6 +683,8 @@ namespace Shakutori
             Transform wormPlatform = worm != null ? worm.PlatformUnder : null;
             Camera cam = Camera.main;
             Vector3 camPos = cam != null ? cam.transform.position : Vector3.zero;
+            _viewReady = cam != null && Application.isPlaying;
+            if (_viewReady) GeometryUtility.CalculateFrustumPlanes(cam, _viewPlanes);
             for (int step = 0; step < steps; step++) Simulate(dt, worm, wormPlatform, camPos);
             UpdateColliders();
             Draw(camPos);
@@ -695,7 +702,9 @@ namespace Shakutori
                 // 遠くのいきものは、間引いて動かす（描く位置は毎フレームなめらかに追いつかせる）。
                 // しゃくとりむしの近くのものは、カメラが遠くても毎フレーム動かす
                 float dh2 = (m.pos - _head).sqrMagnitude;
-                bool far = d2 > 70f * 70f && dh2 > 30f * 30f;
+                // カメラに映っていなくて、しゃくとりむしからもはなれているものも、間引いて動かす
+                bool far = (d2 > 70f * 70f && dh2 > 30f * 30f)
+                           || (_viewReady && dh2 > 15f * 15f && !GeometryUtility.TestPlanesAABB(_viewPlanes, new Bounds(m.pos, Vector3.one * (2.5f * m.scale + 3f))));
                 if (far && (i + _frame) % 3 != 0)
                 {
                     m.drawPos = ShakuPhysics.Damp(m.drawPos, m.pos, 40f, dt);
@@ -865,7 +874,12 @@ namespace Shakutori
                     break;
                 default:
                     if (m.sp.id == "pillbug") m.curled = Mathf.Max(m.curled, 3f);
-                    else if (m.sp.id == "snail" || m.sp.id == "riversnail") m.retreat = Mathf.Max(m.retreat, 2.5f);
+                    else if (m.sp.id == "snail" || m.sp.id == "riversnail")
+                    {
+                        // 殻にひっこんだら、その場で止まる（画面の外で動きを間引いているいきものも、すぐに）
+                        m.retreat = Mathf.Max(m.retreat, 2.5f);
+                        m.curSpeed = 0f;
+                    }
                     else if (m.sp.id == "ladybug") m.deadUntil = m.anim + 3f;   // てんとうむしは死んだふり
                     else m.pauseUntil = m.anim + R(0.5f, 1f);
                     break;
@@ -2663,6 +2677,9 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // 描画
         // ------------------------------------------------------------------
+        readonly Plane[] _viewPlanes = new Plane[6];
+        bool _viewReady;
+
         void Add(Mesh mesh, Material mat, Matrix4x4 mtx)
         {
             if (mesh == null || mat == null) return;
@@ -2677,11 +2694,15 @@ namespace Shakutori
 
         void Draw(Vector3 camPos)
         {
+            using var prof = s_CreatureDraw.Auto();   // 処理時間の計測（パフォーマンスの調整用）
             foreach (var l in _draw.Values) l.Clear();
+            // カメラに映らないいきものは描かない（影の分、少し広めに見る）
+            bool cull = _viewReady;
             foreach (var m in _mobs)
             {
                 float d2 = (m.pos - camPos).sqrMagnitude;
-                if (d2 > 110f * 110f) continue;
+                if (d2 > DrawDistance * DrawDistance) continue;
+                if (cull && d2 > 4f && !GeometryUtility.TestPlanesAABB(_viewPlanes, new Bounds(m.drawPos, Vector3.one * (2.5f * m.scale + 1.5f)))) continue;
                 Vector3 f = ShakuMath.ProjectOnPlaneSafe(m.fwd, m.up, Vector3.forward);
                 Vector3 right = Vector3.Cross(m.up, f).normalized;
                 Quaternion rot = Quaternion.LookRotation(-f, m.up);

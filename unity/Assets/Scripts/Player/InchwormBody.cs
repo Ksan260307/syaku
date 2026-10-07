@@ -22,6 +22,14 @@ namespace Shakutori
         int _samples = -1;
         float[] _s;
         bool _ready;
+        // 同じ体の位置（輪）の頂点をまとめて、向きの計算を輪ごとに 1 回だけにする
+        int[] _ring;
+        int[] _ringA;
+        float[] _ringT;
+        Vector3[] _rp, _rs, _ru, _rt;
+
+        /// <summary>輪の数（テスト用）。</summary>
+        public int RingCount => _ringA != null ? _ringA.Length : 0;
 
         public void Init(int samples)
         {
@@ -91,6 +99,29 @@ namespace Shakutori
                 _i0[i] = i0;
                 _t[i] = f - i0;
             }
+            // 同じ体の位置の頂点（体の輪・目のまわりなど）をまとめる
+            var map = new Dictionary<int, int>();
+            var ra = new List<int>();
+            var rt = new List<float>();
+            _ring = new int[n];
+            for (int i = 0; i < n; i++)
+            {
+                int key = Mathf.RoundToInt(_s[i] * 100000f);
+                if (!map.TryGetValue(key, out int r))
+                {
+                    r = ra.Count;
+                    map[key] = r;
+                    ra.Add(_i0[i]);
+                    rt.Add(_t[i]);
+                }
+                _ring[i] = r;
+            }
+            _ringA = ra.ToArray();
+            _ringT = rt.ToArray();
+            _rp = new Vector3[_ringA.Length];
+            _rs = new Vector3[_ringA.Length];
+            _ru = new Vector3[_ringA.Length];
+            _rt = new Vector3[_ringA.Length];
         }
 
         static float SignedVolume(Vector3[] v, int[] t)
@@ -124,19 +155,34 @@ namespace Shakutori
                 min = Vector3.Min(min, P[k]);
                 max = Vector3.Max(max, P[k]);
             }
-            int n = _verts.Length;
-            for (int i = 0; i < n; i++)
+            // 輪ごとに、中心線の位置と向き（前・上・横）を 1 回だけ計算する
+            int rings = _ringA.Length;
+            for (int r = 0; r < rings; r++)
             {
-                int a = _i0[i];
-                float t = _t[i];
+                int a = _ringA[r];
+                float t = _ringT[r];
                 Vector3 p = Vector3.LerpUnclamped(P[a], P[a + 1], t);
                 Vector3 tn = Vector3.Lerp(T[a], T[a + 1], Mathf.Clamp01(t));
                 Vector3 up = Vector3.Lerp(U[a], U[a + 1], Mathf.Clamp01(t));
                 tn.Normalize();
                 up = (up - tn * Vector3.Dot(up, tn)).normalized;
                 Vector3 side = Vector3.Cross(up, tn) * _sideSign;
-                _verts[i] = p + (side * _ox[i] + up * _oy[i]) * L - center;
-                _norms[i] = side * _ns[i] + up * _nu[i] + tn * _nf[i];
+                _rp[r] = p - center;
+                _rs[r] = side;
+                _ru[r] = up;
+                _rt[r] = tn;
+            }
+            // 頂点は、輪の向きに、断面の中の位置を足すだけ
+            int n = _verts.Length;
+            for (int i = 0; i < n; i++)
+            {
+                int r = _ring[i];
+                Vector3 side = _rs[r], up = _ru[r];
+                float ox = _ox[i] * L, oy = _oy[i] * L;
+                _verts[i] = new Vector3(_rp[r].x + side.x * ox + up.x * oy, _rp[r].y + side.y * ox + up.y * oy, _rp[r].z + side.z * ox + up.z * oy);
+                float ns = _ns[i], nu = _nu[i], nf = _nf[i];
+                Vector3 tn = _rt[r];
+                _norms[i] = new Vector3(side.x * ns + up.x * nu + tn.x * nf, side.y * ns + up.y * nu + tn.y * nf, side.z * ns + up.z * nu + tn.z * nf);
             }
             _mesh.SetVertices(_verts);
             _mesh.SetNormals(_norms);

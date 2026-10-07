@@ -10,6 +10,7 @@ namespace Shakutori
     [DefaultExecutionOrder(100)]
     public class FollowCamera : MonoBehaviour
     {
+        static readonly Unity.Profiling.ProfilerMarker s_Camera = new Unity.Profiling.ProfilerMarker("Shaku.Camera");
         public InchwormController target;
         public float distance = 3.6f;
         public float minDistance = 1.3f;
@@ -93,6 +94,7 @@ namespace Shakutori
 
         void LateUpdate()
         {
+            using var prof = s_Camera.Auto();   // 処理時間の計測（パフォーマンスの調整用）
             if (target == null) return;
             float dt = Mathf.Min(Time.unscaledDeltaTime, 0.05f);
             if (!_init) SnapToTarget();

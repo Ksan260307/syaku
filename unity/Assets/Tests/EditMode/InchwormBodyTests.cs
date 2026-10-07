@@ -100,6 +100,14 @@ namespace Shakutori.Tests
         }
 
         [Test]
+        public void Deformation_IsComputedOncePerRing()
+        {
+            _body.Apply(RestCurve(41));
+            Assert.Greater(_body.RingCount, 10);
+            Assert.Less(_body.RingCount, _src.vertexCount / 4, "向きの計算は、頂点ごとではなく、体の輪ごとに 1 回（速い）");
+        }
+
+        [Test]
         public void DifferentSampleCounts_AreSupported()
         {
             _body.Apply(RestCurve(41));

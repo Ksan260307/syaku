@@ -222,7 +222,7 @@ def make_snail():
     for sx in (-1, 1):
         uv_sphere(mb, Vector((0.07 * sx, 0.6, 0.21)), 0.022, lambda n: hexc("#ffb0b8"), seg=8, rings=5, scale=Vector((0.6, 1, 0.6)))
     # 殻（対数らせん）：体の背中の上にのせる（体の前とうしろが見えるように）
-    center = Vector((0.0, -0.1, 0.4))
+    center = Vector((0.0, -0.1, 0.47))
     spts = []
     srad = []
     n = 70
@@ -231,7 +231,10 @@ def make_snail():
         t = i / (n - 1)
         th = turns * t
         r = 0.24 * math.exp(-0.21 * th)
-        spts.append(center + Vector((0.07 * t, -math.cos(th) * r, -math.sin(th) * r)))
+        # いちばん太い口（殻の入り口）を下にして、体の上にかぶせる（口は前を向き、そこから体が出る）。
+        # そこから、うしろ → 上 → 前へと、小さくなりながらまく
+        a = th - math.pi * 0.5
+        spts.append(center + Vector((0.07 * t, -math.cos(a) * r, math.sin(a) * r)))
         srad.append(0.56 * r)
     srad[-1] = 0.0
 

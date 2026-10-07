@@ -11,6 +11,7 @@ namespace Shakutori
     /// </summary>
     public class InchwormController : MonoBehaviour
     {
+        static readonly Unity.Profiling.ProfilerMarker s_Worm = new Unity.Profiling.ProfilerMarker("Shaku.Worm");
         public enum Mode { Idle, Pull, Reach, Hang, Fall }
 
         [Header("References")]
@@ -464,6 +465,7 @@ namespace Shakutori
         // ------------------------------------------------------------------
         void Update()
         {
+            using var prof = s_Worm.Auto();   // 処理時間の計測（パフォーマンスの調整用）
             // 1 フレームの時間に上限（タブ切りかえなどで長いフレームがきても、一度に進みすぎない）
             float dt = Mathf.Min(Time.deltaTime, ShakuPhysics.MaxFrame);
             if (dt <= 0f) return;

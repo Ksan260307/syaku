@@ -27,6 +27,75 @@ namespace Shakutori.Tests
             return false;
         }
 
+        /// <summary>target を、左上のすみの近くでタップする（押して、はなす）。</summary>
+        static void Tap(VisualElement target, Vector2 at)
+        {
+            var ev = new Event { type = EventType.MouseDown, mousePosition = at, button = 0 };
+            using (var d = PointerDownEvent.GetPooled(ev))
+            {
+                d.target = target;
+                target.SendEvent(d);
+            }
+            ev = new Event { type = EventType.MouseUp, mousePosition = at, button = 0 };
+            using (var u = PointerUpEvent.GetPooled(ev))
+            {
+                u.target = target;
+                target.SendEvent(u);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Grass_IsNotRecountedWhileTheCameraIsStill()
+        {
+            var inst = GM.world.instanced;
+            Cam.enabled = false;   // カメラを止める
+            yield return Frames(3);
+            int before = inst.RebuildCount;
+            yield return Frames(20);
+            Assert.AreEqual(before, inst.RebuildCount, "カメラが止まっていれば、草や小物を数えなおさない");
+            Cam.transform.position += Cam.transform.forward * 2f;
+            yield return Frames(2);
+            Assert.Greater(inst.RebuildCount, before, "カメラが動けば、数えなおす");
+            Cam.enabled = true;
+        }
+
+        [UnityTest]
+        public IEnumerator Windows_CloseWhenTappingOutside()
+        {
+            var map = UI.Root.Q("map-overlay");
+            UI.ShowMap(true);
+            yield return Frames(2);
+            Assert.IsTrue(UI.IsMapOpen);
+            // 窓の中をタップしても閉じない
+            var window = map.Q(className: "window");
+            Tap(window, window.worldBound.center);
+            yield return Frames(2);
+            Assert.IsTrue(UI.IsMapOpen, "窓の中では閉じない");
+            Tap(map, map.worldBound.position + Vector2.one * 4f);
+            yield return Frames(2);
+            Assert.IsFalse(UI.IsMapOpen, "地図：窓の外で閉じる");
+
+            UI.ShowCollection(true, "zukan");
+            yield return Frames(2);
+            Tap(UI.Root.Q("collection-overlay"), Vector2.one * 4f);
+            yield return Frames(2);
+            Assert.IsFalse(UI.IsCollectionOpen, "図鑑：窓の外で閉じる");
+
+            UI.ShowHowto(true);
+            yield return Frames(2);
+            Tap(UI.Root.Q("howto-overlay"), Vector2.one * 4f);
+            yield return Frames(2);
+            Assert.IsFalse(UI.IsHowtoOpen, "あそびかた：窓の外で閉じる");
+
+            GM.Pause();
+            yield return Frames(2);
+            Assert.IsTrue(UI.IsPauseOpen);
+            Tap(UI.Root.Q("pause-overlay"), Vector2.one * 4f);
+            yield return Frames(3);
+            Assert.IsFalse(UI.IsPauseOpen, "メニュー：窓の外で閉じて、つづける");
+            Assert.AreEqual(GameManager.GameState.Playing, GM.State);
+        }
+
         [UnityTest]
         public IEnumerator Wardrobe_FromTheMenuIsShownInFront()
         {

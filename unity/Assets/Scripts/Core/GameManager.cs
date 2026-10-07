@@ -60,6 +60,10 @@ namespace Shakutori
 
         IEnumerator Start()
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // ブラウザでは 1 秒に 60 回まで描く（120Hz などの画面で、むだに倍の回数を描かない）
+            Application.targetFrameRate = 60;
+#endif
             SaveSystem.Load();
             ApplyAmbient();
             ApplyQuality(SaveSystem.Settings.quality);
@@ -806,8 +810,14 @@ namespace Shakutori
                 urp.renderScale = q == 0 ? 0.8f : 1f;
                 urp.msaaSampleCount = q == 0 ? 1 : 2;
                 urp.shadowDistance = q == 0 ? 28f : 48f;
+                // かるい：影は 1 段・小さめの影の絵（影の計算を半分以下に）
+                urp.shadowCascadeCount = q == 0 ? 1 : 2;
+                urp.mainLightShadowmapResolution = q == 0 ? 1024 : 2048;
             }
             if (world != null && world.instanced != null) world.instanced.distanceScale = q == 0 ? 0.6f : 1f;
+            // かるい：いきものは近くだけ描き、落ち葉は地面との当たり判定をしない
+            Creatures.DrawDistance = q == 0 ? 70f : 110f;
+            if (fx != null) fx.SetQuality(q);
             var camData = followCamera != null ? followCamera.GetComponent<UniversalAdditionalCameraData>() : null;
             if (camData != null) camData.renderPostProcessing = true;
             if (postVolume != null) postVolume.weight = q == 0 ? 0.85f : 1f;

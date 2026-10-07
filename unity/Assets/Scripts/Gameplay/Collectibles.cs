@@ -8,6 +8,7 @@ namespace Shakutori
     /// <summary>森のしずく（収集物）と名所（発見ポイント）の管理。いまいるエリアのものを扱う。</summary>
     public class Collectibles : MonoBehaviour
     {
+        static readonly Unity.Profiling.ProfilerMarker s_Drops = new Unity.Profiling.ProfilerMarker("Shaku.Drops");
         public WorldAssets assets;
         public float pickupRadius = 0.7f;
         public float dropScale = 0.34f;
@@ -63,6 +64,9 @@ namespace Shakutori
             public Vector3 sway, swayVel;
             public float hop, hopVel;     // 強い着地のそばで、ぴょんとはねる（重力で落ちて、弾んで止まる）
         }
+
+        /// <summary>これより遠いしずくは、ゆれを計算しない。</summary>
+        public const float FarDrop = 50f;
 
         /// <summary>しずくがぷるぷるゆれる速さ（ラジアン/秒）と、ゆれのおさまりにくさ（水はなかなかおさまらない）。</summary>
         public const float DropOmega = 17f, DropDamping = 0.12f;
@@ -175,9 +179,13 @@ namespace Shakutori
 
         void Update()
         {
+            using var prof = s_Drops.Auto();   // 処理時間の計測（パフォーマンスの調整用）
             float t = Time.time;
             var wormNow = InchwormController.Instance;
             Vector3 headNow = wormNow != null ? wormNow.HeadPosition : new Vector3(9999f, 0f, 0f);
+            var cam = Camera.main;
+            bool camOk = cam != null;
+            Vector3 camPos = camOk ? cam.transform.position : Vector3.zero;
             foreach (var d in _drops)
             {
                 if (d.flyT >= 0f)
@@ -195,6 +203,8 @@ namespace Shakutori
                     continue;
                 }
                 if (d.taken) continue;
+                // カメラから遠いしずくは小さくしか見えないので、ゆれの計算をはぶく（近づいたら、また動く）
+                if (camOk && (d.basePos - camPos).sqrMagnitude > FarDrop * FarDrop && d.hop <= 0f) continue;
                 float dt = Time.deltaTime;
                 float bob = Mathf.Sin(t * 2f + d.phase) * 0.05f;
                 // 風：しずくをのせた葉ごと、風の圧力（速さの 2 乗）でゆれる

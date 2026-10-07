@@ -5,6 +5,7 @@ namespace Shakutori
     /// <summary>森の空気感：光の中をただよう花粉、ホタル、舞い落ちる葉、しずくを取ったときのきらめき。</summary>
     public class AmbientFX : MonoBehaviour
     {
+        static readonly Unity.Profiling.ProfilerMarker s_Fx = new Unity.Profiling.ProfilerMarker("Shaku.Fx");
         public Material particleMaterial;
         public Transform followTarget;
 
@@ -138,6 +139,17 @@ namespace Shakutori
 
         Transform _splashPlane;
 
+        /// <summary>画質：かるい（0）では、落ち葉と地面の当たり判定をしない（計算が重いので）。</summary>
+        public void SetQuality(int q)
+        {
+            _quality = q;
+            if (_leaves == null) return;
+            var col = _leaves.collision;
+            col.enabled = q != 0;
+        }
+
+        int _quality = 1;
+
         /// <summary>空気のてい抗（速いほど、ぐっとおそくなる）。</summary>
         static void Drag(ParticleSystem ps, float drag)
         {
@@ -244,6 +256,7 @@ namespace Shakutori
                 lcol.bounce = 0f;
                 lcol.lifetimeLoss = 0f;
                 lcol.quality = ParticleSystemCollisionQuality.Low;
+                lcol.enabled = _quality != 0;
                 _windFX.Add((_leaves, 1.5f));
                 var col = _leaves.colorOverLifetime;
                 col.enabled = true;
@@ -393,6 +406,7 @@ namespace Shakutori
 
         void LateUpdate()
         {
+            using var prof = s_Fx.Auto();   // 処理時間の計測（パフォーマンスの調整用）
             Wind.Publish(Time.time);
             if (_pollen != null && followTarget != null)
                 _pollen.transform.position = followTarget.position;

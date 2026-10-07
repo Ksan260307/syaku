@@ -11,6 +11,7 @@ namespace Shakutori
     [ExecuteAlways]
     public class InstancedRenderer : MonoBehaviour
     {
+        static readonly Unity.Profiling.ProfilerMarker s_Instanced = new Unity.Profiling.ProfilerMarker("Shaku.Instanced");
         const float CellSize = 16f;
         const int MaxPerCall = 1023;
 
@@ -43,10 +44,29 @@ namespace Shakutori
         public float distanceScale = 1f;
         public int InstanceCount { get; private set; }
 
+        // 前のフレームの描画の呼び出し（カメラがほとんど動いていなければ、そのまま使う）
+        struct Call { public Batch batch; public Matrix4x4[] buffer; public int count; public Bounds bounds; }
+        readonly List<Call> _calls = new List<Call>();
+        Vector3 _builtPos = new Vector3(float.MaxValue, 0f, 0f);
+        Quaternion _builtRot = Quaternion.identity;
+        float _builtFov, _builtScale = -1f;
+        int _builtFrames;
+        bool _dirty = true;
+
+        /// <summary>カメラがこれより動いたら、見える物を数えなおす。</summary>
+        public const float RebuildMove = 0.6f, RebuildTurn = 4f;
+        /// <summary>見える物を数えるときは、視野を少し広めにとる（数えなおすまでのあいだ、はしの物が消えないように）。</summary>
+        public const float FovMargin = 12f;
+
+        /// <summary>数えなおした回数（テスト用）。</summary>
+        public int RebuildCount { get; private set; }
+
         public void Clear()
         {
             _batches.Clear();
             _list.Clear();
+            _calls.Clear();
+            _dirty = true;
             InstanceCount = 0;
         }
 
@@ -64,6 +84,7 @@ namespace Shakutori
             b.maxDistance = Mathf.Max(b.maxDistance, maxDistance);
             b.pending.Add(matrix);
             InstanceCount++;
+            _dirty = true;
         }
 
         /// <summary>追加済みのインスタンスをセルに振り分ける。</summary>
@@ -90,6 +111,7 @@ namespace Shakutori
                     cell.matrices.Add(m);
                 }
                 b.pending.Clear();
+                _dirty = true;
                 b.cells = new Cell[b.cellMap.Count];
                 b.cellMap.Values.CopyTo(b.cells, 0);
                 foreach (var c in b.cells) c.center = c.bounds.center;
@@ -98,17 +120,39 @@ namespace Shakutori
 
         void Update()
         {
+            using var prof = s_Instanced.Auto();   // 処理時間の計測（パフォーマンスの調整用）
             Camera cam = Camera.main;
 #if UNITY_EDITOR
             if (!Application.isPlaying && UnityEditor.SceneView.lastActiveSceneView != null)
                 cam = UnityEditor.SceneView.lastActiveSceneView.camera;
 #endif
             if (cam == null || _list.Count == 0) return;
+            // カメラがほとんど動いていなければ、前のフレームの描画をそのままくり返す（セルを数えなおさない）
+            Vector3 camPos = cam.transform.position;
+            Quaternion camRot = cam.transform.rotation;
+            bool still = !_dirty && Application.isPlaying && (camPos - _builtPos).sqrMagnitude < RebuildMove * RebuildMove
+                         && Quaternion.Angle(camRot, _builtRot) < RebuildTurn && Mathf.Abs(cam.fieldOfView - _builtFov) < 1f
+                         && Mathf.Approximately(distanceScale, _builtScale) && _builtFrames < 120;
+            if (still)
+            {
+                _builtFrames++;
+                foreach (var c in _calls) Issue(c);
+                return;
+            }
+            _dirty = false;
+            _builtPos = camPos;
+            _builtRot = camRot;
+            _builtFov = cam.fieldOfView;
+            _builtScale = distanceScale;
+            _builtFrames = 0;
+            RebuildCount++;
+            _calls.Clear();
             _poolIndex = 0;
             _buffer = NextBuffer();
-            GeometryUtility.CalculateFrustumPlanes(cam, _planes);
+            // 数えなおすまでのあいだ、はしの物が消えないように、少し広い視野で数える
+            var wide = Matrix4x4.Perspective(Mathf.Min(170f, cam.fieldOfView + FovMargin), cam.aspect, cam.nearClipPlane, cam.farClipPlane) * cam.worldToCameraMatrix;
+            GeometryUtility.CalculateFrustumPlanes(Application.isPlaying ? wide : cam.projectionMatrix * cam.worldToCameraMatrix, _planes);
             // 影が視野外から落ちることがあるので、影を落とすものは少し広めに
-            Vector3 camPos = cam.transform.position;
             foreach (var b in _list)
             {
                 if (b.cells == null) continue;
@@ -149,15 +193,22 @@ namespace Shakutori
 
         void Draw(Batch b, int count, Bounds bounds)
         {
-            var rp = new RenderParams(b.material)
+            var c = new Call { batch = b, buffer = _buffer, count = count, bounds = bounds };
+            _calls.Add(c);
+            Issue(c);
+            _buffer = NextBuffer();
+        }
+
+        static void Issue(Call c)
+        {
+            var rp = new RenderParams(c.batch.material)
             {
-                shadowCastingMode = b.castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off,
+                shadowCastingMode = c.batch.castShadows ? ShadowCastingMode.On : ShadowCastingMode.Off,
                 receiveShadows = true,
                 layer = 0,
-                worldBounds = bounds,
+                worldBounds = c.bounds,
             };
-            Graphics.RenderMeshInstanced(rp, b.mesh, 0, _buffer, count);
-            _buffer = NextBuffer();
+            Graphics.RenderMeshInstanced(rp, c.batch.mesh, 0, c.buffer, c.count);
         }
     }
 }

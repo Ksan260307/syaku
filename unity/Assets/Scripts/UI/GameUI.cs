@@ -11,6 +11,7 @@ namespace Shakutori
     [RequireComponent(typeof(UIDocument))]
     public class GameUI : MonoBehaviour
     {
+        static readonly Unity.Profiling.ProfilerMarker s_Hud = new Unity.Profiling.ProfilerMarker("Shaku.Hud");
         public Font bodyFont;
         public Font titleFont;
 
@@ -361,6 +362,14 @@ namespace Shakutori
             Click("rescue", () => Confirm("最後に安全だった場所へもどりますか？（動けなくなったときに使ってください）", () => RescueRequested?.Invoke()));
             Click("btn-credits", () => ShowCredits(true));
             Click("credits-close", () => ShowCredits(false));
+            // 窓の外（うす暗い所）をタップすると、閉じる
+            CloseOnBackdrop(_mapOverlay, () => ShowMap(false));
+            CloseOnBackdrop(_pauseOverlay, () => ResumePressed?.Invoke());
+            CloseOnBackdrop(_collectionOverlay, () => ShowCollection(false));
+            CloseOnBackdrop(_howtoOverlay, () => ShowHowto(false));
+            CloseOnBackdrop(_confirmOverlay, () => ShowConfirm(false));
+            CloseOnBackdrop(_creditsOverlay, () => ShowCredits(false));
+            CloseOnBackdrop(_completeOverlay, () => ShowComplete(false, ""));
             Click("photo", () => PhotoRequested?.Invoke());
             Click("reset-settings", () =>
             {
@@ -725,6 +734,25 @@ namespace Shakutori
         }
 
         /// <summary>Esc/戻るボタン: 一番上のウィンドウを閉じる。閉じるものがなければ false。</summary>
+        /// <summary>
+        /// 窓の外（うしろのうす暗い所）をタップしたら閉じる。押した所と、はなした所の両方が窓の外のときだけ
+        /// （窓の中のスライダーを動かして、外ではなしたときは閉じない）。
+        /// </summary>
+        void CloseOnBackdrop(VisualElement overlay, Action close)
+        {
+            if (overlay == null) return;
+            bool downOutside = false;
+            overlay.RegisterCallback<PointerDownEvent>(e => downOutside = e.target == overlay);
+            overlay.RegisterCallback<PointerUpEvent>(e =>
+            {
+                bool outside = e.target == overlay && downOutside;
+                downOutside = false;
+                if (!outside || overlay.ClassListContains("hidden")) return;
+                close();
+                e.StopPropagation();
+            });
+        }
+
         public bool Back()
         {
             if (IsConfirmOpen) { ShowConfirm(false); return true; }
@@ -1932,6 +1960,7 @@ namespace Shakutori
 
         public void TickHud(bool playing)
         {
+            using var prof = s_Hud.Auto();   // 処理時間の計測（パフォーマンスの調整用）
             if (!EnsureBound()) return;
             bool touch = ForceTouch ?? (GameInput.TouchDetected || Application.isMobilePlatform);
             if (touch != _touchMode)
