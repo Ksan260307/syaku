@@ -1054,6 +1054,10 @@ namespace Shakutori
             {
                 SelectTab(tab ?? _tab);
                 _tabs[_tab].Focus();
+                // メニューから開いたときは、メニューの前面に出す
+                if (_collectionOverlay.parent == _pauseOverlay.parent
+                    && _collectionOverlay.parent.IndexOf(_collectionOverlay) < _collectionOverlay.parent.IndexOf(_pauseOverlay))
+                    _collectionOverlay.PlaceInFront(_pauseOverlay);
             }
             _collectionOverlay.EnableInClassList("hidden", !show);
             OverlayChanged?.Invoke();

@@ -313,7 +313,14 @@ namespace Shakutori.Tests
             var found = SaveSystem.Data.creatures.Select(id => SpeciesCatalog.Get(id).name).ToList();
             CollectionAssert.Contains(found, UI.CreatureCardName);
             Assert.AreEqual($"{Creatures.DiscoveredCount} / {SpeciesCatalog.Count}", UI.Root.Q<Label>("creature-count").text);
-            yield return Seconds(5.5f);
+            // 待っているあいだに、まわりの別のいきものを見つけると、カードがもう一度出る。
+            // 新しく見つけずに 5.5 秒たったら、カードは消えている
+            for (int tries = 0; tries < 4; tries++)
+            {
+                int count = Creatures.DiscoveredCount;
+                yield return Seconds(5.5f);
+                if (Creatures.DiscoveredCount == count) break;
+            }
             Assert.IsFalse(UI.IsCreatureCardVisible, "しばらくすると消える");
         }
 

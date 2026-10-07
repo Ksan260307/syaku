@@ -148,39 +148,6 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
-        <!-- ===== コレクション（図鑑・きせかえ・きろく） ===== -->
-        <ui:VisualElement name="collection-overlay" class="overlay hidden">
-            <ui:VisualElement class="window collection-window">
-                <ui:VisualElement class="tabs">
-                    <ui:Button name="tab-zukan" text="いきもの図鑑" class="tab tab--on" />
-                    <ui:Button name="tab-skin" text="きせかえ" class="tab" />
-                    <ui:Button name="tab-record" text="きろく" class="tab" />
-                </ui:VisualElement>
-                <ui:VisualElement name="page-zukan" class="page">
-                    <ui:Label name="zukan-count" text="" class="page-sub" picking-mode="Ignore" />
-                    <ui:VisualElement class="zukan-body">
-                        <ui:ScrollView name="zukan-grid" class="zukan-grid" />
-                        <ui:VisualElement name="zukan-detail" class="zukan-detail" picking-mode="Ignore">
-                            <ui:VisualElement name="zukan-img" class="zukan-img" picking-mode="Ignore" />
-                            <ui:VisualElement class="zukan-text" picking-mode="Ignore">
-                                <ui:Label name="zukan-name" text="" class="zukan-name" picking-mode="Ignore" />
-                                <ui:Label name="zukan-area" text="" class="zukan-area" picking-mode="Ignore" />
-                                <ui:Label name="zukan-desc" text="" class="zukan-desc" picking-mode="Ignore" />
-                            </ui:VisualElement>
-                        </ui:VisualElement>
-                    </ui:VisualElement>
-                </ui:VisualElement>
-                <ui:VisualElement name="page-skin" class="page hidden">
-                    <ui:Label text="集めた数で、しゃくとりむしの色をえらべるようになります。" class="page-sub" picking-mode="Ignore" />
-                    <ui:VisualElement name="skin-grid" class="skin-grid" />
-                </ui:VisualElement>
-                <ui:VisualElement name="page-record" class="page hidden">
-                    <ui:VisualElement name="record-list" class="record-list" picking-mode="Ignore" />
-                </ui:VisualElement>
-                <ui:Button name="collection-close" text="とじる" class="btn btn-primary" />
-            </ui:VisualElement>
-        </ui:VisualElement>
-
         <!-- ===== メニュー ===== -->
         <ui:VisualElement name="pause-overlay" class="overlay hidden">
             <ui:VisualElement class="window pause-window">
@@ -230,6 +197,39 @@
                     <ui:Button name="to-title" text="タイトルへ" class="btn btn-small" />
                     <ui:Button name="reset" text="最初からやり直す" class="btn btn-small btn-danger" />
                 </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ===== コレクション（図鑑・きせかえ・きろく）。メニューから開くので、メニューより前面に置く ===== -->
+        <ui:VisualElement name="collection-overlay" class="overlay hidden">
+            <ui:VisualElement class="window collection-window">
+                <ui:VisualElement class="tabs">
+                    <ui:Button name="tab-zukan" text="いきもの図鑑" class="tab tab--on" />
+                    <ui:Button name="tab-skin" text="きせかえ" class="tab" />
+                    <ui:Button name="tab-record" text="きろく" class="tab" />
+                </ui:VisualElement>
+                <ui:VisualElement name="page-zukan" class="page">
+                    <ui:Label name="zukan-count" text="" class="page-sub" picking-mode="Ignore" />
+                    <ui:VisualElement class="zukan-body">
+                        <ui:ScrollView name="zukan-grid" class="zukan-grid" />
+                        <ui:VisualElement name="zukan-detail" class="zukan-detail" picking-mode="Ignore">
+                            <ui:VisualElement name="zukan-img" class="zukan-img" picking-mode="Ignore" />
+                            <ui:VisualElement class="zukan-text" picking-mode="Ignore">
+                                <ui:Label name="zukan-name" text="" class="zukan-name" picking-mode="Ignore" />
+                                <ui:Label name="zukan-area" text="" class="zukan-area" picking-mode="Ignore" />
+                                <ui:Label name="zukan-desc" text="" class="zukan-desc" picking-mode="Ignore" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:VisualElement name="page-skin" class="page hidden">
+                    <ui:Label text="集めた数で、しゃくとりむしの色をえらべるようになります。" class="page-sub" picking-mode="Ignore" />
+                    <ui:VisualElement name="skin-grid" class="skin-grid" />
+                </ui:VisualElement>
+                <ui:VisualElement name="page-record" class="page hidden">
+                    <ui:VisualElement name="record-list" class="record-list" picking-mode="Ignore" />
+                </ui:VisualElement>
+                <ui:Button name="collection-close" text="とじる" class="btn btn-primary" />
             </ui:VisualElement>
         </ui:VisualElement>
 
