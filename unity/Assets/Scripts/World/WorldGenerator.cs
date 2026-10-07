@@ -472,8 +472,11 @@ namespace Shakutori
                     go.transform.localScale = Vector3.one * scale;
                 }
                 go.layer = ShakuConst.SurfaceLayer;
-                // 登りやすいように作った当たり判定用のメッシュがあれば、そちらを使う
-                go.AddComponent<MeshCollider>().sharedMesh = assets.TryGet(meshName + "_Col") ?? m;
+                // 登りやすいように作った当たり判定用のメッシュがあれば、そちらを使う。
+                // 細かい凹凸のある物（松ぼっくり）は、すき間にはさまらないよう、凹凸をつつむなめらかな形にする
+                Mesh col = assets.TryGet(meshName + "_Col");
+                if (col == null && CoarseCollider.Wants(meshName)) col = CoarseCollider.Envelope(m);
+                go.AddComponent<MeshCollider>().sharedMesh = col != null ? col : m;
             }
             return go;
         }
