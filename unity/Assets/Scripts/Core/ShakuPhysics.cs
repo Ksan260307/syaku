@@ -84,6 +84,17 @@ namespace Shakutori
         }
 
         /// <summary>
+        /// 同じ重さの 2 つがぶつかったとき、自分が受ける速さの変化。nrm は相手から自分への向き。
+        /// どちらもぶつかる前の速さだけを読むので、相手が同じ式で受ける変化とちょうど反対向きになり、
+        /// どちらを先に計算しても結果は同じ（運動量も保たれる）。
+        /// </summary>
+        public static Vector3 ContactKick(Vector3 selfVel, Vector3 otherVel, Vector3 nrm, float restitution)
+        {
+            float closing = Vector3.Dot(selfVel - otherVel, nrm);
+            return closing < 0f ? nrm * (-(1f + restitution) * closing * 0.5f) : Vector3.zero;
+        }
+
+        /// <summary>
         /// 面に当たったあとの速さ：面に垂直な速さは反発係数で返り、面に沿った速さはまさつで弱まる
         /// （ぶつかる勢いが強いほど、まさつも強くはたらく）。surfaceVel は動いている面（舟・いきもの）の速さ。
         /// </summary>

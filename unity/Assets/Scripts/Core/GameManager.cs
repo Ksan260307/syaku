@@ -42,6 +42,11 @@ namespace Shakutori
         float _assistTimer;
         float _fpsAvg = 60f, _slowTime;
         bool _autoLowered;
+        // 画面の細かさ（表示だけ。ゲームの中身・いきものの動きには関係しない）
+        public const float MinRenderScale = 0.7f;
+        float _frameMsAvg = 16.7f, _scaleTimer;
+        float _scaleBase = 1f, _scaleNow = 1f;
+        public float RenderScaleNow => _scaleNow;
         int _combo;
         float _lastDropTime = -99f;
         float _rumbleUntil;
@@ -281,6 +286,7 @@ namespace Shakutori
                     UpdateStats();
                     UpdateStuck();
                     UpdateAssists();
+                    UpdateRenderScale();
                     if (SaveSystem.Settings.autosave)
                     {
                         _saveTimer += Time.deltaTime;
@@ -528,6 +534,35 @@ namespace Shakutori
         {
             if (creatures != null && creatures.RareCount > 0)
                 ui.Toast("どこかで、めずらしいいきものの気配がする…", "icon-book", 4f);
+        }
+
+        /// <summary>
+        /// 画質が「自動」のときは、重さに合わせて画面の細かさだけを少しずつ変える（1.5 秒ごと）。
+        /// 見た目の細かさだけで、ゲームの計算には何も影響しない。
+        /// </summary>
+        void UpdateRenderScale()
+        {
+            float ms = Mathf.Clamp(Time.unscaledDeltaTime * 1000f, 1f, 200f);
+            _frameMsAvg = Mathf.Lerp(_frameMsAvg, ms, 0.1f);
+            _scaleTimer += Time.unscaledDeltaTime;
+            if (_scaleTimer < 1.5f) return;
+            _scaleTimer = 0f;
+            if (SaveSystem.Settings.quality >= 0 || _playingFor < 3f) return;
+            StepRenderScale(_frameMsAvg);
+        }
+
+        /// <summary>
+        /// 1 フレームの時間（ミリ秒）から、画面の細かさを 1 段だけ変える。
+        /// 45 fps を下まわると下げ、55 fps 以上なら、もとの細かさまで戻す。
+        /// </summary>
+        public void StepRenderScale(float frameMs)
+        {
+            float next = _scaleNow;
+            if (frameMs > 22f) next = Mathf.Max(MinRenderScale, _scaleNow - 0.1f);
+            else if (frameMs < 18f) next = Mathf.Min(_scaleBase, _scaleNow + 0.1f);
+            if (Mathf.Abs(next - _scaleNow) < 1e-4f) return;
+            _scaleNow = next;
+            if (GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset urp) urp.renderScale = next;
         }
 
         /// <summary>
@@ -808,6 +843,7 @@ namespace Shakutori
             if (urp != null)
             {
                 urp.renderScale = q == 0 ? 0.8f : 1f;
+                _scaleBase = _scaleNow = urp.renderScale;
                 urp.msaaSampleCount = q == 0 ? 1 : 2;
                 urp.shadowDistance = q == 0 ? 28f : 48f;
                 // かるい：影は 1 段・小さめの影の絵（影の計算を半分以下に）

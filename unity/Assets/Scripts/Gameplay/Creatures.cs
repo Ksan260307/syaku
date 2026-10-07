@@ -165,6 +165,13 @@ namespace Shakutori
             public Vector3 sway, swayVel;              // 花にとまったチョウが、花ごと風でゆれる（ばね）
             public float strikeVel;                    // カマキリのかま（ばね）
             public float jumpSpeed;                    // 跳ぶ速さ（かがむ深さ）
+            // ---- 軽量化 ----
+            public int index;                          // 一覧の中の番号（近くをさがす格子で使う）
+            public float pendingDt;                    // 前に動かしてからの時間（間引いて動かすとき、まとめて進める）
+            public Vector3 startPos, startVel, startRoll; // このフレームのはじめの位置・速さ（ほかのいきものは、これを読む）
+            public float startBlink;                    // このフレームのはじめの光るリズム
+            public float startPathS, startLat;           // このフレームのはじめの、行列の道のり・左右のずれ
+            public int cellX, cellZ;                   // 格子のます
         }
 
         public struct MobInfo
@@ -181,6 +188,8 @@ namespace Shakutori
         readonly List<Mob> _mobs = new List<Mob>();
         readonly Dictionary<MobGroup, List<Mob>> _groups = new Dictionary<MobGroup, List<Mob>>();
         readonly Dictionary<MobGroup, float> _pathLen = new Dictionary<MobGroup, float>();
+        readonly Dictionary<MobGroup, float[]> _pathSeg = new Dictionary<MobGroup, float[]>();
+        readonly List<List<Mob>> _contactGroups = new List<List<Mob>>();   // ぶつかり合う群れ（アメンボ・だんごむし）
         readonly List<Vector3> _flowers = new List<Vector3>();
         readonly Dictionary<(Mesh, Material), List<Matrix4x4>> _draw = new Dictionary<(Mesh, Material), List<Matrix4x4>>();
         readonly List<Matrix4x4[]> _pool = new List<Matrix4x4[]>();
@@ -333,8 +342,11 @@ namespace Shakutori
             speed = 0f;
             sp = null;
             float best = radius * radius;
-            foreach (var m in _mobs)
+            // 格子で近くだけを見る（1 フレームのあいだに動いた分だけ、少し広めに）
+            int n = Gather(p, radius + 3f, _gNear);
+            for (int k = 0; k < n; k++)
             {
+                var m = _mobs[_gNear[k]];
                 if (m.carryingWorm) continue;
                 if (predatorsOnly && m.sp.kind != MobKind.Bird && m.sp.kind != MobKind.Stalker) continue;
                 float d2 = (m.pos - p).sqrMagnitude;
@@ -400,8 +412,11 @@ namespace Shakutori
         public void Clear()
         {
             _mobs.Clear();
+            _startCount = -1;
             _groups.Clear();
             _pathLen.Clear();
+            _pathSeg.Clear();
+            _contactGroups.Clear();
             _flowers.Clear();
             if (_colliderRoot != null)
             {
@@ -436,8 +451,10 @@ namespace Shakutori
                 var rare = SpeciesCatalog.RareVariantOf(baseSp.id);
                 float pathLen = PathLength(g.path);
                 _pathLen[g] = pathLen;
+                _pathSeg[g] = SegmentLengths(g.path);
                 var members = new List<Mob>();
                 _groups[g] = members;
+                if (baseSp.kind == MobKind.Skater || baseSp.id == "pillbug") _contactGroups.Add(members);
                 for (int i = 0; i < g.count; i++)
                 {
                     var sp = baseSp;
@@ -508,6 +525,13 @@ namespace Shakutori
             m.collider = go.transform;
         }
 
+        static float[] SegmentLengths(List<Vector3> path)
+        {
+            var seg = new float[path.Count];
+            for (int i = 0; i < path.Count; i++) seg[i] = Vector3.Distance(path[i], path[(i + 1) % path.Count]);
+            return seg;
+        }
+
         static float PathLength(List<Vector3> path)
         {
             float l = 0f;
@@ -516,7 +540,7 @@ namespace Shakutori
         }
 
         /// <summary>行列の道（ループ）の上の点。角がとがらないよう、なめらかな曲線（Catmull-Rom）でつなぐ。</summary>
-        static Vector3 SplinePoint(List<Vector3> path, float s, float total, out Vector3 dir)
+        static Vector3 SplinePoint(List<Vector3> path, float s, float total, out Vector3 dir, float[] seg = null)
         {
             int n = path.Count;
             if (n < 2)
@@ -529,7 +553,7 @@ namespace Shakutori
             {
                 Vector3 a = path[i];
                 Vector3 b = path[(i + 1) % n];
-                float l = Vector3.Distance(a, b);
+                float l = seg != null && seg.Length == n ? seg[i] : Vector3.Distance(a, b);
                 if (s <= l || i == n - 1)
                 {
                     float u = l > 1e-5f ? Mathf.Clamp01(s / l) : 0f;
@@ -668,6 +692,7 @@ namespace Shakutori
             if (frame <= 0f || _mobs.Count == 0) return;
             // 長いフレームは分けて計算する（フレームレートが低くても、いきものの時間がおくれない）
             int steps = Mathf.Clamp(Mathf.CeilToInt(frame / 0.05f - 1e-4f), 1, 3);
+            _thinks = ThinksPerFrame;
             float dt = Mathf.Min(frame / steps, 0.05f);
             var worm = InchwormController.Instance;
             Vector3 headPrev = _head;
@@ -694,26 +719,27 @@ namespace Shakutori
         void Simulate(float dt, InchwormController worm, Transform wormPlatform, Vector3 camPos)
         {
             _frame++;
+            CaptureFrameStart();
+            ResolveContacts();
             UpdateFireflySync(dt);
             for (int i = 0; i < _mobs.Count; i++)
             {
                 var m = _mobs[i];
-                float d2 = (m.pos - camPos).sqrMagnitude;
-                // 遠くのいきものは、間引いて動かす（描く位置は毎フレームなめらかに追いつかせる）。
-                // しゃくとりむしの近くのものは、カメラが遠くても毎フレーム動かす
-                float dh2 = (m.pos - _head).sqrMagnitude;
-                // カメラに映っていなくて、しゃくとりむしからもはなれているものも、間引いて動かす
-                bool far = (d2 > 70f * 70f && dh2 > 30f * 30f)
-                           || (_viewReady && dh2 > 15f * 15f && !GeometryUtility.TestPlanesAABB(_viewPlanes, new Bounds(m.pos, Vector3.one * (2.5f * m.scale + 3f))));
-                if (far && (i + _frame) % 3 != 0)
+                // しゃくとりむしから遠いもの・じっとしているものは、何フレームかに 1 回、まとめた時間で動かす
+                // （描く位置は毎フレームなめらかに追いつかせる）
+                m.pendingDt += dt;
+                int interval = UpdateInterval(m);
+                if (interval > 1 && (i + _frame) % interval != 0)
                 {
                     m.drawPos = ShakuPhysics.Damp(m.drawPos, m.pos, 40f, dt);
                     continue;
                 }
-                float sdt = far ? dt * 3f : dt;
+                float sdt = Mathf.Min(m.pendingDt, 0.3f);
+                m.pendingDt = 0f;
+                bool far = interval > 1;
                 _dt = sdt;
                 m.anim += sdt;
-                bool near = d2 < 45f * 45f;
+                bool near = (m.pos - _head).sqrMagnitude < 45f * 45f;
                 m.carryingWorm = wormPlatform != null && m.collider == wormPlatform;
                 switch (m.sp.kind)
                 {
@@ -752,7 +778,8 @@ namespace Shakutori
                 m.wasCarryingWorm = m.carryingWorm;
                 m.wobble = Mathf.MoveTowards(m.wobble, 0f, sdt * 1.5f);
                 m.rock = Mathf.MoveTowards(m.rock, 0f, sdt * 0.8f);
-                // 近くのスズメはときどきさえずり、カエルはけろけろ鳴く
+                // 近くのスズメはときどきさえずり、カエルはけろけろ鳴く（音の大きさは、聞こえる位置＝カメラからの距離）
+                float d2 = (m.pos - camPos).sqrMagnitude;
                 if (near && Application.isPlaying && d2 < 25f * 25f)
                 {
                     float vol = Mathf.Clamp01(1f - Mathf.Sqrt(d2) / 25f);
@@ -784,7 +811,7 @@ namespace Shakutori
                 m.prevPos = m.pos;
                 UpdateGlance(m, sdt);
                 UpdateTilt(m, sdt);
-                m.drawPos = far ? ShakuPhysics.Damp(m.drawPos, m.pos, 40f, dt) : m.pos;
+                m.drawPos = far ? ShakuPhysics.Damp(m.drawPos, m.pos, 40f, sdt) : m.pos;
 
                 if (Active && !IsDiscovered(m.sp.id))
                 {
@@ -837,8 +864,11 @@ namespace Shakutori
         /// </summary>
         public void Disturb(Vector3 p, float radius)
         {
-            foreach (var m in _mobs)
+            // 格子で、音のとどく範囲だけを見る
+            int n = Gather(p, radius * 1.5f + 3f, _gDisturb);
+            for (int k = 0; k < n; k++)
             {
+                var m = _mobs[_gDisturb[k]];
                 if (m.carryingWorm) continue;
                 // 水辺のいきもの（カエル・カニ・カワニナ・アメンボ）は、物音により強くおどろく
                 bool waterside = m.sp.id == "frog" || m.sp.id == "crab" || m.sp.id == "riversnail" || m.sp.kind == MobKind.Skater;
@@ -846,9 +876,13 @@ namespace Shakutori
                 if ((m.pos - p).sqrMagnitude > r * r) continue;
                 DisturbOne(m);
                 // となりの仲間も、少しおくれておどろく
-                foreach (var o in _mobs)
+                int c = Gather(m.pos, 1.5f + 3f, _gChain);
+                for (int j = 0; j < c; j++)
+                {
+                    var o = _mobs[_gChain[j]];
                     if (o != m && o.chainAt < 0f && !o.carryingWorm && (o.pos - p).sqrMagnitude > r * r && (o.pos - m.pos).sqrMagnitude < 1.5f * 1.5f)
                         o.chainAt = o.anim + R(0.2f, 0.4f);
+                }
             }
         }
 
@@ -908,7 +942,7 @@ namespace Shakutori
             foreach (var o in list)
             {
                 if (o == m || o.airborne) continue;
-                Vector3 d = m.pos - o.pos;
+                Vector3 d = m.pos - o.startPos;   // 相手は、フレームのはじめの位置（どの順に動かしても同じ）
                 d -= m.up * Vector3.Dot(d, m.up);
                 float l = d.magnitude;
                 if (l < r && l > 1e-4f) push += d / l * (1f - l / r) * MassShare(o, m);
@@ -924,7 +958,7 @@ namespace Shakutori
             foreach (var o in list)
             {
                 if (o == m || o.airborne || o.moveSpeed < 0.05f) continue;
-                Vector3 d = Vector3.ProjectOnPlane(o.pos - m.pos, m.up);
+                Vector3 d = Vector3.ProjectOnPlane(o.startPos - m.pos, m.up);
                 float l = d.magnitude;
                 if (l > r || l < 1e-4f) continue;
                 if (Vector3.Dot(d / l, m.fwd) > 0.6f && Mathf.Abs(Vector3.Dot(o.fwd, m.fwd)) < 0.6f) return true;
@@ -937,10 +971,13 @@ namespace Shakutori
         {
             Vector3 push = Vector3.zero;
             float r = 0.7f * m.scale;
-            foreach (var o in _mobs)
+            // 格子で近くだけを見る
+            int n = Gather(m.pos, r + 0.5f, _gSep);
+            for (int k = 0; k < n; k++)
             {
+                var o = _mobs[_gSep[k]];
                 if (o == m || o.airborne || o.group == m.group) continue;
-                Vector3 d = Vector3.ProjectOnPlane(m.pos - o.pos, m.up);
+                Vector3 d = Vector3.ProjectOnPlane(m.pos - o.startPos, m.up);
                 float l = d.magnitude;
                 if (l < r && l > 1e-4f) push += d / l * (1f - l / r) * MassShare(o, m);
             }
@@ -1348,7 +1385,7 @@ namespace Shakutori
             if (id == "pillbug" && _groups.TryGetValue(m.group, out var pals) && pals.Count > 1)
             {
                 Vector3 c = Vector3.zero;
-                foreach (var o in pals) c += o.pos;
+                foreach (var o in pals) c += o.startPos;
                 Vector3 toC = Vector3.ProjectOnPlane(c / pals.Count - m.pos, m.up);
                 if (toC.magnitude > 0.8f) f = Vector3.Slerp(f.normalized, toC.normalized, 0.3f);
             }
@@ -1439,30 +1476,25 @@ namespace Shakutori
             PushBall(m, _head, _headVel, r + 0.12f, n, 0.8f);
             PushBall(m, _mid, _midVel, r + 0.1f, n, 0.8f);
             // 大きないきもの（カブトムシなど）が歩いてくると、押される
-            foreach (var o in _mobs)
+            int near = Gather(m.pos, 2f, _gRoll);
+            for (int k = 0; k < near; k++)
             {
+                var o = _mobs[_gRoll[k]];
                 if (o == m || !o.sp.rideable || o.airborne || o.curSpeed < 0.02f) continue;
                 Vector3 ov = (o.sp.sideways ? Vector3.Cross(o.up, o.fwd) * o.sideSign : o.fwd) * o.curSpeed;
-                PushBall(m, o.pos, ov, r + 0.45f * o.scale, n, MassShare(o, m) * 0.5f);
+                PushBall(m, o.startPos, ov, r + 0.45f * o.scale, n, MassShare(o, m) * 0.5f);
             }
-            // ほかの、まるくなっただんごむしに当たると、はじき合う（同じ重さの弾性衝突）
+            // ほかの、まるくなっただんごむしに当たると、はじき合う（はね返りは ResolveContacts でまとめて解く）。
+            // ここでは、重ならないように自分の分だけずれる（相手も同じ計算で、反対へずれる）
             if (_groups.TryGetValue(m.group, out var pals))
                 foreach (var o in pals)
                 {
                     if (o == m || o.curled <= 0.35f) continue;
-                    Vector3 dd = Vector3.ProjectOnPlane(m.pos - o.pos, n);
+                    Vector3 dd = Vector3.ProjectOnPlane(m.startPos - o.startPos, n);
                     float l = dd.magnitude;
                     float contact = r + 0.08f * o.scale;
                     if (l > contact || l < 1e-4f) continue;
-                    Vector3 nrm = dd / l;
-                    float closing = Vector3.Dot(m.rollVel - o.rollVel, nrm);
-                    if (closing < 0f)
-                    {
-                        float jmp = -(1f + 0.7f) * closing * 0.5f;
-                        m.rollVel += nrm * jmp;
-                        o.rollVel -= nrm * jmp;
-                    }
-                    m.pos += nrm * ((contact - l) * 0.5f);   // めりこまない
+                    m.pos += dd / l * ((contact - l) * 0.5f);   // めりこまない
                 }
             if (m.rollVel.magnitude < 0.03f && !ShakuPhysics.StartsRolling(sin, PillbugStaticFriction))
             {
@@ -1512,6 +1544,7 @@ namespace Shakutori
         {
             var path = m.group.path;
             float total = _pathLen.TryGetValue(m.group, out var tl) ? tl : PathLength(path);
+            _pathSeg.TryGetValue(m.group, out var seg);
             // 一匹ずつちがう速さで、速さもゆらぐ。荷物を運ぶアリは少しゆっくり。ヘルメットアリは安全第一でゆっくり
             float paceK = m.pace * (0.85f + 0.3f * Mathf.PerlinNoise(m.phase, m.anim * 0.35f));
             if (m.carrying) paceK *= 0.9f;
@@ -1555,7 +1588,7 @@ namespace Shakutori
             if (m.anim < m.slowUntil) paceK *= 0.3f;
             if (m.anim < m.pauseUntil) paceK = 0f;
             // 上り坂ではゆっくり
-            SplinePoint(path, m.pathS, total, out var dir0);
+            SplinePoint(path, m.pathS, total, out var dir0, seg);
             float slopeK = 1f - 0.35f * Mathf.Clamp01(dir0.y * 3f);
             m.curSpeed = Mathf.MoveTowards(m.curSpeed, m.sp.speed * paceK * slopeK, dt * 4f);
             float before = Mathf.Repeat(m.pathS, Mathf.Max(total, 0.01f));
@@ -1564,7 +1597,7 @@ namespace Shakutori
             // 食べものの所では拾うために、巣の所では荷物をおろすために、少し止まる
             if (before < total * 0.5f && after >= total * 0.5f) m.pauseUntil = m.anim + 0.5f;
             else if (after < before) m.pauseUntil = m.anim + 0.3f;
-            Vector3 p = SplinePoint(path, m.pathS, total, out var dir);
+            Vector3 p = SplinePoint(path, m.pathS, total, out var dir, seg);
             // 行列の帰り道では、食べものを運んでいる
             m.carrying = Mathf.Repeat(m.pathS, Mathf.Max(total, 0.01f)) > total * 0.5f;
             Vector3 side = Vector3.Cross(Vector3.up, dir).normalized;
@@ -1580,7 +1613,7 @@ namespace Shakutori
             m.stray = Mathf.MoveTowards(m.stray, m.strayTarget, dt * 0.25f);
             lateral += m.stray;
             // 前のアリの通ったあとを、少しなぞって歩く
-            if (leader != null && gap * respect < 1f) lateral = lateral * 0.6f + leader.lat * 0.4f;
+            if (leader != null && gap * respect < 1f) lateral = lateral * 0.6f + leader.startLat * 0.4f;
             // 道にしゃくとりむしがいたら、よけて通る
             Vector3 toWorm = _head - p;
             toWorm.y = 0f;
@@ -1605,7 +1638,7 @@ namespace Shakutori
             foreach (var o in list)
             {
                 if (o == m) continue;
-                float d = Mathf.Repeat(o.pathS - m.pathS, total);
+                float d = Mathf.Repeat(o.startPathS - m.pathS, total);
                 if (d > 1e-4f && d < gap)
                 {
                     gap = d;
@@ -1623,7 +1656,7 @@ namespace Shakutori
             foreach (var o in list)
             {
                 if (o == m) continue;
-                float d = Mathf.Repeat(o.pathS - m.pathS, total);
+                float d = Mathf.Repeat(o.startPathS - m.pathS, total);
                 if (d > 1e-4f && d < best) best = d;
             }
             return best;
@@ -1639,7 +1672,7 @@ namespace Shakutori
             // 休んでいるときにしゃくとりむしが近づくと、ぱっと飛び立つ
             if (m.resting && (_head - m.pos).sqrMagnitude < 1.5f * 1.5f) TakeWing(m);
             m.flapBoost = Mathf.MoveTowards(m.flapBoost, 0f, dt * 1.5f);
-            if (m.timer <= 0f)
+            if (m.timer <= 0f && TakeThink())
             {
                 m.resting = !m.resting && R(0f, 1f) < 0.45f;
                 m.timer = m.resting ? R(2.5f, 5f) : R(6f, 12f);
@@ -1994,6 +2027,7 @@ namespace Shakutori
             m.curSpeed = 0f;
             m.timer -= dt;
             if (m.timer > 0f && !scared) return;
+            if (!scared && !TakeThink()) return;
             m.timer = frog ? R(4f, 8f) : R(2f, 6f);
             if (!frog && !scared && R(0f, 1f) < 0.35f)
             {
@@ -2088,7 +2122,7 @@ namespace Shakutori
             m.raise = Mathf.MoveTowards(m.raise, 0f, dt * 3f);
             m.watchTime = 0f;
             m.timer -= dt;
-            if (m.timer <= 0f)
+            if (m.timer <= 0f && TakeThink())
             {
                 float roll = R(0f, 1f);
                 if (roll < 0.25f)
@@ -2430,26 +2464,15 @@ namespace Shakutori
             float wlHere = _area.WaterLevelAt(m.pos.x, m.pos.z);
             Vector3 ahead = m.pos + m.fwd * 1.2f;
             if (Mathf.Abs(_area.WaterLevelAt(ahead.x, ahead.z) - wlHere) > 0.3f) m.wantFwd = -m.fwd;
-            // 仲間とは、少し間をあける。ぶつかると、はじき合う（同じ重さの弾性衝突：近づく速さを分け合ってはね返る）
+            // 仲間とは、少し間をあける（ぶつかったときのはね返りは、ResolveContacts でまとめて解く）
             if (_groups.TryGetValue(m.group, out var pals))
                 foreach (var o in pals)
                 {
                     if (o == m) continue;
-                    Vector3 d = m.pos - o.pos;
+                    Vector3 d = m.startPos - o.startPos;
                     d.y = 0f;
                     float dd = d.sqrMagnitude;
                     if (dd < 0.6f * 0.6f && dd > 1e-4f) m.vel += d.normalized * (0.8f * dt);
-                    if (dd < SkaterContact * SkaterContact && dd > 1e-6f)
-                    {
-                        Vector3 nrm = d / Mathf.Sqrt(dd);
-                        float closing = Vector3.Dot(m.vel - o.vel, nrm);
-                        if (closing < 0f)
-                        {
-                            float jmp = -(1f + SkaterRestitution) * closing * 0.5f;
-                            m.vel += nrm * jmp;
-                            o.vel -= nrm * jmp;
-                        }
-                    }
                 }
             // 向きを変えてから、足でこいで進む（こいだあとは、すーっとすべる）
             Steer(m, m.wantFwd, dt, 240f);
@@ -2513,15 +2536,23 @@ namespace Shakutori
             // ときどき、すいっと急に向きを変える
             if (!m.perched && m.vel.sqrMagnitude > 1f && R(0f, 1f) < dt * 0.6f)
                 m.target = m.home + new Vector3(R(-m.radius, m.radius), 0f, R(-m.radius, m.radius));
-            if (m.timer <= 0f)
+            if (m.timer <= 0f && TakeThink())
             {
                 m.perched = false;
                 m.prey = null;
                 // ときどき、近くを飛ぶ虫を追いかける（つかまえはしない）
                 if (R(0f, 1f) < 0.15f)
                 {
-                    foreach (var o in _mobs)
-                        if (o != m && o.sp.kind == MobKind.Flutter && o.airborne && (o.pos - m.pos).sqrMagnitude < 36f) { m.prey = o; break; }
+                    // 格子で近くだけを見る（一覧で先にあるものを選ぶのは、前と同じ）
+                    int n = Gather(m.pos, 6f + 3f, _gNear);
+                    int pick = int.MaxValue;
+                    for (int k = 0; k < n; k++)
+                    {
+                        int j = _gNear[k];
+                        var o = _mobs[j];
+                        if (j < pick && o != m && o.sp.kind == MobKind.Flutter && o.airborne && (o.pos - m.pos).sqrMagnitude < 36f) pick = j;
+                    }
+                    if (pick != int.MaxValue) m.prey = _mobs[pick];
                     if (m.prey != null)
                     {
                         m.preyUntil = m.anim + 2f;
@@ -2616,7 +2647,7 @@ namespace Shakutori
         void UpdateFirefly(Mob m, float dt)
         {
             m.timer -= dt;
-            if (m.timer <= 0f)
+            if (m.timer <= 0f && TakeThink())
             {
                 m.timer = R(2f, 4f);
                 m.perched = false;
@@ -2644,7 +2675,7 @@ namespace Shakutori
             if (_groups.TryGetValue(m.group, out var pals))
                 foreach (var o in pals)
                 {
-                    Vector3 sep = m.pos - o.pos;
+                    Vector3 sep = m.pos - o.startPos;
                     if (o != m && sep.sqrMagnitude < 0.5f * 0.5f && sep.sqrMagnitude > 1e-4f) m.vel += sep.normalized * (0.6f * dt);
                 }
             m.pos += m.vel * dt;
@@ -2664,10 +2695,13 @@ namespace Shakutori
                 if (m.sp.id != "firefly") continue;
                 float pull = 0f;
                 int n = 0;
-                foreach (var o in _mobs)
+                // 格子で近くの仲間だけを見る。仲間のリズムはフレームのはじめの値を読む（どの順に計算しても同じ）
+                int c = Gather(m.startPos, 8f, _gNear);
+                for (int k = 0; k < c; k++)
                 {
-                    if (o == m || o.sp.id != "firefly" || (o.pos - m.pos).sqrMagnitude > 8f * 8f) continue;
-                    pull += Mathf.Sin(o.blink - m.blink);
+                    var o = _mobs[_gNear[k]];
+                    if (o == m || o.sp.id != "firefly" || (o.startPos - m.startPos).sqrMagnitude > 8f * 8f) continue;
+                    pull += Mathf.Sin(o.startBlink - m.startBlink);
                     n++;
                 }
                 m.blink += dt * (2.4f + (n > 0 ? 0.8f * pull / n : 0f));
@@ -2679,6 +2713,214 @@ namespace Shakutori
         // ------------------------------------------------------------------
         readonly Plane[] _viewPlanes = new Plane[6];
         bool _viewReady;
+
+        // ------------------------------------------------------------------
+        // 近くのいきものをさがす格子（毎フレーム、フレームのはじめの位置で作りなおす。メモリは使いまわす）
+        // ------------------------------------------------------------------
+        const float GridCell = 4f;
+        const int GridBuckets = 512;   // 2 のべき乗
+        readonly int[] _bucketHead = new int[GridBuckets];
+        int[] _gridNext = new int[0];
+        int _startCount = -1;
+        // 呼ぶところごとに別の入れ物（入れ子で呼んでも、こわれない）
+        int[] _gNear = new int[0], _gDisturb = new int[0], _gChain = new int[0], _gSep = new int[0], _gRoll = new int[0];
+
+        static int Bucket(int cx, int cz) => ((cx * 73856093) ^ (cz * 19349663)) & (GridBuckets - 1);
+
+        /// <summary>フレームのはじめの位置・速さを写して、格子を作りなおす（どの順に動かしても、同じ結果になるように）。</summary>
+        void CaptureFrameStart()
+        {
+            if (_gridNext.Length < _mobs.Count)
+            {
+                int cap = Mathf.NextPowerOfTwo(Mathf.Max(16, _mobs.Count));
+                _gridNext = new int[cap];
+                _gNear = new int[cap];
+                _gDisturb = new int[cap];
+                _gChain = new int[cap];
+                _gSep = new int[cap];
+                _gRoll = new int[cap];
+            }
+            _startCount = _mobs.Count;
+            for (int b = 0; b < GridBuckets; b++) _bucketHead[b] = -1;
+            for (int i = 0; i < _mobs.Count; i++)
+            {
+                var m = _mobs[i];
+                m.index = i;
+                m.startPos = m.pos;
+                m.startVel = m.vel;
+                m.startRoll = m.rollVel;
+                m.startBlink = m.blink;
+                m.startPathS = m.pathS;
+                m.startLat = m.lat;
+                m.cellX = Mathf.FloorToInt(m.pos.x / GridCell);
+                m.cellZ = Mathf.FloorToInt(m.pos.z / GridCell);
+                int bk = Bucket(m.cellX, m.cellZ);
+                _gridNext[i] = _bucketHead[bk];
+                _bucketHead[bk] = i;
+            }
+        }
+
+        /// <summary>
+        /// ぶつかり合い（アメンボどうし・まるくなっただんごむしどうし）を、ステップのはじめに 1 組ずつまとめて解く
+        /// （同じ重さの弾性衝突：近づく速さを分け合ってはね返る）。2 匹とも、ステップのはじめの速さから同じだけ反対向きに受けるので、
+        /// 運動量が保たれ、計算する順番や、どちらが先に動くか（間引き）によらず同じ結果になる。
+        /// </summary>
+        void ResolveContacts()
+        {
+            for (int g = 0; g < _contactGroups.Count; g++)
+            {
+                var list = _contactGroups[g];
+                for (int i = 0; i < list.Count; i++)
+                    for (int j = i + 1; j < list.Count; j++)
+                    {
+                        Mob a = list[i], b = list[j];
+                        if (a.sp.kind == MobKind.Skater && b.sp.kind == MobKind.Skater)
+                        {
+                            Vector3 d = a.startPos - b.startPos;
+                            d.y = 0f;
+                            float dd = d.sqrMagnitude;
+                            if (dd >= SkaterContact * SkaterContact || dd <= 1e-6f) continue;
+                            Vector3 k = ShakuPhysics.ContactKick(a.startVel, b.startVel, d / Mathf.Sqrt(dd), SkaterRestitution);
+                            a.vel += k;
+                            b.vel -= k;
+                        }
+                        else if (a.curled > 0.35f && b.curled > 0.35f)
+                        {
+                            Vector3 n = a.up + b.up;
+                            n = n.sqrMagnitude > 1e-4f ? n.normalized : Vector3.up;
+                            Vector3 d = Vector3.ProjectOnPlane(a.startPos - b.startPos, n);
+                            float l = d.magnitude;
+                            if (l > 0.08f * (a.scale + b.scale) || l < 1e-4f) continue;
+                            Vector3 k = ShakuPhysics.ContactKick(a.startRoll, b.startRoll, d / l, 0.7f);
+                            a.rollVel += k;
+                            b.rollVel -= k;
+                        }
+                    }
+            }
+        }
+
+        /// <summary>
+        /// テスト用：同じ群れの 2 匹を向かい合わせにぶつけて、まとめて解く。並べる順番を入れかえても同じ結果か（差）、
+        /// 運動量が保たれるか（前後の差）、はね返ったか、を返す。いきものの状態は、もとにもどす。
+        /// </summary>
+        public (float orderDiff, float momentumDiff, bool bounced) CheckContacts(string species, float speed)
+        {
+            foreach (var list in _contactGroups)
+            {
+                if (list.Count < 2 || list[0].sp.id != species) continue;
+                Mob a = list[0], b = list[1];
+                var keep = (a.pos, b.pos, a.vel, b.vel, a.rollVel, b.rollVel, a.curled, b.curled);
+                bool ball = species == "pillbug";
+                Vector3 side = Vector3.right * (ball ? 0.03f * (a.scale + b.scale) : SkaterContact * 0.3f);   // ふれあう近さ
+                Vector3 c = new Vector3(1000f, 0f, 1000f);   // ほかの仲間から遠くはなれた所で
+                Vector3 upA = a.up, upB = b.up;
+                void Stage()
+                {
+                    a.pos = c + side;
+                    b.pos = c - side;
+                    if (ball) { a.curled = b.curled = 3f; a.rollVel = -side.normalized * speed; b.rollVel = side.normalized * speed; a.up = b.up = Vector3.up; }
+                    else { a.vel = -side.normalized * speed; b.vel = side.normalized * speed; }
+                }
+                Vector3 V(Mob m) => ball ? m.rollVel : m.vel;
+                Stage();
+                CaptureFrameStart();
+                Vector3 before = V(a) + V(b);
+                ResolveContacts();
+                Vector3 a1 = V(a), b1 = V(b);
+                Stage();
+                list.Reverse();
+                CaptureFrameStart();
+                ResolveContacts();
+                list.Reverse();
+                float order = Mathf.Max((V(a) - a1).magnitude, (V(b) - b1).magnitude);
+                float momentum = (a1 + b1 - before).magnitude;
+                bool bounced = Vector3.Dot(a1 - b1, side) > 0f;
+                (a.pos, b.pos, a.vel, b.vel, a.rollVel, b.rollVel, a.curled, b.curled) = keep;
+                a.up = upA;
+                b.up = upB;
+                CaptureFrameStart();
+                return (order, momentum, bounced);
+            }
+            return (float.NaN, float.NaN, false);
+        }
+
+        /// <summary>p から r 以内（フレームのはじめの位置で）のいきものの番号を buf に集めて、数を返す。</summary>
+        int Gather(Vector3 p, float r, int[] buf)
+        {
+            int n = 0;
+            if (_startCount != _mobs.Count) CaptureFrameStart();
+            int x0 = Mathf.FloorToInt((p.x - r) / GridCell), x1 = Mathf.FloorToInt((p.x + r) / GridCell);
+            int z0 = Mathf.FloorToInt((p.z - r) / GridCell), z1 = Mathf.FloorToInt((p.z + r) / GridCell);
+            float r2 = r * r;
+            for (int cx = x0; cx <= x1; cx++)
+                for (int cz = z0; cz <= z1; cz++)
+                    for (int i = _bucketHead[Bucket(cx, cz)]; i >= 0; i = _gridNext[i])
+                    {
+                        var m = _mobs[i];
+                        if (m.cellX != cx || m.cellZ != cz) continue;   // 同じ番号の別のます
+                        float ex = m.startPos.x - p.x, ez = m.startPos.z - p.z;
+                        if (ex * ex + ez * ez > r2) continue;
+                        if (n < buf.Length) buf[n++] = i;
+                    }
+            return n;
+        }
+
+        // 1 フレームで考え直す（行き先をさがす）回数の上限。こえた分は、次のフレームにまわす
+        public static int ThinksPerFrame = 6;
+        int _thinks;
+
+        /// <summary>行き先さがしなどの重い考えごとを、1 回分使う（このフレームの分がなければ false で、次のフレームにまわす）。</summary>
+        bool TakeThink()
+        {
+            if (_thinks <= 0) return false;
+            _thinks--;
+            return true;
+        }
+
+        // この距離より近いいきものは、毎フレーム動かす（しゃくとりむしと関わるのは、この中だけ）
+        public const float NearRange = 10f;
+
+        /// <summary>
+        /// 何フレームに 1 回動かすか：しゃくとりむしからの距離と、いきもの自身が動いているかだけで決める
+        /// （カメラの向きでは決めない。どこを見ていても、いきものの動きは同じ）。
+        /// </summary>
+        int UpdateInterval(Mob m)
+        {
+            float dw2 = (m.pos - _head).sqrMagnitude;
+            if (dw2 < NearRange * NearRange) return 1;
+            bool busy = m.airborne || m.curSpeed > 0.02f || m.launchAt >= 0f || m.fallVel > 0f || m.chainAt >= 0f
+                        || m.skidVel.sqrMagnitude > 1e-6f || m.rollVel.sqrMagnitude > 1e-6f;
+            if (dw2 < 25f * 25f) return busy ? 2 : 3;
+            if (dw2 < 50f * 50f) return busy ? 3 : 5;
+            return busy ? 3 : 6;
+        }
+
+        /// <summary>テスト用：p から r 以内のいきものを、格子で数えた数と、全部を見て数えた数。</summary>
+        public (int grid, int full) CountWithin(Vector3 p, float r)
+        {
+            CaptureFrameStart();
+            int g = 0, f = 0;
+            int n = Gather(p, r, _gNear);
+            for (int k = 0; k < n; k++)
+                if ((_mobs[_gNear[k]].pos - p).sqrMagnitude <= r * r) g++;
+            foreach (var m in _mobs)
+                if ((m.pos - p).sqrMagnitude <= r * r) f++;
+            return (g, f);
+        }
+
+        /// <summary>テスト用：直前のフレームで使った、考えごとの回数。</summary>
+        public int ThinksLastFrame => ThinksPerFrame - _thinks;
+
+        /// <summary>テスト用：みんなの「次に考える時刻」を、いまにする（いっせいに考えたくなる）。</summary>
+        public void ExpireAllTimers()
+        {
+            foreach (var m in _mobs) m.timer = 0f;
+        }
+
+        /// <summary>テスト用：i 番目の位置・何フレームに 1 回動いているか・すすんだ時間。</summary>
+        public Vector3 PositionAt(int i) => _mobs[i].pos;
+        public int IntervalAt(int i) => UpdateInterval(_mobs[i]);
+        public float ClockAt(int i) => _mobs[i].anim + _mobs[i].pendingDt;
 
         void Add(Mesh mesh, Material mat, Matrix4x4 mtx)
         {
