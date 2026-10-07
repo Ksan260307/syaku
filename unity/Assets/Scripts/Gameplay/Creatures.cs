@@ -32,6 +32,7 @@ namespace Shakutori
 
         /// <summary>テスト用：レアのいきものが出る確率を上書きする（null で本来の確率）。</summary>
         public static float? RareChanceOverride;
+        static int s_builds;
         /// <summary>小さな体の世界での重力（しゃくとりむしの落下と同じ）。</summary>
         public const float Gravity = ShakuPhysics.Gravity;
         /// <summary>いきものを描く距離（画質「かるい」では短く）。</summary>
@@ -191,7 +192,12 @@ namespace Shakutori
         readonly Dictionary<MobGroup, float[]> _pathSeg = new Dictionary<MobGroup, float[]>();
         readonly List<List<Mob>> _contactGroups = new List<List<Mob>>();   // ぶつかり合う群れ（アメンボ・だんごむし）
         readonly List<Vector3> _flowers = new List<Vector3>();
-        readonly Dictionary<(Mesh, Material), List<Matrix4x4>> _draw = new Dictionary<(Mesh, Material), List<Matrix4x4>>();
+        // 描く物のまとまり：メッシュ・マテリアル・形の段（-1 = 段なし）・影を落とすか。範囲は中の物だけを包む
+        sealed class DrawList { public readonly List<Matrix4x4> m = new List<Matrix4x4>(); public Bounds bounds; }
+        readonly Dictionary<(Mesh, Material, int, bool), DrawList> _draw = new Dictionary<(Mesh, Material, int, bool), DrawList>();
+        // いま描いているいきものの、カメラからの距離・大きさ・影を落とすか（Add が使う）
+        float _drawDist, _drawRadius;
+        bool _drawShadow = true;
         readonly List<Matrix4x4[]> _pool = new List<Matrix4x4[]>();
         readonly Dictionary<string, Mesh> _meshCache = new Dictionary<string, Mesh>();
         System.Random _rng = new System.Random(1);
@@ -442,8 +448,9 @@ namespace Shakutori
             _area = world.Area;
             _rng = new System.Random(world.seed + 31 * world.Area.Id.Length);
             _flowers.AddRange(world.FlowerPoints);
-            // レアは遊ぶたびにちがう（決まった場所にいつもいるわけではない）
-            var rareRng = new System.Random(Environment.TickCount ^ world.Area.Id.GetHashCode());
+            // レアは遊ぶたびにちがう（決まった場所にいつもいるわけではない）。
+            // 時計は 15 ミリ秒ほどごとにしか進まないので、続けて作ったときも同じにならないよう、作った回数もまぜる
+            var rareRng = new System.Random(Environment.TickCount ^ world.Area.Id.GetHashCode() ^ (++s_builds * 7919));
             foreach (var g in world.Mobs)
             {
                 var baseSp = SpeciesCatalog.Get(g.species);
@@ -2925,19 +2932,26 @@ namespace Shakutori
         void Add(Mesh mesh, Material mat, Matrix4x4 mtx)
         {
             if (mesh == null || mat == null) return;
-            var key = (mesh, mat);
+            // 小さく見えるいきものは、三角形の少ない形で描く（画面での大きさで選ぶ）
+            int lod = mesh.lodCount > 1 ? InstancedRenderer.LodFor(_drawDist, _drawRadius, mesh.lodCount) : -1;
+            var key = (mesh, mat, lod, _drawShadow);
             if (!_draw.TryGetValue(key, out var list))
             {
-                list = new List<Matrix4x4>();
+                list = new DrawList();
                 _draw[key] = list;
             }
-            list.Add(mtx);
+            var b = new Bounds(mtx.GetColumn(3), Vector3.one * (2f * _drawRadius + 1f));
+            if (list.m.Count == 0) list.bounds = b;
+            else list.bounds.Encapsulate(b);
+            list.m.Add(mtx);
         }
 
         void Draw(Vector3 camPos)
         {
             using var prof = s_CreatureDraw.Auto();   // 処理時間の計測（パフォーマンスの調整用）
-            foreach (var l in _draw.Values) l.Clear();
+            foreach (var l in _draw.Values) l.m.Clear();
+            // 影の届く距離より遠いいきものは、影の絵に描かない（影は見えないので）
+            float shadowReach = InstancedRenderer.ShadowDistance() + InstancedRenderer.ShadowMargin;
             // カメラに映らないいきものは描かない（影の分、少し広めに見る）
             bool cull = _viewReady;
             foreach (var m in _mobs)
@@ -2948,6 +2962,10 @@ namespace Shakutori
                 Vector3 f = ShakuMath.ProjectOnPlaneSafe(m.fwd, m.up, Vector3.forward);
                 Vector3 right = Vector3.Cross(m.up, f).normalized;
                 Quaternion rot = Quaternion.LookRotation(-f, m.up);
+                var bodyM = M(m.sp.body);
+                _drawRadius = (bodyM != null ? bodyM.bounds.extents.magnitude : 0.5f) * m.scale;
+                _drawDist = Mathf.Sqrt(d2);
+                _drawShadow = _drawDist - _drawRadius <= shadowReach;
                 // 止まっているときに、きょろきょろ
                 if (Mathf.Abs(m.glance) > 0.01f) rot = Quaternion.AngleAxis(m.glance, m.up) * rot;
                 // 飛ぶもの：曲がるときは内側へかたむき、上り下りで頭が上下する
@@ -3214,21 +3232,22 @@ namespace Shakutori
             int pool = 0;
             foreach (var kv in _draw)
             {
-                var list = kv.Value;
+                var list = kv.Value.m;
                 if (list.Count == 0) continue;
                 var rp = new RenderParams(kv.Key.Item2)
                 {
-                    shadowCastingMode = ShadowCastingMode.On,
+                    shadowCastingMode = kv.Key.Item4 ? ShadowCastingMode.On : ShadowCastingMode.Off,
                     receiveShadows = true,
-                    worldBounds = new Bounds(camPos, Vector3.one * 400f),
+                    worldBounds = kv.Value.bounds,
                 };
+                var mesh = DetailMeshes.Get(kv.Key.Item1, kv.Key.Item3);   // 小さく見える物は、三角形の少ない形
                 for (int start = 0; start < list.Count; start += 1023)
                 {
                     int n = Mathf.Min(1023, list.Count - start);
                     if (pool >= _pool.Count) _pool.Add(new Matrix4x4[1023]);
                     var arr = _pool[pool++];
                     list.CopyTo(start, arr, 0, n);
-                    Graphics.RenderMeshInstanced(rp, kv.Key.Item1, 0, arr, n);
+                    Graphics.RenderMeshInstanced(rp, mesh, 0, arr, n);
                 }
             }
         }

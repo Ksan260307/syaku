@@ -476,7 +476,7 @@ namespace Shakutori
                 // ほかの物は、凹凸にはさまらないよう、いちばん外側をなめらかにつつむ大まかな形にする（穴が大事な物は、そのまま）
                 Mesh col = assets.TryGet(meshName + "_Col");
                 if (col == null && CoarseCollider.Wants(meshName)) col = CoarseCollider.For(meshName, m);
-                go.AddComponent<MeshCollider>().sharedMesh = col != null ? col : m;
+                go.AddComponent<MeshCollider>().sharedMesh = col != null ? col : DetailMeshes.ForCollision(m);
             }
             return go;
         }

@@ -177,7 +177,7 @@ namespace Shakutori
             var mr = go.AddComponent<MeshRenderer>();
             mr.sharedMaterial = assets.prop;
             go.transform.localScale = scale;
-            go.AddComponent<MeshCollider>().sharedMesh = leaf;
+            go.AddComponent<MeshCollider>().sharedMesh = DetailMeshes.ForCollision(leaf);
             go.AddComponent<MovingPlatform>();
             var ferry = go.AddComponent<RiverFerry>();
             ferry.baseRotation = rot;
@@ -327,6 +327,7 @@ namespace Shakutori
             var mr = go.AddComponent<MeshRenderer>();
             mr.sharedMaterial = assets.river != null ? assets.river : assets.water;
             mr.shadowCastingMode = ShadowCastingMode.Off;
+            WaterView.Register(mr);   // 水が映るときだけ、深さと色の写しを作る
         }
 
         /// <summary>

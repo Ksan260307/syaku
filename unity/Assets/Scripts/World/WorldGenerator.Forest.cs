@@ -335,6 +335,7 @@ namespace Shakutori
             var mr = go.AddComponent<MeshRenderer>();
             mr.sharedMaterial = assets.water;
             mr.shadowCastingMode = ShadowCastingMode.Off;
+            WaterView.Register(mr);   // 水が映るときだけ、深さと色の写しを作る
         }
 
         // ------------------------------------------------------------------

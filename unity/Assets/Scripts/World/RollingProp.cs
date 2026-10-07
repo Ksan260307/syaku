@@ -35,7 +35,7 @@ namespace Shakutori
             go.layer = ShakuConst.RollingLayer;
             var mc = go.GetComponent<MeshCollider>();
             if (mc == null) mc = go.AddComponent<MeshCollider>();
-            mc.sharedMesh = mesh;
+            mc.sharedMesh = DetailMeshes.ForCollision(mesh);
             mc.convex = true;   // 転がる物は、つつみこむ形の当たり判定
             if (_material == null)
                 _material = new PhysicsMaterial("Acorn")

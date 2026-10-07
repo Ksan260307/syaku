@@ -13,6 +13,22 @@ namespace Shakutori.EditorTools
     {
         const string ModelFolder = "Assets/Art/Models";
 
+        // 取り込み設定を変えたら、数字を上げる（モデルが取り込みなおされる）
+        public override uint GetVersion() => 4;
+
+        /// <summary>
+        /// 遠くで使う「三角形の少ない形」を作らない物：もともと軽い物と、形が変わる物（しゃくとりむし）。
+        /// 当たり判定用の _Col メッシュも作らない。ほかの物（草花・いきもの・岩・キノコ・葉・木など）は作る。
+        /// 形の並びはそのまま、三角形のつなぎ方だけが段階ごとに半分ほどになる（描くときに、画面での大きさで選ぶ）。
+        /// 当たり判定は、いつもいちばん細かい形だけを使う（DetailMeshes.ForCollision）。
+        /// </summary>
+        static readonly HashSet<string> KeepFullDetail = new HashSet<string>
+        {
+            "Inchworm", "Dewdrop", "Crumb", "Grass_A", "Grass_B", "Grass_C", "Cradle",
+        };
+
+        public static bool UsesDetailLevels(string name) => !KeepFullDetail.Contains(name) && !name.EndsWith("_Col");
+
         void OnPreprocessModel()
         {
             if (!assetPath.StartsWith(ModelFolder)) return;
@@ -33,6 +49,8 @@ namespace Shakutori.EditorTools
             mi.generateSecondaryUV = false;
             mi.weldVertices = true;
             mi.indexFormat = ModelImporterIndexFormat.Auto;
+            mi.generateMeshLods = UsesDetailLevels(System.IO.Path.GetFileNameWithoutExtension(assetPath));
+            if (mi.generateMeshLods) mi.maximumMeshLod = 3;
         }
 
         void OnPostprocessModel(GameObject root)
