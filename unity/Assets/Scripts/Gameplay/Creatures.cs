@@ -146,8 +146,6 @@ namespace Shakutori
             public float displayHold;                  // カブトムシが角を見せている時間
             public float groomUntil, groomNext;        // クモ・カマキリの手入れ
             public float backNext;                     // クモの後ずさり
-            public Vector3 lineFrom;                   // クモの命綱
-            public float lineUntil;
             public int blockCount;
             public Mob prey;                           // トンボが追いかける相手
             public float preyUntil;
@@ -158,6 +156,11 @@ namespace Shakutori
             public Vector3 skidVel;                    // 着地で、すべる速さ
             public float skidMu = 0.8f;                // すべる面のまさつ
             public float landSpeed;                    // 着地したときの、面に垂直な速さ
+            // ---- 物理計算（第 2 弾） ----
+            public Vector3 prevVel;                    // 前のフレームの速さ（加速で体をかたむける）
+            public Vector3 sway, swayVel;              // 花にとまったチョウが、花ごと風でゆれる（ばね）
+            public float strikeVel;                    // カマキリのかま（ばね）
+            public float jumpSpeed;                    // 跳ぶ速さ（かがむ深さ）
         }
 
         public struct MobInfo
@@ -165,10 +168,10 @@ namespace Shakutori
             public Vector3 pos, up, fwd, vel;
             public bool airborne, carrying, curled, resting, perched, carryingWorm;
             public float raise, gait, moveSpeed, curSpeed, crouch, strike, bank, retreat, glow, display, turnRate, alert;
-            public bool playingDead, hurrying, lineVisible;
+            public bool playingDead, hurrying;
             public string species;
             public Vector3 rollVel, skidVel;
-            public float spin, landSpeed, fallVel;
+            public float spin, landSpeed, fallVel, pitch;
         }
 
         readonly List<Mob> _mobs = new List<Mob>();
@@ -185,6 +188,7 @@ namespace Shakutori
         float _dt;
         Vector3 _head = new Vector3(9999f, 0f, 0f);
         Vector3 _headVel;   // しゃくとりむしの頭の速さ（まるくなっただんごむしを押す）
+        Vector3 _mid = new Vector3(9999f, 0f, 0f), _midVel;   // しゃくとりむしの体のまん中
         bool _wormStanding;
 
         public int MobCount => _mobs.Count;
@@ -249,9 +253,36 @@ namespace Shakutori
                 raise = m.raise, gait = m.gait, moveSpeed = m.moveSpeed, curSpeed = m.curSpeed, crouch = m.crouch, strike = m.strike,
                 bank = m.bank, retreat = m.retreat, glow = FireflyGlow(m), display = m.display, turnRate = m.turnRate, species = m.sp.id,
                 alert = m.alertK, playingDead = m.anim < m.deadUntil, hurrying = m.anim < m.hurryUntil,
-                lineVisible = m.sp.kind == MobKind.Pouncer && (m.airborne || m.anim < m.lineUntil),
-                rollVel = m.rollVel, skidVel = m.skidVel, spin = m.spin, landSpeed = m.landSpeed, fallVel = m.fallVel,
+                rollVel = m.rollVel, skidVel = m.skidVel, spin = m.spin, landSpeed = m.landSpeed, fallVel = m.fallVel, pitch = m.pitch,
             };
+        }
+
+        /// <summary>しゃくとりむしの重さ（いきものとの、ぶつかった勢いの分け方に使う）。</summary>
+        public const float WormMass = 0.1f;
+
+        /// <summary>いきものの重さ（体の大きさの 3 乗）。</summary>
+        static float MobMass(Mob m) => 0.1f * m.scale * m.scale * m.scale;
+
+        /// <summary>ぶつかったとき、m が押される割合（同じ重さなら 1。重い相手には大きく押され、軽い相手にはあまり押されない）。</summary>
+        static float MassShare(Mob other, Mob m) => 2f * MobMass(other) / (MobMass(other) + MobMass(m));
+
+        /// <summary>
+        /// 落ちてきた・ゆれてきたしゃくとりむしが、いきもの（当たり判定 colliderTransform）にぶつかった：
+        /// ぶつかった勢い（運動量）を重さの比で分けてもらい、いきものが少しすべる。
+        /// </summary>
+        public void Push(Transform colliderTransform, Vector3 wormVelocity)
+        {
+            if (colliderTransform == null) return;
+            foreach (var m in _mobs)
+            {
+                if (m.collider != colliderTransform) continue;
+                float share = WormMass / (WormMass + MobMass(m));
+                Vector3 dv = Vector3.ProjectOnPlane(wormVelocity, m.up) * share;
+                if (dv.sqrMagnitude < 1e-6f) return;
+                m.skidVel += Vector3.ClampMagnitude(dv, 1.5f);
+                m.skidMu = ShakuPhysics.Ground.friction + LegGrip;
+                return;
+            }
         }
 
         /// <summary>テスト用：個体の位置を動かす。</summary>
@@ -467,7 +498,8 @@ namespace Shakutori
             var go = new GameObject("Mob_" + m.sp.id);
             go.transform.SetParent(_colliderRoot, false);
             go.layer = ShakuConst.CreatureLayer;
-            go.AddComponent<MeshCollider>().sharedMesh = mesh;
+            // 乗れるいきものの当たり判定は、体の細かいへこみをうめた形（甲らのみぞなどに、はさまらない）
+            go.AddComponent<MeshCollider>().sharedMesh = CoarseCollider.Build(mesh, CoarseCollider.Shape.Relax);
             go.AddComponent<MovingPlatform>();
             m.collider = go.transform;
         }
@@ -535,7 +567,7 @@ namespace Shakutori
                 if (canFall && m.fallVel > 0f && dn < -0.02f)
                 {
                     // 落ちている途中：重力と空気のてい抗で落ちて、面にとどいたら着地
-                    m.fallVel = FallSpeed(m.fallVel, _dt);
+                    m.fallVel = FallSpeed(m.fallVel, _dt, m.scale);
                     float step = m.fallVel * _dt;
                     if (step < -dn)
                     {
@@ -558,14 +590,15 @@ namespace Shakutori
                 }
                 else m.pos = hit.point;
                 m.fallVel = 0f;
-                m.up = m.sp.climbs ? Vector3.Slerp(m.up, hit.normal, 0.35f).normalized : UprightUp(hit.normal);
+                // 面の向きへ、時間に合わせてなめらかに（フレームが長くても短くても同じ速さ）
+                m.up = m.sp.climbs ? (_dt > 0f ? ShakuPhysics.DampDir(m.up, hit.normal, 26f, _dt) : Vector3.Slerp(m.up, hit.normal, 0.35f).normalized) : UprightUp(hit.normal);
                 return true;
             }
             // 下に何も見つからない：地面まで重力で落ちる
             float ground = _area.Height(m.pos.x, m.pos.z);
             if (canFall && _dt > 0f && Application.isPlaying && m.pos.y - ground > 0.05f)
             {
-                m.fallVel = FallSpeed(m.fallVel, _dt);
+                m.fallVel = FallSpeed(m.fallVel, _dt, m.scale);
                 m.pos.y = Mathf.Max(ground, m.pos.y - m.fallVel * _dt);
             }
             else
@@ -573,18 +606,22 @@ namespace Shakutori
                 m.pos.y = ground;
                 m.fallVel = 0f;
             }
-            m.up = Vector3.Slerp(m.up, Vector3.up, 0.2f);
+            m.up = _dt > 0f ? ShakuPhysics.DampDir(m.up, Vector3.up, 13f, _dt) : Vector3.Slerp(m.up, Vector3.up, 0.2f);
             return false;
         }
 
         /// <summary>落ちる速さ：重力で速くなり、空気のてい抗（1 次＋2 次）で最高速度がある（小さな虫はゆっくり落ちる）。</summary>
-        public static float FallSpeed(float v, float dt)
+        public static float FallSpeed(float v, float dt) => FallSpeed(v, dt, 1f);
+
+        /// <summary>大きないきものほど、体の重さにくらべて空気のてい抗が小さく、速く落ちる。</summary>
+        public static float FallSpeed(float v, float dt, float scale)
         {
+            float quad = FallQuadraticDrag / Mathf.Max(0.5f, scale);
             int n = ShakuPhysics.Substeps(dt, out float h);
             for (int i = 0; i < n; i++)
             {
                 v += Gravity * h;
-                v /= 1f + (FallLinearDrag + FallQuadraticDrag * Mathf.Abs(v)) * h;
+                v /= 1f + (FallLinearDrag + quad * Mathf.Abs(v)) * h;
             }
             return v;
         }
@@ -604,10 +641,12 @@ namespace Shakutori
 
         bool OnWater(Vector3 p) => _area.WaterLevelAt(p.x, p.z) > _area.Height(p.x, p.z) + 0.05f;
 
+        Vector3 FlowAt(Vector3 p) => WaterFlow(p, _area);
+
         /// <summary>川の流れ（川辺だけ）。北から南（-Z）へ流れ、よどみではほとんど流れない。</summary>
-        Vector3 FlowAt(Vector3 p)
+        public static Vector3 WaterFlow(Vector3 p, AreaLayout area)
         {
-            if (_area != Areas.River || !RiverLayout.InChannel(p.x, p.z, 0f)) return Vector3.zero;
+            if (area != Areas.River || !RiverLayout.InChannel(p.x, p.z, 0f)) return Vector3.zero;
             const float dz = 0.5f;
             float dcx = (RiverLayout.CenterX(p.z + dz) - RiverLayout.CenterX(p.z - dz)) / (2f * dz);
             Vector3 down = new Vector3(-dcx, 0f, -1f).normalized;
@@ -620,19 +659,34 @@ namespace Shakutori
         // ------------------------------------------------------------------
         void Update()
         {
-            float dt = Mathf.Min(Time.deltaTime, 0.05f);
-            if (dt <= 0f || _mobs.Count == 0) return;
-            _frame++;
+            float frame = Time.deltaTime;
+            if (frame <= 0f || _mobs.Count == 0) return;
+            // 長いフレームは分けて計算する（フレームレートが低くても、いきものの時間がおくれない）
+            int steps = Mathf.Clamp(Mathf.CeilToInt(frame / 0.05f - 1e-4f), 1, 3);
+            float dt = Mathf.Min(frame / steps, 0.05f);
             var worm = InchwormController.Instance;
             Vector3 headPrev = _head;
             _head = worm != null ? worm.HeadPosition : new Vector3(9999f, 0f, 0f);
             // 頭の速さ（ワープしたときは数えない）
             _headVel = Time.deltaTime > 1e-5f ? (_head - headPrev) / Time.deltaTime : Vector3.zero;
             if (_headVel.sqrMagnitude > 4f * 4f) _headVel = Vector3.zero;
+            Vector3 midPrev = _mid;
+            _mid = worm != null ? worm.CenterPosition : new Vector3(9999f, 0f, 0f);
+            _midVel = Time.deltaTime > 1e-5f ? (_mid - midPrev) / Time.deltaTime : Vector3.zero;
+            if (_midVel.sqrMagnitude > 4f * 4f) _midVel = Vector3.zero;
             _wormStanding = worm != null && worm.IsStanding;
             Transform wormPlatform = worm != null ? worm.PlatformUnder : null;
             Camera cam = Camera.main;
             Vector3 camPos = cam != null ? cam.transform.position : Vector3.zero;
+            for (int step = 0; step < steps; step++) Simulate(dt, worm, wormPlatform, camPos);
+            UpdateColliders();
+            Draw(camPos);
+        }
+
+        /// <summary>いきものを dt 秒すすめる。</summary>
+        void Simulate(float dt, InchwormController worm, Transform wormPlatform, Vector3 camPos)
+        {
+            _frame++;
             UpdateFireflySync(dt);
             for (int i = 0; i < _mobs.Count; i++)
             {
@@ -644,7 +698,7 @@ namespace Shakutori
                 bool far = d2 > 70f * 70f && dh2 > 30f * 30f;
                 if (far && (i + _frame) % 3 != 0)
                 {
-                    m.drawPos = Vector3.Lerp(m.drawPos, m.pos, 0.5f);
+                    m.drawPos = ShakuPhysics.Damp(m.drawPos, m.pos, 40f, dt);
                     continue;
                 }
                 float sdt = far ? dt * 3f : dt;
@@ -721,7 +775,7 @@ namespace Shakutori
                 m.prevPos = m.pos;
                 UpdateGlance(m, sdt);
                 UpdateTilt(m, sdt);
-                m.drawPos = far ? Vector3.Lerp(m.drawPos, m.pos, 0.5f) : m.pos;
+                m.drawPos = far ? ShakuPhysics.Damp(m.drawPos, m.pos, 40f, dt) : m.pos;
 
                 if (Active && !IsDiscovered(m.sp.id))
                 {
@@ -729,8 +783,6 @@ namespace Shakutori
                     if ((_head - c).sqrMagnitude < m.sp.discoverRadius * m.sp.discoverRadius) Discover(m.sp, m.pos);
                 }
             }
-            UpdateColliders();
-            Draw(camPos);
         }
 
         void UpdateColliders()
@@ -845,7 +897,7 @@ namespace Shakutori
                 Vector3 d = m.pos - o.pos;
                 d -= m.up * Vector3.Dot(d, m.up);
                 float l = d.magnitude;
-                if (l < r && l > 1e-4f) push += d / l * (1f - l / r);
+                if (l < r && l > 1e-4f) push += d / l * (1f - l / r) * MassShare(o, m);
             }
             return push;
         }
@@ -876,7 +928,7 @@ namespace Shakutori
                 if (o == m || o.airborne || o.group == m.group) continue;
                 Vector3 d = Vector3.ProjectOnPlane(m.pos - o.pos, m.up);
                 float l = d.magnitude;
-                if (l < r && l > 1e-4f) push += d / l * (1f - l / r);
+                if (l < r && l > 1e-4f) push += d / l * (1f - l / r) * MassShare(o, m);
             }
             return push;
         }
@@ -946,7 +998,8 @@ namespace Shakutori
             Vector3 move = m.sp.sideways ? Vector3.Cross(m.up, m.fwd) * m.sideSign : m.fwd;
             // 上り坂ではゆっくり、下り坂では少しはやく
             float slope = Vector3.Dot(move, Vector3.up);
-            wantSpeed *= slope > 0f ? 1f - 0.4f * Mathf.Clamp01(slope) : 1f + 0.15f * Mathf.Clamp01(-slope);
+            // （同じ力なら、重力の坂の成分 g sinθ にさからう分だけ、上りはゆっくり）
+            wantSpeed *= slope > 0f ? 1f / (1f + 0.8f * Mathf.Clamp01(slope)) : 1f + 0.15f * Mathf.Clamp01(-slope);
             // 大きく曲がるときは速さを落とし、止まっているときは向きを変えてから歩きだす
             float turnNeed = Vector3.Angle(m.fwd, Vector3.ProjectOnPlane(want, m.up));
             if (!m.sp.sideways)
@@ -980,8 +1033,12 @@ namespace Shakutori
                 }
                 else m.blockCount = 0;
             }
-            Steer(m, want, dt, turnDegPerSec);
-            m.curSpeed = Mathf.MoveTowards(m.curSpeed, wantSpeed, accel * dt);
+            // 足場から落ちている間は、歩けない（向きも速さも、そのままの勢いで落ちる）
+            if (m.fallVel <= 0f)
+            {
+                Steer(m, want, dt, turnDegPerSec);
+                m.curSpeed = Mathf.MoveTowards(m.curSpeed, wantSpeed, accel * dt);
+            }
             move = m.sp.sideways ? Vector3.Cross(m.up, m.fwd) * m.sideSign : m.fwd;
             m.pos += move * (m.curSpeed * dt);
             float above = m.sp.id == "beetle" ? 1.4f : 0.8f * Mathf.Max(1f, m.scale);   // カブトムシは小さな物をのりこえる
@@ -1017,11 +1074,30 @@ namespace Shakutori
             float bank = 0f, pitch = 0f;
             if (flyer)
             {
-                bank = Mathf.Clamp(-m.turnRate * 0.25f, -35f, 35f);
                 Vector3 hv = new Vector3(m.vel.x, 0f, m.vel.z);
+                // 曲がるときは、重力と遠心力の合わさった向きへ体をかたむける（tanφ = vω/g）
+                bank = Mathf.Clamp(-ShakuPhysics.BankAngle(hv.magnitude, m.turnRate), -40f, 40f);
                 if (m.vel.sqrMagnitude > 0.01f) pitch = Mathf.Clamp(Mathf.Atan2(m.vel.y, hv.magnitude + 0.3f) * Mathf.Rad2Deg * 0.6f, -30f, 30f);
+                // 速くなるときは前へ、ブレーキのときは体を起こす（羽ではばたく力の向きをかたむける）
+                if (dt > 1e-5f && hv.sqrMagnitude > 1e-4f)
+                {
+                    Vector3 acc = (m.vel - m.prevVel) / dt;
+                    pitch += Mathf.Clamp(-Vector3.Dot(acc, hv.normalized) * 2.5f, -15f, 15f);
+                }
                 if (m.flare > 0f) pitch = Mathf.Lerp(pitch, 28f, m.flare);   // 着地の前は、体を起こしてブレーキ
             }
+            else if (m.airborne && (m.sp.kind == MobKind.Hopper || m.sp.kind == MobKind.Pouncer))
+            {
+                // 跳んでいる間は、飛ぶ向き（速さの向き）に体をかたむける：上がるときは頭が上、落ちるときは頭が下
+                Vector3 hv = new Vector3(m.vel.x, 0f, m.vel.z);
+                pitch = Mathf.Clamp(Mathf.Atan2(m.vel.y, hv.magnitude + 0.2f) * Mathf.Rad2Deg * 0.7f, -40f, 40f);
+            }
+            else if (!m.airborne && m.moveSpeed > 0.05f)
+            {
+                // 歩きながら曲がるときも、少しだけ内側へかたむく
+                bank = Mathf.Clamp(-ShakuPhysics.BankAngle(m.moveSpeed, m.turnRate) * 0.5f, -8f, 8f);
+            }
+            m.prevVel = m.vel;
             float k = 1f - Mathf.Exp(-6f * dt);
             m.bank = Mathf.Lerp(m.bank, bank, k);
             m.pitch = Mathf.Lerp(m.pitch, pitch, k);
@@ -1069,6 +1145,18 @@ namespace Shakutori
                 if (m.anim < m.deadUntil)
                 {
                     m.curSpeed = 0f;
+                    // 体をかたくしているので、しゃくとりむしに押されると、まさつで止まるまですべる
+                    Vector3 to = Vector3.ProjectOnPlane(m.pos - _head, m.up);
+                    float dd = to.magnitude;
+                    if (dd < 0.25f && dd > 1e-4f)
+                    {
+                        float approach = Vector3.Dot(_headVel, to / dd);
+                        if (approach > 0.05f)
+                        {
+                            m.skidVel += to / dd * (approach * 0.7f);
+                            m.skidMu = ShakuPhysics.Ground.friction;
+                        }
+                    }
                     return;
                 }
             }
@@ -1305,6 +1393,16 @@ namespace Shakutori
             return true;
         }
 
+        /// <summary>押す物（位置 p、速さ v）が近くでこちらへ動いていたら、その速さを share の割合でもらう。</summary>
+        static void PushBall(Mob m, Vector3 p, Vector3 v, float reach, Vector3 n, float share)
+        {
+            Vector3 to = Vector3.ProjectOnPlane(m.pos - p, n);
+            float d = to.magnitude;
+            if (d >= reach || d < 1e-4f) return;
+            float approach = Vector3.Dot(v, to / d);
+            if (approach > 0.05f) m.rollVel += to / d * (approach * share);
+        }
+
         /// <summary>
         /// まるくなっただんごむしは球：静止まさつをこえる坂では転がりだし（g sinθ × 5/7）、転がりのてい抗でだんだん止まる。
         /// 物に当たるとはね返り、しゃくとりむしの頭に押されると、その勢いでころがる。転がった分だけ回る（v = rω）。
@@ -1313,17 +1411,45 @@ namespace Shakutori
         {
             float r = 0.08f * m.scale;
             Vector3 n = m.up;
-            if (Physics.Raycast(m.pos + m.up * 0.3f, -m.up, out var g, 0.6f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)) n = g.normal;
+            bool grounded = Physics.Raycast(m.pos + m.up * 0.3f, -m.up, out var g, 0.6f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore);
+            // 転がりのてい抗は、面のやわらかさで変わる（石の上はよく転がり、葉っぱや苔の上はすぐ止まる）
+            float crr = PillbugRollingResistance;
+            if (grounded)
+            {
+                n = g.normal;
+                crr = 0.05f + 0.13f * ShakuPhysics.MaterialOf(g.collider).softness;
+            }
             Vector3 downhill = Vector3.ProjectOnPlane(Vector3.down, n);
             float sin = Mathf.Min(1f, downhill.magnitude);
-            // しゃくとりむしの頭に押される（押す速さを、重さの比で分けてもらう）
-            Vector3 toBall = Vector3.ProjectOnPlane(m.pos - _head, n);
-            float d = toBall.magnitude;
-            if (d < r + 0.12f && d > 1e-4f)
+            // しゃくとりむしの頭や体に押される（押す速さを、重さの比で分けてもらう）
+            PushBall(m, _head, _headVel, r + 0.12f, n, 0.8f);
+            PushBall(m, _mid, _midVel, r + 0.1f, n, 0.8f);
+            // 大きないきもの（カブトムシなど）が歩いてくると、押される
+            foreach (var o in _mobs)
             {
-                float approach = Vector3.Dot(_headVel, toBall / d);
-                if (approach > 0.05f) m.rollVel += toBall / d * (approach * 0.8f);
+                if (o == m || !o.sp.rideable || o.airborne || o.curSpeed < 0.02f) continue;
+                Vector3 ov = (o.sp.sideways ? Vector3.Cross(o.up, o.fwd) * o.sideSign : o.fwd) * o.curSpeed;
+                PushBall(m, o.pos, ov, r + 0.45f * o.scale, n, MassShare(o, m) * 0.5f);
             }
+            // ほかの、まるくなっただんごむしに当たると、はじき合う（同じ重さの弾性衝突）
+            if (_groups.TryGetValue(m.group, out var pals))
+                foreach (var o in pals)
+                {
+                    if (o == m || o.curled <= 0.35f) continue;
+                    Vector3 dd = Vector3.ProjectOnPlane(m.pos - o.pos, n);
+                    float l = dd.magnitude;
+                    float contact = r + 0.08f * o.scale;
+                    if (l > contact || l < 1e-4f) continue;
+                    Vector3 nrm = dd / l;
+                    float closing = Vector3.Dot(m.rollVel - o.rollVel, nrm);
+                    if (closing < 0f)
+                    {
+                        float jmp = -(1f + 0.7f) * closing * 0.5f;
+                        m.rollVel += nrm * jmp;
+                        o.rollVel -= nrm * jmp;
+                    }
+                    m.pos += nrm * ((contact - l) * 0.5f);   // めりこまない
+                }
             if (m.rollVel.magnitude < 0.03f && !ShakuPhysics.StartsRolling(sin, PillbugStaticFriction))
             {
                 m.rollVel = Vector3.zero;
@@ -1331,14 +1457,16 @@ namespace Shakutori
             }
             int steps = ShakuPhysics.Substeps(dt, out float h);
             float cos = Mathf.Sqrt(Mathf.Max(0f, 1f - sin * sin));
-            for (int i = 0; i < steps; i++)
-            {
-                if (sin > 1e-4f) m.rollVel += downhill.normalized * (ShakuPhysics.RollingAccel(sin) * h);
-                m.rollVel = Vector3.ProjectOnPlane(m.rollVel, n);
-                float sp = m.rollVel.magnitude;
-                float resist = PillbugRollingResistance * Gravity * cos * h;
-                m.rollVel = sp > resist ? m.rollVel * ((sp - resist) / sp) : Vector3.zero;
-            }
+            // 地面からはなれている間（段から転がり落ちた）は、横の勢いのまま落ちる
+            if (grounded)
+                for (int i = 0; i < steps; i++)
+                {
+                    if (sin > 1e-4f) m.rollVel += downhill.normalized * (ShakuPhysics.RollingAccel(sin) * h);
+                    m.rollVel = Vector3.ProjectOnPlane(m.rollVel, n);
+                    float sp = m.rollVel.magnitude;
+                    float resist = crr * Gravity * cos * h;
+                    m.rollVel = sp > resist ? m.rollVel * ((sp - resist) / sp) : Vector3.zero;
+                }
             m.rollVel = Vector3.ClampMagnitude(m.rollVel, 2f);
             float speed = m.rollVel.magnitude;
             if (speed < 1e-4f) return;
@@ -1539,7 +1667,7 @@ namespace Shakutori
                 m.flapBoost = Mathf.Max(m.flapBoost, 0.5f);
             }
             // はばたく力で、風に対する速さを目的の速さへ近づける（力には限りがあるので、突風には流される。高い所ほど風が強い）
-            Vector3 air = m.resting ? Vector3.zero : Wind.At(m.pos, Time.time, m.pos.y - ground) * (0.4f + 0.4f * gust);
+            Vector3 air = m.resting ? Vector3.zero : Wind.At(m.pos, Time.time, m.pos.y - ground) * (0.4f + 0.4f * gust) + Vector3.up * Wind.Updraft(m.pos, Time.time);
             FlyToward(m, Vector3.ClampMagnitude(d * 1.5f, cap) + air, 3f, FlutterThrust * (1f + m.flapBoost), dt);
             bool flying = !m.resting || d.magnitude > 0.3f;
             if (flying)
@@ -1566,9 +1694,16 @@ namespace Shakutori
             m.pos += m.vel * dt;
             if (m.pos.y < ground + 0.05f) m.pos.y = ground + 0.05f;
             // 花の上で休んでいるときは、花といっしょに風でゆれる
-            if (!flying) m.pos = m.target + Wind.At(m.target) * (0.02f * Mathf.Sin(m.anim * 2.2f + m.phase));
+            if (!flying)
+            {
+                // 花にとまっていると、花といっしょに風の力でゆれる（ばね：突風で大きく、行き過ぎてもどる）
+                Vector3 w = Wind.At(m.target);
+                ShakuPhysics.SpringSteps(ref m.sway, ref m.swayVel, w * (w.magnitude * 0.035f), 5f, 0.25f, dt);
+                m.pos = m.target + m.sway;
+            }
+            else m.sway = m.swayVel = Vector3.zero;
             Vector3 hv = new Vector3(m.vel.x, 0f, m.vel.z);
-            if (hv.sqrMagnitude > 0.01f) m.fwd = Vector3.Slerp(m.fwd, hv.normalized, dt * 4f);
+            if (hv.sqrMagnitude > 0.01f) m.fwd = ShakuPhysics.DampDir(m.fwd, hv, 4f, dt);
             m.up = Vector3.up;
             m.airborne = flying;
             // 止まっているときは、ときどき羽を大きく開く
@@ -1657,13 +1792,9 @@ namespace Shakutori
             Vector3 h = to - m.pos;
             h.y = 0f;
             // 空気のてい抗がある分、少し強く跳ぶ（同じ時間で、ねらった場所に着くように）
-            float k = JumpDrag(m);
-            if (k > 1e-3f)
-            {
-                float e = 1f - Mathf.Exp(-k * T);
-                m.vel = h * (k / e) + Vector3.up * ((to.y - m.pos.y + Gravity * T / k) * k / e - Gravity / k);
-            }
-            else m.vel = h / T + Vector3.up * vy;
+            m.vel = ShakuPhysics.SolveLaunch(m.pos, to, T, JumpDrag(m));
+            // 跳ぶ力には上限がある（遠すぎると、手前に着く）
+            m.vel = Vector3.ClampMagnitude(m.vel, MaxJumpSpeed(m));
             m.from = m.pos;
             m.to = to;
             m.dur = T;
@@ -1671,12 +1802,6 @@ namespace Shakutori
             m.airborne = true;
             m.crouch = 0f;
             if (h.sqrMagnitude > 1e-4f) m.fwd = h.normalized;
-            if (m.sp.kind == MobKind.Pouncer)
-            {
-                // ハエトリグモは、跳ぶときに命綱の糸を引く
-                m.lineFrom = m.pos;
-                m.lineUntil = float.MaxValue;
-            }
         }
 
         /// <summary>跳ぶ準備：跳ぶ方を向いてから、かがむ。delay 秒たったら跳ぶ。</summary>
@@ -1684,6 +1809,8 @@ namespace Shakutori
         {
             m.launchTo = to;
             m.launchPeak = peak;
+            // 速く跳ぶほど、深くかがんで力をためる
+            m.jumpSpeed = Mathf.Min(ShakuPhysics.SolveLaunch(m.pos, to, JumpTime(m.pos, to, peak), JumpDrag(m)).magnitude, MaxJumpSpeed(m));
             m.launchAt = m.anim + delay;
         }
 
@@ -1692,11 +1819,23 @@ namespace Shakutori
         {
             Vector3 dir = Vector3.ProjectOnPlane(m.launchTo - m.pos, m.up);
             if (dir.sqrMagnitude > 1e-4f) Steer(m, dir, dt, 720f);
-            m.crouch = Mathf.MoveTowards(m.crouch, 1f, dt * 8f);
+            m.crouch = Mathf.MoveTowards(m.crouch, Mathf.Clamp(0.45f + 0.55f * m.jumpSpeed / MaxJumpSpeed(m), 0.45f, 1f), dt * 8f);
             if (m.anim < m.launchAt) return true;
             m.launchAt = -1f;
             StartJump(m, m.launchTo, m.launchPeak);
             return false;
+        }
+
+        /// <summary>脚でけり出せる、いちばん速い速さ。</summary>
+        static float MaxJumpSpeed(Mob m) => m.sp.id == "frog" ? 6.5f : m.sp.kind == MobKind.Pouncer ? 4.5f : 8f;
+
+        /// <summary>跳ぶ時間（いちばん高い所まで上がって、着く所まで落ちる時間）。</summary>
+        static float JumpTime(Vector3 from, Vector3 to, float peak)
+        {
+            float top = Mathf.Max(from.y, to.y) + Mathf.Max(0.05f, peak);
+            float tUp = Mathf.Sqrt(2f * Gravity * (top - from.y)) / Gravity;
+            float tDown = Mathf.Sqrt(2f * (top - to.y) / Gravity);
+            return Mathf.Max(0.15f, tUp + tDown);
         }
 
         /// <summary>跳ぶときの空気のてい抗（小さくて軽い虫ほど大きい）。</summary>
@@ -1756,7 +1895,7 @@ namespace Shakutori
             if (fromFlight)
             {
                 Vector3 vt = Vector3.ProjectOnPlane(v, n);
-                m.skidMu = mat.friction + LegGrip;
+                m.skidMu = mat.friction + LegGrip + (m.sp.kind == MobKind.Pouncer ? 0.8f : 0f);   // ハエトリグモは、脚の先の毛で吸いつく
                 m.skidVel = vt.sqrMagnitude > 0.4f * 0.4f ? Vector3.ClampMagnitude(vt, 2.5f) : Vector3.zero;
                 float ny = Mathf.Clamp(n.y, 0.05f, 1f);
                 float tanSlope = Mathf.Sqrt(Mathf.Max(0f, 1f - ny * ny)) / ny;
@@ -1770,7 +1909,6 @@ namespace Shakutori
                 m.fledJump = false;
                 m.watchUntil = m.anim + 1.5f;   // 逃げたあとは、しゃくとりむしを見張る
             }
-            if (m.lineUntil > m.anim) m.lineUntil = m.anim + 0.6f;   // 命綱は、少しして見えなくなる
         }
 
         /// <summary>着地してすべっている：まさつ（μg）で一定の割合で遅くなって止まる。水には入らない。</summary>
@@ -1881,7 +2019,8 @@ namespace Shakutori
             }
             if (bestScore == float.MinValue) return;
             float jumpDist = Vector3.Distance(new Vector3(m.pos.x, 0f, m.pos.z), new Vector3(best.x, 0f, best.z));
-            float peak = frog ? 0.4f + jumpDist * 0.25f : R(1.2f, 2f);   // カエルは遠くへ跳ぶほど高く
+            // カエルは、いちばん少ない力で遠くへ届く 45 度で跳ぶ（遠くへ跳ぶほど高く）
+            float peak = frog ? Mathf.Max(0.25f, ShakuPhysics.OptimalPeak(jumpDist)) : R(1.2f, 2f);
             peak = Mathf.Max(peak, ObstacleHeight(m.pos, best) + 0.4f);   // あいだの物をこえる高さで
             m.fledJump = scared;
             PrepareJump(m, best, peak, scared ? 0.12f : (frog ? 0.25f : 0.15f));
@@ -1990,7 +2129,9 @@ namespace Shakutori
             bool alert = dw < 6f && !m.carryingWorm;
             // 近づくと向きを変え、かまを持ち上げる
             m.raise = Mathf.MoveTowards(m.raise, alert ? 1f : 0f, dt * (alert ? 2.5f : 0.8f));
-            m.strike = Mathf.MoveTowards(m.strike, 0f, dt * 3f);
+            // かまは、ばねのようにすばやく出て、反動で少し引いてからもどる
+            ShakuPhysics.SpringExact(ref m.strike, ref m.strikeVel, 0f, 14f, 0.35f, dt);
+            m.strike = Mathf.Clamp(m.strike, -0.35f, 1.15f);
             if (alert)
             {
                 // 向きは、少しずつ、かくっと変える
@@ -2004,7 +2145,8 @@ namespace Shakutori
                 // とても近づくと、かまをすばやくくり出す（あたらない）
                 if (dw < 1.1f && m.raise > 0.8f && m.anim > m.strikeNext)
                 {
-                    m.strike = 1f;
+                    m.strike = Mathf.Max(m.strike, 0f);
+                    m.strikeVel = 24f;
                     m.strikeNext = m.anim + 5f;
                 }
                 return;
@@ -2077,7 +2219,7 @@ namespace Shakutori
             {
                 m.resting = false;
                 Vector3 toW = Vector3.ProjectOnPlane(_head - m.pos, Vector3.up);
-                if (toW.sqrMagnitude > 1e-4f) m.fwd = Vector3.Slerp(m.fwd, toW.normalized, dt * 4f).normalized;
+                if (toW.sqrMagnitude > 1e-4f) m.fwd = ShakuPhysics.DampDir(m.fwd, toW, 4f, dt);
                 // カラス：もう少し近づかれると、横へぴょんとよける
                 if (crow && !m.sideHopped && dWorm < flee * 1.3f)
                 {
@@ -2152,7 +2294,7 @@ namespace Shakutori
             m.vel = dir / Mathf.Max(dt, 1e-4f);
             m.pos = p;
             Vector3 hd = new Vector3(dir.x, 0f, dir.z);
-            if (hd.sqrMagnitude > 1e-5f) m.fwd = Vector3.Slerp(m.fwd, hd.normalized, dt * 5f);
+            if (hd.sqrMagnitude > 1e-5f) m.fwd = ShakuPhysics.DampDir(m.fwd, hd, 5f, dt);
             m.up = Vector3.up;
             // 着地の前は、羽をはげしく動かしてブレーキ
             m.flare = k > 0.85f ? Mathf.InverseLerp(0.85f, 1f, k) : 0f;
@@ -2302,7 +2444,15 @@ namespace Shakutori
             if (Mathf.Floor(m.rowPhase) > Mathf.Floor(before)) m.vel += m.fwd * (m.sp.speed * (scared ? 1.6f : 0.8f));
             // 水のてい抗は、水に対する速さにかかる（川では、流れといっしょに流される）
             Vector3 flow = FlowAt(m.pos);
-            m.vel = flow + (m.vel - flow) * Mathf.Exp(-1.6f * dt);
+            // 脚を広げた体は、前後にはすべりやすく、横にはすべりにくい。強い風のときは、水面を少し流される
+            Vector3 water = flow + Wind.At(m.pos, Time.time, 0.05f) * 0.06f;
+            Vector3 rel = m.vel - water;
+            rel.y = 0f;
+            Vector3 fw = Vector3.ProjectOnPlane(m.fwd, Vector3.up);
+            fw = fw.sqrMagnitude > 1e-4f ? fw.normalized : Vector3.forward;
+            float along = Vector3.Dot(rel, fw);
+            Vector3 lateral = rel - fw * along;
+            m.vel = water + fw * (along * Mathf.Exp(-1.6f * dt)) + lateral * Mathf.Exp(-4f * dt);
             // 岸が近いと向きを変え、岸に当たった分は少しはね返る
             if (m.vel.sqrMagnitude > 0.01f && !OnWater(m.pos + m.vel.normalized * 0.6f))
             {
@@ -2410,7 +2560,14 @@ namespace Shakutori
                 m.vel = Vector3.zero;
             }
             Vector3 hv = new Vector3(m.vel.x, 0f, m.vel.z);
-            if (hv.sqrMagnitude > 0.04f) m.fwd = Vector3.Slerp(m.fwd, hv.normalized, dt * 5f);
+            if (hv.sqrMagnitude > 0.04f) m.fwd = ShakuPhysics.DampDir(m.fwd, hv, 5f, dt);
+            else if (!m.perched)
+            {
+                // その場でホバリングするときは、風上を向く（向かい風をうけて、その場にとどまる）
+                Vector3 w = Wind.At(m.pos);
+                w.y = 0f;
+                if (w.sqrMagnitude > 0.04f) m.fwd = ShakuPhysics.DampDir(m.fwd, -w, 2.5f, dt);
+            }
             m.up = Vector3.up;
             m.airborne = !(m.perched && dist < 0.1f);
             m.resting = !m.airborne;
@@ -2479,7 +2636,7 @@ namespace Shakutori
             m.pos += m.vel * dt;
             if (m.perched && d.magnitude < 0.05f) { m.pos = m.target; m.vel = Vector3.zero; }
             Vector3 hv = new Vector3(m.vel.x, 0f, m.vel.z);
-            if (hv.sqrMagnitude > 0.04f) m.fwd = Vector3.Slerp(m.fwd, hv.normalized, dt * 5f);
+            if (hv.sqrMagnitude > 0.04f) m.fwd = ShakuPhysics.DampDir(m.fwd, hv, 5f, dt);
             m.up = Vector3.up;
             m.airborne = !(m.perched && d.magnitude < 0.1f);
             m.resting = !m.airborne;
@@ -2506,28 +2663,6 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // 描画
         // ------------------------------------------------------------------
-        static Mesh _lineMesh;
-
-        /// <summary>糸用の細い棒（1x1x1 の箱）。</summary>
-        static Mesh LineMesh
-        {
-            get
-            {
-                if (_lineMesh != null) return _lineMesh;
-                var v = new Vector3[8];
-                for (int i = 0; i < 8; i++) v[i] = new Vector3((i & 1) == 0 ? -0.5f : 0.5f, (i & 2) == 0 ? -0.5f : 0.5f, (i & 4) == 0 ? -0.5f : 0.5f);
-                int[] t =
-                {
-                    0, 2, 1, 1, 2, 3, 4, 5, 6, 5, 7, 6, 0, 1, 4, 1, 5, 4,
-                    2, 6, 3, 3, 6, 7, 0, 4, 2, 2, 4, 6, 1, 3, 5, 3, 7, 5,
-                };
-                _lineMesh = new Mesh { name = "SpiderLine", vertices = v, triangles = t };
-                _lineMesh.RecalculateNormals();
-                _lineMesh.RecalculateBounds();
-                return _lineMesh;
-            }
-        }
-
         void Add(Mesh mesh, Material mat, Matrix4x4 mtx)
         {
             if (mesh == null || mat == null) return;
@@ -2812,16 +2947,6 @@ namespace Shakutori
                         Add(pm, assets.creatureWing, body * local);
                     }
                 }
-            }
-            // ハエトリグモの命綱
-            foreach (var m in _mobs)
-            {
-                if (m.sp.kind != MobKind.Pouncer || !(m.airborne || m.anim < m.lineUntil)) continue;
-                Vector3 a = m.lineFrom + Vector3.up * 0.03f, b = m.drawPos + Vector3.up * 0.05f;
-                Vector3 d = b - a;
-                float len = d.magnitude;
-                if (len < 0.05f || (a - camPos).sqrMagnitude > 50f * 50f) continue;
-                Add(LineMesh, assets.creatureWing, Matrix4x4.TRS((a + b) * 0.5f, Quaternion.LookRotation(d / len), new Vector3(0.006f, 0.006f, len)));
             }
             int pool = 0;
             foreach (var kv in _draw)

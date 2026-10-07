@@ -340,10 +340,13 @@ namespace Shakutori.Tests
         [Test]
         public void Publish_DrivesTheGrassShader()
         {
-            Wind.Publish(12f);
+            Wind.ResetPhase();
+            for (int i = 0; i <= 10; i++) Wind.Publish(12f + i * 0.05f);
             Vector4 v = Shader.GetGlobalVector("_ShakuWind");
             Assert.Greater(v.z, 0.5f, "草をゆらす強さ");
-            Assert.Greater(v.w, 0.8f, "ゆれる速さ");
+            Assert.AreEqual(Wind.SwaySpeed(12.25f) * 0.5f, v.w, 0.05f, "ゆれの位相は、ゆれる速さを時間で積み上げたもの");
+            Assert.Greater(Wind.SwaySpeed(12f), 0.8f, "ゆれる速さ");
+            Wind.ResetPhase();
             Assert.AreEqual(1f, new Vector2(v.x, v.y).magnitude, 1e-3f, "向きは単位ベクトル");
         }
 

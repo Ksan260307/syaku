@@ -206,22 +206,23 @@ def make_snail():
     mb = MB()
     skin = hexc("#d2c2a6")
     skin_top = hexc("#b8a283")
-    pts = [Vector((0, -0.48, 0.03)), Vector((0, -0.3, 0.06)), Vector((0, 0.0, 0.07)), Vector((0, 0.22, 0.08)),
-           Vector((0, 0.36, 0.13)), Vector((0, 0.44, 0.2)), Vector((0, 0.47, 0.25))]
-    radii = [0.0, 0.07, 0.1, 0.1, 0.09, 0.075, 0.0]
+    # 体（腹足）：殻の前から首と頭が、うしろから尾が、しっかり出ている
+    pts = [Vector((0, -0.66, 0.025)), Vector((0, -0.5, 0.045)), Vector((0, -0.25, 0.07)), Vector((0, 0.05, 0.08)),
+           Vector((0, 0.32, 0.085)), Vector((0, 0.5, 0.13)), Vector((0, 0.6, 0.21)), Vector((0, 0.64, 0.27))]
+    radii = [0.0, 0.06, 0.095, 0.105, 0.1, 0.09, 0.075, 0.0]
     tube(mb, pts, radii, 18, lambda t, a, p, d: mixc(skin_top, skin, sstep(0.3, -0.6, d.z)), oval=(1.0, 0.8))
     # 目の触角
     for sx in (-1, 1):
-        base = Vector((0.03 * sx, 0.44, 0.24))
-        tip = Vector((0.1 * sx, 0.56, 0.52))
+        base = Vector((0.03 * sx, 0.6, 0.26))
+        tip = Vector((0.1 * sx, 0.72, 0.54))
         tube(mb, [base, base.lerp(tip, 0.5) + Vector((0, 0, 0.02)), tip], [0.022, 0.016, 0.0], 8, lambda t, a, p, d: mixc(skin, skin_top, t))
         cute_eye(mb, tip + Vector((0, 0.01, 0.02)), 0.035, (0.2 * sx, 1, 0.2), white=False)
-        tube(mb, [Vector((0.04 * sx, 0.47, 0.19)), Vector((0.08 * sx, 0.56, 0.17))], [0.015, 0.0], 6, lambda t, a, p, d: skin_top)
+        tube(mb, [Vector((0.04 * sx, 0.63, 0.21)), Vector((0.08 * sx, 0.72, 0.19))], [0.015, 0.0], 6, lambda t, a, p, d: skin_top)
     # ほっぺ
     for sx in (-1, 1):
-        uv_sphere(mb, Vector((0.07 * sx, 0.44, 0.19)), 0.022, lambda n: hexc("#ffb0b8"), seg=8, rings=5, scale=Vector((0.6, 1, 0.6)))
-    # 殻（対数らせん）
-    center = Vector((0.0, -0.08, 0.36))
+        uv_sphere(mb, Vector((0.07 * sx, 0.6, 0.21)), 0.022, lambda n: hexc("#ffb0b8"), seg=8, rings=5, scale=Vector((0.6, 1, 0.6)))
+    # 殻（対数らせん）：体の背中の上にのせる（体の前とうしろが見えるように）
+    center = Vector((0.0, -0.1, 0.4))
     spts = []
     srad = []
     n = 70
@@ -229,7 +230,7 @@ def make_snail():
     for i in range(n):
         t = i / (n - 1)
         th = turns * t
-        r = 0.27 * math.exp(-0.21 * th)
+        r = 0.24 * math.exp(-0.21 * th)
         spts.append(center + Vector((0.07 * t, -math.cos(th) * r, -math.sin(th) * r)))
         srad.append(0.56 * r)
     srad[-1] = 0.0

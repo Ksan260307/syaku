@@ -170,5 +170,27 @@ namespace Shakutori
         }
         /// <summary>落ちて着地した音（強く落ちたほど低く大きく）。</summary>
         public void Thud(float strength) => Play(land, Mathf.Lerp(0.45f, 1f, strength), Mathf.Lerp(1.05f, 0.75f, strength));
+
+        /// <summary>
+        /// 材質でちがう着地の音：かたい石は高く、木はふつう、地面は少し低く、やわらかい葉っぱはこもって小さく、
+        /// キノコはぽよんと高く。
+        /// </summary>
+        public void Thud(float strength, string material)
+        {
+            float pitch = Mathf.Lerp(1.05f, 0.75f, strength), vol = Mathf.Lerp(0.45f, 1f, strength);
+            switch (material)
+            {
+                case "stone": pitch *= 1.3f; vol *= 0.95f; break;
+                case "wood": pitch *= 1.05f; break;
+                case "leaf": pitch *= 0.8f; vol *= 0.7f; break;
+                case "mushroom": pitch *= 1.45f; vol *= 0.9f; break;
+                case "creature": pitch *= 0.9f; vol *= 0.75f; break;
+                default: pitch *= 0.95f; break;
+            }
+            Play(land, vol, pitch);
+        }
+
+        /// <summary>水に落ちた音（勢いよく落ちるほど大きく、低い）。</summary>
+        public void Splash(float strength) => Play(splash, Mathf.Lerp(0.55f, 1f, strength), Mathf.Lerp(1.12f, 0.85f, strength));
     }
 }

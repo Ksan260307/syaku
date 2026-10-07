@@ -11,6 +11,11 @@ namespace Shakutori
         ParticleSystem _pollen;
         ParticleSystem _burst;
         ParticleSystem _leaves;
+        ParticleSystem _dust;      // 着地の土けむり
+        ParticleSystem _splash;    // 水しぶきの粒
+        ParticleSystem _drip;      // ぬれた体からたれる、しずく
+        // 風に流される演出（粒の大きさ・軽さで、流され方がちがう）
+        readonly System.Collections.Generic.List<(ParticleSystem ps, float k)> _windFX = new System.Collections.Generic.List<(ParticleSystem, float)>();
         Transform _areaRoot;
         AreaLayout _area = Areas.Forest;
 
@@ -32,6 +37,7 @@ namespace Shakutori
                 noise.enabled = true;
                 noise.strength = 0.15f;
                 noise.frequency = 0.3f;
+                Drag(_pollen, 1.2f);
                 var col = _pollen.colorOverLifetime;
                 col.enabled = true;
                 col.color = FadeInOut(new Color(1f, 0.95f, 0.75f));
@@ -47,6 +53,7 @@ namespace Shakutori
                 main.startSize = new ParticleSystem.MinMaxCurve(0.04f, 0.1f);
                 main.gravityModifier = -0.05f;
                 main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.6f, 1f, 1f), new Color(1f, 1f, 0.8f));
+                Drag(_burst, 2.5f);
                 var em = _burst.emission;
                 em.rateOverTime = 0f;
                 var sh = _burst.shape;
@@ -59,6 +66,125 @@ namespace Shakutori
                 size.enabled = true;
                 size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 1f, 1f, 0f));
             }
+            _windFX.Clear();
+            _windFX.Add((_pollen, 1.2f));
+
+            // 着地の土けむり：地面にそって広がり、空気のてい抗ですぐ止まって、ふわっと消える
+            _dust = Create("LandingDust", transform, 120, new Color(0.72f, 0.62f, 0.48f, 0.55f));
+            {
+                var main = _dust.main;
+                main.loop = false;
+                main.startLifetime = new ParticleSystem.MinMaxCurve(0.6f, 1.2f);
+                main.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.4f);
+                main.startSize = new ParticleSystem.MinMaxCurve(0.12f, 0.28f);
+                main.gravityModifier = 0.05f;
+                var em = _dust.emission;
+                em.rateOverTime = 0f;
+                var sh = _dust.shape;
+                sh.shapeType = ParticleSystemShapeType.Circle;   // 面にそって、まわりへ広がる
+                sh.radius = 0.12f;
+                Drag(_dust, 3.5f);
+                var col = _dust.colorOverLifetime;
+                col.enabled = true;
+                col.color = FadeInOut(Color.white, 0.05f);
+                var size = _dust.sizeOverLifetime;
+                size.enabled = true;
+                size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0.7f, 1f, 1.8f));
+            }
+            // 水しぶき：上へとび出して、重力で放物線をえがいて落ち、水面にもどると消える
+            _splash = Create("WaterSplash", transform, 160, new Color(0.82f, 0.94f, 1f, 0.9f));
+            {
+                var main = _splash.main;
+                main.loop = false;
+                main.startLifetime = new ParticleSystem.MinMaxCurve(0.5f, 1.4f);
+                main.startSpeed = new ParticleSystem.MinMaxCurve(1.2f, 3.2f);
+                main.startSize = new ParticleSystem.MinMaxCurve(0.04f, 0.1f);
+                main.gravityModifier = 1f;   // 本当の重力（ShakuPhysics.Gravity）で落ちる
+                var em = _splash.emission;
+                em.rateOverTime = 0f;
+                var sh = _splash.shape;
+                sh.shapeType = ParticleSystemShapeType.Cone;
+                sh.angle = 28f;
+                sh.radius = 0.1f;
+                sh.rotation = new Vector3(-90f, 0f, 0f);   // 上向き
+                Drag(_splash, 0.4f);
+                var col = _splash.collision;
+                col.enabled = true;
+                col.type = ParticleSystemCollisionType.Planes;
+                col.lifetimeLoss = 1f;   // 水面に落ちたら消える
+                col.bounce = 0f;
+                var plane = new GameObject("SplashWaterPlane").transform;
+                plane.SetParent(transform, false);
+                col.SetPlane(0, plane);
+                _splashPlane = plane;
+            }
+            // ぬれた体からたれる、しずく
+            _drip = Create("WetDrips", transform, 40, new Color(0.8f, 0.94f, 1f, 0.85f));
+            {
+                var main = _drip.main;
+                main.loop = false;
+                main.startLifetime = 0.6f;
+                main.startSpeed = 0f;
+                main.startSize = new ParticleSystem.MinMaxCurve(0.03f, 0.05f);
+                main.gravityModifier = 1f;
+                var em = _drip.emission;
+                em.rateOverTime = 0f;
+                var sh = _drip.shape;
+                sh.shapeType = ParticleSystemShapeType.Sphere;
+                sh.radius = 0.15f;
+                Drag(_drip, 0.3f);
+            }
+        }
+
+        Transform _splashPlane;
+
+        /// <summary>空気のてい抗（速いほど、ぐっとおそくなる）。</summary>
+        static void Drag(ParticleSystem ps, float drag)
+        {
+            var lv = ps.limitVelocityOverLifetime;
+            lv.enabled = true;
+            lv.limit = 100f;                         // 速さの上限は使わず、てい抗だけ
+            lv.drag = drag;
+            lv.multiplyDragByParticleVelocity = true;   // てい抗は速さの 2 乗
+            lv.multiplyDragByParticleSize = false;
+        }
+
+        /// <summary>落ちて着地した：面にそって土けむりが広がる（強く落ちるほど多い。やわらかい葉っぱの上では、ほとんど出ない）。</summary>
+        public void Dust(Vector3 pos, Vector3 normal, float strength, float softness)
+        {
+            if (_dust == null) return;
+            int n = Mathf.RoundToInt((4f + 26f * strength) * (1f - 0.8f * softness));
+            if (n <= 0) return;
+            _dust.transform.SetPositionAndRotation(pos + normal * 0.03f, Quaternion.FromToRotation(Vector3.forward, normal));
+            var ep = new ParticleSystem.EmitParams();
+            for (int i = 0; i < n; i++)
+            {
+                Vector3 side = Vector3.ProjectOnPlane(Random.onUnitSphere, normal);
+                if (side.sqrMagnitude < 1e-4f) continue;
+                ep.position = pos + normal * 0.03f + side.normalized * 0.1f;
+                ep.velocity = side.normalized * Random.Range(0.5f, 1.4f) * (0.5f + strength) + normal * Random.Range(0.05f, 0.4f);
+                ep.applyShapeToPosition = false;
+                _dust.Emit(ep, 1);
+            }
+        }
+
+        /// <summary>水に落ちた：勢いに合わせて、水しぶきの粒がとび出す（水面に落ちると消える）。</summary>
+        public void Splash(Vector3 pos, float strength, float waterLevel)
+        {
+            if (_splash == null) return;
+            _splashPlane.SetPositionAndRotation(new Vector3(pos.x, waterLevel - 0.02f, pos.z), Quaternion.identity);
+            _splash.transform.position = new Vector3(pos.x, waterLevel + 0.02f, pos.z);
+            var main = _splash.main;
+            main.startSpeed = new ParticleSystem.MinMaxCurve(1.0f + 1.5f * strength, 2.0f + 3.0f * strength);
+            _splash.Emit(Mathf.RoundToInt(20 + 60 * strength));
+        }
+
+        /// <summary>ぬれた体から、しずくがたれる。</summary>
+        public void Drip(Vector3 pos)
+        {
+            if (_drip == null) return;
+            _drip.transform.position = pos;
+            _drip.Emit(1);
         }
 
 
@@ -88,7 +214,8 @@ namespace Shakutori
                 main.startLifetime = 16f;
                 main.startSpeed = 0.1f;
                 main.startSize = new ParticleSystem.MinMaxCurve(0.15f, 0.3f);
-                main.gravityModifier = 0.02f;
+                main.gravityModifier = 1f;     // 本当の重力で落ちる
+                Drag(_leaves, 4.6f);           // 空気のてい抗が大きいので、最高速度は 1.4 くらい
                 main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.6f, 0.25f), new Color(1f, 0.85f, 0.35f));
                 main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
                 var em = _leaves.emission;
@@ -103,6 +230,21 @@ namespace Shakutori
                 var rot = _leaves.rotationOverLifetime;
                 rot.enabled = true;
                 rot.z = new ParticleSystem.MinMaxCurve(-1.5f, 1.5f);
+                // 速く落ちる葉ほど、くるくる速く回る
+                var rbs = _leaves.rotationBySpeed;
+                rbs.enabled = true;
+                rbs.range = new Vector2(0f, 1.5f);
+                rbs.z = new ParticleSystem.MinMaxCurve(-2.5f, 2.5f);
+                // 地面や物に落ちたら、そこで止まる（しばらくして消える）
+                var lcol = _leaves.collision;
+                lcol.enabled = true;
+                lcol.type = ParticleSystemCollisionType.World;
+                lcol.collidesWith = ShakuConst.SurfaceMask;
+                lcol.dampen = 1f;
+                lcol.bounce = 0f;
+                lcol.lifetimeLoss = 0f;
+                lcol.quality = ParticleSystemCollisionQuality.Low;
+                _windFX.Add((_leaves, 1.5f));
                 var col = _leaves.colorOverLifetime;
                 col.enabled = true;
                 col.color = FadeInOut(Color.white);
@@ -119,7 +261,7 @@ namespace Shakutori
             float fz = RiverLayout.FallZ;
             float cx = RiverLayout.CenterX(fz);
             float w = RiverLayout.HalfWidth(fz);
-            var spray = Create("WaterfallSpray", _areaRoot, 220, new Color(0.9f, 0.97f, 1f, 0.7f));
+            var spray = Create("WaterfallSpray", _areaRoot, 220, new Color(0.9f, 0.97f, 1f, 0.55f));
             spray.transform.position = new Vector3(cx, RiverLayout.WaterLevel(fz - 3f) + 0.3f, fz - 2.8f);
             {
                 var main = spray.main;
@@ -139,8 +281,10 @@ namespace Shakutori
                 var size = spray.sizeOverLifetime;
                 size.enabled = true;
                 size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0.6f, 1f, 1.6f));
+                Drag(spray, 0.6f);
+                _windFX.Add((spray, 0.6f));
             }
-            var mist = Create("WaterfallMist", _areaRoot, 60, new Color(0.85f, 0.95f, 1f, 0.25f));
+            var mist = Create("WaterfallMist", _areaRoot, 60, new Color(0.85f, 0.95f, 1f, 0.12f));   // うすい霧（川が白っぽくかすまないように）
             mist.transform.position = new Vector3(cx, RiverLayout.WaterLevel(fz - 4f) + 1.2f, fz - 4f);
             {
                 var main = mist.main;
@@ -155,6 +299,8 @@ namespace Shakutori
                 var col = mist.colorOverLifetime;
                 col.enabled = true;
                 col.color = FadeInOut(Color.white, 0.3f);
+                Drag(mist, 0.5f);
+                _windFX.Add((mist, 0.8f));
             }
         }
 
@@ -167,6 +313,7 @@ namespace Shakutori
             main.startSpeed = new ParticleSystem.MinMaxCurve(0.2f, 0.6f);
             main.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.16f);
             main.gravityModifier = -0.04f;
+            Drag(ps, 1.5f);
             var em = ps.emission;
             em.rateOverTime = 12f;
             var sh = ps.shape;
@@ -198,6 +345,8 @@ namespace Shakutori
             noise.enabled = true;
             noise.strength = 0.5f;
             noise.frequency = 0.25f;
+            Drag(ps, 0.8f);
+            _windFX.Add((ps, 0.25f));
             var col = ps.colorOverLifetime;
             col.enabled = true;
             var g = new Gradient();
@@ -247,6 +396,26 @@ namespace Shakutori
             Wind.Publish(Time.time);
             if (_pollen != null && followTarget != null)
                 _pollen.transform.position = followTarget.position;
+            // 風に流される力（粒のある場所の風。軽い粒ほどよく流される）
+            for (int i = _windFX.Count - 1; i >= 0; i--)
+            {
+                var (ps, k) = _windFX[i];
+                if (ps == null) { _windFX.RemoveAt(i); continue; }
+                Vector3 w = Wind.At(ps.transform.position) * k;
+                var f = ps.forceOverLifetime;
+                f.enabled = true;
+                f.space = ParticleSystemSimulationSpace.World;
+                f.x = new ParticleSystem.MinMaxCurve(w.x);
+                f.y = new ParticleSystem.MinMaxCurve(0f);
+                f.z = new ParticleSystem.MinMaxCurve(w.z);
+            }
+            // 落ち葉は、風が強いと枝からたくさん落ちる
+            if (_leaves != null)
+            {
+                float g = Wind.Gust(Time.time);
+                var em = _leaves.emission;
+                em.rateOverTime = 1.6f * (0.5f + 1.5f * g * g);
+            }
         }
     }
 }

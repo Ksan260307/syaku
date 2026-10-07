@@ -9,6 +9,8 @@ namespace Shakutori
         public const int PlayerLayer = 7;
         public const int CreatureLayer = 8;  // 乗れるいきもの（しゃくとりむしは這えるが、いきもの同士や地形の配置には使わない）
         public const int WaterLayer = 4;     // Unity 標準の Water レイヤー
+        public const int RollingLayer = 9;   // 押すと転がる物（どんぐり）。しゃくとりむしは這わずに、押す
+        public const int WormBodyLayer = 10; // しゃくとりむしの体（転がる物を押すためだけの当たり判定）
 
         public static int SurfaceMask => 1 << SurfaceLayer;
         public static int CreatureMask => 1 << CreatureLayer;

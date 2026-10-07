@@ -239,19 +239,22 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
-        public IEnumerator Spider_BacksAwayWithASafetyLine()
+        public IEnumerator Spider_BacksAwayWithAJump()
         {
             Vector3 p = C.PositionOf("spider", 2);
             Place(new Vector2(p.x + 1.6f, p.z), Vector3.left);
-            bool line = false;
+            float maxPitch = 0f, minPitch = 0f;
+            yield return WaitUntil(() => C.Info("spider", 2).airborne, 3f, "近づきすぎると、ぴょんと後ずさり");
             yield return WaitUntil(() =>
             {
                 var info = C.Info("spider", 2);
-                line |= info.lineVisible;
-                return info.airborne;
-            }, 3f, "近づきすぎると後ずさり");
-            yield return null;
-            Assert.IsTrue(line || C.Info("spider", 2).lineVisible, "跳ぶときは命綱の糸を引く");
+                maxPitch = Mathf.Max(maxPitch, info.pitch);
+                minPitch = Mathf.Min(minPitch, info.pitch);
+                return !info.airborne;
+            }, 3f, "着地");
+            // ハエトリグモは糸を出さない（糸の部品はない）
+            Assert.IsNull(typeof(Creatures).GetField("_lineMesh", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static), "糸は出さない");
+            Assert.Greater(maxPitch - minPitch, 2f, "跳ぶ向きに体をかたむける");
         }
 
         [UnityTest]

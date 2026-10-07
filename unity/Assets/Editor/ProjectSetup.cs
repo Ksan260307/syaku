@@ -92,6 +92,8 @@ namespace Shakutori.EditorTools
             layers.GetArrayElementAtIndex(ShakuConst.SurfaceLayer).stringValue = "Surface";
             layers.GetArrayElementAtIndex(ShakuConst.PlayerLayer).stringValue = "Player";
             layers.GetArrayElementAtIndex(ShakuConst.CreatureLayer).stringValue = "Creature";
+            layers.GetArrayElementAtIndex(ShakuConst.RollingLayer).stringValue = "Rolling";
+            layers.GetArrayElementAtIndex(ShakuConst.WormBodyLayer).stringValue = "WormBody";
             tm.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -408,8 +410,32 @@ namespace Shakutori.EditorTools
                 m.SetFloat("_SatMul", 1f);
                 m.SetFloat("_ValMul", 1f);
             });
-            assets.river = Mat("M_River", "Shakutori/ToonRiver", m => { });
-            assets.waterfall = Mat("M_Waterfall", "Shakutori/Waterfall", m => { });
+            // 川：深い所は深い青緑、浅い所は川底が緑がかって見える。泡は岸ぎわ・石のまわり・滝の下だけ
+            assets.river = Mat("M_River", "Shakutori/ToonRiver", m =>
+            {
+                m.SetColor("_ShallowColor", new Color(0.42f, 0.70f, 0.58f, 1f));
+                m.SetColor("_DeepColor", new Color(0.05f, 0.26f, 0.30f, 1f));
+                m.SetVector("_Absorb", new Vector4(2.4f, 1.0f, 0.75f, 0f));
+                m.SetFloat("_Clarity", 1.8f);
+                m.SetColor("_ReflectColor", new Color(0.58f, 0.74f, 0.82f, 1f));
+                m.SetFloat("_FresnelStrength", 0.38f);
+                m.SetColor("_FoamColor", new Color(0.93f, 0.98f, 1f, 1f));
+                m.SetFloat("_FoamDepth", 0.12f);
+                m.SetColor("_StreakColor", new Color(0.72f, 0.9f, 0.9f, 1f));
+                m.SetFloat("_FlowSpeed", 0.55f);
+                m.SetFloat("_StreakScale", 6f);
+                m.SetFloat("_RippleStrength", 0.6f);
+                m.SetFloat("_Refraction", 0.025f);
+                m.SetFloat("_SpecStrength", 1.6f);
+            });
+            // 滝：まっ白ではなく、水の色の中に白い筋。滝つぼは白くあわ立つ
+            assets.waterfall = Mat("M_Waterfall", "Shakutori/Waterfall", m =>
+            {
+                m.SetColor("_Color", new Color(0.36f, 0.62f, 0.66f, 0.82f));
+                m.SetColor("_FoamColor", new Color(0.94f, 0.98f, 1f, 1f));
+                m.SetFloat("_Speed", 1.6f);
+                m.SetFloat("_StreakScale", 11f);
+            });
             assets.creature = Mat("M_Creature", "Shakutori/ToonLit", m =>
             {
                 m.SetFloat("_OutlineWidth", 0.4f);

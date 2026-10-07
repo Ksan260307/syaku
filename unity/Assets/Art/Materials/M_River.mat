@@ -25,18 +25,21 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
+    - _Clarity: 1.8
     - _DepthRange: 2.4
-    - _FlowSpeed: 0.35
-    - _FoamDepth: 0.4
-    - _FresnelStrength: 0.5
-    - _Refraction: 0.03
-    - _RippleStrength: 0.45
-    - _SpecStrength: 1.5
+    - _FlowSpeed: 0.55
+    - _FoamDepth: 0.12
+    - _FresnelStrength: 0.38
+    - _Refraction: 0.025
+    - _RippleStrength: 0.6
+    - _SpecStrength: 1.6
     - _StreakScale: 6
     m_Colors:
-    - _DeepColor: {r: 0.13999996, g: 0.45999992, b: 0.58, a: 0.9}
-    - _FoamColor: {r: 1, g: 1, b: 1, a: 1}
-    - _ReflectColor: {r: 0.82, g: 0.94, b: 1, a: 1}
-    - _ShallowColor: {r: 0.62, g: 0.92, b: 0.9, a: 0.3}
+    - _Absorb: {r: 2.4, g: 1, b: 0.75, a: 0}
+    - _DeepColor: {r: 0.05, g: 0.26, b: 0.3, a: 1}
+    - _FoamColor: {r: 0.93, g: 0.98, b: 1, a: 1}
+    - _ReflectColor: {r: 0.58, g: 0.74, b: 0.82, a: 1}
+    - _ShallowColor: {r: 0.42, g: 0.7, b: 0.58, a: 1}
+    - _StreakColor: {r: 0.72, g: 0.9, b: 0.9, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

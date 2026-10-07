@@ -41,6 +41,8 @@ namespace Shakutori
         Label _bannerSub, _bannerTitle, _bannerDesc, _promptKey, _promptText, _helpHint, _rotateHint;
         Label _mapTitle, _mapSummary, _confirmText, _completeTitle, _completeText;
         Label _creatureCardName, _creatureCardDesc, _zukanCount, _zukanName, _zukanArea, _zukanDesc;
+        VisualElement _zukanHabitat;
+        Texture2D _mapTexture;
         ScrollView _legend, _zukanGrid;
         Button _continue, _qLow, _qHigh, _tNormal, _tLarge;
         Slider _sens, _music, _sfx, _ambience, _fov;
@@ -264,6 +266,7 @@ namespace Shakutori
             _zukanImg = Q<VisualElement>("zukan-img");
             _zukanName = Q<Label>("zukan-name");
             _zukanArea = Q<Label>("zukan-area");
+            _zukanHabitat = Q<VisualElement>("zukan-habitat");
             _zukanDesc = Q<Label>("zukan-desc");
             _skinGrid = Q<VisualElement>("skin-grid");
             _recordList = Q<VisualElement>("record-list");
@@ -505,6 +508,7 @@ namespace Shakutori
             if (assets != null) _assets = assets;
             _minimapImage.style.backgroundImage = new StyleBackground(map);
             _bigmap.style.backgroundImage = new StyleBackground(map);
+            _mapTexture = map;
             var area = collect != null ? collect.Area : Areas.Current;
             _areaTitle.text = area.Subtitle;
             _dropLabel.text = area.DropName;
@@ -1154,6 +1158,48 @@ namespace Shakutori
             BuildZukan();
         }
 
+        /// <summary>図鑑のすみかの地図に出ている印の数（テスト用）。</summary>
+        public int HabitatDotCount => _zukanHabitat != null ? _zukanHabitat.Query(className: "zukan-habitat-dot").ToList().Count : 0;
+        public string ZukanHabitatText => _zukanArea != null ? _zukanArea.text : "";
+
+        /// <summary>いまいるエリアの地図に、すみかの場所の印をつける（このエリアにいないいきものは、地図を出さない）。</summary>
+        void ShowHabitatMap(string id, bool known)
+        {
+            if (_zukanHabitat == null) return;
+            _zukanHabitat.Clear();
+            var area = _collect != null ? _collect.Area : Areas.Current;
+            var spots = known ? Habitats.Of(id).FindAll(h => h.area == area.Id) : new System.Collections.Generic.List<HabitatSpot>();
+            bool show = spots.Count > 0 && _mapTexture != null;
+            _zukanHabitat.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!show) return;
+            _zukanHabitat.style.backgroundImage = new StyleBackground(_mapTexture);
+            const float size = 150f;
+            float w = _zukanHabitat.resolvedStyle.width > 1f && !float.IsNaN(_zukanHabitat.resolvedStyle.width) ? _zukanHabitat.resolvedStyle.width : size;
+            foreach (var h in spots)
+            {
+                Vector2 uv = WorldToMap(new Vector3(h.position.x, 0f, h.position.y));
+                var dot = new VisualElement { pickingMode = PickingMode.Ignore };
+                dot.AddToClassList("zukan-habitat-dot");
+                dot.style.left = new Length(uv.x * 100f, LengthUnit.Percent);
+                dot.style.top = new Length(uv.y * 100f, LengthUnit.Percent);
+                dot.style.marginLeft = -7f;
+                dot.style.marginTop = -7f;
+                _zukanHabitat.Add(dot);
+            }
+            // いまいる場所
+            if (_worm != null)
+            {
+                Vector2 me = WorldToMap(_worm.CenterPosition);
+                var here = new VisualElement { pickingMode = PickingMode.Ignore };
+                here.AddToClassList("zukan-habitat-here");
+                here.style.left = new Length(me.x * 100f, LengthUnit.Percent);
+                here.style.top = new Length(me.y * 100f, LengthUnit.Percent);
+                here.style.marginLeft = -5f;
+                here.style.marginTop = -5f;
+                _zukanHabitat.Add(here);
+            }
+        }
+
         public bool HasNewBadge(string id) => _zukanCards.TryGetValue(id, out var c) && c.Q<Label>(className: "zukan-new") != null;
 
         public void SelectSpecies(string id)
@@ -1173,8 +1219,10 @@ namespace Shakutori
                 SaveSystem.Data.seenCreatures.Add(id);
                 if (_zukanCards.TryGetValue(id, out var card)) card.Q<Label>(className: "zukan-new")?.RemoveFromHierarchy();
             }
-            _zukanArea.text = "すみか：" + sp.areaLabel;
+            // すみか：見つけたいきものは、どの名所のまわりにいるかと、地図の上の場所を見せる
+            _zukanArea.text = "すみか：" + (known ? Habitats.Describe(id) : sp.areaLabel);
             _zukanDesc.text = known ? sp.description : "ヒント：" + sp.hint;
+            ShowHabitatMap(id, known);
         }
 
         void BuildSkins()

@@ -61,6 +61,13 @@ namespace Shakutori
         // 浮力のばね（しずみ・かたむき）
         float _dip, _dipVel;
         Vector2 _tilt, _tiltVel;   // x: 前後, y: 左右（度）
+        // 川の流れで下流へ少し流され、つなぎ綱のばねでもどる
+        Vector3 _drift, _driftVel;
+        Vector3 _prevRouteVel;
+        bool _wasTraveling;
+
+        /// <summary>流れで下流へずれている量。</summary>
+        public Vector3 Drift => _drift;
 
         /// <summary>0..1 = A で待つ / A→B / B で待つ / B→A の位置。</summary>
         public float Phase => Mathf.Repeat(_clock, Cycle) / Cycle;
@@ -132,7 +139,29 @@ namespace Shakutori
             _tilt = new Vector2(Mathf.Clamp(tv.x, -6f, 6f), Mathf.Clamp(tv.y, -6f, 6f));
             _tiltVel = new Vector2(tvel.x, tvel.y);
             _dip = Mathf.Clamp(_dip, -0.05f, 0.08f);
+
+            // 動きだすと舳先（へさき）が上がり、止まると下がる（水の上の、体の重さ）
+            Vector3 routeVel = RouteVelocity();
+            Vector3 acc = dt > 1e-5f ? (routeVel - _prevRouteVel) / dt : Vector3.zero;
+            _prevRouteVel = routeVel;
+            Vector3 accLocal = transform.InverseTransformDirection(acc);
+            _tiltVel += new Vector2(-accLocal.z, accLocal.x) * (4f * dt);
+            // 岸に着くと、とんと当たって少しゆれる
+            bool traveling = !AtA && !AtB;
+            if (_wasTraveling && !traveling) _dipVel += 0.08f;
+            _wasTraveling = traveling;
+            // 川の流れに押されて下流へ少しずれ、つなぎ綱のばねでもどる
+            Vector3 flow = Creatures.WaterFlow(transform.position, Areas.Current);
+            ShakuPhysics.SpringSteps(ref _drift, ref _driftVel, flow * 0.25f, 1.2f, 0.7f, dt);
+            _drift = Vector3.ClampMagnitude(new Vector3(_drift.x, 0f, _drift.z), 0.12f);
             Apply();
+        }
+
+        /// <summary>決まった道を進む速さ（ゆれやしずみはふくめない）。</summary>
+        Vector3 RouteVelocity()
+        {
+            const float e = 0.02f;
+            return (Evaluate(_clock + e, out _) - Evaluate(_clock - e, out _)) / (2f * e);
         }
 
         /// <summary>舟の上で歩く・落ちてくると、その場所がしずんでゆれる。</summary>
@@ -151,6 +180,13 @@ namespace Shakutori
         {
             Vector3 p = Evaluate(_clock, out var r);
             p.y -= _dip;
+            p += _drift;
+            // 風が強いと、波で大きくゆれる（波の高さは風の速さの 2 乗）
+            if (Application.isPlaying)
+            {
+                Vector3 w = Wind.At(p);
+                p.y += Mathf.Sin(_clock * 2.3f + 0.7f) * 0.012f * Mathf.Min(1.5f, w.sqrMagnitude);
+            }
             r = r * Quaternion.Euler(_tilt.x, 0f, _tilt.y);
             transform.SetPositionAndRotation(p, r);
             Physics.SyncTransforms();

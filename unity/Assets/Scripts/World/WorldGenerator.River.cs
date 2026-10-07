@@ -279,6 +279,7 @@ namespace Shakutori
             var v = new List<Vector3>();
             var uv = new List<Vector2>();
             var n = new List<Vector3>();
+            var col = new List<Color>();
             var t = new List<int>();
             float flow = 0f;
             for (int r = 0; r <= rows; r++)
@@ -295,9 +296,11 @@ namespace Shakutori
                 for (int c = 0; c <= cols; c++)
                 {
                     float u = c / (float)cols;
-                    v.Add(new Vector3(cx + Mathf.Lerp(-w, w, u), y, z));
+                    float x = cx + Mathf.Lerp(-w, w, u);
+                    v.Add(new Vector3(x, y, z));
                     uv.Add(new Vector2(u, flow / 8f));
                     n.Add(Vector3.up);
+                    col.Add(RiverFlowColor(x, z));
                 }
             }
             for (int r = 0; r < rows; r++)
@@ -314,6 +317,7 @@ namespace Shakutori
             mesh.SetVertices(v);
             mesh.SetNormals(n);
             mesh.SetUVs(0, uv);
+            mesh.SetColors(col);
             mesh.SetTriangles(t, 0);
             mesh.RecalculateBounds();
             var go = new GameObject(name);
@@ -323,6 +327,21 @@ namespace Shakutori
             var mr = go.AddComponent<MeshRenderer>();
             mr.sharedMaterial = assets.river != null ? assets.river : assets.water;
             mr.shadowCastingMode = ShadowCastingMode.Off;
+        }
+
+        /// <summary>
+        /// 川の水面の頂点色：R = 流れの速さ（川のまん中は速く、岸ぎわはゆっくり。よどみではほとんど流れない）、
+        /// G = 白くあわ立つ所（滝の下と、とびいしの瀬）。
+        /// </summary>
+        public static Color RiverFlowColor(float x, float z)
+        {
+            float half = Mathf.Max(0.5f, RiverLayout.HalfWidth(z));
+            float across = Mathf.Clamp01(Mathf.Abs(x - RiverLayout.CenterX(z)) / half);
+            float speed = (1f - across * across) * (1f - 0.8f * ShakuMath.Bump(z - RiverLayout.PoolZ, 15f));
+            float below = RiverLayout.FallZ - z;   // 滝からの、下流への距離
+            float white = below >= 0f ? Mathf.Clamp01(1f - below / 7f) : Mathf.Clamp01(1f + below / 1.5f) * 0.5f;
+            white = Mathf.Max(white, 0.35f * ShakuMath.Bump(z - RiverLayout.StonesZ, 3f) * (1f - across));
+            return new Color(Mathf.Clamp01(speed), Mathf.Clamp01(white), 0f, 1f);
         }
 
         void BuildWaterfall()

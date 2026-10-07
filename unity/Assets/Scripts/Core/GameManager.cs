@@ -152,6 +152,7 @@ namespace Shakutori
             yield return world.Generate(area, progress);
             collectibles.Build(world.DewdropPoints, area);
             if (creatures != null) creatures.Build(world);
+            Habitats.Record(area, world.Mobs);   // 図鑑で見られるように、いきもののすみかを記録
             fx.BuildArea(world);
             ui.Init(collectibles, worm, followCamera.transform, world.MapTexture, world.assets);
             AudioManager.Instance?.SetArea(area.Id);
@@ -228,10 +229,18 @@ namespace Shakutori
                 collectibles.Discover(first);
         }
 
+        float _dripNext;
+
         void Update()
         {
             bool playing = State == GameState.Playing;
             ui.TickHud(playing && !ui.AnyOverlayOpen);
+            // ぬれた体から、しずくがたれる
+            if (playing && worm != null && worm.IsWet && Time.time > _dripNext)
+            {
+                _dripNext = Time.time + UnityEngine.Random.Range(0.12f, 0.35f);
+                fx.Drip(worm.CenterPosition);
+            }
             SaveSystem.FlushSettings();
             if (Time.unscaledTime > _rumbleUntil && _rumbleUntil > 0f)
             {
@@ -478,10 +487,14 @@ namespace Shakutori
             float k = worm.LastImpact;
             PlatformFerry()?.Push(worm.CenterPosition, 0.5f + 2f * k);
             collectibles.Impulse(worm.CenterPosition, 1f + 4f * k);
-            AudioManager.Instance?.Thud(0.15f + 0.85f * k);
+            // 音は、落ちた所の材質でちがう（石は高く、葉っぱはこもって小さく）
+            AudioManager.Instance?.Thud(0.15f + 0.85f * k, worm.LastImpactMaterial);
             fx.Burst(worm.CenterPosition, 6 + Mathf.RoundToInt(18f * k));
+            // 土けむりは、面にそって広がる（やわらかい葉っぱの上では、ほとんど出ない）
+            fx.Dust(worm.TailPoint, worm.LastImpactNormal, k, worm.LastImpactSoftness);
+            followCamera.Dip(k);
             if (creatures != null) creatures.Disturb(worm.CenterPosition, 2f + 5f * k);   // 落ちた音に、近くのいきものがおどろく
-            followCamera.Shake(0.25f + 0.6f * k);
+            followCamera.Shake(0.25f + 0.6f * k, -worm.LastImpactNormal);   // ぶつかった向きにゆれる（壁なら横、床なら下）
             if (k > 0.6f && SaveSystem.Settings.vibration)
             {
                 ShakuVibrate(40);
@@ -573,7 +586,7 @@ namespace Shakutori
         void OnBounced(float rebound)
         {
             float k = worm.LastImpact;
-            AudioManager.Instance?.Thud(0.3f + 0.5f * k);
+            AudioManager.Instance?.Thud(0.3f + 0.5f * k, worm.LastImpactMaterial);   // キノコは、ぽよんと高い音
             fx.Burst(worm.CenterPosition, 4 + Mathf.RoundToInt(10f * k));
             if (creatures != null) creatures.Disturb(worm.CenterPosition, 1.5f + 3f * k);
             followCamera.Shake(0.15f + 0.35f * k);
@@ -581,9 +594,11 @@ namespace Shakutori
 
         void OnSplash()
         {
-            AudioManager.Instance?.Splash();
-            // 勢いよく落ちるほど、大きな水しぶき
+            // 勢いよく落ちるほど、大きな水しぶき（音も大きく、粒が高くとぶ）
             float k = worm.LastImpact;
+            AudioManager.Instance?.Splash(k);
+            float wl = Areas.Current.WaterLevelAt(worm.CenterPosition.x, worm.CenterPosition.z);
+            fx.Splash(worm.CenterPosition, k, wl > -100f ? wl : worm.CenterPosition.y);
             fx.Burst(worm.CenterPosition, 24 + Mathf.RoundToInt(32f * k));
             if (creatures != null) creatures.Disturb(worm.CenterPosition, 3f + 4f * k);
             ui.Toast("ぽちゃん！ 水に落ちてしまった…", "icon-drop");
@@ -641,9 +656,8 @@ namespace Shakutori
             AudioManager.Instance?.Travel();
             ui.Fade(true);
             yield return new WaitForSecondsRealtime(0.55f);
-            Vector3 p = world.TopSurface(lm.position);
-            Vector3 toCenter = new Vector3(-lm.position.x, 0f, -lm.position.y);
-            Vector3 fwd = toCenter.sqrMagnitude > 0.01f ? toCenter.normalized : Vector3.forward;
+            // 名所のまん中が水の中（滝つぼ・水たまり）でも、そばのかわいた陸地に着く
+            Vector3 p = world.ArrivalPoint(lm, out var fwd);
             worm.Spawn(p, fwd);
             followCamera.yaw = Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
             followCamera.SnapToTarget();

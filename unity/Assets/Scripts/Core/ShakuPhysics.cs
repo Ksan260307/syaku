@@ -166,6 +166,85 @@ namespace Shakutori
         public static Vector3 PointVelocity(Matrix4x4 prev, Matrix4x4 now, Vector3 localPoint, float dt)
             => dt > 1e-5f ? (now.MultiplyPoint3x4(localPoint) - prev.MultiplyPoint3x4(localPoint)) / dt : Vector3.zero;
 
+        /// <summary>
+        /// 減衰つきばねを、式でそのまま解いて進める（どんなに長い時間でも安定。分けて計算するより軽い）。
+        /// </summary>
+        public static void SpringExact(ref float x, ref float v, float target, float omega, float zeta, float dt)
+        {
+            if (dt <= 0f) return;
+            float y = x - target;
+            if (zeta < 0.999f)
+            {
+                float wd = omega * Mathf.Sqrt(1f - zeta * zeta);
+                float decay = Mathf.Exp(-zeta * omega * dt);
+                float c = Mathf.Cos(wd * dt), s = Mathf.Sin(wd * dt);
+                float b = (v + zeta * omega * y) / wd;
+                // y(t) = e^{-ζωt}(y0 cos ω_d t + b sin ω_d t) と、その微分
+                float ny = decay * (y * c + b * s);
+                float nv = -zeta * omega * ny + decay * (-y * wd * s + b * wd * c);
+                x = target + ny;
+                v = nv;
+            }
+            else
+            {
+                // 臨界減衰（ζ ≥ 1 は臨界減衰としてあつかう）
+                float decay = Mathf.Exp(-omega * dt);
+                float b = v + omega * y;
+                float ny = (y + b * dt) * decay;
+                v = (b - omega * (y + b * dt)) * decay;
+                x = target + ny;
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // なめらかに近づける（フレームレートに左右されない）
+        // ------------------------------------------------------------------
+        /// <summary>1 秒に rate の速さで、指数的に近づける（フレームが長くても短くても同じ速さ）。</summary>
+        public static float Damp(float current, float target, float rate, float dt) => Mathf.Lerp(current, target, 1f - Mathf.Exp(-rate * dt));
+
+        public static Vector3 Damp(Vector3 current, Vector3 target, float rate, float dt) => Vector3.Lerp(current, target, 1f - Mathf.Exp(-rate * dt));
+
+        /// <summary>向き（長さ 1）を、指数的に回して近づける。</summary>
+        public static Vector3 DampDir(Vector3 current, Vector3 target, float rate, float dt)
+        {
+            if (target.sqrMagnitude < 1e-8f) return current;
+            if (current.sqrMagnitude < 1e-8f) return target.normalized;
+            return Vector3.Slerp(current.normalized, target.normalized, 1f - Mathf.Exp(-rate * dt)).normalized;
+        }
+
+        // ------------------------------------------------------------------
+        // 飛ぶ・浮かぶ
+        // ------------------------------------------------------------------
+        /// <summary>
+        /// 速さ speed で、1 秒に turnDegPerSec 度まがるときの体のかたむき（度）。
+        /// 重力と遠心力の合わさった向きに体をかたむける（tanφ = vω / g）。
+        /// </summary>
+        public static float BankAngle(float speed, float turnDegPerSec)
+            => Mathf.Atan(speed * turnDegPerSec * Mathf.Deg2Rad / Gravity) * Mathf.Rad2Deg;
+
+        /// <summary>
+        /// 1 次の空気のてい抗 drag があるとき、from から T 秒で to に着く飛び出しの速さ（てい抗のある放物線の式を解く）。
+        /// </summary>
+        public static Vector3 SolveLaunch(Vector3 from, Vector3 to, float T, float drag)
+        {
+            Vector3 h = to - from;
+            float dy = h.y;
+            h.y = 0f;
+            T = Mathf.Max(0.05f, T);
+            if (drag < 1e-3f) return h / T + Vector3.up * (dy / T + 0.5f * Gravity * T);
+            float e = 1f - Mathf.Exp(-drag * T);
+            return h * (drag / e) + Vector3.up * ((dy + Gravity * T / drag) * drag / e - Gravity / drag);
+        }
+
+        /// <summary>同じ高さへ届く距離で、いちばん少ない力ですむ（45 度で跳ぶ）ときの、いちばん高い所の高さ。</summary>
+        public static float OptimalPeak(float distance) => Mathf.Max(0f, distance) * 0.25f;
+
+        /// <summary>
+        /// 水の浮力の加速度（重力に対して）：しずんだ深さに合わせて大きくなり、floatDepth の深さで重さとつりあう。
+        /// </summary>
+        public static float BuoyantAccel(float depth, float floatDepth, float stiffness)
+            => depth > 0f ? Gravity + (Mathf.Min(depth, 0.6f) - floatDepth) * stiffness : 0f;
+
         // ------------------------------------------------------------------
         // 数の安全
         // ------------------------------------------------------------------

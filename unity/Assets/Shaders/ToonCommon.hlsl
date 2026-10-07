@@ -6,7 +6,7 @@
 
 // ---- グローバル（スクリプトから設定） ----
 float4 _ShakuPlayerPos;   // xyz = しゃくとりむしの位置, w = 草をかき分ける半径
-float4 _ShakuWind;        // xy = 風向き(XZ), z = 強さ, w = 速さ
+float4 _ShakuWind;        // xy = 風向き(XZ), z = 強さ, w = ゆれの位相（スクリプトで、速さを時間で積み上げたもの）
 
 // 4x4 ベイヤー行列によるディザ（カメラ近くのフェード用）
 static const float kShakuBayer[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
@@ -21,7 +21,9 @@ float ShakuBayer4(float2 pixel)
 float3 ShakuApplyWind(float3 positionWS, float weight, float strength, float phase)
 {
     float w = weight * weight;
-    float t = _Time.y * max(_ShakuWind.w, 0.01);
+    // 位相はスクリプトで積み上げてある（時間 × 速さ だと、突風で速さが変わったとき、
+    // 時間がたつほど位相が大きくとんで、草花が高速でふるえてしまう）
+    float t = _ShakuWind.w;
     float2 dir = _ShakuWind.xy;
     float wave = sin(t * 1.3 + positionWS.x * 0.21 + positionWS.z * 0.17 + phase) * 0.65
                + sin(t * 2.9 + positionWS.x * 0.73 - positionWS.z * 0.41 + phase * 1.7) * 0.25

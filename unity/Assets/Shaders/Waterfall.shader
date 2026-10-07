@@ -3,7 +3,7 @@ Shader "Shakutori/Waterfall"
 {
     Properties
     {
-        _Color ("Water", Color) = (0.7, 0.92, 1.0, 0.72)
+        _Color ("Water", Color) = (0.36, 0.62, 0.66, 0.82)
         _FoamColor ("Foam", Color) = (1, 1, 1, 1)
         _Speed ("Fall Speed", Float) = 1.4
         _StreakScale ("Streak Scale", Float) = 9
@@ -67,11 +67,11 @@ Shader "Shakutori/Waterfall"
                 float s1 = vnoise(float2(i.uv.x * _StreakScale, i.uv.y * 3.0 - t * 2.0));
                 float s2 = vnoise(float2(i.uv.x * _StreakScale * 2.3 + 7.0, i.uv.y * 6.0 - t * 3.2));
                 half streak = saturate(s1 * 0.6 + s2 * 0.4);
-                half3 col = lerp(_Color.rgb, _FoamColor.rgb, smoothstep(0.5h, 0.8h, streak));
+                half3 col = lerp(_Color.rgb, _FoamColor.rgb, smoothstep(0.6h, 0.88h, streak) * 0.85h);   // 水の色の中に、白い筋
                 half foam = smoothstep(0.7h, 1.0h, i.uv.y) * (0.6h + 0.4h * vnoise(float2(i.uv.x * 20.0, t * 4.0)));
                 col = lerp(col, _FoamColor.rgb, foam);
                 half lip = 1.0h - smoothstep(0.0h, 0.08h, i.uv.y);
-                col = lerp(col, _FoamColor.rgb, lip * 0.6h);
+                col = lerp(col, _FoamColor.rgb, lip * 0.45h);
                 col *= _MainLightColor.rgb * 0.45h + 0.7h;
                 half a = saturate(_Color.a + streak * 0.25h + foam * 0.5h) * i.color.a;
                 col = MixFog(col, i.fogFactor);

@@ -61,6 +61,16 @@ namespace Shakutori
             return Gust(t - along / GustTravelSpeed + across * 0.02f);
         }
 
+        /// <summary>
+        /// ひらけた草原の上の、ゆるい上昇気流（日なたで温まった空気が上がる。森の花の草原だけ）。上向きの速さ。
+        /// </summary>
+        public static float Updraft(Vector3 p, float t)
+        {
+            if (Areas.Current != Areas.Forest) return 0f;
+            float k = ShakuMath.Bump(Vector2.Distance(new Vector2(p.x, p.z), ForestLayout.Meadow), 14f);
+            return k * 0.25f * (0.6f + 0.4f * Mathf.Sin(t * 0.37f + p.x * 0.1f));
+        }
+
         /// <summary>地面からの高さを考えた風（地面の近くは弱く、高い所ほど強い）。</summary>
         public static Vector3 At(Vector3 p, float t, float heightAboveGround) => At(p, t) * HeightFactor(heightAboveGround);
 
@@ -75,12 +85,34 @@ namespace Shakutori
             return Mathf.Clamp(k, 0.35f, 1.4f);
         }
 
-        /// <summary>シェーダーへ渡す（xy = 風向き(XZ), z = 強さ, w = 速さ）。毎フレーム AmbientFX から呼ぶ。</summary>
+        static float _phase, _lastT = float.NaN;
+
+        /// <summary>草花のゆれの位相（ゆれる速さを時間で積み上げたもの）。</summary>
+        public static float Phase => _phase;
+
+        /// <summary>草花がゆれる速さ（1 秒あたりの位相）。突風のときは少し速い。</summary>
+        public static float SwaySpeed(float t) => 0.9f + 0.6f * Gust(t);
+
+        /// <summary>
+        /// シェーダーへ渡す（xy = 風向き(XZ), z = 強さ, w = ゆれの位相）。毎フレーム AmbientFX から呼ぶ。
+        /// 位相は「速さ × 時間」ではなく、速さを少しずつ積み上げる（突風で速さが変わっても、ゆれがとびはねない）。
+        /// </summary>
         public static void Publish(float t)
         {
             Vector3 d = Direction(t);
             float g = Gust(t);
-            Shader.SetGlobalVector(WindId, new Vector4(d.x, d.z, 0.55f + 0.9f * g, 0.9f + 0.6f * g));
+            float dt = float.IsNaN(_lastT) ? 0f : Mathf.Clamp(t - _lastT, 0f, 0.1f);
+            _lastT = t;
+            _phase += SwaySpeed(t) * dt;
+            if (_phase > 12566.37f) _phase -= 12566.37f;   // とても長く遊んでも、数の細かさが落ちないように
+            Shader.SetGlobalVector(WindId, new Vector4(d.x, d.z, 0.55f + 0.9f * g, _phase));
+        }
+
+        /// <summary>テスト用：位相を最初にもどす。</summary>
+        public static void ResetPhase()
+        {
+            _phase = 0f;
+            _lastT = float.NaN;
         }
     }
 }

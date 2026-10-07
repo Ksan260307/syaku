@@ -473,9 +473,9 @@ namespace Shakutori
                 }
                 go.layer = ShakuConst.SurfaceLayer;
                 // 登りやすいように作った当たり判定用のメッシュがあれば、そちらを使う。
-                // 細かい凹凸のある物（松ぼっくり）は、すき間にはさまらないよう、凹凸をつつむなめらかな形にする
+                // ほかの物は、凹凸にはさまらないよう、いちばん外側をなめらかにつつむ大まかな形にする（穴が大事な物は、そのまま）
                 Mesh col = assets.TryGet(meshName + "_Col");
-                if (col == null && CoarseCollider.Wants(meshName)) col = CoarseCollider.Envelope(m);
+                if (col == null && CoarseCollider.Wants(meshName)) col = CoarseCollider.For(meshName, m);
                 go.AddComponent<MeshCollider>().sharedMesh = col != null ? col : m;
             }
             return go;
@@ -530,6 +530,67 @@ namespace Shakutori
         bool CastDown(Vector3 above, float maxDist, out RaycastHit hit)
         {
             return Physics.Raycast(above, Vector3.down, out hit, maxDist, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore);
+        }
+
+        /// <summary>
+        /// 名所へ移動したときに着く場所：名所のまん中から外へさがして、いちばん近い、かわいた平らな陸地。
+        /// 水の中・川の中の石や枝の上（まわりが水）・急な坂には着かない。体（頭の先）まで陸地にのる向きで、なるべく名所の方を向く。
+        /// </summary>
+        public Vector3 ArrivalPoint(LandmarkDef lm, out Vector3 forward)
+        {
+            Vector2 c = lm.position;
+            Vector3 home = new Vector3(-c.x, 0f, -c.y);
+            Vector3 centerFwd = home.sqrMagnitude > 0.01f ? home.normalized : Vector3.forward;
+            float maxR = Mathf.Max(8f, lm.radius * 1.6f);
+            for (float r = 0f; r <= maxR; r += 0.75f)
+            {
+                int n = r < 0.01f ? 1 : Mathf.Max(8, Mathf.CeilToInt(2f * Mathf.PI * r / 0.75f));
+                for (int k = 0; k < n; k++)
+                {
+                    float a = k * Mathf.PI * 2f / n;
+                    Vector2 xz = c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
+                    // まん中なら、いちばん上の面（切り株の上など）でよい。まわりをさがすときは、地面の上に着く
+                    if (!DryArrival(xz, r > 0.01f, out var p)) continue;
+                    Vector3 toC = new Vector3(c.x - xz.x, 0f, c.y - xz.y);
+                    Vector3 fwd = r < 0.01f || toC.sqrMagnitude < 1e-4f ? centerFwd : toC.normalized;
+                    if (!RoomForBody(p, ref fwd)) continue;
+                    forward = fwd;
+                    return p;
+                }
+            }
+            forward = centerFwd;
+            return TopSurface(c);
+        }
+
+        bool DryArrival(Vector2 xz, bool onGround, out Vector3 p)
+        {
+            p = default;
+            if (!CastDown(new Vector3(xz.x, 150f, xz.y), 300f, out var hit)) return false;
+            p = hit.point;
+            if (!Area.InPlayArea(p) || Area.IsUnderwater(p + Vector3.down * 0.02f) || hit.normal.y < 0.75f) return false;
+            // 陸地であること（川の中の石・枝の上は、まわりが水なので着かない）
+            if (!Area.IsLand(xz.x, xz.y, 0.08f)) return false;
+            float wl = Area.WaterLevelAt(xz.x, xz.y);
+            if (wl > -100f && p.y < wl + 0.08f) return false;
+            if (onGround && p.y - Area.Height(xz.x, xz.y) > 0.6f) return false;
+            return true;
+        }
+
+        /// <summary>頭の先（1 体長前）まで、かわいた陸地にのるか。だめなら、ほかの向きをためす。</summary>
+        bool RoomForBody(Vector3 p, ref Vector3 fwd)
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                float turn = (i + 1) / 2 * 45f * (i % 2 == 0 ? 1f : -1f);
+                Vector3 d = Quaternion.AngleAxis(turn, Vector3.up) * fwd;
+                Vector3 h = p + d * ShakuConst.BodyLength;
+                if (DryArrival(new Vector2(h.x, h.z), true, out var hp) && Mathf.Abs(hp.y - p.y) < 0.5f)
+                {
+                    fwd = d;
+                    return true;
+                }
+            }
+            return false;
         }
 
         void AddDew(Vector3 surfacePoint)

@@ -1118,6 +1118,43 @@
     margin-bottom: 8px;
 }
 
+/* 図鑑：すみかの地図（いまいるエリアの地図に、すみかの場所の印） */
+.zukan-habitat {
+    width: 150px;
+    height: 150px;
+    margin-bottom: 8px;
+    border-radius: 12px;
+    border-width: 2px;
+    border-color: rgba(120, 96, 64, 0.5);
+    -unity-background-scale-mode: scale-to-fit;
+    align-self: center;
+}
+
+.zukan-habitat-dot {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    border-width: 2px;
+    border-color: rgb(255, 255, 255);
+    background-color: rgb(240, 110, 60);
+}
+
+.zukan-habitat-here {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    background-color: rgb(90, 160, 70);
+    border-width: 2px;
+    border-color: rgb(255, 255, 255);
+}
+
+.short .zukan-habitat {
+    width: 96px;
+    height: 96px;
+}
+
 .zukan-desc {
     font-size: 18px;
     white-space: normal;

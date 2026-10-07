@@ -21,6 +21,7 @@ namespace Shakutori
         public List<string> visited = new List<string>();          // 行ったことのあるエリア
         public List<string> completedAreas = new List<string>();   // しずくと名所をぜんぶ見つけたエリア
         public List<string> tipsShown = new List<string>();        // 一度だけ出すヒント
+        public List<string> habitats = new List<string>();         // いきもののすみか（図鑑用。"種|エリア|x|z|広さ|名所"）
         public string skin = "wakaba";
         // きろく
         public int steps;

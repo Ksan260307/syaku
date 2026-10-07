@@ -35,6 +35,27 @@ namespace Shakutori
         /// <summary>いまのゆれの大きさ（テスト用）。</summary>
         public float ShakeOffset => _shakePos.magnitude;
 
+        // 着地で、カメラがぐっと下がってからもどる（ばね）
+        float _dip, _dipVel;
+        public float DipOffset => _dip;
+
+        /// <summary>強く着地したときに、カメラが少し下がってからもどる（カメラにも重さがあるように）。</summary>
+        public void Dip(float amount)
+        {
+            float k = SaveSystem.Settings.reduceMotion ? 0.2f : 1f;
+            _dipVel -= Mathf.Clamp01(amount) * k * 0.9f;
+        }
+
+        /// <summary>ぶつかった向き（ワールド）に合わせてゆらす。壁にぶつかれば横に、床なら下へ。</summary>
+        public void Shake(float amount, Vector3 impactDir)
+        {
+            float k = SaveSystem.Settings.reduceMotion ? 0.2f : 1f;
+            Vector3 local = transform.InverseTransformDirection(impactDir);
+            Vector2 d = new Vector2(local.x, local.y);
+            if (d.sqrMagnitude < 1e-4f) d = Vector2.down;
+            _shakeVel += d.normalized * (Mathf.Clamp01(amount) * k * 0.05f * ShakeOmega);
+        }
+
         /// <summary>着地などで、カメラを少しゆらす（「画面のゆれをへらす」設定なら弱く）。</summary>
         public void Shake(float amount)
         {
@@ -130,6 +151,12 @@ namespace Shakutori
                 _cam.fieldOfView = Mathf.Lerp(_cam.fieldOfView, fov, ShakuMath.DampFactor(8f, dt));
             }
             Apply(dt, false);
+            if (Mathf.Abs(_dip) > 1e-5f || Mathf.Abs(_dipVel) > 1e-5f)
+            {
+                ShakuPhysics.SpringExact(ref _dip, ref _dipVel, 0f, 9f, 0.45f, dt);
+                _dip = Mathf.Clamp(_dip, -0.25f, 0.1f);
+                transform.position += Vector3.up * _dip;
+            }
             if (_shakePos.sqrMagnitude > 1e-10f || _shakeVel.sqrMagnitude > 1e-8f)
             {
                 Vector3 x = _shakePos, v = _shakeVel;

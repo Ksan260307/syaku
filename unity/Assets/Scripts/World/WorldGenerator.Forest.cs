@@ -244,7 +244,9 @@ namespace Shakutori
                     ? Quaternion.Euler(0f, R(0, 360), 0f) * Quaternion.Euler(0f, 0f, 88f)
                     : GroundRotation(p, R(0, 360), 0.5f, 8f);
                 Vector3 pos = ForestLayout.Ground(p.x, p.y) + (lying ? Vector3.up * 0.42f * s : Vector3.down * 0.03f);
-                Place("Acorn", assets.propGlossy, pos, rot, s, true);
+                // どんぐりは、押すと転がる
+                var acorn = Place("Acorn", assets.propGlossy, pos, rot, s, true, true, 150f, true);
+                if (acorn != null) RollingProp.Make(acorn, assets.Get("Acorn"), s, 0.47f * s);
                 Occupy(p, 0.7f * s);
             }
             for (int i = 0; i < 6; i++)
