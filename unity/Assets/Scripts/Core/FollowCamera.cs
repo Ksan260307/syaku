@@ -26,13 +26,22 @@ namespace Shakutori
         bool _init;
         Camera _cam;
         float _aimBlend;
-        float _shake;
+        // ゆれは減衰ばね：ぶつかった力でぐっと下へ動き、行き来しながら小さくなっていく
+        Vector2 _shakePos, _shakeVel;
+        int _shakeCount;
+        /// <summary>カメラのゆれの速さ（ラジアン/秒）と、おさまりやすさ。</summary>
+        public const float ShakeOmega = 38f, ShakeDamping = 0.18f;
+
+        /// <summary>いまのゆれの大きさ（テスト用）。</summary>
+        public float ShakeOffset => _shakePos.magnitude;
 
         /// <summary>着地などで、カメラを少しゆらす（「画面のゆれをへらす」設定なら弱く）。</summary>
         public void Shake(float amount)
         {
             float k = SaveSystem.Settings.reduceMotion ? 0.2f : 1f;
-            _shake = Mathf.Max(_shake, Mathf.Clamp01(amount) * k);
+            // 下向き（ぶつかった向き）を中心に、少し横にもずらした力をくわえる
+            float side = (_shakeCount++ % 2 == 0 ? 1f : -1f) * 0.35f;
+            _shakeVel += new Vector2(side, -1f).normalized * (Mathf.Clamp01(amount) * k * 0.05f * ShakeOmega);
         }
 
         /// <summary>カメラをしゃくとりむしの後ろへ戻す。</summary>
@@ -121,11 +130,13 @@ namespace Shakutori
                 _cam.fieldOfView = Mathf.Lerp(_cam.fieldOfView, fov, ShakuMath.DampFactor(8f, dt));
             }
             Apply(dt, false);
-            if (_shake > 0.001f)
+            if (_shakePos.sqrMagnitude > 1e-10f || _shakeVel.sqrMagnitude > 1e-8f)
             {
-                float t = Time.unscaledTime * 38f;
-                transform.position += transform.rotation * new Vector3(Mathf.Sin(t) * 0.04f, Mathf.Sin(t * 1.3f + 1f) * 0.05f, 0f) * _shake;
-                _shake = Mathf.MoveTowards(_shake, 0f, dt * 2.5f);
+                Vector3 x = _shakePos, v = _shakeVel;
+                ShakuPhysics.SpringSteps(ref x, ref v, Vector3.zero, ShakeOmega, ShakeDamping, dt);
+                _shakePos = Vector2.ClampMagnitude(x, 0.12f);
+                _shakeVel = v;
+                transform.position += transform.rotation * new Vector3(_shakePos.x, _shakePos.y, 0f);
             }
         }
 

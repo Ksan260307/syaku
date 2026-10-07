@@ -58,7 +58,29 @@ namespace Shakutori
             public float phase;
             public float wobble;       // しゃくとりむしが近づくと、ぷるぷるゆれる
             public float flyT = -1f;   // 取ったあと、しゃくとりむしへ吸いこまれていく
+            // 表面張力のばね（つぶれ具合）と、風で葉ごとゆれるばね
+            public float squash, squashVel;
+            public Vector3 sway, swayVel;
         }
+
+        /// <summary>しずくがぷるぷるゆれる速さ（ラジアン/秒）と、ゆれのおさまりにくさ（水はなかなかおさまらない）。</summary>
+        public const float DropOmega = 17f, DropDamping = 0.12f;
+
+        /// <summary>足音・着地の力で、近くのしずくがぷるんとゆれる（strength 1 で、すぐそばのしずくが少しゆれる）。</summary>
+        public void Impulse(Vector3 p, float strength)
+        {
+            const float radius = 2.5f;
+            foreach (var d in _drops)
+            {
+                if (d.taken) continue;
+                float dist = Vector3.Distance(p, d.basePos);
+                if (dist > radius) continue;
+                d.squashVel += strength * 1.2f * (1f - dist / radius);
+            }
+        }
+
+        /// <summary>テスト用：i 番目のしずくのつぶれ具合。</summary>
+        public float DropSquash(int index) => _drops[index].squash;
 
         readonly List<Drop> _drops = new List<Drop>();
         readonly HashSet<int> _places = new HashSet<int>();
@@ -153,9 +175,9 @@ namespace Shakutori
             {
                 if (d.flyT >= 0f)
                 {
-                    // 取ったしずくは、くるくる小さくなりながら頭へ
+                    // 取ったしずくは、くるくる小さくなりながら頭へ（吸いこまれるように、だんだん速く）
                     d.flyT += Time.deltaTime / 0.28f;
-                    float e = ShakuMath.Smooth01(d.flyT);
+                    float e = Mathf.Clamp01(d.flyT) * Mathf.Clamp01(d.flyT);
                     d.tr.position = Vector3.Lerp(d.basePos + Vector3.up * 0.1f, headNow, e) + Vector3.up * Mathf.Sin(Mathf.PI * e) * 0.35f;
                     d.tr.localScale = Vector3.one * dropScale * Mathf.Lerp(1.2f, 0.1f, e);
                     if (d.flyT >= 1f)
@@ -166,13 +188,21 @@ namespace Shakutori
                     continue;
                 }
                 if (d.taken) continue;
+                float dt = Time.deltaTime;
                 float bob = Mathf.Sin(t * 2f + d.phase) * 0.05f;
-                d.tr.position = d.basePos + Vector3.up * (0.04f + bob);
+                // 風：しずくをのせた葉ごと、風の圧力（速さの 2 乗）でゆれる
+                Vector3 w = Wind.At(d.basePos);
+                ShakuPhysics.SpringSteps(ref d.sway, ref d.swayVel, w * (w.magnitude * 0.02f), 6f, 0.3f, dt);
+                d.tr.position = d.basePos + Vector3.up * (0.04f + bob) + d.sway;
                 d.tr.rotation = Quaternion.Euler(0f, t * 40f + d.phase * 30f, 0f);
-                // 近づくとぷるぷる（ばねのように）、ときどききらっと光るように大きくなる
+                // 近づくとぷるぷる（表面張力のばねを、ちょうどゆれやすい速さでゆらす）、ときどききらっと光るように大きくなる
                 float near = Mathf.Clamp01(1f - ((headNow - d.basePos).magnitude - 0.6f) / 2.5f);
-                d.wobble = Mathf.Lerp(d.wobble, near, 1f - Mathf.Exp(-6f * Time.deltaTime));
-                float jiggle = d.wobble * 0.14f * Mathf.Sin(t * 17f + d.phase);
+                d.wobble = Mathf.Lerp(d.wobble, near, 1f - Mathf.Exp(-6f * dt));
+                float drive = d.wobble * 0.14f * 2f * DropDamping * Mathf.Sin(t * DropOmega + d.phase);
+                ShakuPhysics.SpringSteps(ref d.squash, ref d.squashVel, drive, DropOmega, DropDamping, dt);
+                d.squash = Mathf.Clamp(d.squash, -0.3f, 0.3f);
+                if (!float.IsFinite(d.squash) || !float.IsFinite(d.squashVel)) d.squash = d.squashVel = 0f;
+                float jiggle = d.squash;
                 float glint = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(t * 0.7f + d.phase * 3.7f)), 40f) * 0.25f;
                 float pulse = 1f + Mathf.Sin(t * 3.1f + d.phase) * 0.06f + glint;
                 d.tr.localScale = new Vector3(1f + jiggle, 1f - jiggle, 1f + jiggle) * dropScale * pulse;

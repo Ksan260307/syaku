@@ -2,13 +2,47 @@ using UnityEngine;
 
 namespace Shakutori
 {
-    /// <summary>しゃくとりむしが乗ったまま一緒に動く足場（葉っぱの渡し舟など）の目印。</summary>
+    /// <summary>
+    /// しゃくとりむしが乗ったまま一緒に動く足場（葉っぱの渡し舟・いきもの）の目印。
+    /// 動きを記録して、上の点の速さ（回転もふくむ）を答える。
+    /// </summary>
     public class MovingPlatform : MonoBehaviour
     {
+        Matrix4x4 _prev, _now;
+        float _dt;
+        bool _has;
+
+        void OnEnable() => _has = false;
+
+        void LateUpdate()
+        {
+            Matrix4x4 m = transform.localToWorldMatrix;
+            _prev = _has ? _now : m;
+            _now = m;
+            _dt = Time.deltaTime;
+            _has = true;
+        }
+
+        /// <summary>足場の上（または近く）の点の速さ。前のフレームの動きから求める。</summary>
+        public Vector3 VelocityAt(Vector3 worldPoint)
+        {
+            if (!_has || _dt <= 1e-5f) return Vector3.zero;
+            Vector3 local = _now.inverse.MultiplyPoint3x4(worldPoint);
+            return ShakuPhysics.Sanitize(ShakuPhysics.PointVelocity(_prev, _now, local, _dt), ShakuPhysics.SafetySpeed);
+        }
+
+        /// <summary>当たった物が動く足場なら、その点の速さ（ちがえば 0）。</summary>
+        public static Vector3 VelocityOf(Collider c, Vector3 worldPoint)
+        {
+            if (c == null) return Vector3.zero;
+            var mp = c.GetComponentInParent<MovingPlatform>();
+            return mp != null ? mp.VelocityAt(worldPoint) : Vector3.zero;
+        }
     }
 
     /// <summary>
     /// 葉っぱの渡し舟。岸と中州のあいだを、待っては進むをくり返す。
+    /// 水にういているので、乗ると少ししずみ、乗った側へかたむき、歩くたびにゆれる（浮力のばね）。
     /// しゃくとりむしより先に動かすため実行順を早めている。
     /// </summary>
     [DefaultExecutionOrder(-60)]
@@ -20,7 +54,13 @@ namespace Shakutori
         public float waitTime = 8f;   // 乗り降りに十分な時間
         public float travelTime = 7f;
 
+        /// <summary>しゃくとりむしが乗ったときに、しずむ深さ。</summary>
+        public const float LoadDip = 0.022f;
+
         float _clock;
+        // 浮力のばね（しずみ・かたむき）
+        float _dip, _dipVel;
+        Vector2 _tilt, _tiltVel;   // x: 前後, y: 左右（度）
 
         /// <summary>0..1 = A で待つ / A→B / B で待つ / B→A の位置。</summary>
         public float Phase => Mathf.Repeat(_clock, Cycle) / Cycle;
@@ -32,6 +72,21 @@ namespace Shakutori
             {
                 float t = Mathf.Repeat(_clock, Cycle);
                 return t >= waitTime + travelTime && t < 2f * waitTime + travelTime;
+            }
+        }
+
+        /// <summary>いま、水にしずんでいる深さ（乗るとしずむ）。</summary>
+        public float Dip => _dip;
+        /// <summary>いまのかたむき（度）。</summary>
+        public float TiltDegrees => _tilt.magnitude;
+        /// <summary>舟の速さ（流れにそって進む速さ＋ゆれ）。</summary>
+        public Vector3 Velocity
+        {
+            get
+            {
+                const float e = 0.02f;
+                Vector3 v = (Evaluate(_clock + e, out _) - Evaluate(_clock - e, out _)) / (2f * e);
+                return v + Vector3.down * _dipVel;
             }
         }
 
@@ -53,13 +108,50 @@ namespace Shakutori
 
         void Update()
         {
-            _clock += Time.deltaTime;
+            float dt = Time.deltaTime;
+            _clock += dt;
+            // 乗っているしゃくとりむしの重さで、しずんで、乗った側へかたむく
+            var worm = InchwormController.Instance;
+            bool loaded = worm != null && worm.PlatformUnder == transform;
+            float dipTarget = loaded ? LoadDip : 0f;
+            Vector2 tiltTarget = Vector2.zero;
+            if (loaded)
+            {
+                Vector3 local = transform.InverseTransformPoint(worm.CenterPosition);
+                Vector3 c = Vector3.zero;
+                var col = GetComponent<Collider>();
+                if (col != null) c = transform.InverseTransformPoint(col.bounds.center);
+                Vector3 d = Vector3.Scale(local - c, transform.lossyScale);
+                // はしに乗るほど、大きくかたむく（てこ）
+                tiltTarget = new Vector2(Mathf.Clamp(d.z * 0.9f, -2.5f, 2.5f), Mathf.Clamp(-d.x * 0.9f, -2.5f, 2.5f));
+            }
+            // 水の浮力はやわらかいばね：少し行き過ぎてから落ちつく
+            ShakuPhysics.SpringSteps(ref _dip, ref _dipVel, dipTarget, 6f, 0.3f, dt);
+            Vector3 tv = new Vector3(_tilt.x, _tilt.y, 0f), tvel = new Vector3(_tiltVel.x, _tiltVel.y, 0f);
+            ShakuPhysics.SpringSteps(ref tv, ref tvel, new Vector3(tiltTarget.x, tiltTarget.y, 0f), 4.5f, 0.25f, dt);
+            _tilt = new Vector2(Mathf.Clamp(tv.x, -6f, 6f), Mathf.Clamp(tv.y, -6f, 6f));
+            _tiltVel = new Vector2(tvel.x, tvel.y);
+            _dip = Mathf.Clamp(_dip, -0.05f, 0.08f);
             Apply();
+        }
+
+        /// <summary>舟の上で歩く・落ちてくると、その場所がしずんでゆれる。</summary>
+        public void Push(Vector3 worldPoint, float strength)
+        {
+            _dipVel += 0.12f * strength;
+            Vector3 local = transform.InverseTransformPoint(worldPoint);
+            Vector3 c = Vector3.zero;
+            var col = GetComponent<Collider>();
+            if (col != null) c = transform.InverseTransformPoint(col.bounds.center);
+            Vector3 d = Vector3.Scale(local - c, transform.lossyScale);
+            _tiltVel += new Vector2(d.z, -d.x) * (6f * strength);
         }
 
         void Apply()
         {
             Vector3 p = Evaluate(_clock, out var r);
+            p.y -= _dip;
+            r = r * Quaternion.Euler(_tilt.x, 0f, _tilt.y);
             transform.SetPositionAndRotation(p, r);
             Physics.SyncTransforms();
         }

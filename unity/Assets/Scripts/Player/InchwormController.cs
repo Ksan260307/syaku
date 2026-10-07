@@ -36,7 +36,7 @@ namespace Shakutori
         public float silkMaxLength = 40f;      // 糸はこれ以上のびない
 
         [Header("Fall")]
-        public float fallGravity = 9f;         // 小さな体なので、ゆっくり落ちる
+        public float fallGravity = ShakuPhysics.Gravity;   // 小さな体の世界の重力（いきものと同じ）
         public float fallTerminal = 9f;
 
         public static InchwormController Instance { get; private set; }
@@ -88,6 +88,28 @@ namespace Shakutori
         public event Action Fell;                  // はなれて落ちはじめた
         public event Action<float> HitGround;      // 落ちて着地した（そのときの速さ）
         public event Action Splashed;              // 水に落ちた
+        public event Action<float> Bounced;        // 落ちて、はね返った（はね返る速さ）
+
+        /// <summary>いちばん最近の着地・はね返りの強さ（0〜1。面に垂直な速さの 2 乗と、面のやわらかさで決まる）。</summary>
+        public float LastImpact { get; private set; }
+        /// <summary>いちばん最近の着地・着水の、面に垂直な速さ。</summary>
+        public float LastImpactSpeed { get; private set; }
+        /// <summary>いちばん最近に当たった物の材質。</summary>
+        public string LastImpactMaterial { get; private set; } = "";
+        /// <summary>落ちてはね返った回数（キノコの上では何度も弾む）。</summary>
+        public int BounceCount => _bounces;
+        /// <summary>乗っている足場の、体の真ん中の点の速さ（足場の回転もふくむ）。</summary>
+        public Vector3 PlatformVelocity => _platformVelNow;
+        /// <summary>糸の張り（ぶら下がっているとき）。</summary>
+        public float SilkTension => _silkTension;
+        /// <summary>落ちている速さ・ぶら下がっている速さ。</summary>
+        public Vector3 AirVelocity => State == Mode.Fall ? _fallVel : State == Mode.Hang ? _hangVel : Vector3.zero;
+        /// <summary>落ちて回る速さ（ラジアン/秒）。</summary>
+        public float FallSpinRate => _spinL * SpinFactor(CurlTotal());
+        /// <summary>やわらかい体のゆれの大きさ（いちばん大きくずれている点）。</summary>
+        public float SoftOffset { get; private set; }
+        /// <summary>着地の弾みの高さ。</summary>
+        public float BounceHeight => _bounceX;
 
         // ---- ねらって糸を出す ----
         public bool IsAiming { get; private set; }
@@ -171,7 +193,6 @@ namespace Shakutori
         float _rearVel;
         float _wakeUntil, _wakeStart;
         float _landSquash;
-        Vector3 _platformPrev;
         Transform _platformRef;
         Vector3 _platformVel, _platformLean;
         float _reactTimer, _curiousNext, _flinchNext;
@@ -225,6 +246,19 @@ namespace Shakutori
         Vector3 _pumpInput;
         float _squashRate = 6f;
         bool _nearMob;
+        // ---- 物理計算 ----
+        float _spinL;                    // 落ちて回る勢い（角運動量。丸まると速く、開くとゆっくり回る）
+        int _bounces;                    // 落ちてはね返った回数
+        float _bounceX, _bounceV;        // 着地の弾み（減衰ばね）
+        Matrix4x4 _platformPrevM;        // 足場の前のフレームの位置と向き
+        Vector3 _platformVelNow;         // 足場のいまの速さ（体の真ん中の点）
+        Vector3 _waterVel;               // 水に落ちたあとの速さ
+        float _waterLevel;
+        float _silkTension;              // 糸の張り（ふるえ方が変わる）
+        readonly Vector3[] _softPos = new Vector3[Samples];   // やわらかい体（真ん中ほど、少しおくれて動く）
+        readonly Vector3[] _softVel = new Vector3[Samples];
+        bool _softReady;
+        Vector3 _softKick;
 
         void Awake()
         {
@@ -255,6 +289,13 @@ namespace Shakutori
             _dazeUntil = 0f;
             IsAiming = false;
             AimValid = false;
+            _spinL = 0f;
+            _bounces = 0;
+            _bounceX = 0f;
+            _bounceV = 0f;
+            _softReady = false;
+            _softKick = Vector3.zero;
+            _silkTension = 0f;
         }
 
         public void Spawn(Vector3 point, Vector3 forward)
@@ -273,6 +314,7 @@ namespace Shakutori
             if (silk != null) silk.enabled = false;
             BuildGroundTarget(0f);
             _curve.CopyFrom(_target);
+            _softReady = false;
             body.Apply(_curve);
             MarkSafe();
             WakeUp();
@@ -304,6 +346,7 @@ namespace Shakutori
             if (silk != null) silk.enabled = false;
             BuildGroundTarget(0f);
             _curve.CopyFrom(_target);
+            _softReady = false;
             body.Apply(_curve);
             MarkSafe();
             WakeUp();
@@ -471,6 +514,9 @@ namespace Shakutori
             _overshoot = Mathf.MoveTowards(_overshoot, 0f, dt * 2.5f);
             UpdateAim();
             _landBounce = Mathf.MoveTowards(_landBounce, 0f, dt * 1.8f);
+            // 着地の弾み：やわらかい体のばね（ぽよん、ぽよ…と小さくなっていく）
+            ShakuPhysics.SpringSteps(ref _bounceX, ref _bounceV, 0f, BounceOmega, 0.22f, dt);
+            _bounceX = Mathf.Clamp(_bounceX, -0.05f, 0.16f);
 
             if (State == Mode.Hang) BuildHangTarget();
             else if (State == Mode.Fall) BuildFallTarget();
@@ -482,6 +528,7 @@ namespace Shakutori
                 _curve.Blend(_snap, _target, ShakuMath.Smooth01(_blendT));
             }
             else _curve.CopyFrom(_target);
+            ApplySoftBody(dt);
 
             body.Apply(_curve);
             UpdateSilkLine(dt);
@@ -495,6 +542,65 @@ namespace Shakutori
             CameraHeading = Vector3.Slerp(CameraHeading, Heading, ShakuMath.DampFactor(4f, dt)).normalized;
 
             SafetyCheck(dt);
+        }
+
+        const float BounceOmega = 14f;
+
+        /// <summary>着地の弾み：amount は弾む高さの目安（0〜1）。</summary>
+        void Bump(float amount)
+        {
+            amount = Mathf.Clamp01(amount);
+            _bounceV = Mathf.Max(_bounceV, 0f) + amount * amount * 0.14f * BounceOmega;
+        }
+
+        /// <summary>
+        /// やわらかい体：体の真ん中ほど、少しおくれて動き、行き過ぎてから戻る（ばね）。
+        /// 両はし（頭と尾）は足場をつかんでいるので動かさない。地面の中へはしずまない。
+        /// </summary>
+        void ApplySoftBody(float dt)
+        {
+            int n = _curve.Count;
+            if (!_softReady)
+            {
+                for (int k = 0; k < n; k++)
+                {
+                    _softPos[k] = _curve.pos[k];
+                    _softVel[k] = Vector3.zero;
+                }
+                _softReady = true;
+                SoftOffset = 0f;
+                return;
+            }
+            float omega = State == Mode.Fall ? 40f : 55f;
+            int steps = ShakuPhysics.Substeps(dt, out float h);
+            float maxOff = 0f;
+            for (int k = 1; k < n - 1; k++)
+            {
+                float u = k / (float)(n - 1);
+                float w = Mathf.Sin(Mathf.PI * u);
+                Vector3 target = _curve.pos[k];
+                // 大きく飛んだとき（出現・ワープ）は、そのまま合わせる
+                if ((_softPos[k] - target).sqrMagnitude > 0.3f * 0.3f)
+                {
+                    _softPos[k] = target;
+                    _softVel[k] = Vector3.zero;
+                }
+                _softVel[k] += _softKick * w;
+                for (int i = 0; i < steps; i++) ShakuPhysics.Spring(ref _softPos[k], ref _softVel[k], target, omega, 0.45f, h);
+                _softVel[k] = ShakuPhysics.Sanitize(_softVel[k], 10f);
+                Vector3 off = Vector3.ClampMagnitude(_softPos[k] - target, 0.04f) * w;
+                // 面の中へはしずまない
+                if (State != Mode.Fall && State != Mode.Hang)
+                {
+                    float dn = Vector3.Dot(off, _curve.up[k]);
+                    if (dn < -0.008f) off -= _curve.up[k] * (dn + 0.008f);
+                }
+                _curve.pos[k] = target + off;
+                maxOff = Mathf.Max(maxOff, off.magnitude);
+            }
+            _softKick = Vector3.zero;
+            SoftOffset = maxOff;
+            if (maxOff > 1e-5f) _curve.RecomputeTangents();
         }
 
         void BeginTransition(float duration)
@@ -652,8 +758,12 @@ namespace Shakutori
             }
             // 壁の上では大きく体を起こさない
             if (steep) rearTarget = Mathf.Min(rearTarget, 0.45f);
-            // 体の上げ下げは、ばねのようになめらかに
-            _rear = Mathf.SmoothDamp(_rear, rearTarget, ref _rearVel, rearTarget > _rear ? 0.22f : 0.16f, Mathf.Infinity, dt);
+            // 体の上げ下げは、ばね：起こすときは少し行き過ぎてから落ちつき、下ろすときはすっと
+            // （行き過ぎた所で減衰を強めると行き過ぎが消えるので、起こしている間は同じばねのまま）
+            bool raised = rearTarget > 0.3f;
+            ShakuPhysics.SpringSteps(ref _rear, ref _rearVel, rearTarget, raised ? 9f : 11f, raised ? 0.62f : 0.85f, dt);
+            if (_rear > 1.1f) { _rear = 1.1f; _rearVel = Mathf.Min(_rearVel, 0f); }
+            if (_rear < 0f) { _rear = 0f; _rearVel = Mathf.Max(_rearVel, 0f); }
             if (!standing && _rear < 0.3f && Time.time >= _lookAtUntil && Time.time >= _lookUntil && !IsAiming) _standLookTarget = 0f;
             _wasStanding = standing;
         }
@@ -832,6 +942,7 @@ namespace Shakutori
         void UpdatePull(float dt, Vector3 desired, bool wantsMove, bool sprint)
         {
             _rear = Mathf.MoveTowards(_rear, 0f, dt * 4f);
+            _rearVel = 0f;
             // 途中でスティックを離したら、残りをゆっくり引き寄せて止まる
             if (!wantsMove && !_pullEased && _t < 0.7f)
             {
@@ -1114,6 +1225,7 @@ namespace Shakutori
         void UpdateReach(float dt, Vector3 desired, bool wantsMove, bool sprint)
         {
             _rear = Mathf.MoveTowards(_rear, 0f, dt * 4f);
+            _rearVel = 0f;
             // 伸びている途中でスティックを逆に倒したら、頭を引っこめてブレーキ
             if (wantsMove && !_settling && _t < 0.45f)
             {
@@ -1151,7 +1263,7 @@ namespace Shakutori
                 Stepped?.Invoke(_head.point, true);
                 MarkSafe();
                 _onLeaf = _stepKind == 3;
-                if (_stepKind == 1) _landBounce = Mathf.Max(_landBounce, 0.12f);   // キノコの上は、ぽよん
+                if (_stepKind == 1) Bump(0.3f);   // キノコの上は、ぽよん（やわらかくて、はね返る）
                 if (_braking)
                 {
                     _braking = false;
@@ -1259,7 +1371,7 @@ namespace Shakutori
             breathe -= 0.03f * _gripPulse;                                    // 尾をつけた瞬間にきゅっ
             breathe += 0.022f * Mathf.Sin(Mathf.PI * _settlePulse);           // 止まって、ふうっ
             // 落ちて着地したあとの、ぽよんと弾む動き（強く落ちたら、まず一瞬ぺたんこ）
-            if (_landBounce > 0f) breathe += _landBounce * _landBounce * 0.14f * Mathf.Abs(Mathf.Cos((1f - _landBounce) * 14f));
+            breathe += _bounceX;
             breathe -= 0.05f * _landSquash * _landSquash;
             if (_pending == PendingFall.LetGo) breathe -= 0.035f * Mathf.Clamp01((Time.time - _pendingStart) / 0.12f);   // 手をはなす前にちぢめる
             breathe -= Mathf.Min(0.02f, _platformVel.magnitude * 0.01f);      // 乗り物が速いと低くして踏んばる
@@ -1274,13 +1386,13 @@ namespace Shakutori
             else if (State == Mode.Pull)
             {
                 sway = _turnSign * 0.1f * Mathf.Sin(Mathf.PI * tNow);
-                sway += Vector3.Dot(Wind.At(tc), Zs) * 0.05f * Mathf.Sin(Mathf.PI * tNow);   // Ω のてっぺんが風でゆれる
+                sway += WindPush(tc, Zs) * 0.05f * Mathf.Sin(Mathf.PI * tNow);   // Ω のてっぺんが風でゆれる
             }
             else
             {
                 sway = Mathf.Sin(_swayPhase * 1.3f) * 0.04f * (1f - 0.5f * _relax);
                 // 風がふくと、体がゆれる
-                sway += Vector3.Dot(Wind.At(tc), Zs) * 0.05f * (0.6f + 0.4f * Mathf.Sin(_swayPhase * 2.7f)) * (1f - _twig);
+                sway += WindPush(tc, Zs) * 0.05f * (0.6f + 0.4f * Mathf.Sin(_swayPhase * 2.7f)) * (1f - _twig);
             }
             sway += Vector3.Dot(_platformLean, Zs) * 0.5f;                   // 動く足場の加速で、体が逆へかたむく
             if (wall || ceiling) sway += Vector3.Dot(Vector3.down, Zs) * 0.1f;   // 壁を横に這うと、体が下へたれる
@@ -1312,7 +1424,7 @@ namespace Shakutori
 
             if (_rear > 0.001f)
             {
-                float rise = Mathf.Clamp01(_rear);
+                float rise = Mathf.Clamp(_rear, 0f, 1.1f);
                 bool steering = Time.time - _lastLookInput < 1.5f || Time.time < _lookAtUntil;
                 if (_standRequested && !steering && cameraTransform != null)
                 {
@@ -1322,7 +1434,8 @@ namespace Shakutori
                 }
                 _standLook = Mathf.MoveTowards(_standLook, _standLookTarget, dt * 2.6f * Mathf.Lerp(0.6f, 1.3f, rise));   // 高く起こすほど、すばやく見まわせる
                 // 風が強いと、背伸びした体もゆれる
-                float swayAmp = (steering ? 0.1f : 0.45f) * (1f + 0.6f * Wind.Gust(Time.time));
+                // （風の力は高さに、てこの長さも高さに比例するので、ゆれは高さの 2 乗で大きくなる）
+                float swayAmp = (steering ? 0.1f : 0.45f) * (1f + 0.6f * Wind.Gust(Time.time) * rise * rise);
                 float swayAngle = _standLook + Mathf.Sin(_swayPhase * 1.7f) * swayAmp * rise;
                 float nod = 0.5f + 0.2f * Mathf.Sin(_swayPhase * 2.3f);
                 // くんくん（ときどき小さくうなずく）
@@ -1347,6 +1460,13 @@ namespace Shakutori
                 _pose.BuildRear(tc, X, _tail.normal, L, rise, -swayAngle, nod);
                 _target.Blend(_target, _pose, ShakuMath.Smooth01(rise));
             }
+        }
+
+        /// <summary>風が体を横へ押す力（風の圧力は風の速さの 2 乗。ふつうの風 0.9 で、速さそのものと同じになるように）。</summary>
+        static float WindPush(Vector3 p, Vector3 side)
+        {
+            Vector3 w = Wind.At(p);
+            return Vector3.Dot(w, side) * w.magnitude / 0.9f;
         }
 
         static float PlaneAngle(Vector3 v, Vector3 X, Vector3 U)
@@ -1407,7 +1527,7 @@ namespace Shakutori
             _anchorSurface = _head;
             _hangFacing = ShakuMath.ProjectOnPlaneSafe(hf, Vector3.up, Heading);
             _hangPos = hc + hf * 0.3f;
-            _hangVel = hf * (0.8f + 0.8f * _sprintBlend);   // はやくで糸を出すと、前へ大きく投げ出される
+            _hangVel = hf * (0.8f + 0.8f * _sprintBlend) + _platformVelNow;   // はやくで糸を出すと、前へ大きく投げ出される（動く足場からは、足場の速さも）
             _silkLen = Mathf.Max(0.3f, Vector3.Distance(_silkAnchor, _hangPos));
             _rear = 0f;
             _silkSpeed = 0f;
@@ -1423,6 +1543,7 @@ namespace Shakutori
         void UpdateHang(float dt, Vector3 desired, float mag, bool sprint)
         {
             _shotT = Mathf.Min(1f, _shotT + dt / Mathf.Max(0.05f, _shotDur));
+            float lenBefore = _silkLen;
             // 背伸びボタンで、糸を切って落ちる
             if (InputEnabled && _standPressed && _shotT >= 1f && _blendT >= 1f)
             {
@@ -1485,32 +1606,64 @@ namespace Shakutori
                 return;
             }
 
-            // 振り子
+            // 振り子：重さ・こぐ力・空気（風）・糸の張り（ばね）を、短い時間に分けて計算する
             Vector3 horiz = Vector3.ProjectOnPlane(desired, Vector3.up) * mag;
             // こぐ：ゆれている向きに合わせて押すと、よくゆれる
             Vector3 flatVel = Vector3.ProjectOnPlane(_hangVel, Vector3.up);
             float pump = 4f;
             if (horiz.sqrMagnitude > 1e-4f && flatVel.sqrMagnitude > 1e-4f) pump += 3f * Mathf.Max(0f, Vector3.Dot(horiz.normalized, flatVel.normalized));
-            // 重力・入力でこぐ力・風（糸が長いほど、風にゆられる）
-            float windK = 0.2f + Mathf.Min(_silkLen, 15f) * 0.03f;
-            _hangVel += (Physics.gravity * 0.6f + horiz * pump + Wind.At(_hangPos) * windK) * dt;
             _pumpInput = horiz;
-            // 糸が長いほどゆれが長くつづき、スティックを離すと早めにおさまる
-            float damp = Mathf.Lerp(1.4f, 0.7f, Mathf.Clamp01(_silkLen / 10f)) * (horiz.sqrMagnitude < 0.01f ? 1.3f : 1f);
-            _hangVel *= 1f - Mathf.Clamp01(damp * dt);
+            // 糸が長いほど、糸が風をうけて流される
+            float windK = 0.2f + Mathf.Min(_silkLen, 15f) * 0.03f;
+            Vector3 air = Wind.At(_hangPos, Time.time, _hangPos.y - Areas.Current.Height(_hangPos.x, _hangPos.z)) * windK;   // 高い所ほど風が強い
+            // 空気のてい抗（体と風の速さの差に）：糸が長いほどゆれが長くつづき、スティックを離すと早めにおさまる
+            float lin = Mathf.Lerp(1.15f, 0.55f, Mathf.Clamp01(_silkLen / 10f)) * (horiz.sqrMagnitude < 0.01f ? 1.3f : 1f);
+            const float quad = 0.12f;
+            Vector3 anchorVel = AnchorVelocity();
+            // ねらって出した糸は、とどくまでは体を引っぱらない
+            bool attached = !_reeling || _shotT >= 1f;
             Vector3 prev = _hangPos;
-            _hangPos += _hangVel * dt;
-            Vector3 off = _hangPos - _silkAnchor;
-            float len = off.magnitude;
-            if (len > _silkLen)
+            int steps = ShakuPhysics.Substeps(dt, out float h);
+            float lenStep = (_silkLen - lenBefore) / steps;
+            float rest = lenBefore;
+            _silkTension = 0f;
+            for (int i = 0; i < steps; i++)
             {
-                // 糸は少しだけのびて、びよんと引きもどす
-                Vector3 radial = off / len;
-                float maxLen = _silkLen * 1.04f + 0.02f;
-                if (len > maxLen) _hangPos = _silkAnchor + radial * maxLen;
-                float outV = Vector3.Dot(_hangVel, radial);
-                _hangVel -= radial * (Mathf.Max(0f, outV) * 0.7f + (len - _silkLen) * 40f * dt);
+                Vector3 off = _hangPos - _silkAnchor;
+                float len = off.magnitude;
+                Vector3 radial = len > 1e-4f ? off / len : Vector3.down;
+                float nextRest = rest + lenStep;
+                // 糸を短くすると、ゆれが速くなる（角運動量を保つ。ブランコをこぐのと同じ）。たぐっているときはのぞく
+                if (!_reeling && attached && len > rest * 0.97f) _hangVel = anchorVel + ShakuPhysics.ConserveSwing(_hangVel - anchorVel, radial, rest, nextRest);
+                rest = nextRest;
+                Vector3 acc = Vector3.down * HangGravity + horiz * pump;
+                if (attached)
+                {
+                    // 糸は、引っぱるときだけ力が出るばね（長い糸ほど、よくのびる）
+                    Vector3 f = ShakuPhysics.SilkForce(radial, len, Mathf.Max(0.05f, rest), _hangVel - anchorVel, SilkStiffness, SilkDamping);
+                    acc += f;
+                    _silkTension = Mathf.Max(_silkTension, f.magnitude);
+                }
+                _hangVel += acc * h;
+                _hangVel = ShakuPhysics.ApplyDrag(_hangVel, air, lin, quad, h);
+                _hangPos += _hangVel * h;
+                if (attached)
+                {
+                    // 安全のため：糸は 1 割よりはのびない
+                    off = _hangPos - _silkAnchor;
+                    len = off.magnitude;
+                    float maxLen = rest * 1.1f + 0.05f;
+                    if (len > maxLen)
+                    {
+                        radial = off / len;
+                        _hangPos = _silkAnchor + radial * maxLen;
+                        float outV = Vector3.Dot(_hangVel - anchorVel, radial);
+                        if (outV > 0f) _hangVel -= radial * outV;
+                    }
+                }
             }
+            _hangVel = ShakuPhysics.Sanitize(_hangVel, ShakuPhysics.SafetySpeed);
+            if (!ShakuPhysics.IsFinite(_hangPos)) _hangPos = prev;
             // 壁にぶつかったら止める
             Vector3 mv = _hangPos - prev;
             // ゆれている体は、地形だけでなく、いきものにもぶつかる
@@ -1530,16 +1683,21 @@ namespace Shakutori
                     Land(SurfacePoint.On(wall.point, SurfaceProbe.SmoothNormal(wall), wall.collider));
                     return;
                 }
+                var wm = ShakuPhysics.MaterialOf(wall.collider);
+                Vector3 wv = MovingPlatform.VelocityOf(wall.collider, wall.point);
                 if (wall.distance <= 1e-4f)
                 {
-                    // 壁にめりこんでいた：外へ押し出して、壁にそって動く
-                    _hangPos = prev + wall.normal * 0.02f + Vector3.ProjectOnPlane(mv, wall.normal);
-                    _hangVel = Vector3.ProjectOnPlane(_hangVel, wall.normal) * 0.7f;
+                    // 壁にめりこんでいた：めりこみの深さを計算して外へ押し出し、壁にそって動く
+                    Vector3 c = prev;
+                    if (ShakuPhysics.Depenetrate(ref c, 0.06f, SurfaceProbe.Mask)) _hangPos = c + Vector3.ProjectOnPlane(mv, wall.normal);
+                    else _hangPos = prev + wall.normal * 0.02f + Vector3.ProjectOnPlane(mv, wall.normal);
+                    _hangVel = ShakuPhysics.Bounce(_hangVel, wall.normal, wm, wv, out _);
                 }
                 else if (wall.normal.y < 0.5f)
                 {
+                    // 壁に当たると、材質に合わせてはね返る（キノコはよくはね、葉っぱはふわっと受けとめる）
                     _hangPos = prev + mv.normalized * Mathf.Max(0f, wall.distance - 0.01f) + Vector3.ProjectOnPlane(mv, wall.normal) * 0.5f;
-                    _hangVel = Vector3.ProjectOnPlane(_hangVel, wall.normal) * 0.5f;
+                    _hangVel = ShakuPhysics.Bounce(_hangVel, wall.normal, wm, wv, out _);
                 }
             }
             else _reelBlocked = 0f;
@@ -1566,6 +1724,20 @@ namespace Shakutori
                 _silkLen = Mathf.Max(0.3f, _silkLen - (sprint ? silkFastSpeed : silkDescendSpeed) * dt);
         }
 
+        /// <summary>ぶら下がっているときの重さ（ふりこがゆったりゆれるように、軽め。Physics.gravity の設定には左右されない）。</summary>
+        public const float HangGravity = ShakuPhysics.Gravity * 0.65f;
+        /// <summary>糸のかたさ（1 の長さあたり）と、のびるのをおさえる強さ。</summary>
+        public const float SilkStiffness = 450f;
+        public const float SilkDamping = 14f;
+
+        /// <summary>糸をつけた場所の速さ（動く舟・いきものにかけた糸）。</summary>
+        Vector3 AnchorVelocity()
+        {
+            if (_anchorSurface.platform == null) return Vector3.zero;
+            var mp = _anchorSurface.platform.GetComponent<MovingPlatform>();
+            return mp != null ? mp.VelocityAt(_silkAnchor) : Vector3.zero;
+        }
+
         void Land(SurfacePoint tail)
         {
             Vector3 point = tail.point;
@@ -1581,6 +1753,7 @@ namespace Shakutori
             State = Mode.Idle;
             _idleTime = 0f;
             _landBounce = Mathf.Max(_landBounce, 0.2f);   // 尾がついて、体が横たわるときに少し弾む
+            Bump(0.45f);
             MarkSafe();
             Landed?.Invoke();
         }
@@ -1595,6 +1768,7 @@ namespace Shakutori
             else _tail = new SurfacePoint(head.point + back * 0.3f, head.normal);
             State = Mode.Idle;
             _landBounce = 0.3f;   // たぐり終えて、ぽよん
+            Bump(0.55f);
             MarkSafe();
             Landed?.Invoke();
         }
@@ -1632,19 +1806,32 @@ namespace Shakutori
             {
                 silk.enabled = true;
                 _silkFade = 1f;
-                silk.positionCount = 3;
+                const int N = 9;
+                silk.positionCount = N;
                 // 発射した糸は、頭から狙った場所へのびていく
                 Vector3 a = _shotT < 1f ? Vector3.Lerp(_curve.Head, _silkAnchor, ShakuMath.Smooth01(_shotT)) : _silkAnchor;
                 Vector3 h = _curve.Head;
-                // 風が強いと、糸が少しふるえる
                 Vector3 d = h - a;
+                float dist = d.magnitude;
                 Vector3 side = Vector3.Cross(d, Vector3.up);
                 if (side.sqrMagnitude < 1e-4f) side = Vector3.Cross(d, Vector3.right);
                 side = side.sqrMagnitude > 1e-8f ? side.normalized : Vector3.right;
-                Vector3 mid = Vector3.Lerp(a, h, 0.5f) + side * (0.015f * Wind.Gust(Time.time) * Mathf.Sin(Time.time * 31f));
-                silk.SetPosition(0, a);
-                silk.SetPosition(1, mid);
-                silk.SetPosition(2, h);
+                // たるんでいる糸は、下へたわむ（同じ長さの糸の、放物線のたわみ）
+                float slack = _shotT < 1f ? 0f : Mathf.Max(0f, _silkLen - dist);
+                float sag = dist > 1e-3f ? Mathf.Min(0.6f, Mathf.Sqrt(3f * dist * slack / 8f)) : 0f;
+                Vector3 sagDir = dist > 1e-3f ? Vector3.ProjectOnPlane(Vector3.down, d / dist) : Vector3.down;
+                sagDir = sagDir.sqrMagnitude > 1e-6f ? sagDir.normalized : Vector3.zero;
+                // 張った糸は、風で細かく速くふるえ、ゆるい糸は大きくゆっくりゆれる
+                float tension01 = Mathf.Clamp01(_silkTension / 12f);
+                float freq = Mathf.Lerp(9f, 31f, tension01);
+                float amp = 0.015f * Wind.Gust(Time.time) * Mathf.Lerp(2.2f, 1f, tension01) * Mathf.Clamp01(dist / 2f);
+                for (int i = 0; i < N; i++)
+                {
+                    float u = i / (float)(N - 1);
+                    float bulge = 4f * u * (1f - u);
+                    Vector3 p = Vector3.Lerp(a, h, u) + sagDir * (sag * bulge) + side * (amp * bulge * Mathf.Sin(Time.time * freq + u * 2f));
+                    silk.SetPosition(i, p);
+                }
             }
             else if (_silkFade > 0f)
             {
@@ -1729,7 +1916,7 @@ namespace Shakutori
             var kind = _pending;
             _pending = PendingFall.None;
             if (State == Mode.Hang || State == Mode.Fall) return;
-            StartFall(_pendingVel, _pendingFrom);
+            StartFall(_pendingVel + _platformVelNow, _pendingFrom);   // 動く足場からは、足場の速さのまま落ちる
             // がけのふちから、体をのり出して落ちはじめる
             if (kind == PendingFall.WalkOff) _fallPos = _pendingEdge + _pendingDir * 0.25f + Vector3.up * 0.12f;
         }
@@ -1745,6 +1932,8 @@ namespace Shakutori
             _fallSpin = 0f;
             _uncurl = 0f;
             _rebounded = false;
+            _bounces = 0;
+            _spinL = _fallSpinRate;
             _pending = PendingFall.None;
             Vector3 h = Vector3.ProjectOnPlane(velocity.sqrMagnitude > 0.01f ? velocity : Heading, Vector3.up);
             if (h.sqrMagnitude < 1e-4f) h = Vector3.ProjectOnPlane(Heading, Vector3.up);
@@ -1764,16 +1953,7 @@ namespace Shakutori
             _fallTime += dt;
             if (_sinkTimer > 0f)
             {
-                // 水に落ちた：少し沈んでから、最後の安全な場所へ戻る
-                _sinkTimer += dt;
-                // 水面でぷかぷか浮いてから、しずむ
-                if (_sinkTimer < 0.45f) _fallPos += Vector3.up * (Mathf.Cos(_sinkTimer * 20f) * 0.25f * dt);
-                else _fallPos += Vector3.down * 0.4f * dt;
-                if (_sinkTimer > 1.0f)
-                {
-                    Spawn(_lastSafeTail, _lastSafeNormal, _lastSafeHead, _lastSafeNormal);
-                    _wetUntil = Time.time + 2.5f;   // ぬれて、しばらくぶるぶる
-                }
+                UpdateWater(dt);
                 return;
             }
             // 落ちながら Space で糸を出すと、はなれた場所にぶら下がれる
@@ -1782,21 +1962,17 @@ namespace Shakutori
                 CatchWithSilk();
                 return;
             }
-            // 重力・風・すこしだけ空中で向きを変えられる
-            _fallVel += Vector3.down * fallGravity * dt;
-            // 手をはなした直後は空中で向きを変えやすく、だんだんきかなくなる
-            _fallVel += Vector3.ProjectOnPlane(desired, Vector3.up) * mag * Mathf.Lerp(2f, 0.8f, Mathf.Clamp01(_fallTime / 0.6f)) * dt;
-            _fallVel += Wind.At(_fallPos) * 0.2f * dt;
             // 地面が近づくと体を開いて着地にそなえる（開くと空気をうけて、少しゆっくりに）
             float groundDist = SurfaceProbe.Raycast(_fallPos, Vector3.down, 1.6f, out var belowHit) ? belowHit.distance : 9f;
             // 水面が近づいても、体を広げて着水にそなえる
             float wlv = Areas.Current.WaterLevelAt(_fallPos.x, _fallPos.z);
             if (wlv > -100f) groundDist = Mathf.Min(groundDist, Mathf.Max(0f, _fallPos.y - wlv));
             _uncurl = Mathf.MoveTowards(_uncurl, groundDist < 1.6f ? 1f - groundDist / 1.6f : 0f, dt * 4f);
-            _fallVel *= 1f - Mathf.Clamp01(Mathf.Lerp(0.35f, 0.9f, _uncurl) * dt);
-            if (_fallVel.magnitude > fallTerminal) _fallVel = _fallVel.normalized * fallTerminal;
-            // 落ち方で回る速さが変わる。体を開くと、ゆっくりに
-            _fallSpin += dt * (_fallSpinRate + _fallVel.magnitude * 0.6f) * (1f - 0.6f * _uncurl);
+            // 回る勢い：落ちる風が体を回し、空気のてい抗でおさえられる。
+            // 回る速さは、丸まると速く、体を開くとゆっくり（角運動量を保つ。フィギュアスケートと同じ）
+            float spinWant = _fallSpinRate + _fallVel.magnitude * 0.6f;
+            _spinL = Mathf.Lerp(_spinL, spinWant, 1f - Mathf.Exp(-1.5f * dt));
+            _fallSpin += dt * FallSpinRate;
             // 回る軸は、ゆっくり首をふる
             _fallAxis = (Quaternion.AngleAxis(25f * dt, Vector3.up) * _fallAxis).normalized;
             // スティックで、体の向きも少し変えられる
@@ -1818,60 +1994,168 @@ namespace Shakutori
                     return;
                 }
             }
-            Vector3 move = _fallVel * dt;
-            const float radius = 0.16f;
-            // 物の中から落ちはじめたときは、まず外へ出る
-            if (_fallTime < 0.05f && Physics.CheckSphere(_fallPos, radius * 0.8f, SurfaceProbe.Mask, QueryTriggerInteraction.Ignore))
-                _fallPos += _fallFrom.normal * 0.06f + Vector3.up * 0.04f;
-            // ほとんど動けないまま落ちつづけていたら（すき間にはさまった）、安全な場所へ戻す
-            _fallStuck = move.magnitude < fallGravity * dt * dt * 0.5f ? _fallStuck + dt : 0f;
-            if (_fallStuck > 1.5f || _fallTime > 6f)
+            // 物の中から落ちはじめたときは、まず外へ出る（めりこみの深さを計算して）
+            if (_fallTime < 0.05f && Physics.CheckSphere(_fallPos, FallRadius * 0.8f, SurfaceProbe.Mask, QueryTriggerInteraction.Ignore))
             {
-                Spawn(_lastSafeTail, _lastSafeNormal, _lastSafeHead, _lastSafeNormal);
-                return;
+                Vector3 c = _fallPos;
+                if (!ShakuPhysics.Depenetrate(ref c, FallRadius * 0.8f, SurfaceProbe.Mask)) c += _fallFrom.normal * 0.06f + Vector3.up * 0.04f;
+                _fallPos = c;
             }
-            if (move.sqrMagnitude > 1e-8f && Physics.SphereCast(_fallPos, radius, move.normalized, out var hit, move.magnitude + 0.02f, SurfaceProbe.Mask, QueryTriggerInteraction.Ignore)
+
+            // 重さ・空気・空中での向き変えを、短い時間に分けて計算する（低いフレームレートでも同じ落ち方・すりぬけない）
+            // 空気のてい抗は体と風の速さの差にかかる：丸まっていると小さく、体を開くと大きい。開くと風にも流されやすい
+            Vector3 air = Wind.At(_fallPos, Time.time, groundDist) * Mathf.Lerp(0.25f, 0.45f, _uncurl);
+            float lin = Mathf.Lerp(FallLinearDrag, OpenLinearDrag, _uncurl);
+            float quad = Mathf.Lerp(FallQuadraticDrag, OpenQuadraticDrag, _uncurl);
+            // 手をはなした直後は空中で向きを変えやすく、だんだんきかなくなる
+            Vector3 control = Vector3.ProjectOnPlane(desired, Vector3.up) * mag * Mathf.Lerp(2f, 0.8f, Mathf.Clamp01(_fallTime / 0.6f));
+            Vector3 start = _fallPos;
+            int steps = ShakuPhysics.Substeps(dt, out float h);
+            for (int i = 0; i < steps; i++)
+            {
+                _fallVel += (Vector3.down * fallGravity + control) * h;
+                _fallVel = ShakuPhysics.ApplyDrag(_fallVel, air, lin, quad, h);
+                if (_fallVel.magnitude > fallTerminal) _fallVel = _fallVel.normalized * fallTerminal;   // 安全のため
+                if (!ShakuPhysics.IsFinite(_fallVel)) _fallVel = Vector3.zero;
+                if (FallMove(h)) return;
+            }
+            // ほとんど動けないまま落ちつづけていたら（すき間にはさまった）、安全な場所へ戻す
+            _fallStuck = (_fallPos - start).magnitude < fallGravity * dt * dt * 0.5f ? _fallStuck + dt : 0f;
+            if (_fallStuck > 1.5f || _fallTime > 6f) Spawn(_lastSafeTail, _lastSafeNormal, _lastSafeHead, _lastSafeNormal);
+        }
+
+        const float FallRadius = 0.16f;
+        /// <summary>丸まって落ちるときの空気のてい抗（1 次・2 次）。最高速度はおよそ 9。</summary>
+        public const float FallLinearDrag = 0.15f, FallQuadraticDrag = 0.09f;
+        /// <summary>体を開いたときの空気のてい抗。最高速度はおよそ 6.5。</summary>
+        public const float OpenLinearDrag = 0.35f, OpenQuadraticDrag = 0.16f;
+        /// <summary>これより速くはね返るときは、着地せずに弾む。</summary>
+        public const float BounceMinSpeed = 0.9f;
+
+        /// <summary>落ちている体を h 秒だけ動かす。当たったら、材質に合わせてはね返るか着地する（着地・着水したら true）。</summary>
+        bool FallMove(float h)
+        {
+            Vector3 move = _fallVel * h;
+            if (move.sqrMagnitude > 1e-10f && Physics.SphereCast(_fallPos, FallRadius, move.normalized, out var hit, move.magnitude + 0.02f, SurfaceProbe.Mask, QueryTriggerInteraction.Ignore)
                 && _fallTime > 0.06f && hit.distance > 1e-4f && Vector3.Dot(hit.normal, move) < 0f)
             {
                 Vector3 contact = hit.point;
                 Vector3 hn = SurfaceProbe.SmoothNormal(hit);
-                if (Areas.Current.IsUnderwater(contact)) { Splash(); return; }
-                // 高い所から落ちると、一度小さく弾んでから着地する
-                float impact = _fallVel.magnitude;
-                if (impact > 6.5f && !_rebounded && hn.y > 0.5f)
+                if (Areas.Current.IsUnderwater(contact))
                 {
+                    Splash();
+                    return true;
+                }
+                var mat = ShakuPhysics.MaterialOf(hit.collider);
+                Vector3 surfVel = MovingPlatform.VelocityOf(hit.collider, contact);
+                Vector3 after = ShakuPhysics.Bounce(_fallVel, hn, mat, surfVel, out float vn);
+                float rebound = Vector3.Dot(after - surfVel, hn);
+                _fallPos += move.normalized * Mathf.Max(0f, hit.distance - 0.01f);
+                // こするように当たると、まさつで回る勢いがつく（体の半径でわる）
+                Vector3 vtIn = Vector3.ProjectOnPlane(_fallVel - surfVel, hn), vtOut = Vector3.ProjectOnPlane(after - surfVel, hn);
+                float curlR = L / Mathf.Max(1f, CurlTotal());
+                _spinL = Mathf.Min(_spinL + (vtIn - vtOut).magnitude / curlR * 0.5f, 25f);
+                if (hn.y > 0.5f && rebound > BounceMinSpeed && _bounces < 5)
+                {
+                    // 弾むほどの勢いがあれば、はね返る（キノコの上では、ぽよんぽよんと何度も）
+                    _bounces++;
+                    RecordImpact(vn, mat);
+                    _fallPos += hn * 0.04f;
+                    _fallVel = after;
                     _rebounded = true;
-                    _fallPos += move.normalized * Mathf.Max(0f, hit.distance - 0.01f) + hn * 0.04f;
-                    _fallVel = hn * (impact * 0.22f) + Vector3.ProjectOnPlane(_fallVel, hn) * 0.4f;
-                    _landSquash = 0.6f;
-                    return;
+                    _landSquash = Mathf.Max(_landSquash, Mathf.Clamp01(vn / 6f) * (1f - 0.5f * mat.softness) + 0.2f);
+                    Bounced?.Invoke(rebound);
+                    return false;
                 }
                 if (hn.y > -0.2f)
                 {
-                    LandFromFall(SurfacePoint.On(contact, hn, hit.collider));
-                    return;
+                    LandFromFall(SurfacePoint.On(contact, hn, hit.collider), vn, mat, surfVel);
+                    return true;
                 }
-                // 裏側に当たったら、はね返って落ちつづける
-                _fallPos += move.normalized * Mathf.Max(0f, hit.distance - 0.01f);
-                // ぶつかる角度で、はね返り方が変わる（まっすぐ当たるほど、よくはねる）
-                _fallVel = Vector3.Reflect(_fallVel, hn) * (0.15f + 0.3f * Mathf.Abs(Vector3.Dot(_fallVel.normalized, hn)));
-                return;
+                // 裏側に当たったら、材質に合わせてはね返って落ちつづける
+                _fallVel = after;
+                return false;
             }
             _fallPos += move;
-            if (Areas.Current.IsUnderwater(_fallPos)) Splash();
+            if (Areas.Current.IsUnderwater(_fallPos))
+            {
+                Splash();
+                return true;
+            }
+            return false;
+        }
+
+        void RecordImpact(float normalSpeed, ShakuPhysics.Material m)
+        {
+            LastImpactSpeed = normalSpeed;
+            LastImpact = ShakuPhysics.ImpactStrength(normalSpeed, m);
+            LastImpactMaterial = m.name;
+        }
+
+        /// <summary>丸まり具合（体が一周の何ラジアン分まがっているか）。</summary>
+        float CurlTotal()
+        {
+            float curlIn = Mathf.Lerp(1.6f, 4.3f, Mathf.Clamp01(_fallTime / 0.2f));
+            return Mathf.Lerp(curlIn, 2.0f, _uncurl * _uncurl);
+        }
+
+        /// <summary>角運動量が同じとき、丸まり具合で回る速さが何倍になるか（慣性モーメントは半径の 2 乗）。</summary>
+        static float SpinFactor(float total)
+        {
+            float k = Mathf.Max(0.5f, total) / 4.3f;
+            return k * k;
         }
 
         void Splash()
         {
             _sinkTimer = 0.0001f;
+            _waterLevel = Areas.Current.WaterLevelAt(_fallPos.x, _fallPos.z);
+            if (_waterLevel < -100f) _waterLevel = _fallPos.y;
+            _waterVel = _fallVel;
+            LastImpactSpeed = Mathf.Max(0f, -_fallVel.y);
+            LastImpact = Mathf.Clamp01(LastImpactSpeed * LastImpactSpeed / 64f);
+            LastImpactMaterial = "water";
             _fallVel = Vector3.zero;
             Splashed?.Invoke();
         }
 
+        /// <summary>水に落ちた：勢いよく落ちるほど深くもぐってから、浮力で浮かんでぷかぷか。しばらくすると水をすってしずむ。</summary>
+        void UpdateWater(float dt)
+        {
+            _sinkTimer += dt;
+            float soak = Mathf.Clamp01((_sinkTimer - 0.6f) / 0.3f);
+            int steps = ShakuPhysics.Substeps(dt, out float h);
+            for (int i = 0; i < steps; i++)
+            {
+                float depth = _waterLevel - _fallPos.y;
+                Vector3 acc = Vector3.down * fallGravity;
+                // 浮力：しずんだ深さに合わせて大きくなる（体が半分しずんだ所でつりあう）
+                if (depth > 0f) acc += Vector3.up * ((fallGravity + Mathf.Min(depth - 0.03f, 0.6f) * 60f) * (1f - 0.75f * soak));
+                _waterVel += acc * h;
+                // 水のてい抗は、空気よりずっと大きい
+                _waterVel = ShakuPhysics.ApplyDrag(_waterVel, Vector3.zero, depth > 0f ? 6f : 0.3f, depth > 0f ? 2f : 0.1f, h);
+                _fallPos += _waterVel * h;
+            }
+            _fallPos.y = Mathf.Max(_fallPos.y, _waterLevel - 1.2f);
+            if (_sinkTimer > 1.1f)
+            {
+                Spawn(_lastSafeTail, _lastSafeNormal, _lastSafeHead, _lastSafeNormal);
+                _wetUntil = Time.time + 2.5f;   // ぬれて、しばらくぶるぶる
+            }
+        }
+
         void LandFromFall(SurfacePoint tail)
         {
-            float speed = _fallVel.magnitude;
-            Vector3 f = Vector3.ProjectOnPlane(_fallVel, tail.normal);
+            float vn = Mathf.Max(0f, -Vector3.Dot(_fallVel, tail.normal));
+            LandFromFall(tail, vn, ShakuPhysics.Ground, Vector3.zero);
+        }
+
+        void LandFromFall(SurfacePoint tail, float normalSpeed, ShakuPhysics.Material mat, Vector3 surfVel)
+        {
+            Vector3 rel = _fallVel - surfVel;   // 動く足場の上では、足場から見た速さ
+            float speed = normalSpeed;           // 着地の強さは、面に垂直な速さで決まる（ななめにかすめるのは弱い）
+            RecordImpact(speed, mat);
+            Vector3 f = Vector3.ProjectOnPlane(rel, tail.normal);
             if (f.sqrMagnitude < 0.01f) f = _hangFacing;
             // 坂に落ちたら、下り向きに体をそろえる
             if (tail.normal.y < 0.85f)
@@ -1880,16 +2164,20 @@ namespace Shakutori
                 if (downhill.sqrMagnitude > 1e-4f) f = Vector3.Slerp(f.normalized, downhill.normalized, 0.5f);
             }
             _hangFacing = f.normalized;
-            Vector3 hv = Vector3.ProjectOnPlane(_fallVel, tail.normal);
+            Vector3 hv = Vector3.ProjectOnPlane(rel, tail.normal);
             Land(tail);
             BeginTransition(0.28f);
-            // 横向きの勢いで着地すると、少しすべってから止まる。急な坂では少しずり落ちる
+            // 横向きの勢いは、まさつで止まるまですべる（v² / 2μg）
             Vector3 slide = Vector3.zero;
-            if (hv.magnitude > 1.2f) slide = hv.normalized * Mathf.Min(0.35f, hv.magnitude * 0.08f);
-            if (tail.normal.y < 0.75f)
+            float hs = hv.magnitude;
+            if (hs > 0.6f) slide = hv / hs * Mathf.Min(0.45f, ShakuPhysics.SlideDistance(hs, mat.friction));
+            // まさつで止まれないほど急な坂（tanθ > μ）では、ずり落ちる
+            float ny = tail.normal.y;
+            if (ny > 0.05f && ny < 0.97f)
             {
+                float tanSlope = Mathf.Sqrt(Mathf.Max(0f, 1f - ny * ny)) / ny;
                 Vector3 downhill = Vector3.ProjectOnPlane(Vector3.down, tail.normal);
-                if (downhill.sqrMagnitude > 1e-4f) slide += downhill.normalized * ((0.75f - tail.normal.y) * 0.6f);
+                if (tanSlope > mat.friction && downhill.sqrMagnitude > 1e-4f) slide += downhill.normalized * Mathf.Min(0.4f, (tanSlope - mat.friction) * 0.5f);
             }
             if (slide.sqrMagnitude > 1e-4f && SurfaceProbe.Walk(_tail, slide.normalized, slide.magnitude, out var t2, out _)
                 && SurfaceProbe.Walk(_head, slide.normalized, slide.magnitude, out var h2, out _))
@@ -1897,12 +2185,15 @@ namespace Shakutori
                 _tail = t2;
                 _head = h2;
             }
+            // 弾み・ぺたんこ：よくはね返る面ほど弾み、やわらかい面ほど衝撃をすいこんでつぶれにくい
             _landBounce = Mathf.Clamp01(0.35f + speed * 0.12f);
-            _landSquash = Mathf.Clamp01(speed / 6f);   // 強く落ちるほど、一瞬ぺたんこ
-            _squashRate = Mathf.Lerp(6f, 2.5f, Mathf.Clamp01(speed / 9f));   // 強く落ちるほど、ぺたんこの時間が長い
-            _shakeUntil = Time.time + 0.5f;                                 // 体をぶるっとふって
-            Survey(0.6f);                                                   // まわりを見わたす
-            _dazeUntil = Time.time + Mathf.Lerp(0.15f, 0.6f, Mathf.Clamp01(speed / 7f));   // 強く落ちると少しだけ目をまわす
+            Bump(Mathf.Clamp01((0.3f + speed * 0.1f) * (0.75f + 0.6f * mat.restitution)));
+            _landSquash = Mathf.Clamp01(speed / 6f) * (1f - 0.5f * mat.softness);   // 強く落ちるほど、一瞬ぺたんこ
+            _squashRate = Mathf.Lerp(6f, 2.5f, Mathf.Clamp01(speed / 9f));           // 強く落ちるほど、ぺたんこの時間が長い
+            _softKick = -tail.normal * Mathf.Min(1.5f, speed * 0.15f);               // やわらかい体が、おくれてぷるん
+            _shakeUntil = Time.time + 0.5f;                                          // 体をぶるっとふって
+            Survey(0.6f);                                                            // まわりを見わたす
+            _dazeUntil = Time.time + Mathf.Lerp(0.15f, 0.6f, Mathf.Clamp01(LastImpact * 1.3f));   // 強く落ちると少しだけ目をまわす
             HitGround?.Invoke(speed);
         }
 
@@ -1911,8 +2202,9 @@ namespace Shakutori
             _silkAnchor = _fallFrom.point;
             _anchorSurface = _fallFrom;
             _hangPos = _fallPos;
-            _hangVel = _fallVel * 0.5f;
-            _silkLen = Mathf.Max(0.3f, Vector3.Distance(_silkAnchor, _hangPos)) + 0.15f;   // 少しすべり落ちてから止まる
+            // 糸がのびて、落ちる勢いをうけとめる（糸を出すところでも少しすべって、勢いをへらす）
+            _hangVel = _fallVel * 0.8f;
+            _silkLen = Mathf.Max(0.3f, Vector3.Distance(_silkAnchor, _hangPos)) + 0.1f;
             _silkSpeed = 0f;
             _hangStart = Time.time;
             _shotDur = 0.18f;
@@ -1928,8 +2220,7 @@ namespace Shakutori
         void BuildFallTarget()
         {
             // 落ちはじめは体がのびていて、すぐにくるんと丸まる。回りながら落ちて、地面が近づくと体を開く
-            float curlIn = Mathf.Lerp(1.6f, 4.3f, Mathf.Clamp01(_fallTime / 0.2f));
-            _target.BuildCurl(_fallPos, _fallAxis, _hangFacing, L, Mathf.Lerp(curlIn, 2.0f, _uncurl * _uncurl), _fallSpin);
+            _target.BuildCurl(_fallPos, _fallAxis, _hangFacing, L, CurlTotal(), _fallSpin);
         }
 
         // ------------------------------------------------------------------
@@ -2029,7 +2320,7 @@ namespace Shakutori
             _hangPos = start;
             Vector3 to = hit.point - start;
             _hangFacing = ShakuMath.ProjectOnPlaneSafe(to, Vector3.up, Heading).normalized;
-            _hangVel = to.normalized * 2.2f + Vector3.up * 1.2f;
+            _hangVel = to.normalized * 2.2f + Vector3.up * 1.2f + (State == Mode.Hang ? Vector3.zero : _platformVelNow);
             _silkLen = Mathf.Max(0.3f, to.magnitude);
             _silkSpeed = 0f;
             _hangStart = Time.time;
@@ -2098,7 +2389,7 @@ namespace Shakutori
             Vector3 m = _curve.Middle;
             if (m.y - Areas.Current.Height(m.x, m.z) < 0.35f) return;   // 地面のすぐ上なら落ちない
             _fallSpinRate = 4f;
-            StartFall(Vector3.zero, _tail);
+            StartFall(_platformVelNow, _tail);
         }
 
         static bool Holds(SurfacePoint sp) => SurfaceProbe.Raycast(sp.point + sp.normal * 0.12f, -sp.normal, 0.32f, out _);
@@ -2178,10 +2469,17 @@ namespace Shakutori
         {
             Transform pf = _tail.platform != null ? _tail.platform : _head.platform;
             Vector3 v = Vector3.zero;
-            if (pf != null && pf == _platformRef) v = (pf.position - _platformPrev) / dt;
-            v = Vector3.ClampMagnitude(v, 20f);
+            Matrix4x4 now = pf != null ? pf.localToWorldMatrix : Matrix4x4.identity;
+            if (pf != null && pf == _platformRef)
+            {
+                // 足場の上の、体の真ん中の点の速さ（足場が回れば、中心からはなれた所ほど速い）
+                Vector3 local = now.inverse.MultiplyPoint3x4((_tail.point + _head.point) * 0.5f);
+                v = ShakuPhysics.PointVelocity(_platformPrevM, now, local, dt);
+            }
+            v = ShakuPhysics.Sanitize(v, ShakuPhysics.SafetySpeed);
+            _platformVelNow = v;
             _platformRef = pf;
-            _platformPrev = pf != null ? pf.position : Vector3.zero;
+            _platformPrevM = now;
             Vector3 acc = (v - _platformVel) / dt;
             _platformVel = Vector3.Lerp(_platformVel, v, ShakuMath.DampFactor(8f, dt));
             Vector3 lean = Vector3.ClampMagnitude(-acc * 0.02f, 0.6f);
@@ -2316,10 +2614,10 @@ namespace Shakutori
         static int SurfaceKindAt(SurfacePoint sp)
         {
             if (!SurfaceProbe.Raycast(sp.point + sp.normal * 0.1f, -sp.normal, 0.3f, out var hit)) return 0;
-            string n = hit.collider.name;
-            if (n.Contains("Mushroom")) return 1;
-            if (n.Contains("Rock") || n.Contains("Stone")) return 2;
-            if (n.Contains("Leaf") || n.Contains("Lily")) return 3;
+            var m = ShakuPhysics.MaterialOf(hit.collider);
+            if (m.name == ShakuPhysics.Mushroom.name) return 1;
+            if (m.name == ShakuPhysics.Stone.name) return 2;
+            if (m.name == ShakuPhysics.Leaf.name) return 3;
             return 0;
         }
 

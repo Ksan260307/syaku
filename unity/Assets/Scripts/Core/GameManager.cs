@@ -87,6 +87,9 @@ namespace Shakutori
             {
                 AudioManager.Instance?.Step(head, SurfaceAt(p), worm.StepLoudness);
                 if (head) SaveSystem.Data.steps++;
+                // 一歩ごとの小さな力：乗っている舟がゆれ、近くのしずくがふるえる
+                PlatformFerry()?.Push(p, 0.25f * worm.StepLoudness);
+                collectibles.Impulse(p, 0.6f * worm.StepLoudness);
             };
             ui.CreatureSource = creatures;
             ui.PhotoRequested += TogglePhoto;
@@ -97,6 +100,7 @@ namespace Shakutori
             };
             worm.Fell += () => AudioManager.Instance?.Fall();
             worm.HitGround += OnHitGround;
+            worm.Bounced += OnBounced;
             worm.Splashed += OnSplash;
             worm.Landed += () => AudioManager.Instance?.Land();
             collectibles.DropCollected += OnDrop;
@@ -460,11 +464,21 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // 落下・きろく・救済
         // ------------------------------------------------------------------
+        /// <summary>しゃくとりむしが乗っている渡し舟（乗っていなければ null）。</summary>
+        RiverFerry PlatformFerry()
+        {
+            var pf = worm != null ? worm.PlatformUnder : null;
+            return pf != null ? pf.GetComponent<RiverFerry>() : null;
+        }
+
         void OnHitGround(float speed)
         {
             SaveSystem.Data.falls++;
-            float k = Mathf.Clamp01(speed / 8f);
-            AudioManager.Instance?.Thud(k);
+            // 衝撃の強さはエネルギー（速さの 2 乗）と、落ちた所のやわらかさで決まる
+            float k = worm.LastImpact;
+            PlatformFerry()?.Push(worm.CenterPosition, 0.5f + 2f * k);
+            collectibles.Impulse(worm.CenterPosition, 1f + 4f * k);
+            AudioManager.Instance?.Thud(0.15f + 0.85f * k);
             fx.Burst(worm.CenterPosition, 6 + Mathf.RoundToInt(18f * k));
             if (creatures != null) creatures.Disturb(worm.CenterPosition, 2f + 5f * k);   // 落ちた音に、近くのいきものがおどろく
             followCamera.Shake(0.25f + 0.6f * k);
@@ -555,11 +569,23 @@ namespace Shakutori
 
         readonly System.Collections.Generic.List<Vector3> _tipNear = new System.Collections.Generic.List<Vector3>();
 
+        /// <summary>落ちて、キノコなどの上ではね返った。</summary>
+        void OnBounced(float rebound)
+        {
+            float k = worm.LastImpact;
+            AudioManager.Instance?.Thud(0.3f + 0.5f * k);
+            fx.Burst(worm.CenterPosition, 4 + Mathf.RoundToInt(10f * k));
+            if (creatures != null) creatures.Disturb(worm.CenterPosition, 1.5f + 3f * k);
+            followCamera.Shake(0.15f + 0.35f * k);
+        }
+
         void OnSplash()
         {
             AudioManager.Instance?.Splash();
-            fx.Burst(worm.CenterPosition, 40);
-            if (creatures != null) creatures.Disturb(worm.CenterPosition, 5f);
+            // 勢いよく落ちるほど、大きな水しぶき
+            float k = worm.LastImpact;
+            fx.Burst(worm.CenterPosition, 24 + Mathf.RoundToInt(32f * k));
+            if (creatures != null) creatures.Disturb(worm.CenterPosition, 3f + 4f * k);
             ui.Toast("ぽちゃん！ 水に落ちてしまった…", "icon-drop");
         }
 
