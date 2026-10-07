@@ -16,6 +16,29 @@ namespace Shakutori
         public event Action<LandmarkDef> LandmarkDiscovered;
 
         public AreaLayout Area { get; private set; } = Areas.Forest;
+        /// <summary>いまのエリアのしずく（しゃくとりむしが、近くのしずくへ頭を向けるため）。</summary>
+        public static Collectibles Instance { get; private set; }
+
+        void OnEnable() => Instance = this;
+
+        /// <summary>p にいちばん近い、まだ取っていないしずく。</summary>
+        public bool NearestDrop(Vector3 p, float radius, out Vector3 pos)
+        {
+            pos = default;
+            float best = radius * radius;
+            bool found = false;
+            foreach (var d in RemainingDrops())
+            {
+                float d2 = (d - p).sqrMagnitude;
+                if (d2 < best)
+                {
+                    best = d2;
+                    pos = d;
+                    found = true;
+                }
+            }
+            return found;
+        }
         public int TotalDrops => _drops.Count;
         public int CollectedDrops { get; private set; }
         public int TotalPlaces => Area.Landmarks.Count;

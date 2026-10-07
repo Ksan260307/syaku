@@ -1977,7 +1977,7 @@ namespace Shakutori
                 else if (_worm.IsFalling)
                     SetPrompt(KeyName("silk"), "糸を出してつかまる");
                 else if (_worm.State == InchwormController.Mode.Hang)
-                    SetPrompt(KeyName("silk"), "長押しで糸をのぼる　／　" + KeyName("sprint") + " ではやくおりる");
+                    SetPrompt(KeyName("silk"), "長押しで糸をのぼる　／　" + KeyName("sprint") + " ではやく　／　" + KeyName("stand") + " で糸を切る");
                 else if (_worm.IsAiming)
                     SetPrompt("", "");
                 else if (_worm.OnSteepSurface && !_worm.CanDropSilk)

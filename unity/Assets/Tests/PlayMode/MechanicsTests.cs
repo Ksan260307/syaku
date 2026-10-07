@@ -202,10 +202,17 @@ namespace Shakutori.Tests
         public IEnumerator Ants_MoveTheirLegs()
         {
             float g0 = GM.creatures.Info("ant", 0).gait;
-            yield return Seconds(1.0f);
+            float maxSpeed = 0f;
+            float t = 0f;
+            while (t < 1f)
+            {
+                yield return null;
+                t += Time.deltaTime;
+                maxSpeed = Mathf.Max(maxSpeed, GM.creatures.Info("ant", 0).moveSpeed);   // 食べものの所などで少し止まることもある
+            }
             float g1 = GM.creatures.Info("ant", 0).gait;
             Assert.Greater(g1 - g0, 3f, "歩くと脚の位相が進む");
-            Assert.Greater(GM.creatures.Info("ant", 0).moveSpeed, 0.2f);
+            Assert.Greater(maxSpeed, 0.2f);
         }
 
         [UnityTest]

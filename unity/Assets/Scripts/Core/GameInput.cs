@@ -40,6 +40,8 @@ namespace Shakutori
         // 画面上のボタン・スティック（UI から設定）
         public static Vector2 VirtualMove;
         public static bool VirtualSprint;
+        /// <summary>「はやく」の強さ（0〜1）。キーやボタンは 1、ゲームパッドのトリガーは押しぐあい。</summary>
+        public static float SprintAmount { get; private set; }
         public static bool VirtualStand;
         static bool _virtualSilkPressed;
         static bool _virtualSilkHeld;
@@ -157,6 +159,10 @@ namespace Shakutori
             if (move.sqrMagnitude > 1f) move.Normalize();
             Move = move;
             Sprint = sprint || VirtualSprint;
+            // 「はやく」の強さ（ゲームパッドのトリガーは押しぐあいで 0〜1）
+            float amt = sprint || VirtualSprint ? 1f : 0f;
+            if (pad != null) amt = Mathf.Max(amt, pad.rightTrigger.ReadValue());
+            SprintAmount = amt;
             SilkPressed = silkP || _virtualSilkPressed;
             SilkHeld = silkH || _virtualSilkHeld;
             StandHeld = stand || VirtualStand;

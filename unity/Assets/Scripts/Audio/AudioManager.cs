@@ -120,10 +120,13 @@ namespace Shakutori
         }
 
         /// <summary>足音。木は低くこもり、石は高く硬く、葉っぱは軽く、いきものの上はやわらかく。</summary>
-        public void Step(bool head, Surface surface)
+        public void Step(bool head, Surface surface) => Step(head, surface, 1f);
+
+        /// <summary>loudness：はやくで大きく、ゆっくり・いきものの近くでは小さく。</summary>
+        public void Step(bool head, Surface surface, float loudness)
         {
             if (steps == null || steps.Length == 0) return;
-            float vol = head ? 0.35f : 0.25f;
+            float vol = (head ? 0.35f : 0.25f) * Mathf.Clamp(loudness, 0.3f, 1.6f);
             float pitch = Random.Range(0.9f, 1.15f) * (head ? 1.08f : 0.95f);
             switch (surface)
             {

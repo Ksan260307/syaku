@@ -85,7 +85,7 @@ namespace Shakutori
 
             worm.Stepped += (p, head) =>
             {
-                AudioManager.Instance?.Step(head, SurfaceAt(p));
+                AudioManager.Instance?.Step(head, SurfaceAt(p), worm.StepLoudness);
                 if (head) SaveSystem.Data.steps++;
             };
             ui.CreatureSource = creatures;
@@ -361,6 +361,7 @@ namespace Shakutori
             if (creatures != null) creatures.Active = true;
             ui.ShowAreaBanner(to);
             AudioManager.Instance?.Discover();
+            worm.Survey(1f);   // 新しいエリアに着いたら、まわりを見わたす
             AnnounceRare();
             CheckProgress();
         }
@@ -638,7 +639,7 @@ namespace Shakutori
             _lastDropTime = Time.time;
             AudioManager.Instance?.Collect(count + _combo - 1);
             fx.Burst(pos);
-            worm.Cheer();
+            worm.Cheer(_combo >= 3 ? 1.4f : 1f);   // 続けて取ると、もっと大きくよろこぶ
             string text = $"{collectibles.Area.DropName}  {count} / {collectibles.TotalDrops}";
             if (_combo >= 3) text += $"　れんぞく ×{_combo}！";
             ui.Toast(text);
@@ -658,6 +659,7 @@ namespace Shakutori
             AudioManager.Instance?.Discover();
             ui.ShowBanner(lm);
             fx.Burst(worm.HeadPosition + Vector3.up * 0.4f, 50);
+            worm.Survey(0.3f);   // 名所を見つけると、背伸びして見わたす
             if (collectibles.DiscoveredPlaces == collectibles.TotalPlaces)
                 ui.Toast($"{collectibles.Area.DisplayName}の名所を、ぜんぶ見つけた！", "icon-place", 4f);
             CheckProgress();
@@ -669,6 +671,8 @@ namespace Shakutori
             else AudioManager.Instance?.Creature();
             if (SaveSystem.Settings.vibration) ShakuVibrate(sp.IsRare ? 120 : 30);
             if (sp.IsRare) Rumble(0.5f, 0.3f);
+            worm.Admire();
+            if (sp.IsRare) worm.Cheer(1.6f);   // めずらしいいきものには、とても大きくよろこぶ
             ui.ShowCreature(sp);
             // 図鑑がうまった（レアはべつ）
             var tips = SaveSystem.Data.tipsShown;

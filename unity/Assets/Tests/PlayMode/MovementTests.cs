@@ -162,6 +162,7 @@ namespace Shakutori.Tests
         [UnityTest]
         public IEnumerator Spawn_WakesUpWithAStretch()
         {
+            yield return Seconds(1.5f);   // はじまりの名所を見つけて見わたすのが終わってから
             Place(ForestLayout.Spawn, Vector3.forward);
             float max = 0f;
             float t = 0f;
