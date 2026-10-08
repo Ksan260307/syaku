@@ -18,6 +18,7 @@ Shader "Shakutori/ToonRiver"
         _StreakColor ("Streak Color", Color) = (0.72, 0.9, 0.9, 1)
         _FlowSpeed ("Flow Speed", Float) = 0.55
         _StreakScale ("Streak Scale", Float) = 6
+        _StreakStrength ("Streak Strength", Float) = 1
         _RippleStrength ("Ripple Strength", Float) = 0.6
         _Refraction ("Refraction", Float) = 0.025
         _SpecStrength ("Specular", Float) = 1.6
@@ -58,6 +59,7 @@ Shader "Shakutori/ToonRiver"
                 half4 _StreakColor;
                 half _FlowSpeed;
                 half _StreakScale;
+                half _StreakStrength;
                 half _RippleStrength;
                 half _Refraction;
                 half _SpecStrength;
@@ -173,7 +175,7 @@ Shader "Shakutori/ToonRiver"
 
                 // ---- 流れにそった細い筋 ----
                 half streak = Streak(uv0) * w0 + Streak(uv1) * w1;
-                col = lerp(col, _StreakColor.rgb * lightK, streak * (0.12h + 0.2h * i.color.r));
+                col = lerp(col, _StreakColor.rgb * lightK, streak * (0.12h + 0.2h * i.color.r) * _StreakStrength);
 
                 // ---- 白い泡：岸ぎわ・石のまわり（とても浅い所）と、滝の下 ----
                 half edge = 1.0h - saturate(depth / _FoamDepth);

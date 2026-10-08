@@ -10,6 +10,8 @@ namespace Shakutori
         public string targetArea;
         public string label;        // 「川辺へ」など
         public float radius = 1.7f;
+        /// <summary>このトンネルから出てきたときに見せる景色（なければ、エリアのまん中を向く）。</summary>
+        public ArrivalView arrival;
     }
 
     /// <summary>
@@ -51,6 +53,13 @@ namespace Shakutori
         /// <summary>別のエリアから来たときに出てくる場所（そのエリアへのトンネルの手前）。</summary>
         public bool ArrivalFrom(string fromArea, out Vector2 point, out Vector3 forward)
         {
+            var v = ArrivalViewFrom(fromArea);
+            if (v != null)
+            {
+                point = v.from;
+                forward = v.Forward;
+                return true;
+            }
             foreach (var g in Gates)
             {
                 if (g.targetArea != fromArea) continue;
@@ -64,6 +73,14 @@ namespace Shakutori
             return false;
         }
 
+        /// <summary>別のエリアから来たときに見せる景色（なければ null）。</summary>
+        public ArrivalView ArrivalViewFrom(string fromArea)
+        {
+            foreach (var g in Gates)
+                if (g.targetArea == fromArea) return g.arrival;
+            return null;
+        }
+
         public LandmarkDef EntryLandmark => Landmarks.Count > 0 ? Landmarks[0] : null;
     }
 
@@ -71,7 +88,8 @@ namespace Shakutori
     {
         readonly List<GateDef> _gates = new List<GateDef>
         {
-            new GateDef { position = ForestLayout.Gate, targetArea = "river", label = "川辺へ" },
+            new GateDef { position = ForestLayout.Gate, targetArea = "river", label = "川辺へ",
+                arrival = new ArrivalView(ForestLayout.Gate + new Vector2(-7f, 0.5f), new Vector3(0f, 26f, 76f), 2f, 4.4f) },   // 森に入ると、大樹が見える
         };
 
         public override string Id => "forest";
@@ -101,7 +119,8 @@ namespace Shakutori
     {
         readonly List<GateDef> _gates = new List<GateDef>
         {
-            new GateDef { position = RiverLayout.Gate, targetArea = "forest", label = "森へ" },
+            new GateDef { position = RiverLayout.Gate, targetArea = "forest", label = "森へ",
+                arrival = new ArrivalView(RiverLayout.Gate + new Vector2(12f, 2f), new Vector3(RiverLayout.CenterX(-2f), RiverLayout.LowerStart + 0.5f, -2f), 6f, 4.4f, clear: 34f) },   // 川辺に出ると、小道の先に川が見える
         };
 
         public override string Id => "river";

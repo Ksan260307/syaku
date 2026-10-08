@@ -206,18 +206,18 @@ namespace Shakutori
                     hint = "花の草原の、草がたくさん生えているところ。" },
                 // ---- レア ----
                 new SpeciesDef { id = "ant_helmet", name = "ヘルメットアリ", areaLabel = "？？？（とてもめずらしい）", kind = MobKind.Marcher, body = "Ant", speed = 0.9f, discoverRadius = 2.8f,
-                    climbs = true, rig = "Ant", stride = 0.11f, legSwing = 26f, legLift = 18f, rareOf = "ant", rareChance = 0.005f,
+                    climbs = true, rig = "Ant", stride = 0.11f, legSwing = 26f, legLift = 18f, rareOf = "ant", rareChance = 0.05f,
                     parts = new[]
                     {
                         new PartMount { mesh = "Ant_Helmet", pair = false, fixedPart = true },
                         new PartMount { mesh = "Crumb", offset = new Vector3(0f, 0.105f, -0.19f), pair = false, onlyCarrying = true },
                     },
                     description = "工事現場のヘルメットをかぶった、めったに会えないアリ。今日も安全第一。",
-                    hint = "アリの行列のなかに、ごくまれに…。" },
+                    hint = "アリの行列のなかに、ときどき…。" },
                 new SpeciesDef { id = "spider_sneaker", name = "スニーカーグモ", areaLabel = "？？？（とてもめずらしい）", kind = MobKind.Pouncer, body = "Spider", speed = 0.55f, discoverRadius = 3f,
-                    climbs = true, rig = "Spider", legSuffix = "_Sneaker", stride = 0.14f, legSwing = 20f, legLift = 22f, rareOf = "spider", rareChance = 0.005f,
+                    climbs = true, rig = "Spider", legSuffix = "_Sneaker", stride = 0.14f, legSwing = 20f, legLift = 22f, rareOf = "spider", rareChance = 0.05f,
                     description = "8本の足ぜんぶにスニーカーをはいたクモ。足音がちょっとだけかわいい。",
-                    hint = "ハエトリグモのなかに、ごくまれに…。" },
+                    hint = "ハエトリグモのなかに、ときどき…。" },
             };
             _byId = new Dictionary<string, SpeciesDef>();
             _regular = new List<SpeciesDef>();

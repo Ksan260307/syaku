@@ -35,6 +35,8 @@ namespace Shakutori
     {
         public WorldAssets assets;
         public InstancedRenderer instanced;
+        /// <summary>押すと動く小さな物（落ち葉・小石・松ぼっくり・どんぐりのぼうし）。</summary>
+        public LooseProps loose;
         public Light sun;
         public int seed = 20261006;
         [Range(0.2f, 1f)] public float foliageDensity = 1f;
@@ -109,6 +111,11 @@ namespace Shakutori
         public IEnumerator Generate(AreaLayout area, Action<float, string> progress)
         {
             Instance = this;
+            if (loose == null)
+            {
+                loose = GetComponent<LooseProps>();
+                if (loose == null) loose = gameObject.AddComponent<LooseProps>();
+            }
             Clear();
             Area = area;
             bool forest = area.Id == "forest";
@@ -125,6 +132,7 @@ namespace Shakutori
             progress?.Invoke(0.05f, "地面をならしています");
             yield return null;
             BuildTerrain();
+            BuildViewLanes();
             progress?.Invoke(0.25f, forest ? "大きな木を育てています" : "川の水を流しています");
             yield return null;
             BuildOuterRing();
@@ -207,9 +215,11 @@ namespace Shakutori
             _specialCap = Vector3.zero;
             DewdropPoints.Clear();
             FlowerPoints.Clear();
+            _viewLanes.Clear();
             Mobs.Clear();
             Gates.Clear();
             if (instanced != null) instanced.Clear();
+            if (loose != null) loose.Clear();
         }
 
         float R01() => (float)_rng.NextDouble();
@@ -433,12 +443,21 @@ namespace Shakutori
             return Quaternion.FromToRotation(Vector3.up, up) * Quaternion.Euler(0f, yawDeg, 0f);
         }
 
+        /// <summary>押すと動く小さな物を置く（ふだんは絵だけ。しゃくとりむしが近づくと体を持つ）。</summary>
+        void PlaceLoose(string meshName, Material mat, Vector3 pos, Quaternion rot, float scale, LooseProps.Shape shape, bool shadows, float maxDistance)
+        {
+            Mesh m = assets.Get(meshName);
+            if (m == null || mat == null || loose == null) return;
+            loose.Add(m, mat, pos, rot, scale, shape, shadows, maxDistance);
+        }
+
         /// <summary>メッシュを配置する。インスタンシング描画 + 必要ならコライダー専用オブジェクト。</summary>
         GameObject Place(string meshName, Material mat, Vector3 pos, Quaternion rot, float scale, bool collider,
             bool castShadows = true, float maxDistance = 150f, bool asRenderer = false)
         {
             Mesh m = assets.Get(meshName);
             if (m == null || mat == null) return null;
+            if (!collider && !asRenderer && IsTallFoliage(meshName) && InViewLane(new Vector2(pos.x, pos.z), m.bounds.extents.magnitude * scale * 0.5f)) return null;
             var mtx = Matrix4x4.TRS(pos, rot, Vector3.one * scale);
             if (FlowerMeshes.Contains(meshName))
             {
@@ -538,6 +557,7 @@ namespace Shakutori
         /// </summary>
         public Vector3 ArrivalPoint(LandmarkDef lm, out Vector3 forward)
         {
+            if (lm.view != null && ViewPoint(lm.view, out var vp, out forward)) return vp;
             Vector2 c = lm.position;
             Vector3 home = new Vector3(-c.x, 0f, -c.y);
             Vector3 centerFwd = home.sqrMagnitude > 0.01f ? home.normalized : Vector3.forward;
@@ -562,6 +582,83 @@ namespace Shakutori
             return TopSurface(c);
         }
 
+        /// <summary>
+        /// 景色を見る場所：決めた場所がかわいた平らな陸地ならそこ、だめならすぐそば（3 まで）。
+        /// 向きは見る先の方（体がのらないときだけ、少し回す）。
+        /// </summary>
+        public bool ViewPoint(ArrivalView v, out Vector3 p, out Vector3 forward)
+        {
+            for (float r = 0f; r <= 3f; r += 0.75f)
+            {
+                int n = r < 0.01f ? 1 : 8;
+                for (int k = 0; k < n; k++)
+                {
+                    float a = k * Mathf.PI * 2f / n;
+                    Vector2 xz = v.from + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
+                    if (!DryArrival(xz, !v.onTop, out p)) continue;
+                    Vector3 f = v.Forward;
+                    if (!RoomForBody(p, ref f, !v.onTop)) continue;
+                    forward = f;
+                    return true;
+                }
+            }
+            p = default;
+            forward = v.Forward;
+            return false;
+        }
+
+        // ------------------------------------------------------------------
+        // 景色の通り道：着いたときにカメラから見る先までのあいだには、背の高い草や小物を置かない
+        // ------------------------------------------------------------------
+        readonly List<(Vector2 a, Vector2 b)> _viewLanes = new List<(Vector2, Vector2)>();
+        public const float ViewLaneRadius = 2.4f;
+
+        // 花は見せたいものなので、よけない
+        static readonly string[] TallFoliage = { "Grass_", "Fern_", "Clover_", "Sprout", "Reed", "Iris", "Horsetail" };
+
+        static bool IsTallFoliage(string meshName)
+        {
+            foreach (var t in TallFoliage)
+                if (meshName.StartsWith(t)) return true;
+            return false;
+        }
+
+        void BuildViewLanes()
+        {
+            _viewLanes.Clear();
+            foreach (var lm in Area.Landmarks)
+                if (lm.view != null) AddViewLane(lm.view);
+            foreach (var g in Area.Gates)
+                if (g.arrival != null) AddViewLane(g.arrival);
+        }
+
+        void AddViewLane(ArrivalView v)
+        {
+            Vector3 f = v.Forward;
+            Vector2 d = new Vector2(f.x, f.z);
+            float toTarget = Vector2.Distance(v.from, new Vector2(v.at.x, v.at.z));
+            Vector2 a = v.from - d * (v.distance + 1.5f);     // カメラのうしろから
+            Vector2 b = v.from + d * Mathf.Min(v.clear, toTarget * 0.85f);
+            _viewLanes.Add((a, b));
+            // ちらばる小物（岩・葉など）も、ここには置かない
+            for (int i = 0; i <= 10; i++) Occupy(Vector2.Lerp(a, b, i / 10f), 1.6f);
+        }
+
+        /// <summary>景色の通り道の中か（背の高い草を生やさない場所）。radius は草の大きさ。先へ行くほど広い。</summary>
+        public bool InViewLane(Vector2 p, float radius = 0f)
+        {
+            foreach (var (a, b) in _viewLanes)
+            {
+                Vector2 ab = b - a;
+                float len = ab.magnitude;
+                float t = len > 1e-4f ? Mathf.Clamp(Vector2.Dot(p - a, ab) / (len * len), 0f, 1f) : 0f;
+                float along = t * len;
+                float width = ViewLaneRadius + Mathf.Min(along * 0.3f, 4f);
+                if (Vector2.Distance(p, a + ab * t) < width + radius) return true;
+            }
+            return false;
+        }
+
         bool DryArrival(Vector2 xz, bool onGround, out Vector3 p)
         {
             p = default;
@@ -577,14 +674,14 @@ namespace Shakutori
         }
 
         /// <summary>頭の先（1 体長前）まで、かわいた陸地にのるか。だめなら、ほかの向きをためす。</summary>
-        bool RoomForBody(Vector3 p, ref Vector3 fwd)
+        bool RoomForBody(Vector3 p, ref Vector3 fwd, bool onGround = true)
         {
             for (int i = 0; i < 8; i++)
             {
                 float turn = (i + 1) / 2 * 45f * (i % 2 == 0 ? 1f : -1f);
                 Vector3 d = Quaternion.AngleAxis(turn, Vector3.up) * fwd;
                 Vector3 h = p + d * ShakuConst.BodyLength;
-                if (DryArrival(new Vector2(h.x, h.z), true, out var hp) && Mathf.Abs(hp.y - p.y) < 0.5f)
+                if (DryArrival(new Vector2(h.x, h.z), onGround, out var hp) && Mathf.Abs(hp.y - p.y) < 0.5f)
                 {
                     fwd = d;
                     return true;

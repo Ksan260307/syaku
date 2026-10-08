@@ -134,7 +134,7 @@
             <ui:VisualElement class="window map-window">
                 <ui:Label name="map-title" text="森の地図" class="window-title" picking-mode="Ignore" />
                 <ui:VisualElement class="map-body" picking-mode="Ignore">
-                    <ui:VisualElement name="bigmap" class="bigmap" picking-mode="Ignore">
+                    <ui:VisualElement name="bigmap" class="bigmap">
                         <ui:VisualElement name="bigmap-player" class="bigmap-player" picking-mode="Ignore" />
                     </ui:VisualElement>
                     <ui:VisualElement class="map-side" picking-mode="Ignore">

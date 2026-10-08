@@ -411,6 +411,25 @@ namespace Shakutori.EditorTools
                 m.SetFloat("_ValMul", 1f);
             });
             // 川：深い所は深い青緑、浅い所は川底が緑がかって見える。泡は岸ぎわ・石のまわり・滝の下だけ
+            // 森の水たまり：川と同じ水の描き方で、流れはほとんどなく、空がよく映る（鏡の水たまり）
+            assets.pond = Mat("M_Pond", "Shakutori/ToonRiver", m =>
+            {
+                m.SetColor("_ShallowColor", new Color(0.46f, 0.72f, 0.56f, 1f));
+                m.SetColor("_DeepColor", new Color(0.05f, 0.24f, 0.26f, 1f));
+                m.SetVector("_Absorb", new Vector4(2.2f, 0.95f, 0.7f, 0f));
+                m.SetFloat("_Clarity", 1.6f);
+                m.SetColor("_ReflectColor", new Color(0.62f, 0.78f, 0.86f, 1f));
+                m.SetFloat("_FresnelStrength", 0.55f);
+                m.SetColor("_FoamColor", new Color(0.93f, 0.98f, 1f, 1f));
+                m.SetFloat("_FoamDepth", 0.06f);
+                m.SetColor("_StreakColor", new Color(0.72f, 0.9f, 0.9f, 1f));
+                m.SetFloat("_FlowSpeed", 0.06f);
+                m.SetFloat("_StreakScale", 6f);
+                m.SetFloat("_StreakStrength", 0f);
+                m.SetFloat("_RippleStrength", 0.35f);
+                m.SetFloat("_Refraction", 0.02f);
+                m.SetFloat("_SpecStrength", 1.8f);
+            });
             assets.river = Mat("M_River", "Shakutori/ToonRiver", m =>
             {
                 m.SetColor("_ShallowColor", new Color(0.42f, 0.70f, 0.58f, 1f));

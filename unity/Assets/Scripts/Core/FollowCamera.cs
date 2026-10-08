@@ -22,6 +22,10 @@ namespace Shakutori
 
         Vector3 _focus;
         Vector3 _focusVel;
+        // 着いたときの景色：歩きだすまでは、その見え方のまま。歩きだしたら、いつもの角度と距離へゆっくりもどす
+        bool _viewHold, _viewEase;
+        float _restPitch = 20f, _restDistance = 3.6f, _movedFor;
+        public bool ShowingView => _viewHold || _viewEase;
         float _currentDist;
         float _sinceManual = 10f;
         bool _init;
@@ -81,13 +85,33 @@ namespace Shakutori
             _cam = GetComponent<Camera>();
         }
 
-        public void SnapToTarget()
+        /// <summary>着いたときの景色を写す（向き・見上げる角度・距離）。歩きだすと、いつもの見え方へもどる。</summary>
+        public void ShowView(float viewYaw, float viewPitch, float viewDistance)
+        {
+            if (!_viewHold && !_viewEase)
+            {
+                _restPitch = 20f;
+                _restDistance = distance;
+            }
+            yaw = viewYaw;
+            pitch = viewPitch;
+            distance = Mathf.Clamp(viewDistance, minDistance, maxDistance);
+            _viewHold = true;
+            _viewEase = false;
+            _movedFor = 0f;
+            _sinceManual = 0f;
+            SnapToTarget(false);
+        }
+
+        public void SnapToTarget() => SnapToTarget(true);
+
+        void SnapToTarget(bool faceHeading)
         {
             if (target == null) return;
             _focus = target.CameraFocus;
             _currentDist = distance;
             Vector3 h = Vector3.ProjectOnPlane(target.Heading, Vector3.up);
-            if (h.sqrMagnitude > 1e-4f) yaw = Mathf.Atan2(h.x, h.z) * Mathf.Rad2Deg;
+            if (faceHeading && h.sqrMagnitude > 1e-4f) yaw = Mathf.Atan2(h.x, h.z) * Mathf.Rad2Deg;
             _init = true;
             Apply(0f, true);
         }
@@ -114,13 +138,27 @@ namespace Shakutori
                     yaw += look.x * 0.25f;
                     pitch = Mathf.Clamp(pitch - look.y * 0.2f, -35f, 80f);
                     _sinceManual = 0f;
+                    _viewHold = _viewEase = false;   // 自分で見まわしたら、そのまま
                 }
                 else _sinceManual += dt;
+                // 景色を見せたあと、歩きだしたら、いつもの角度と距離へゆっくりもどす
+                if (_viewHold && target.IsMoving && (_movedFor += dt) > 0.6f)
+                {
+                    _viewHold = false;
+                    _viewEase = true;
+                }
+                if (_viewEase)
+                {
+                    pitch = Mathf.Lerp(pitch, _restPitch, ShakuMath.DampFactor(1.2f, dt));
+                    distance = Mathf.Lerp(distance, _restDistance, ShakuMath.DampFactor(1.2f, dt));
+                    if (Mathf.Abs(pitch - _restPitch) < 0.3f && Mathf.Abs(distance - _restDistance) < 0.02f) _viewEase = false;
+                }
 
                 float z = GameInput.Zoom;
                 if (Mathf.Abs(z) > 0.001f)
                 {
                     distance = Mathf.Clamp(distance * (1f - z * 0.12f), minDistance, maxDistance);
+                    _viewHold = _viewEase = false;
                     // カメラの距離は覚えておく（次に遊ぶときも同じ距離）
                     SaveSystem.Settings.cameraDistance = distance;
                     SaveSystem.SaveSettingsSoon();

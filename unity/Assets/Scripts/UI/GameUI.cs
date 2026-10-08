@@ -78,7 +78,7 @@ namespace Shakutori
             "高いところで糸を出すと、ぶら下がってゆっくりおりられます。",
             "「ねらう」で好きな場所に糸を飛ばして、たぐり寄せられます。",
             "背伸び中にスティックをたおすと、上半身だけで見まわせます。",
-            "見つけた名所へは、地図の「ここへ」からすぐ移動できます。",
+            "見つけた名所へは、地図の名所をタップするか「ここへ」で、すぐ移動できます。",
             "動けなくなったら、メニューの「動けなくなったら」で安全な場所へもどれます。",
             "いきものに近づくと、図鑑に登録されます。",
             "めったに会えないいきものは、光のつぶをまとっています。",
@@ -417,6 +417,13 @@ namespace Shakutori
             });
 
             _bigmap.RegisterCallback<GeometryChangedEvent>(e => LayoutBigMap());
+            // 地図をタップすると、見つけた名所・行ったことのあるエリアへすぐ移動
+            _bigmap.RegisterCallback<ClickEvent>(e =>
+            {
+                float size = Size(_bigmap, 614f);
+                Vector2 local = _bigmap.WorldToLocal(e.position);
+                TapBigMap(new Vector2(local.x / size, local.y / size));
+            });
             _root.RegisterCallback<GeometryChangedEvent>(e => UpdateLayoutClasses());
 
             SetupLookArea();
@@ -1427,6 +1434,9 @@ namespace Shakutori
             }
         }
 
+        /// <summary>XZ の場所が、地図のどこか（左上が 0、右下が 1）。</summary>
+        public static Vector2 MapPoint(Vector2 xz) => WorldToMap(new Vector3(xz.x, 0f, xz.y));
+
         static Vector2 WorldToMap(Vector3 p)
         {
             float e = WorldGenerator.MapExtent;
@@ -1527,6 +1537,7 @@ namespace Shakutori
                 var mk = new VisualElement { pickingMode = PickingMode.Ignore };
                 mk.AddToClassList("map-marker");
                 mk.AddToClassList(known ? "map-marker--place" : "map-marker--unknown");
+                mk.EnableInClassList("map-marker--go", known);   // タップで行ける
                 mk.style.width = 34;
                 mk.style.height = 34;
                 AddBigItem(mk, uv, new Vector2(-17f, -17f));
@@ -1618,7 +1629,7 @@ namespace Shakutori
             {
                 int rest = _collect.TotalDrops - _collect.CollectedDrops;
                 _mapSummary.text = $"{area.DropName} {_collect.CollectedDrops} / {_collect.TotalDrops}　　名所 {_collect.DiscoveredPlaces} / {_collect.TotalPlaces}" +
-                                   (rest > 0 && rest <= 5 ? $"\nのこり {rest} 個：青い丸のあたりをさがしてみよう" : "");
+                                   (rest > 0 && rest <= 5 ? $"\nのこり {rest} 個：青い丸のあたりをさがしてみよう" : "\n見つけた名所やトンネルをタップすると、すぐに移動できます");
             }
             BuildAreaChips();
         }
@@ -1644,6 +1655,53 @@ namespace Shakutori
                     _bigmapHere.style.top = uv.y * size - 46f;
                 }
             }
+        }
+
+        /// <summary>地図をタップしたときに、届く範囲（地図の上のピクセル）。</summary>
+        public const float MapTapReach = 40f;
+
+        /// <summary>
+        /// 地図のタップ（uv は地図の左上が 0、右下が 1）：見つけた名所の近くなら、そこへすぐ移動する。
+        /// 木の根のトンネルの近くなら、その先のエリアへ（行ったことがあれば）。移動したら true。
+        /// </summary>
+        public bool TapBigMap(Vector2 uv)
+        {
+            var area = MapArea;
+            float size = Size(_bigmap, 614f);
+            float best = MapTapReach;
+            LandmarkDef place = null, unknown = null;
+            GateDef gate = null;
+            foreach (var lm in area.Landmarks)
+            {
+                float d = (WorldToMap(new Vector3(lm.position.x, 0f, lm.position.y)) - uv).magnitude * size;
+                if (d >= best) continue;
+                best = d;
+                bool known = _collect != null && _collect.IsDiscovered(lm.id);
+                place = known ? lm : null;
+                unknown = known ? null : lm;
+            }
+            foreach (var g in area.Gates)
+            {
+                float d = (WorldToMap(new Vector3(g.position.x, 0f, g.position.y)) - uv).magnitude * size;
+                if (d >= best) continue;
+                best = d;
+                gate = g;
+                place = unknown = null;
+            }
+            if (gate != null)
+            {
+                AudioManager.Instance?.Click();
+                return RequestTravel(gate.targetArea);
+            }
+            if (place != null)
+            {
+                AudioManager.Instance?.Click();
+                ShowMap(false);
+                FastTravelRequested?.Invoke(place.id);
+                return true;
+            }
+            if (unknown != null) Toast("まだ見つけていない場所。まずは歩いて行ってみよう", "icon-lock");
+            return false;
         }
 
         /// <summary>地図の下の「エリアへ移動」ボタン。一度行ったエリアへはすぐ移動できる。</summary>

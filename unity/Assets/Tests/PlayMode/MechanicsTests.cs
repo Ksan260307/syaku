@@ -272,7 +272,51 @@ namespace Shakutori.Tests
             Assert.IsTrue(GM.FastTravel(lm.id));
             yield return WaitUntil(() => GM.State == GameManager.GameState.Playing, 5f, "移動");
             Vector3 w = Worm.CenterPosition;
-            Assert.Less(Vector2.Distance(new Vector2(w.x, w.z), lm.position), 4f, $"{lm.name} に着く");
+            Assert.Less(Vector2.Distance(new Vector2(w.x, w.z), lm.position), lm.radius, $"{lm.name} に着く");
+            // 景色が見えるように、決めた場所に立って、見る先を向く
+            Assert.IsNotNull(lm.view);
+            Assert.Less(Vector2.Distance(new Vector2(w.x, w.z), lm.view.from), 3.5f, "景色を見る場所に立つ");
+            Assert.Greater(Vector3.Dot(Worm.Heading, lm.view.Forward), 0.6f, "見る先を向く");
+            Assert.IsTrue(Cam.ShowingView, "カメラは景色を写す");
+            Assert.AreEqual(lm.view.pitch, Cam.pitch, 0.5f);
+        }
+
+        [UnityTest]
+        public IEnumerator Map_TapOnADiscoveredLandmarkTravelsThere()
+        {
+            var lm = ForestLayout.Landmarks[4];
+            var unknown = ForestLayout.Landmarks[6];
+            Col.Discover(lm);
+            UI.ShowMap(true);
+            yield return Frames(2);
+            // 地図そのものがタップを受けとる（名所の印の上でも、何もない所でも）
+            var map = UI.Root.Q<VisualElement>("bigmap");
+            foreach (var at in new[] { map.worldBound.center, map.worldBound.position + map.worldBound.size * 0.1f })
+            {
+                var picked = map.panel.Pick(at);
+                Assert.IsTrue(picked != null && (picked == map || map.Contains(picked)), "地図をタップできる");
+            }
+            Assert.IsFalse(UI.TapBigMap(GameUI.MapPoint(unknown.position)), "まだ見つけていない名所には行けない");
+            Assert.IsFalse(UI.TapBigMap(new Vector2(0.02f, 0.02f)), "何もない所をタップしても移動しない");
+            Assert.IsTrue(UI.IsMapOpen);
+            // 名所の少し横をタップしても、その名所へ
+            Assert.IsTrue(UI.TapBigMap(GameUI.MapPoint(lm.position) + new Vector2(0.02f, 0f)), "名所をタップすると移動");
+            Assert.IsFalse(UI.IsMapOpen, "地図はとじる");
+            yield return WaitUntil(() => GM.State == GameManager.GameState.Playing && Worm.InputEnabled, 5f, "移動");
+            Vector3 w = Worm.CenterPosition;
+            Assert.Less(Vector2.Distance(new Vector2(w.x, w.z), lm.position), lm.radius, $"{lm.name} に着く");
+        }
+
+        [UnityTest]
+        public IEnumerator Map_TapOnATunnelGoesToAVisitedArea()
+        {
+            UI.ShowMap(true);
+            yield return Frames(2);
+            Vector2 gate = GameUI.MapPoint(ForestLayout.Gate);
+            Assert.IsFalse(UI.TapBigMap(gate), "まだ行ったことがないエリアには行けない");
+            SaveSystem.Data.visited.Add("river");
+            Assert.IsTrue(UI.TapBigMap(gate), "トンネルをタップすると、その先のエリアへ");
+            yield return WaitUntil(() => Areas.Current == Areas.River && GM.State == GameManager.GameState.Playing, 90f, "川辺へ");
         }
 
         [UnityTest]

@@ -147,9 +147,36 @@ namespace Shakutori.Tests
         }
 
         [Test]
+        public void Pond_IsDrawnLikeTheRiver()
+        {
+            var water = GameObject.Find("Water");
+            Assert.IsNotNull(water, "水たまり");
+            var mr = water.GetComponent<MeshRenderer>();
+            Assert.AreSame(_gen.assets.pond, mr.sharedMaterial, "川と同じ水の描き方");
+            Assert.AreEqual("Shakutori/ToonRiver", mr.sharedMaterial.shader.name);
+            Assert.AreEqual(0f, mr.sharedMaterial.GetFloat("_StreakStrength"), "流れの筋はない");
+            var mesh = water.GetComponent<MeshFilter>().sharedMesh;
+            Assert.AreEqual(mesh.vertexCount, mesh.uv.Length, "さざ波の模様の UV");
+            Assert.AreEqual(mesh.vertexCount, mesh.colors.Length);
+            foreach (var c in mesh.colors) Assert.AreEqual(0f, c.g, "白くあわ立つ所はない");
+        }
+
+        [Test]
         public void ManyInstancesAreRendered()
         {
-            Assert.Greater(_gen.instanced.InstanceCount, 3000);
+            Assert.Greater(_gen.instanced.InstanceCount + _gen.loose.Count, 3000);
+        }
+
+        [Test]
+        public void SmallThings_ArePushableNotFixed()
+        {
+            Assert.Greater(_gen.loose.Count, 1000, "落ち葉・小石・松ぼっくりは、押すと動く物");
+            foreach (var mc in Object.FindObjectsByType<MeshCollider>(FindObjectsSortMode.None))
+                Assert.AreNotEqual("Pinecone", mc.name, "松ぼっくりは、動かない当たり判定ではない");
+            int cones = 0;
+            for (int i = 0; i < _gen.loose.Count; i++) if (_gen.loose.MeshNameOf(i) == "Pinecone") cones++;
+            Assert.GreaterOrEqual(cones, 2, "松ぼっくりは押すと転がる");
+            Assert.AreEqual(0, _gen.loose.BodyCount, "はじめは絵だけ（体は、しゃくとりむしが近づいてから）");
         }
 
         [Test]

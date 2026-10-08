@@ -456,7 +456,7 @@ namespace Shakutori
                 float side = R01() < 0.5f ? -1f : 1f;
                 Vector2 p = new Vector2(RiverLayout.CenterX(z) + side * (RiverLayout.HalfWidth(z) + R(-2.5f, 7f)), z);
                 if (p.magnitude > 70f) continue;
-                Place(Pick(RiverStones), assets.prop, RiverLayout.Ground(p.x, p.y), Quaternion.Euler(R(-20, 20), R(0, 360), R(-20, 20)), R(0.08f, 0.3f), false, false, 45f);
+                PlaceLoose(Pick(RiverStones), assets.prop, RiverLayout.Ground(p.x, p.y), Quaternion.Euler(R(-20, 20), R(0, 360), R(-20, 20)), R(0.08f, 0.3f), LooseProps.Shape.Pebble, false, 45f);
             }
             int litter = Mathf.RoundToInt(700 * dens);
             for (int i = 0; i < litter; i++)
@@ -464,7 +464,7 @@ namespace Shakutori
                 Vector2 p = RandomInRing(8f, 72f);
                 if (!IsLand(p, 0.4f) || RiverLayout.InChannel(p.x, p.y, 5f)) continue;
                 if (Mathf.PerlinNoise(p.x * 0.05f + 50f, p.y * 0.05f + 20f) < 0.5f) continue;
-                Place(Pick(BigLeaves), assets.prop, RiverLayout.Ground(p.x, p.y) + Vector3.up * 0.01f, GroundRotation(p, R(0, 360), 1f, 6f), R(0.07f, 0.16f), false, false, 40f);
+                PlaceLoose(Pick(BigLeaves), assets.prop, RiverLayout.Ground(p.x, p.y) + Vector3.up * 0.01f, GroundRotation(p, R(0, 360), 1f, 6f), R(0.07f, 0.16f), LooseProps.Shape.Leaf, false, 40f);
             }
             void Flowers(string meshName, int count, float smin, float smax)
             {

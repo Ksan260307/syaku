@@ -255,9 +255,15 @@ namespace Shakutori
                 if (!IsFree(p, 1f)) continue;
                 float s = R(1.0f, 1.3f);
                 Vector3 pos = ForestLayout.Ground(p.x, p.y) + Vector3.down * 0.02f;
-                Place("AcornCap", prop, pos, GroundRotation(p, R(0, 360), 0.6f, 5f), s, true);
+                // しずくが入ったぼうし（ひとつ目）は、その場に置いたまま。ほかは押すと動く
+                bool special = i == 0 || _specialCap == Vector3.zero;
+                if (special)
+                {
+                    Place("AcornCap", prop, pos, GroundRotation(p, R(0, 360), 0.6f, 5f), s, true);
+                    _specialCap = pos;
+                }
+                else PlaceLoose("AcornCap", prop, pos, GroundRotation(p, R(0, 360), 0.6f, 5f), s, LooseProps.Shape.Cap, true, 150f);
                 Occupy(p, 0.8f * s);
-                if (i == 0 || _specialCap == Vector3.zero) _specialCap = pos;
             }
             for (int i = 0; i < 10; i++)
             {
@@ -265,7 +271,8 @@ namespace Shakutori
                 if (!IsFree(p, 1.6f) || !IsLand(p)) continue;
                 float s = R(0.9f, 1.3f);
                 Quaternion rot = Quaternion.Euler(0f, R(0, 360), 0f) * Quaternion.Euler(R(70f, 95f), 0f, 0f);
-                Place("Pinecone", prop, ForestLayout.Ground(p.x, p.y) + Vector3.up * 0.45f * s, rot, s, true);
+                // 松ぼっくりは、押すと転がる
+                PlaceLoose("Pinecone", prop, ForestLayout.Ground(p.x, p.y) + Vector3.up * 0.45f * s, rot, s, LooseProps.Shape.Pinecone, true, 150f);
                 Occupy(p, 1.4f * s);
             }
 
@@ -323,8 +330,18 @@ namespace Shakutori
                 t.Add(1 + (i + 1) % seg);
                 t.Add(1 + i);
             }
+            // 川と同じ水の描き方：UV は水面の位置（さざ波の模様）、頂点色は流れなし・白い泡なし
+            var uv = new List<Vector2>(v.Count);
+            var col = new List<Color>(v.Count);
+            foreach (var p in v)
+            {
+                uv.Add(new Vector2(p.x / 20f, p.z / 8f));
+                col.Add(new Color(0f, 0f, 0f, 1f));
+            }
             var mesh = Own(new Mesh { name = "Water" });
             mesh.SetVertices(v);
+            mesh.SetUVs(0, uv);
+            mesh.SetColors(col);
             mesh.SetTriangles(t, 0);
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
@@ -333,7 +350,7 @@ namespace Shakutori
             go.transform.SetParent(Root, false);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var mr = go.AddComponent<MeshRenderer>();
-            mr.sharedMaterial = assets.water;
+            mr.sharedMaterial = assets.pond != null ? assets.pond : assets.water;
             mr.shadowCastingMode = ShadowCastingMode.Off;
             WaterView.Register(mr);   // 水が映るときだけ、深さと色の写しを作る
         }
@@ -403,7 +420,7 @@ namespace Shakutori
                 float patch = Mathf.PerlinNoise(p.x * 0.045f + 50f, p.y * 0.045f + 20f);
                 if (patch < 0.5f && Vector2.Distance(p, ForestLayout.AcornPlaza) > 16f) continue;
                 if (!IsLand(p, 0.05f)) continue;
-                Place(Pick(BigLeaves), assets.prop, ForestLayout.Ground(p.x, p.y) + Vector3.up * 0.01f, GroundRotation(p, R(0, 360), 1f, 6f), R(0.07f, 0.16f), false, false, 40f);
+                PlaceLoose(Pick(BigLeaves), assets.prop, ForestLayout.Ground(p.x, p.y) + Vector3.up * 0.01f, GroundRotation(p, R(0, 360), 1f, 6f), R(0.07f, 0.16f), LooseProps.Shape.Leaf, false, 40f);
             }
             // 小さな小石
             int pebbles = Mathf.RoundToInt(600 * dens);
@@ -411,7 +428,7 @@ namespace Shakutori
             {
                 Vector2 p = RandomInRing(1f, 70f);
                 if (!IsLand(p, -0.5f)) continue;
-                Place(Pick(Rocks), assets.prop, ForestLayout.Ground(p.x, p.y), Quaternion.Euler(R(0, 360), R(0, 360), R(0, 360)), R(0.06f, 0.2f), false, false, 40f);
+                PlaceLoose(Pick(Rocks), assets.prop, ForestLayout.Ground(p.x, p.y), Quaternion.Euler(R(0, 360), R(0, 360), R(0, 360)), R(0.06f, 0.2f), LooseProps.Shape.Pebble, false, 40f);
             }
             // 芽生え
             for (int i = 0; i < 40; i++)

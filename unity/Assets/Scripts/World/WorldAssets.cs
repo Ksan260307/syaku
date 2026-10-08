@@ -40,6 +40,7 @@ namespace Shakutori
         public Material silk;
         public Material worm;
         public Material river;         // 流れる川
+        public Material pond;          // 森の水たまり（川と同じ水の描き方で、流れのない水）
         public Material waterfall;     // 滝
         public Material creature;      // いきもの
         public Material creatureWing;  // 羽（両面）

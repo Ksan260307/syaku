@@ -141,6 +141,7 @@ namespace Shakutori.Tests
         [TestCase("M_Grass", "Shakutori/ToonFoliage")]
         [TestCase("M_Flowers", "Shakutori/ToonFoliage")]
         [TestCase("M_Water", "Shakutori/ToonWater")]
+        [TestCase("M_Pond", "Shakutori/ToonRiver")]
         [TestCase("M_Sky", "Shakutori/ForestSky")]
         [TestCase("M_LightShaft", "Shakutori/LightShaft")]
         [TestCase("M_Dewdrop", "Shakutori/Dewdrop")]

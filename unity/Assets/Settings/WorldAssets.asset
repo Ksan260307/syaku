@@ -292,6 +292,7 @@ MonoBehaviour:
   silk: {fileID: 2100000, guid: b23fb35b16068cb4d8ce1e86d0601b67, type: 2}
   worm: {fileID: 2100000, guid: ac285d6d44a5bc64182456330748b1e5, type: 2}
   river: {fileID: 2100000, guid: d3f01413383aefd4797e1da9528b62d4, type: 2}
+  pond: {fileID: 2100000, guid: 068b1c056f5a30746ae35f879032e2a0, type: 2}
   waterfall: {fileID: 2100000, guid: 6c82c146f9459f949bfc4c209d1a22af, type: 2}
   creature: {fileID: 2100000, guid: 2c5ca66a9ba2c0c498313f76aac8ba25, type: 2}
   creatureWing: {fileID: 2100000, guid: d1e537e3dbb188f4e9a54638a7398e9e, type: 2}

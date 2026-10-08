@@ -162,6 +162,14 @@ namespace Shakutori
                         new LandmarkDef { id = 15, areaId = "river", name = "睡蓮のよどみ", english = "Lily Shallows", description = "流れがゆるやかになる場所。カエルの声が聞こえる。",
                             position = new Vector2(CenterX(PoolZ), PoolZ), radius = 14f, mapColor = new Color(0.9f, 0.6f, 0.8f) },
                     };
+                    // 着いたときの景色（マイナスの角度は、見上げる）
+                    Vector3 falls = new Vector3(CenterX(FallZ), UpperLevel + 1.5f, FallZ);
+                    _landmarks[0].view = new ArrivalView(new Vector2(-40f, -8f), new Vector3(CenterX(-2f), LowerStart + 0.5f, -2f), 6f, 4.4f, clear: 34f);   // 小道の先に、川の流れ
+                    _landmarks[1].view = new ArrivalView(new Vector2(-7f, 11f), falls, 0f, 4.6f);                                                // 滝を見上げる
+                    _landmarks[2].view = new ArrivalView(IslandCenter + new Vector2(0f, -4f), falls, 4f, 4.2f);                                  // 中州から、上流の滝
+                    _landmarks[3].view = new ArrivalView(new Vector2(CenterX(StonesZ) - 14f, StonesZ - 1.5f), new Vector3(CenterX(StonesZ), UpperLevel - 3.2f, StonesZ), 12f, 4.2f);
+                    _landmarks[4].view = new ArrivalView(new Vector2(CenterX(BridgeZ) - 15f, BridgeZ - 8f), new Vector3(CenterX(BridgeZ), 1f, BridgeZ), 8f, 4.6f);
+                    _landmarks[5].view = new ArrivalView(new Vector2(CenterX(PoolZ) - 19f, PoolZ + 5f), new Vector3(CenterX(PoolZ), LowerEnd, PoolZ - 2f), 14f, 4.4f);
                 }
                 return _landmarks;
             }

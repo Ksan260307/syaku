@@ -365,12 +365,14 @@ namespace Shakutori
             yield return BuildArea(to, (p, t) => ui.SetLoading(p, t));
 
             to.ArrivalFrom(from.Id, out Vector2 xz, out Vector3 fwd);
+            var view = to.ArrivalViewFrom(from.Id);
+            Vector3 arrive = world.TopSurface(xz);
+            if (view != null && world.ViewPoint(view, out var vp, out var vf)) { arrive = vp; fwd = vf; }
             worm.enabled = true;
-            worm.Spawn(world.TopSurface(xz), fwd);
+            worm.Spawn(arrive, fwd);
             followCamera.titleMode = false;
-            followCamera.yaw = Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
             followCamera.pitch = 20f;
-            followCamera.SnapToTarget();
+            ShowArrivalView(view, fwd);
             SaveSystem.Data.area = to.Id;
             SaveProgress();
             _gateCooldown = 2.5f;
@@ -678,6 +680,18 @@ namespace Shakutori
             SaveProgress();
         }
 
+        /// <summary>着いたときの景色をカメラで写す（景色がなければ、いつもどおりうしろから）。</summary>
+        void ShowArrivalView(ArrivalView view, Vector3 fwd)
+        {
+            float yaw = Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
+            if (view != null) followCamera.ShowView(yaw, view.pitch, view.distance);
+            else
+            {
+                followCamera.yaw = yaw;
+                followCamera.SnapToTarget();
+            }
+        }
+
         /// <summary>地図から、見つけた名所へ移動する。</summary>
         public bool FastTravel(int landmarkId)
         {
@@ -698,8 +712,7 @@ namespace Shakutori
             // 名所のまん中が水の中（滝つぼ・水たまり）でも、そばのかわいた陸地に着く
             Vector3 p = world.ArrivalPoint(lm, out var fwd);
             worm.Spawn(p, fwd);
-            followCamera.yaw = Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
-            followCamera.SnapToTarget();
+            ShowArrivalView(lm.view, fwd);
             yield return new WaitForSecondsRealtime(0.15f);
             ui.Fade(false);
             State = GameState.Playing;
@@ -851,6 +864,7 @@ namespace Shakutori
                 urp.mainLightShadowmapResolution = q == 0 ? 1024 : 2048;
             }
             if (world != null && world.instanced != null) world.instanced.distanceScale = q == 0 ? 0.6f : 1f;
+            if (world != null && world.loose != null) world.loose.distanceScale = q == 0 ? 0.6f : 1f;
             // かるい：いきものは近くだけ描き、落ち葉は地面との当たり判定をしない
             Creatures.DrawDistance = q == 0 ? 70f : 110f;
             if (fx != null) fx.SetQuality(q);

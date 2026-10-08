@@ -155,9 +155,9 @@ namespace Shakutori.Tests
         }
 
         [Test]
-        public void RareChance_IsAboutHalfAPercent()
+        public void RareChance_IsAboutFivePercent()
         {
-            // 本来の確率で何度も作ると、だいたい 0.5% になる
+            // 本来の確率で何度も作ると、だいたい 5% になる
             Creatures.RareChanceOverride = null;
             int rare = 0, total = 0;
             for (int i = 0; i < 60; i++)
@@ -168,7 +168,7 @@ namespace Shakutori.Tests
                 Object.DestroyImmediate(c.gameObject);
             }
             float rate = rare / (float)total;
-            Assert.Less(rate, 0.02f, $"レアが多すぎる ({rare}/{total})");
+            Assert.That(rate, Is.InRange(0.02f, 0.09f), $"レアはだいたい 5% ({rare}/{total})");
         }
 
         [Test]

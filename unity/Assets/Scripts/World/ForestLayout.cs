@@ -18,6 +18,43 @@ namespace Shakutori
         public Vector3 capsuleA, capsuleB;
         public float capsuleRadius;
         public Color mapColor;
+        /// <summary>移動してきたときに見せる景色（立つ場所・見る先・カメラ）。なければ、名所のそばのかわいた陸地に着く。</summary>
+        public ArrivalView view;
+    }
+
+    /// <summary>
+    /// 着いたときの景色：from に立って at（高さもふくむ）の方を向き、カメラは pitch（度、マイナスで見上げる）・distance で写す。
+    /// onTop なら、物の上（切り株の頂など）に立つ。見る先までの間の背の高い草は、生成するときに生やさない。
+    /// </summary>
+    public class ArrivalView
+    {
+        public Vector2 from;
+        public Vector3 at;
+        public float pitch = 12f;
+        public float distance = 4.2f;
+        public bool onTop;
+        /// <summary>見る先の方へ、背の高い草をよける長さ（遠くの景色を見せるときは長く）。</summary>
+        public float clear = 14f;
+
+        public ArrivalView(Vector2 from, Vector3 at, float pitch = 12f, float distance = 4.2f, bool onTop = false, float clear = 14f)
+        {
+            this.clear = clear;
+            this.from = from;
+            this.at = at;
+            this.pitch = pitch;
+            this.distance = distance;
+            this.onTop = onTop;
+        }
+
+        /// <summary>見る向き（水平）。</summary>
+        public Vector3 Forward
+        {
+            get
+            {
+                Vector2 d = new Vector2(at.x, at.z) - from;
+                return d.sqrMagnitude > 1e-4f ? new Vector3(d.x, 0f, d.y).normalized : Vector3.forward;
+            }
+        }
     }
 
     /// <summary>
@@ -82,6 +119,17 @@ namespace Shakutori
                 new LandmarkDef { id = 8, name = "朽ちた丸太のトンネル", english = "Hollow Log Tunnel", description = "中が空洞になった倒木。くぐり抜けられる。",
                     position = LogCenter, radius = 6f, useCapsule = true, capsuleRadius = 4.2f, mapColor = new Color(0.6f, 0.5f, 0.35f) },
             };
+            // 着いたときの景色（マイナスの角度は、見上げる）
+            _landmarks[0].view = new ArrivalView(new Vector2(1.5f, -4f), new Vector3(0f, 26f, 76f), -6f, 4.4f);                // 苔原から、大樹を見上げる
+            _landmarks[1].view = new ArrivalView(new Vector2(12f, 24f), new Vector3(0f, 40f, 76f), -10f, 5f);                 // 大樹の根元を見上げる
+            _landmarks[2].view = new ArrivalView(new Vector2(-12f, 41f), new Vector3(-21f, 2.5f, 52f), 6f, 4f);               // 洞の入り口と、光るキノコ
+            _landmarks[3].view = new ArrivalView(new Vector2(30f, 3f), new Vector3(46f, 7f, 8f), -10f, 4.6f);                 // 赤キノコの林を見上げる
+            _landmarks[4].view = new ArrivalView(new Vector2(28f, 33f), new Vector3(37f, 1.5f, 41f), 12f, 4f);                // 花畑を見わたす
+            _landmarks[5].view = new ArrivalView(new Vector2(4f, -31.5f), new Vector3(4f, -1f, -50f), 18f, 4.4f);             // 水たまりと、空の映りこみ
+            _landmarks[6].view = new ArrivalView(Stump, new Vector3(4f, 6f, 6f), 6f, 5.2f, onTop: true);                      // 切り株の頂から、森を見わたす
+            _landmarks[7].view = new ArrivalView(new Vector2(-27f, -23f), new Vector3(-38f, 1f, -33f), 16f, 4.2f);            // どんぐり広場
+            _landmarks[8].view = new ArrivalView(LogCenter - LogDir * 31f, new Vector3(LogCenter.x, 3f, LogCenter.y), 4f, 4f); // 丸太のトンネルの入り口
+
             var lm = _landmarks[8];
             Vector2 a = LogCenter - LogDir * (LogLength * 0.42f);
             Vector2 b = LogCenter + LogDir * (LogLength * 0.42f);

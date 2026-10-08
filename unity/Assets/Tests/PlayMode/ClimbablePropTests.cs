@@ -6,7 +6,7 @@ using static Shakutori.Tests.GameHarness;
 
 namespace Shakutori.Tests
 {
-    /// <summary>総合テスト：細かい凹凸のある物（松ぼっくり）に登っても、はさまって動けなくならない。</summary>
+    /// <summary>総合テスト：小さな物（松ぼっくり・落ち葉・小石）は、どんぐりと同じように押すと動く。</summary>
     public class ClimbablePropTests
     {
         [UnitySetUp]
@@ -46,36 +46,52 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
-        public IEnumerator Pinecone_CanBeWalkedOnWithoutGettingStuck()
+        public IEnumerator SmallThings_ArePushedLikeAcorns()
         {
-            MeshCollider cone = null;
-            foreach (var mc in Object.FindObjectsByType<MeshCollider>(FindObjectsSortMode.None))
-                if (mc.name == "Pinecone") { cone = mc; break; }
-            Assume.That(cone != null, "松ぼっくりがない");
-            Assert.IsTrue(cone.sharedMesh.name.EndsWith("_Coarse"), "松ぼっくりは、凹凸をつつむ大まかな当たり判定");
-            Bounds cb = cone.bounds;
-            Vector3 ls = cone.sharedMesh.bounds.size;
-            Vector3 localAxis = ls.y >= ls.x && ls.y >= ls.z ? Vector3.up : (ls.x >= ls.z ? Vector3.right : Vector3.forward);
-            Vector3 along = Vector3.ProjectOnPlane(cone.transform.TransformDirection(localAxis), Vector3.up).normalized;
-            Vector3 across = Vector3.Cross(Vector3.up, along).normalized;
-
-            // 松ぼっくりのてっぺんに置いて、軸にそって歩く
-            Vector3 top = TopSurface(new Vector2(cb.center.x, cb.center.z) - new Vector2(along.x, along.z) * 0.5f);
-            Assert.AreSame(cone, Physics.Raycast(top + Vector3.up, Vector3.down, out var h0, 3f, ShakuConst.SurfaceMask) ? h0.collider : null, "松ぼっくりの上");
-            Worm.Spawn(top, along);
-            yield return FaceCamera(along);
-            yield return Seconds(1.2f);
+            // 松ぼっくり・落ち葉・小石を、しゃくとりむしの前にならべて、歩いて押す
+            var loose = GM.world.loose;
+            var assets = GM.world.assets;
+            Vector3 start = Place(ForestLayout.Spawn, Vector3.forward);
+            yield return FaceCamera(Vector3.forward);
+            float y = start.y;
+            loose.Add(assets.Get("Pinecone"), assets.prop, new Vector3(start.x, ForestLayout.Height(start.x, start.z + 2.2f) + 0.45f, start.z + 2.2f),
+                Quaternion.Euler(0f, 90f, 90f), 1f, LooseProps.Shape.Pinecone, true, 150f);
+            int cone = loose.Count - 1;
+            loose.Add(assets.Get("Leaf_Oak_Orange"), assets.prop, new Vector3(start.x, ForestLayout.Height(start.x, start.z + 1.1f) + 0.02f, start.z + 1.1f),
+                Quaternion.identity, 0.12f, LooseProps.Shape.Leaf, false, 40f);
+            int leaf = loose.Count - 1;
+            Vector3 cone0 = loose.PositionOf(cone), leaf0 = loose.PositionOf(leaf);
+            yield return Frames(3);
+            Assert.IsTrue(loose.HasBody(cone) && loose.HasBody(leaf), "近づくと、押せる体を持つ");
             var r = new float[2];
-            yield return Walk(6f, r);
-            Assert.Greater(r[0], 1.0f, "松ぼっくりの上を歩ける");
-            Assert.Less(r[1], 2.5f, "凹凸にはさまって動けなくならない");
-
-            // 横へ歩いて、松ぼっくりから下りる
-            float ground = ForestLayout.Height(cb.center.x, cb.center.z);
-            yield return FaceCamera(across);
-            yield return Walk(14f, r, () => Worm.HeadPosition.y - ForestLayout.Height(Worm.HeadPosition.x, Worm.HeadPosition.z) < 0.25f && !Worm.IsFalling);
-            Assert.Less(r[1], 3f, "下りる途中でも、はさまらない");
-            Assert.Less(Worm.HeadPosition.y - ForestLayout.Height(Worm.HeadPosition.x, Worm.HeadPosition.z), 0.4f, "地面まで下りられる");
+            yield return Walk(5f, r);
+            Assert.Greater(Vector3.Distance(loose.PositionOf(leaf), leaf0), 0.15f, "落ち葉は押されて動く");
+            Assert.Greater(Vector3.Distance(loose.PositionOf(cone), cone0), 0.3f, "松ぼっくりは押されて転がる");
+            Assert.LessOrEqual(loose.BodyCount, LooseProps.MaxBodies);
         }
+
+        [UnityTest]
+        public IEnumerator SmallThings_StayWhereTheyWerePushed()
+        {
+            var loose = GM.world.loose;
+            var assets = GM.world.assets;
+            Vector3 start = Place(ForestLayout.Spawn, Vector3.forward);
+            yield return FaceCamera(Vector3.forward);
+            loose.Add(assets.Get("Rock_A"), assets.prop, new Vector3(start.x, ForestLayout.Height(start.x, start.z + 1.4f) + 0.15f, start.z + 1.4f),
+                Quaternion.identity, 0.12f, LooseProps.Shape.Pebble, false, 40f);
+            int pebble = loose.Count - 1;
+            yield return Frames(3);
+            var r = new float[2];
+            yield return Walk(4f, r);
+            Vector3 moved = loose.PositionOf(pebble);
+            Assert.Greater(Vector3.Distance(moved, loose.HomeOf(pebble)), 0.15f, "小石は押されて動く");
+            // 遠くへ行くと、体はなくなり、絵だけが動いた先にのこる
+            Place(ForestLayout.Meadow, Vector3.forward);
+            yield return Seconds(2f);
+            Assert.IsFalse(loose.HasBody(pebble), "はなれたら、体はもどす");
+            Assert.Less(Vector3.Distance(loose.PositionOf(pebble), moved), 0.3f, "押した先にのこる");
+            Assert.Less(loose.BodyCount, 60, "体を持つのは、しゃくとりむしのまわりだけ");
+        }
+
     }
 }

@@ -168,6 +168,13 @@
 
 .map-marker--place { background-image: url("Icons/icon_place.png"); }
 .map-marker--unknown { background-image: url("Icons/icon_unknown.png"); }
+/* タップで移動できる名所：うすい光の輪 */
+.map-marker--go {
+    border-width: 2px;
+    border-color: rgba(255, 244, 196, 0.9);
+    border-radius: 50%;
+    background-color: rgba(255, 236, 160, 0.28);
+}
 
 .map-dot {
     position: absolute;

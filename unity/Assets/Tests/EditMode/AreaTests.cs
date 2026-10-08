@@ -201,9 +201,10 @@ namespace Shakutori.Tests
             foreach (var g in a.Gates)
             {
                 Assert.IsTrue(a.ArrivalFrom(g.targetArea, out var p, out var fwd));
-                Assert.AreEqual(5.5f, Vector2.Distance(p, g.position), 1e-3f);
+                Assert.That(Vector2.Distance(p, g.position), Is.InRange(4f, 15f), "トンネルを出て、少し入った所");
                 Assert.Less(p.magnitude, g.position.magnitude, "トンネルより内側");
-                Assert.Greater(Vector3.Dot(fwd, new Vector3(-g.position.x, 0f, -g.position.y).normalized), 0.99f);
+                Assert.Greater(Vector3.Dot(fwd, new Vector3(-g.position.x, 0f, -g.position.y).normalized), 0.3f, "エリアの内がわを向く");
+                if (g.arrival != null) Assert.Greater(Vector3.Dot(fwd, g.arrival.Forward), 0.99f, "景色の方を向く");
                 Vector3 ground = a.Ground(p.x, p.y);
                 Assert.IsTrue(a.InPlayArea(ground));
                 Assert.IsFalse(a.IsUnderwater(ground), $"{a.Id} の到着地点が水の中");
@@ -271,8 +272,8 @@ namespace Shakutori.Tests
                 Assert.IsNotNull(SpeciesCatalog.Get(id), id);
             Assert.AreEqual("ant", SpeciesCatalog.Get("ant_helmet").rareOf);
             Assert.AreEqual("spider", SpeciesCatalog.Get("spider_sneaker").rareOf);
-            Assert.AreEqual(0.005f, SpeciesCatalog.Get("ant_helmet").rareChance, 1e-6f, "出現率 0.5%");
-            Assert.AreEqual(0.005f, SpeciesCatalog.Get("spider_sneaker").rareChance, 1e-6f);
+            Assert.AreEqual(0.05f, SpeciesCatalog.Get("ant_helmet").rareChance, 1e-6f, "出現率 5%");
+            Assert.AreEqual(0.05f, SpeciesCatalog.Get("spider_sneaker").rareChance, 1e-6f);
             Assert.IsNull(SpeciesCatalog.Get("dragon"));
         }
 

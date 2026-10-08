@@ -120,7 +120,14 @@ namespace Shakutori.Tests
                 Assert.IsFalse(RiverLayout.IsUnderwater(Worm.TailPoint), $"{lm.name}：尾が水の中");
                 Assert.IsFalse(RiverLayout.IsUnderwater(Worm.CenterPosition), $"{lm.name}：体が水の中");
                 Assert.IsFalse(Worm.IsFalling, $"{lm.name}：落ちていない");
-                Assert.Less(Vector2.Distance(new Vector2(Worm.CenterPosition.x, Worm.CenterPosition.z), lm.position), lm.radius * 1.6f + 2.5f, $"{lm.name}：名所のそば");
+                Vector2 at = new Vector2(Worm.CenterPosition.x, Worm.CenterPosition.z);
+                if (lm.view != null)
+                {
+                    // 景色を見せる場所に着いて、見せたい物の方を向く
+                    Assert.Less(Vector2.Distance(at, lm.view.from), 3.5f, $"{lm.name}：景色を見る場所");
+                    Assert.Greater(Vector3.Dot(Worm.Heading, lm.view.Forward), 0.6f, $"{lm.name}：景色の方を向く");
+                }
+                else Assert.Less(Vector2.Distance(at, lm.position), lm.radius * 1.6f + 2.5f, $"{lm.name}：名所のそば");
             }
         }
     }
