@@ -68,6 +68,16 @@ namespace Shakutori
         }
 
         /// <summary>
+        /// 脚 1 本を、決まった姿勢にする（歩く動きとは別に、前へのばす・持ち上げる）。swing は前へふる角度、lift は持ち上げる角度（度）。
+        /// </summary>
+        public static Matrix4x4 LegPose(LegMount leg, bool mirror, float swing, float lift)
+        {
+            float m = mirror ? -1f : 1f;
+            Vector3 hip = new Vector3(leg.hip.x * m, leg.hip.y, leg.hip.z);
+            return Matrix4x4.TRS(hip, Quaternion.Euler(0f, -swing * m, 0f) * Quaternion.Euler(0f, 0f, -lift * m), new Vector3(m, 1f, 1f));
+        }
+
+        /// <summary>
         /// Blender の座標で書いた姿勢（位置・XYZ オイラー角（ラジアン）・拡大）を、Unity のローカル行列にする。
         /// FBX の書き出しで Blender (x, y, z) は Unity (-x, z, -y) になる。
         /// </summary>

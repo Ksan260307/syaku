@@ -860,6 +860,18 @@ namespace Shakutori.Tests
         }
 
         [Test]
+        public void Birds_AreAtMostOnePerSpecies()
+        {
+            foreach (var g in _gen.Mobs.Where(m => SpeciesCatalog.Get(m.species).kind == MobKind.Bird))
+                Assert.LessOrEqual(g.count, 1, g.species);
+            foreach (var id in new[] { "sparrow", "crow" })
+            {
+                Assert.AreEqual(1, _gen.Mobs.Count(m => m.species == id), $"{id} の群れは 1 つ");
+                Assert.AreEqual(1, _mobs.CountOf(id), $"{id} は 1 羽");
+            }
+        }
+
+        [Test]
         public void Birds_HaveLandingSpots()
         {
             foreach (var m in _gen.Mobs.Where(m => m.species == "sparrow" || m.species == "crow"))

@@ -237,7 +237,7 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
-        public IEnumerator Sparrows_CrouchThenTakeOffTogether()
+        public IEnumerator Sparrow_CrouchesThenTakesOff()
         {
             Vector3 s = C.PositionOf("sparrow", 0);
             bool crouched = false;
@@ -249,7 +249,7 @@ namespace Shakutori.Tests
                 return info.airborne;
             }, 3f, "スズメが飛び立つ");
             Assert.IsTrue(crouched, "飛び立つ前に一瞬かがむ");
-            yield return WaitUntil(() => C.IsAirborne("sparrow", 1) && C.IsAirborne("sparrow", 2), 2f, "群れの仲間もいっせいに飛び立つ");
+            Assert.AreEqual(1, C.CountOf("sparrow"), "スズメは 1 羽だけ");
         }
 
         [UnityTest]

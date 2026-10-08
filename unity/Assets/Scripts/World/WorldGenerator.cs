@@ -757,6 +757,13 @@ namespace Shakutori
         MobGroup AddMob(string species, Vector3 center, int count, float radius, float height = 0f)
         {
             var g = new MobGroup { species = species, center = center, count = count, radius = radius, height = height };
+            // 鳥は、種類ごとに 1 羽まで（エリアごと）。2 つ目からの群れは置かない（下りる場所の追加は、受けとって捨てる）
+            var sp = SpeciesCatalog.Get(species);
+            if (sp != null && sp.kind == MobKind.Bird)
+            {
+                if (Mobs.Exists(o => o.species == species)) return g;
+                g.count = Mathf.Min(count, 1);
+            }
             Mobs.Add(g);
             return g;
         }
