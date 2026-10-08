@@ -118,8 +118,8 @@ namespace Shakutori
         public Transform slide;      // すべり台（ローカル座標で坂の場所を決める）
         // すべり台のローカル座標（Blender で作った形と同じ）。上のはし → 坂の下 → 出口の先
         public static readonly Vector3 RampTop = new Vector3(0f, 10f, -2.3f);
-        public static readonly Vector3 RampLow = new Vector3(0f, 1f, -17.9f);
-        public static readonly Vector3 RampEnd = new Vector3(0f, 0.8f, -20.9f);
+        public static readonly Vector3 RampLow = new Vector3(0f, 0.55f, -17.9f);
+        public static readonly Vector3 RampEnd = new Vector3(0f, 0.4f, -20.9f);
         public const float StartAt = 1.6f;     // そりが待つ場所（坂の上から）
         public const float Accel = 1.8f, MaxSpeed = 6f, Brake = 7f;
 

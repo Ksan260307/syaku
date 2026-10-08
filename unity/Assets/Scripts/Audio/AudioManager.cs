@@ -7,7 +7,9 @@ namespace Shakutori
     {
         public static AudioManager Instance { get; private set; }
 
-        public AudioClip music;
+        public AudioClip music;          // 森の BGM
+        public AudioClip musicRiver;     // 川辺の BGM
+        public AudioClip musicPark;      // 公園の BGM
         public AudioClip ambience;
         public AudioClip[] steps;
         public AudioClip collect;
@@ -34,6 +36,8 @@ namespace Shakutori
         float _duckUntil;
 
         AudioSource _music, _amb, _amb2;
+        AudioSource _musicOut;        // 前のエリアの曲（ゆっくり小さくなって止まる）
+        string _area = "forest";
         float _ambMix;   // 0 = 森, 1 = 川
         float _ambMixTarget;
         AudioSource[] _sfx;
@@ -48,6 +52,10 @@ namespace Shakutori
             _music.loop = true;
             _music.playOnAwake = false;
             _music.volume = 0f;
+            _musicOut = gameObject.AddComponent<AudioSource>();
+            _musicOut.loop = true;
+            _musicOut.playOnAwake = false;
+            _musicOut.volume = 0f;
             _amb = gameObject.AddComponent<AudioSource>();
             _amb.loop = true;
             _amb.playOnAwake = false;
@@ -69,15 +77,39 @@ namespace Shakutori
         {
             if (_started) return;
             _started = true;
-            if (music != null) { _music.clip = music; _music.Play(); }
+            var clip = MusicFor(_area);
+            if (clip != null) { _music.clip = clip; _music.Play(); }
             if (ambience != null) { _amb.clip = ambience; _amb.Play(); }
             if (riverAmbience != null) { _amb2.clip = riverAmbience; _amb2.Play(); }
         }
 
-        /// <summary>エリアに合わせて環境音を切り替える（ゆっくりクロスフェード）。</summary>
+        /// <summary>エリアの BGM（なければ森の曲）。</summary>
+        public AudioClip MusicFor(string areaId)
+        {
+            AudioClip c = areaId == "river" ? musicRiver : areaId == "park" ? musicPark : null;
+            return c != null ? c : music;
+        }
+
+        /// <summary>いま流している BGM（テスト用）。</summary>
+        public AudioClip CurrentMusic => _music != null ? _music.clip : null;
+
+        /// <summary>エリアに合わせて BGM と環境音を切り替える（ゆっくりクロスフェード）。</summary>
         public void SetArea(string areaId)
         {
+            _area = areaId;
             _ambMixTarget = areaId == "river" ? 1f : 0f;
+            var clip = MusicFor(areaId);
+            if (_music == null || clip == null || _music.clip == clip) return;
+            if (!_started)
+            {
+                _music.clip = clip;   // 音が出せるようになったら、この曲から
+                return;
+            }
+            // いまの曲は、うしろでゆっくり小さくして止める。新しい曲は、はじめから小さく入れる
+            (_music, _musicOut) = (_musicOut, _music);
+            _music.clip = clip;
+            _music.volume = 0f;
+            _music.Play();
         }
 
         void Update()
@@ -89,6 +121,11 @@ namespace Shakutori
             // ファンファーレの間は BGM を少し下げる
             float duck = Time.unscaledTime < _duckUntil ? 0.35f : 1f;
             _music.volume = Mathf.Lerp(_music.volume, _started ? _musicTarget * duck : 0f, k);
+            if (_musicOut.isPlaying)
+            {
+                _musicOut.volume = Mathf.MoveTowards(_musicOut.volume, 0f, Time.unscaledDeltaTime * 0.6f);
+                if (_musicOut.volume <= 0.001f) _musicOut.Stop();
+            }
             _ambMix = Mathf.MoveTowards(_ambMix, _ambMixTarget, Time.unscaledDeltaTime * 0.5f);
             _amb.volume = Mathf.Lerp(_amb.volume, _started ? _ambTarget * (1f - _ambMix) : 0f, k);
             _amb2.volume = Mathf.Lerp(_amb2.volume, _started ? _ambTarget * 1.1f * _ambMix * Mathf.Lerp(0.5f, 1.25f, _waterNear) : 0f, k);

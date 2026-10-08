@@ -87,11 +87,13 @@ namespace Shakutori.Tests
             UI.ShowMap(true);
             yield return Frames(2);
             Assert.AreEqual("川辺の地図", UI.Root.Q<Label>("map-title").text);
+            Assert.AreSame(AudioManager.Instance.musicRiver, AudioManager.Instance.CurrentMusic, "川辺の BGM になる");
             Assert.IsTrue(UI.RequestTravel("forest"));
             yield return WaitUntil(() => Areas.Current == Areas.Forest && GM.State == GameManager.GameState.Playing, 90f, "森へ");
             Areas.Forest.ArrivalFrom("river", out var arrive, out _);
             Assert.Less(Vector2.Distance(new Vector2(Worm.CenterPosition.x, Worm.CenterPosition.z), arrive), 2.5f);
             Assert.AreEqual("しゃくとりの森", UI.AreaTitle);
+            Assert.AreSame(AudioManager.Instance.music, AudioManager.Instance.CurrentMusic, "森の BGM にもどる");
             Assert.AreEqual(45, Col.TotalDrops);
         }
 

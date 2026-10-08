@@ -54,7 +54,19 @@ namespace Shakutori.Tests
             yield return FaceCamera(Vector3.right);
             float ground = ForestLayout.Height(s.x, s.y);
             GameInput.VirtualMove = Vector2.up;
-            yield return WaitUntil(() => Worm.HeadPosition.y - ground > height && Worm.SurfaceUp.y < 0.5f, 25f, "切り株の壁を登る");
+            var trail = new System.Text.StringBuilder();
+            float next = 0f, t = 0f;
+            while (!(Worm.HeadPosition.y - ground > height && Worm.SurfaceUp.y < 0.5f))
+            {
+                if (t >= next)
+                {
+                    next += 2f;
+                    trail.Append($" [{t:0}s {Worm.HeadPosition} {Worm.State}]");
+                }
+                if (t > 25f) Assert.Fail("待ち時間切れ: 切り株の壁を登る" + trail);
+                yield return null;
+                t += Time.deltaTime;
+            }
             GameInput.VirtualMove = Vector2.zero;
             yield return WaitUntil(() => Worm.State == InchwormController.Mode.Idle, 2f, "止まる");
         }
@@ -105,11 +117,12 @@ namespace Shakutori.Tests
         public IEnumerator Falling_SilkCatchesTheWorm()
         {
             yield return ClimbStumpWall(4f);
+            string before = $"steep={Worm.OnSteepSurface} up={Worm.SurfaceUp} head={Worm.HeadPosition} state={Worm.State}";
             GameInput.SetVirtualSilk(true);
             yield return null;
             GameInput.SetVirtualSilk(false);
             yield return Seconds(0.25f);
-            Assert.AreEqual(InchwormController.Mode.Fall, Worm.State);
+            Assert.AreEqual(InchwormController.Mode.Fall, Worm.State, "壁からはなれて落ちる " + before);
             GameInput.SetVirtualSilk(true);
             yield return null;
             yield return null;
@@ -133,9 +146,25 @@ namespace Shakutori.Tests
             Vector3 target = start + new Vector3(0f, 4f, 4.5f);   // 柱の手前の面
             Assert.IsTrue(Worm.AimAt(target), "とどく");
             Assert.AreEqual(target.y, Worm.AimPoint.y, 0.3f);
+            Vector3 from = Worm.CenterPosition;
             Assert.IsTrue(Worm.FireSilk());
             Assert.IsTrue(Worm.IsReeling);
-            yield return WaitUntil(() => !Worm.IsReeling && Worm.State != InchwormController.Mode.Hang, 10f, "たぐり寄せて着く");
+            // フックショットのように：糸がとどくまでは、その場で待ち、とどいたら一直線に引き寄せられる（たれ下がらない）
+            Vector3 aim = Worm.AimPoint;
+            float off = 0f, t0 = Time.time;
+            yield return WaitUntil(() =>
+            {
+                if (Worm.IsReeling)
+                {
+                    Vector3 p = Worm.CenterPosition;
+                    Vector3 ab = aim - from;
+                    float u = Mathf.Clamp01(Vector3.Dot(p - from, ab) / ab.sqrMagnitude);
+                    off = Mathf.Max(off, Vector3.Distance(p, from + ab * u));
+                }
+                return !Worm.IsReeling && Worm.State != InchwormController.Mode.Hang;
+            }, 10f, "たぐり寄せて着く");
+            Assert.Less(off, 0.6f, $"まっすぐ引き寄せられる（線からいちばん離れた：{off:0.00}）");
+            Assert.Less(Time.time - t0, 2.5f, "すばやく着く");
             Assert.Greater(Worm.HeadPoint.y - start.y, 3f, "高い所へ上がった");
             Assert.Less(Vector3.Distance(Worm.HeadPoint, Worm.AimPoint), 1.2f, "ねらった場所に着く");
             Assert.IsTrue(Worm.OnSteepSurface, "柱の壁につかまる");
@@ -282,6 +311,58 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
+        public IEnumerator Zukan_TravelsToALandmarkNearTheHabitat()
+        {
+            // アリのすみかのそばの名所（森）
+            var spots = Habitats.Of("ant");
+            int k = spots.FindIndex(h => h.area == "forest" && !string.IsNullOrEmpty(h.landmark)
+                && !Col.IsDiscovered(ForestLayout.Landmarks.Find(l => l.name == h.landmark).id));
+            Assert.GreaterOrEqual(k, 0, "アリのすみかのそばに、まだ見つけていない名所がある");
+            var lm = ForestLayout.Landmarks.Find(l => l.name == spots[k].landmark);
+            GM.creatures.Discover(SpeciesCatalog.Get("ant"));
+            UI.SelectSpecies("ant");
+            System.Func<bool> hasButton = () => UI.Root.Q("zukan-go").Query<Button>().ToList().Exists(b => b.text.Contains(lm.name));
+            Assert.IsFalse(hasButton(), "名所を見つけるまでは、そこへ移動のボタンはない");
+            Col.Discover(lm);
+            yield return null;
+            UI.SelectSpecies("ant");
+            Assert.IsTrue(hasButton(), "見つけた名所へ移動のボタン");
+            int index = UI.Root.Q("zukan-go").Query<Button>().ToList().FindIndex(b => b.text.Contains(lm.name));
+            // いちばん遠い名所から
+            LandmarkDef far = lm;
+            foreach (var l in ForestLayout.Landmarks)
+                if (Vector2.Distance(l.position, lm.position) > Vector2.Distance(far.position, lm.position)) far = l;
+            Worm.Spawn(GM.world.ArrivalPoint(far, out var ff), ff);
+            yield return Frames(2);
+            Assert.IsTrue(UI.PressHabitatTravel(index));
+            yield return WaitUntil(() => GM.State == GameManager.GameState.Playing && Worm.InputEnabled
+                && Vector2.Distance(new Vector2(Worm.CenterPosition.x, Worm.CenterPosition.z), lm.position) < lm.radius + 6f, 6f, "名所へ移動");
+        }
+
+        [UnityTest]
+        public IEnumerator Zukan_TravelsToALandmarkInAnotherArea()
+        {
+            // 川辺へ行って、サワガニのすみかを記録してから、森へもどる
+            SaveSystem.Data.visited.Add("river");
+            GM.TravelTo("river");
+            yield return WaitUntil(() => Areas.Current == Areas.River && GM.State == GameManager.GameState.Playing && Worm.InputEnabled, 120f, "川辺へ");
+            var spots = Habitats.Of("crab");
+            int k = spots.FindIndex(h => h.area == "river" && !string.IsNullOrEmpty(h.landmark));
+            Assert.GreaterOrEqual(k, 0, "サワガニのすみかのそばに名所がある");
+            var lm = RiverLayout.Landmarks.Find(l => l.name == spots[k].landmark);
+            Col.Discover(lm);
+            GM.TravelTo("forest");
+            yield return WaitUntil(() => Areas.Current == Areas.Forest && GM.State == GameManager.GameState.Playing && Worm.InputEnabled, 120f, "森へ");
+            GM.creatures.Discover(SpeciesCatalog.Get("crab"));
+            UI.SelectSpecies("crab");
+            Assert.Greater(UI.HabitatTravelCount, 0, "ほかのエリアの名所へも行ける");
+            Assert.IsTrue(UI.PressHabitatTravel(0));
+            yield return WaitUntil(() => Areas.Current == Areas.River && GM.State == GameManager.GameState.Playing && Worm.InputEnabled, 120f, "川辺の名所へ");
+            Vector3 w = Worm.CenterPosition;
+            Assert.Less(Vector2.Distance(new Vector2(w.x, w.z), lm.position), lm.radius + 8f, $"{lm.name} のそばに着く");
+        }
+
+        [UnityTest]
         public IEnumerator Map_TapOnADiscoveredLandmarkTravelsThere()
         {
             var lm = ForestLayout.Landmarks[4];
@@ -375,6 +456,24 @@ namespace Shakutori.Tests
         {
             Creatures.RareChanceOverride = null;
             ResetInput();
+        }
+
+        [UnityTest]
+        public IEnumerator NewRares_ReplaceTheirBaseSpecies()
+        {
+            var C = GM.creatures;
+            Assert.Greater(C.CountOf("herakuresu"), 0, "カブトムシのかわりにヘラクレスオオカブト");
+            Assert.Greater(C.CountOf("flamingo"), 0, "カラスのかわりにフラミンゴ");
+            Assert.Greater(C.CountOf("harinezumi"), 0, "だんごむしのかわりにハリネズミ");
+            // ハリネズミは、だんごむしのように、近づくとまるくなる
+            Vector3 h = C.PositionOf("harinezumi");
+            Worm.Spawn(SurfaceNear(h, 1f), Vector3.left);
+            yield return WaitUntil(() => C.CurledOf("harinezumi") > 0.5f, 3f, "まるくなる");
+            // 公園のトカゲは、カメレオンに
+            SaveSystem.Data.visited.Add("park");
+            GM.TravelTo("park");
+            yield return WaitUntil(() => Areas.Current == Areas.Park && GM.State == GameManager.GameState.Playing, 120f, "公園へ");
+            Assert.Greater(C.CountOf("kameleon"), 0, "トカゲのかわりにカメレオン");
         }
 
         [UnityTest]

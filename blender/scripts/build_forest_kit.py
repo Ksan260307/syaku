@@ -1645,7 +1645,8 @@ def make_strawberry(name, seed):
     return build(mb, name)
 
 
-def make_lilypad(name, seed, R=3.0):
+def make_lilypad(name, seed, R=3.0, notch=True):
+    """睡蓮の葉。notch=False は、切れこみまでふさいだ当たり判定用（切れこみの上でも水に落ちない）"""
     rnd = random.Random(seed)
     mb = MB()
     gap = 0.22
@@ -1662,7 +1663,10 @@ def make_lilypad(name, seed, R=3.0):
         c = mixc(c, hexc("#a0dc7a"), vein * 0.5 * rho)
         c = mixc(c, hexc("#9a5a4a"), sstep(0.93, 1.0, rho) * 0.6)
         return c
-    polar_sheet(mb, rfn, cf, n_ang=64, n_rad=6, a0=-math.pi + gap, a1=math.pi - gap, zfn=zfn, full=False)
+    if notch:
+        polar_sheet(mb, rfn, cf, n_ang=64, n_rad=6, a0=-math.pi + gap, a1=math.pi - gap, zfn=zfn, full=False)
+    else:
+        polar_sheet(mb, rfn, cf, n_ang=64, n_rad=6, zfn=zfn, full=True)
     return build(mb, name, solidify=0.08)
 
 
@@ -1806,6 +1810,7 @@ def main():
         lambda: make_sprout("Sprout", 1),
         lambda: make_strawberry("Strawberry", 1),
         lambda: make_lilypad("LilyPad", 1),
+        lambda: make_lilypad("LilyPad_Col", 1, notch=False),
         lambda: make_water_lily("WaterLily"),
         lambda: make_reed("Reed", 1),
         make_dewdrop,

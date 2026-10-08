@@ -22,6 +22,10 @@ namespace Shakutori.Tests
         {
             if (!keepSave) SaveSystem.ResetAll();
             GameManager.Assists = false;   // ヒントや画質の自動調整は、テストごとに結果が変わらないよう切る
+            // レアないきものは毎回ランダムに出るので、レアを確かめるテスト（先に確率を決める）のほかは出さない
+            if (Creatures.RareChanceOverride == null) Creatures.RareChanceOverride = 0f;
+            // 大きな落ち葉は、突風の時間（起動からの時間）によってすべるので、ふだんは風を止めておく（風を確かめるテストは自分で決める）
+            BigLeaf.WindOverride = Vector3.zero;
             Time.timeScale = 1f;
             ResetInput();
             SceneManager.LoadScene("Forest", LoadSceneMode.Single);
@@ -116,6 +120,14 @@ namespace Shakutori.Tests
             Vector3 p = TopSurface(xz);
             Worm.Spawn(p, forward);
             return p;
+        }
+
+        /// <summary>p のそば（横に dx）の、p と同じくらいの高さの面（木のしげみや丸太の上ではなく、いきものがいる面）。</summary>
+        public static Vector3 SurfaceNear(Vector3 p, float dx)
+        {
+            Vector3 from = new Vector3(p.x + dx, p.y + 1.2f, p.z);
+            if (Physics.Raycast(from, Vector3.down, out var hit, 4f, ShakuConst.SurfaceMask)) return hit.point;
+            return TopSurface(new Vector2(p.x + dx, p.z));
         }
 
         public static Vector3 TopSurface(Vector2 xz)

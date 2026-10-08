@@ -21,9 +21,15 @@ namespace Shakutori
             { "Kuwagata", new[] { new LegMount("Kuwagata_Leg1", new Vector3(-0.2000f, 0.1300f, -0.2800f), new Vector3(-0.5400f, 0.0000f, -0.3500f)), new LegMount("Kuwagata_Leg2", new Vector3(-0.2000f, 0.1300f, -0.0600f), new Vector3(-0.5400f, 0.0000f, -0.1300f)), new LegMount("Kuwagata_Leg3", new Vector3(-0.2000f, 0.1300f, 0.2000f), new Vector3(-0.5400f, 0.0000f, 0.1300f)) } },
             { "Kamemushi", new[] { new LegMount("Kamemushi_Leg1", new Vector3(-0.0700f, 0.0400f, -0.1200f), new Vector3(-0.2300f, 0.0000f, -0.1800f)), new LegMount("Kamemushi_Leg2", new Vector3(-0.0700f, 0.0400f, -0.0200f), new Vector3(-0.2300f, 0.0000f, -0.0200f)), new LegMount("Kamemushi_Leg3", new Vector3(-0.0700f, 0.0400f, 0.0800f), new Vector3(-0.2300f, 0.0000f, 0.1400f)) } },
             { "Tokage", new[] { new LegMount("Tokage_Leg1", new Vector3(-0.1600f, 0.1800f, -0.4200f), new Vector3(-0.5000f, 0.0000f, -0.7000f)), new LegMount("Tokage_Leg2", new Vector3(-0.1600f, 0.1800f, 0.4200f), new Vector3(-0.5000f, 0.0000f, 0.3200f)) } },
+            { "Okera", new[] { new LegMount("Okera_Leg1", new Vector3(-0.1500f, 0.1400f, -0.1200f), new Vector3(-0.3800f, 0.0000f, -0.2800f)), new LegMount("Okera_Leg2", new Vector3(-0.1500f, 0.1400f, 0.1200f), new Vector3(-0.3800f, 0.0000f, 0.3800f)) } },
+            { "Nanafushi", new[] { new LegMount("Nanafushi_Leg1", new Vector3(-0.0500f, 0.3600f, -0.9500f), new Vector3(-0.7500f, 0.0000f, -1.7500f)), new LegMount("Nanafushi_Leg2", new Vector3(-0.0500f, 0.3600f, -0.2500f), new Vector3(-0.7500f, 0.0000f, -0.3000f)), new LegMount("Nanafushi_Leg3", new Vector3(-0.0500f, 0.3600f, 0.2000f), new Vector3(-0.7500f, 0.0000f, 0.7000f)) } },
+            { "Hanakamakiri", new[] { new LegMount("Hanakamakiri_Leg1", new Vector3(-0.0400f, 0.3000f, 0.0200f), new Vector3(-0.3000f, 0.0000f, -0.1800f)), new LegMount("Hanakamakiri_Leg2", new Vector3(-0.0400f, 0.3000f, 0.1400f), new Vector3(-0.3400f, 0.0000f, 0.4800f)) } },
+            { "Kameleon", new[] { new LegMount("Kameleon_Leg1", new Vector3(-0.3000f, 0.8000f, -0.5500f), new Vector3(-0.6200f, 0.0000f, -0.8500f)), new LegMount("Kameleon_Leg2", new Vector3(-0.3000f, 0.8000f, 0.4500f), new Vector3(-0.6200f, 0.0000f, 0.6500f)) } },
+            { "Herakuresu", new[] { new LegMount("Herakuresu_Leg1", new Vector3(-0.7000f, 0.5000f, -1.0000f), new Vector3(-1.8000f, 0.0000f, -1.2500f)), new LegMount("Herakuresu_Leg2", new Vector3(-0.7000f, 0.5000f, -0.3000f), new Vector3(-1.8000f, 0.0000f, -0.5500f)), new LegMount("Herakuresu_Leg3", new Vector3(-0.7000f, 0.5000f, 0.6000f), new Vector3(-1.8000f, 0.0000f, 0.3500f)) } },
         };
 
         public static readonly Vector3 GrasshopperHip = new Vector3(-0.1000f, 0.2500f, 0.0500f);
         public static readonly Vector3 MantisShoulder = new Vector3(-0.0500f, 0.6600f, -0.4200f);
+        public static readonly Vector3 HanaShoulder = new Vector3(-0.0400f, 0.4200f, -0.2800f);
     }
 }

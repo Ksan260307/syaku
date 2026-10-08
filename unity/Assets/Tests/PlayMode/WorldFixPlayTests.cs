@@ -21,6 +21,41 @@ namespace Shakutori.Tests
         public void TearDown() => ResetInput();
 
         [UnityTest]
+        public IEnumerator Ants_AreNudgedSmoothlyWhenBumped()
+        {
+            // アリの行列（巣 (8, -1.5) → 食べもの (3.5, 7.5)）を、横から歩いて横切る
+            Vector2 a = new Vector2(8f, -1.5f), b = new Vector2(3.5f, 7.5f);
+            Vector2 mid = (a + b) * 0.5f;
+            Vector2 dir = (b - a).normalized;
+            Vector2 side = new Vector2(dir.y, -dir.x);
+            Vector3 start = Place(mid + side * 1.6f, new Vector3(-side.x, 0f, -side.y));
+            int n = GM.creatures.CountOf("ant");
+            var last = new Vector3[n];
+            for (int i = 0; i < n; i++) last[i] = GM.creatures.PositionOf("ant", i);
+            float worst = 0f;
+            int near = 0;
+            GameInput.VirtualMove = Vector2.up;
+            for (float t = 0f; t < 5f; t += Time.deltaTime)
+            {
+                yield return null;
+                for (int i = 0; i < n; i++)
+                {
+                    Vector3 p = GM.creatures.PositionOf("ant", i);
+                    if (Vector3.Distance(p, Worm.CenterPosition) < 1.5f)
+                    {
+                        near++;
+                        // 1 フレームで動いた分（歩く速さと、体に押された分）
+                        worst = Mathf.Max(worst, Vector3.Distance(p, last[i]) - 2f * Time.deltaTime);
+                    }
+                    last[i] = p;
+                }
+            }
+            GameInput.VirtualMove = Vector2.zero;
+            Assert.Greater(near, 10, "アリのそばを通った");
+            Assert.Less(worst, 0.15f, $"アリが瞬間移動しない（1 フレームでいちばん大きく動いた：{worst:0.00}）");
+        }
+
+        [UnityTest]
         public IEnumerator FastTravel_ToThePondLandsOnDryGround()
         {
             var lm = ForestLayout.Landmarks.Find(l => l.id == 5);   // 鏡の水たまり

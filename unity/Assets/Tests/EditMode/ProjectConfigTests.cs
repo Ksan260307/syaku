@@ -123,6 +123,16 @@ namespace Shakutori.Tests
             Assert.IsNotNull(a.land);
             Assert.IsNotNull(a.complete);
             Assert.Greater(a.music.length, 30f);
+            // エリアごとの BGM（川辺・公園は、森とはちがう曲）
+            Assert.IsNotNull(a.musicRiver);
+            Assert.IsNotNull(a.musicPark);
+            Assert.Greater(a.musicRiver.length, 30f);
+            Assert.Greater(a.musicPark.length, 30f);
+            Assert.AreNotSame(a.music, a.musicRiver);
+            Assert.AreNotSame(a.music, a.musicPark);
+            Assert.AreSame(a.musicRiver, a.MusicFor("river"));
+            Assert.AreSame(a.musicPark, a.MusicFor("park"));
+            Assert.AreSame(a.music, a.MusicFor("forest"));
             Assert.Greater(a.ambience.length, 20f);
             Assert.IsNotNull(a.riverAmbience);
             Assert.Greater(a.riverAmbience.length, 20f);

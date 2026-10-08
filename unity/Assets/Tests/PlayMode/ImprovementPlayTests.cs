@@ -169,6 +169,31 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
+        public IEnumerator Zukan_HabitatTextStaysInsideTheWindow()
+        {
+            // 3 つのエリアの、たくさんの名所のまわりにいる：すみかの文が長くなる
+            foreach (var lm in RiverLayout.Landmarks) SaveSystem.Data.habitats.Add($"ant|river|{lm.position.x:F1}|{lm.position.y:F1}|4.0|{lm.name}");
+            foreach (var lm in ParkLayout.Landmarks) SaveSystem.Data.habitats.Add($"ant|park|{lm.position.x:F1}|{lm.position.y:F1}|4.0|{lm.name}");
+            GM.creatures.Discover(SpeciesCatalog.Get("ant"));
+            UI.ShowCollection(true, "zukan");
+            UI.SelectSpecies("ant");
+            yield return Frames(4);
+            var detail = UI.Root.Q("zukan-detail");
+            var area = UI.Root.Q<Label>("zukan-area");
+            StringAssert.Contains("公園", area.text);
+            Rect d = detail.worldBound, a = area.worldBound;
+            Assert.GreaterOrEqual(a.xMin, d.xMin - 1f, "すみかの文が左にはみ出さない");
+            Assert.LessOrEqual(a.xMax, d.xMax + 1f, "すみかの文が右にはみ出さない");
+            Assert.Greater(a.height, area.resolvedStyle.fontSize * 1.8f, "長い文は折り返す");
+            foreach (var b in UI.Root.Q("zukan-go").Query<Button>().ToList())
+                Assert.LessOrEqual(b.worldBound.xMax, d.xMax + 1f, "移動のボタンも枠の中");
+            var desc = UI.Root.Q<Label>("zukan-desc");
+            Debug.Log($"ZUKAN detail={d} desc={desc.worldBound} body={detail.parent.worldBound} page={UI.Root.Q("page-zukan").worldBound}");
+            Assert.LessOrEqual(desc.worldBound.yMax, detail.parent.worldBound.yMax + 1f, "説明が下にはみ出さない");
+            UI.ShowCollection(false);
+        }
+
+        [UnityTest]
         public IEnumerator Zukan_CanBeFilteredByHabitat()
         {
             UI.ShowCollection(true, "zukan");

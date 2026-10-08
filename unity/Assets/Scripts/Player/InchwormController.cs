@@ -32,7 +32,7 @@ namespace Shakutori
         public float silkDescendSpeed = 1.8f;
         public float silkFastSpeed = 4.5f;
         public float silkClimbSpeed = 1.4f;
-        public float silkReelSpeed = 4.2f;     // ねらって出した糸をたぐる速さ
+        public float silkReelSpeed = 7.5f;     // ねらって出した糸で、まっすぐ引き寄せられる速さ（フックショットのように）
         public float silkRange = 12f;          // 糸をねらって出せる距離
         public float silkMaxLength = 40f;      // 糸はこれ以上のびない
 
@@ -162,6 +162,7 @@ namespace Shakutori
 
         // 糸をねらう・たぐる
         bool _reeling;
+        float _zipSpeed;      // ねらった糸で引き寄せられている速さ
         float _shotT = 1f;
         RaycastHit _aimHit;
 
@@ -1648,15 +1649,8 @@ namespace Shakutori
                     StartFall(_hangVel, _anchorSurface);
                     return;
                 }
-                // たぐる速さは、目的の場所が近づくとゆっくり
-                float reel = silkReelSpeed * Mathf.Lerp(0.45f, 1f, Mathf.Clamp01(_silkLen / 1.2f));
-                // 真上へ引き上げるときは、重さの分だけ遅い（同じ力なら、持ち上げる仕事の分だけ速さが落ちる）
-                Vector3 toAnchor = _silkAnchor - _hangPos;
-                if (toAnchor.sqrMagnitude > 1e-4f) reel *= Mathf.Lerp(1f, 0.72f, Mathf.Clamp01(Vector3.Dot(toAnchor.normalized, Vector3.up)));
-                if (_shotT >= 1f) _silkLen -= reel * dt;
-                _silkSpeed = -reel;
-                // 地面すれすれを通るときは、体を持ち上げる
-                if (SurfaceProbe.Raycast(_hangPos, Vector3.down, 0.35f, out _)) _hangVel += Vector3.up * (4f * dt);
+                ZipToAnchor(dt);
+                return;
             }
             else
             {
@@ -1797,6 +1791,45 @@ namespace Shakutori
                 _silkLen = Mathf.Max(0.3f, _silkLen - (sprint ? silkFastSpeed : silkDescendSpeed) * dt);
         }
 
+        /// <summary>
+        /// ねらって出した糸（フックショットのように）：糸がまっすぐ飛んでいってとどくまでは、体はその場で待つ。
+        /// とどいたら、糸はぴんと張ったまま、体は重さでたれ下がらずに、ねらった場所へ一直線に引き寄せられる。
+        /// 途中に物があったら、そこで止まってぶら下がる。
+        /// </summary>
+        void ZipToAnchor(float dt)
+        {
+            Vector3 to = _silkAnchor - _hangPos;
+            float d = to.magnitude;
+            Vector3 dir = d > 1e-4f ? to / d : Vector3.zero;
+            _hangFacing = ShakuMath.ProjectOnPlaneSafe(dir, Vector3.up, _hangFacing).normalized;
+            _silkLen = d;
+            if (_shotT < 1f)
+            {
+                _hangVel = Vector3.zero;
+                _silkSpeed = 0f;
+                return;
+            }
+            // すぐに速くなり、一定の速さで進む（着く直前だけ、少しゆるめる）
+            float top = silkReelSpeed * Mathf.Lerp(0.55f, 1f, Mathf.Clamp01(d / 1.2f));
+            _zipSpeed = Mathf.MoveTowards(_zipSpeed, top, dt * silkReelSpeed * 10f);
+            float step = Mathf.Min(d, _zipSpeed * dt);
+            if (step > 1e-5f && Physics.SphereCast(_hangPos, 0.06f, dir, out var wall, step, SurfaceProbe.Mask, QueryTriggerInteraction.Ignore)
+                && (wall.point - _silkAnchor).sqrMagnitude > 0.35f * 0.35f)
+            {
+                // 途中の物にじゃまされた：そこで止まり、ふつうにぶら下がる
+                _hangPos += dir * Mathf.Max(0f, wall.distance - 0.02f);
+                _hangVel = Vector3.zero;
+                _silkLen = Vector3.Distance(_silkAnchor, _hangPos);
+                _reeling = false;
+                return;
+            }
+            _hangPos += dir * step;
+            _hangVel = dir * _zipSpeed;
+            _silkSpeed = -_zipSpeed;
+            _silkLen = d - step;
+            if (_silkLen < 0.25f) ReattachAt(_anchorSurface, _hangFacing);   // 着いたら、ねらった場所につかまる
+        }
+
         /// <summary>ぶら下がっているときの重さ（ふりこがゆったりゆれるように、軽め。Physics.gravity の設定には左右されない）。</summary>
         public const float HangGravity = ShakuPhysics.Gravity * 0.65f;
         /// <summary>糸のかたさ（1 の長さあたり）と、のびるのをおさえる強さ。</summary>
@@ -1908,6 +1941,19 @@ namespace Shakutori
             // 糸をつけた直後は、頭をふって糸をつける
             float since = Time.time - _hangStart;
             if (since < 0.35f) wiggle += Mathf.Sin(since * 40f) * 0.3f * (1f - since / 0.35f);
+            if (_reeling)
+            {
+                // ねらった糸で引き寄せられている：体はまっすぐのびて、糸と一直線（頭が先）
+                _target.BuildHang(head, _hangFacing, L, 0.04f, 0f);
+                Vector3 line = _hangPos - _silkAnchor;
+                if (line.sqrMagnitude > 1e-4f)
+                {
+                    _hangLean = line.normalized;
+                    _hangLeanVel = Vector3.zero;
+                    _target.RotateAround(head, Quaternion.FromToRotation(Vector3.down, _hangLean));
+                }
+                return;
+            }
             _target.BuildHang(head, _hangFacing, L, curl, wiggle);
             // 体は糸の向きにそってたれ下がる（振り子で糸がかたむけば、体も少しおくれてかたむく）
             Vector3 silkDir = _hangPos - _silkAnchor;
@@ -1938,7 +1984,8 @@ namespace Shakutori
                 _ropeLive = true;
                 _ropeAnchor = a;
                 // 糸は点をつないだロープ：長さが余ればたるみ、風に流され、地面にはしずまない
-                _ropeLen = _shotT < 1f ? dist : Mathf.Max(dist, _silkLen);
+                // （ねらって出した糸は、飛んでいくときも引き寄せるときも、まっすぐ張っている）
+                _ropeLen = _shotT < 1f || _reeling ? dist : Mathf.Max(dist, _silkLen);
                 _rope.airDrag = 3f;
                 _rope.Step(dt, a, h, _ropeLen, Wind.At((a + h) * 0.5f));
                 // 張った糸は、風で細かく速くふるえ、ゆるい糸は大きくゆっくりゆれる
@@ -2466,12 +2513,13 @@ namespace Shakutori
             _hangPos = start;
             Vector3 to = hit.point - start;
             _hangFacing = ShakuMath.ProjectOnPlaneSafe(to, Vector3.up, Heading).normalized;
-            _hangVel = to.normalized * 2.2f + Vector3.up * 1.2f + (State == Mode.Hang ? Vector3.zero : _platformVelNow);
+            _hangVel = Vector3.zero;   // 糸がまっすぐ飛んでいって、とどくまでは、体はその場で待つ
+            _zipSpeed = 0f;
             _silkLen = Mathf.Max(0.3f, to.magnitude);
             _silkSpeed = 0f;
             _hangStart = Time.time;
             BeginHangPhysics();
-            _shotDur = 0.12f + 0.012f * to.magnitude;   // とどくまでの時間は、距離に合わせて
+            _shotDur = 0.1f + 0.02f * to.magnitude;   // 糸がとどくまでの時間は、距離に合わせて
             _shotT = 0f;
             _reeling = true;
             _rear = 0f;

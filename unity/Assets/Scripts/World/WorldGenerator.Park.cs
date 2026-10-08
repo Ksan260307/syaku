@@ -218,7 +218,7 @@ namespace Shakutori
                 Vector2 b = new Vector2(10f, -18f);
                 Vector3 g = ParkLayout.Ground(b.x, b.y);
                 var ball = Place("Park_Ball", shiny, g + Vector3.up * 2.4f, Quaternion.Euler(R(0, 360), R(0, 360), 0f), 1f, true, true, 200f, asRenderer: true);
-                if (ball != null) RollingProp.Make(ball, assets.Get("Park_Ball"), 1.4f, 2.4f);
+                if (ball != null) RollingProp.Make(ball, assets.Get("Park_Ball"), 1.4f, 2.4f, Area, 0.02f);   // ゴムのボールは中が空っぽ
                 Occupy(b, 3f);
             }
         }
@@ -238,7 +238,7 @@ namespace Shakutori
                 Vector2 p = RandomInCircle(k, 16f);
                 if (!IsLand(p, 0.1f) || InsideOccupied(p)) continue;
                 float s = R(0.6f, 1.1f);
-                Place(R01() < 0.6f ? "Leaf_Oak_Brown" : "Leaf_Oak_Orange", prop, ParkLayout.Ground(p.x, p.y) + Vector3.up * 0.04f, GroundRotation(p, R(0, 360), 1f, 3f), s, true, true, 120f);
+                PlaceLoose(R01() < 0.6f ? "Leaf_Oak_Brown" : "Leaf_Oak_Orange", prop, ParkLayout.Ground(p.x, p.y) + Vector3.up * 0.04f, GroundRotation(p, R(0, 360), 1f, 3f), s, LooseProps.Shape.BigLeaf, true, 120f);
             }
             for (int i = 0; i < 12; i++)
             {
@@ -249,7 +249,7 @@ namespace Shakutori
                 Quaternion rot = lying ? Quaternion.Euler(0f, R(0, 360), 0f) * Quaternion.Euler(0f, 0f, 88f) : GroundRotation(p, R(0, 360), 0.5f, 8f);
                 Vector3 pos = ParkLayout.Ground(p.x, p.y) + (lying ? Vector3.up * 0.42f * s : Vector3.down * 0.03f);
                 var acorn = Place("Acorn", assets.propGlossy, pos, rot, s, true, true, 150f, true);
-                if (acorn != null) RollingProp.Make(acorn, assets.Get("Acorn"), s, 0.47f * s);
+                if (acorn != null) RollingProp.Make(acorn, assets.Get("Acorn"), s, 0.47f * s, Area);
                 Occupy(p, 0.7f * s);
             }
             for (int i = 0; i < 5; i++)
@@ -297,7 +297,7 @@ namespace Shakutori
             var col = new List<Color>(v.Count);
             foreach (var p in v)
             {
-                uv.Add(new Vector2(p.x / 20f, p.z / 8f));
+                uv.Add(new Vector2(p.x / 7f, p.z / 5f));   // 小さな水たまりは、さざ波も細かく
                 col.Add(new Color(0f, 0f, 0f, 1f));
             }
             var mesh = Own(new Mesh { name = "Puddle" });
@@ -314,6 +314,12 @@ namespace Shakutori
             var mr = go.AddComponent<MeshRenderer>();
             mr.sharedMaterial = assets.pond != null ? assets.pond : assets.water;
             mr.shadowCastingMode = ShadowCastingMode.Off;
+            // 水飲み場のじゃぐちから、ぽたぽた落ちる所に、波紋が広がる
+            Vector2 drip = c + (ParkLayout.Fountain - c).normalized * (ParkLayout.PuddleRadius - 1.6f);
+            var mpb = new MaterialPropertyBlock();
+            mpb.SetVector("_Drip", new Vector4(drip.x, drip.y, 2.6f, 0.8f));
+            mpb.SetFloat("_FoamDepth", 0.012f);   // とても浅い水たまり：岸ぎわの泡は、ふちだけ（全部が白くならない）
+            mr.SetPropertyBlock(mpb);
             WaterView.Register(mr);   // 水が映るときだけ、深さと色の写しを作る
         }
 
@@ -404,7 +410,7 @@ namespace Shakutori
                 Vector2 p = RandomInRing(2f, 64f);
                 if (ParkLayout.TrailMask(p.x, p.y) < 0.4f && ParkLayout.SandMask(p.x, p.y) < 0.4f) continue;
                 if (!IsLand(p, 0.0f) || InsideOccupied(p)) continue;
-                PlaceLoose(Pick(Rocks), assets.prop, ParkLayout.Ground(p.x, p.y), Quaternion.Euler(R(0, 360), R(0, 360), R(0, 360)), R(0.05f, 0.14f), LooseProps.Shape.Pebble, false, 40f);
+                PlaceLoose(Pick(Rocks), assets.prop, ParkLayout.Ground(p.x, p.y), Quaternion.Euler(R(-12f, 12f), R(0, 360), R(-12f, 12f)), R(0.05f, 0.14f), LooseProps.Shape.Pebble, false, 40f);
             }
         }
 
@@ -428,8 +434,16 @@ namespace Shakutori
             Vector2 c = ParkLayout.FlowerBed;
             AddDewFromAbove(c + new Vector2(ParkLayout.BedSize.x * 0.5f - 0.3f, 0f));
             AddDewFromAbove(c + new Vector2(-ParkLayout.BedSize.x * 0.5f + 0.3f, 2f));
-            AddDewFromAbove(ParkLayout.Kunugi + new Vector2(6f, -2f));
-            AddDewFromAbove(ParkLayout.Kunugi + new Vector2(-3f, 6f));
+            // クヌギの根もとと、枝や葉のしげみの上（上の樹冠より下から、下へさがす）
+            float kh = ParkLayout.Height(ParkLayout.Kunugi.x, ParkLayout.Kunugi.y);
+            AddDewFromAbove(ParkLayout.Kunugi + new Vector2(6f, -2f), kh + 28f);
+            AddDewFromAbove(ParkLayout.Kunugi + new Vector2(-3f, 6f), kh + 28f);
+            Vector2 inward = (-ParkLayout.Kunugi).normalized;   // 公園のまん中の方の枝（遊べる場所の中）
+            for (int i = 0; i < 3; i++)
+            {
+                Vector2 d = (Vector2)(Quaternion.Euler(0f, 0f, -50f + 50f * i) * inward);
+                AddDewFromAbove(ParkLayout.Kunugi + d * 13f, kh + 28f);
+            }
             AddDewFromAbove(ParkLayout.Seesaw + new Vector2(0f, 3f));
             AddDewFromAbove(ParkLayout.Swing + new Vector2(-10f, 4f));
             FillDewdrops(8f, 58f);
@@ -464,6 +478,17 @@ namespace Shakutori
             AddMob("pillbug", ParkLayout.Ground(ParkLayout.Bench.x + 1f, ParkLayout.Bench.y), 3, 3f);
             AddMob("spider", ParkLayout.Ground(ParkLayout.JungleGym.x + 6f, ParkLayout.JungleGym.y + 3f), 1, 3f);
             AddMob("dragonfly", new Vector3(ParkLayout.Puddle.x, ParkLayout.WaterLevel, ParkLayout.Puddle.y), 1, 6f, 3f);
+            // しばふのモグラ塚・水たまりのそばのケラ・花だんのハナカマキリ
+            AddMob("mogura", ParkLayout.Ground(30f, 18f), 1, 0.3f);
+            AddMob("mogura", ParkLayout.Ground(-20f, -5f), 1, 0.3f);
+            AddMob("okera", ParkLayout.Ground(ParkLayout.Puddle.x + 6.5f, ParkLayout.Puddle.y - 1f), 1, 2f);
+            AddMob("hanakamakiri", new Vector3(bed.x + 3f, bedTop, bed.y - 1f), 1, 2.5f);
+            {
+                // ひろばのハト（首をふりながら歩き、近づくと群れで飛ぶ）
+                var g = AddMob("hato", ParkLayout.Ground(6f, -12f), 4, 4f);
+                Vector2[] spots = { new Vector2(6f, -12f), new Vector2(-8f, 6f), new Vector2(24f, 2f), new Vector2(-2f, -26f) };
+                foreach (var p in spots) g.path.Add(ParkLayout.Ground(p.x, p.y));
+            }
             {
                 var g = AddMob("sparrow", ParkLayout.Ground(4f, -10f), 3, 3f);
                 Vector2[] spots = { new Vector2(4f, -10f), new Vector2(30f, 14f), new Vector2(-14f, -30f), new Vector2(-20f, 20f) };

@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
@@ -177,6 +178,79 @@ namespace Shakutori.Tests
             for (int i = 0; i < _gen.loose.Count; i++) if (_gen.loose.MeshNameOf(i) == "Pinecone") cones++;
             Assert.GreaterOrEqual(cones, 2, "松ぼっくりは押すと転がる");
             Assert.AreEqual(0, _gen.loose.BodyCount, "はじめは絵だけ（体は、しゃくとりむしが近づいてから）");
+        }
+
+        [Test]
+        public void SmallThings_RestOnTheGroundNotBuried()
+        {
+            // 小石・松ぼっくり・ぼうしは、いちばん下が地面にふれている（うまっていると、体を持ったときに転がりだす）
+            int checkedCount = 0;
+            for (int i = 0; i < _gen.loose.Count; i++)
+            {
+                string name = _gen.loose.MeshNameOf(i);
+                if (name.StartsWith("Leaf_")) continue;
+                var mesh = _gen.loose.MeshOf(i);
+                var m = _gen.loose.MatrixOf(i);
+                float low = float.MaxValue;
+                foreach (var v in mesh.vertices)
+                {
+                    Vector3 w = m.MultiplyPoint3x4(v);
+                    low = Mathf.Min(low, w.y - ForestLayout.Height(w.x, w.z));
+                }
+                float size = mesh.bounds.size.magnitude * _gen.loose.ScaleOf(i);
+                Assert.Greater(low, -0.04f - size * 0.05f, $"{name} #{i} が地面にうまっている");
+                Assert.Less(low, 0.06f + size * 0.05f, $"{name} #{i} が地面から浮いている");
+                checkedCount++;
+            }
+            Assert.Greater(checkedCount, 20);
+        }
+
+        [Test]
+        public void LilyPads_HaveNoHoleAtTheNotch()
+        {
+            // 睡蓮の葉の切れこみの上でも水に落ちないよう、当たり判定は切れこみをふさいだ形
+            var pads = Object.FindObjectsByType<MeshCollider>(FindObjectsSortMode.None).Where(c => c.name == "LilyPad").ToList();
+            Assert.Greater(pads.Count, 3);
+            foreach (var c in pads) Assert.AreEqual("LilyPad_Col", c.sharedMesh.name);
+        }
+
+        [Test]
+        public void BigLeaves_AreClimbableWithRealWeight()
+        {
+            var leaves = _gen.loose.BigLeaves;
+            Assert.Greater(leaves.Count, 20, "大きな落ち葉");
+            foreach (var l in leaves)
+            {
+                Assert.AreEqual(ShakuConst.SurfaceLayer, l.gameObject.layer, "登れる");
+                Assert.IsNotNull(l.GetComponent<MeshCollider>());
+                Assert.IsTrue(l.GetComponent<Rigidbody>().isKinematic);
+                Assert.That(l.Mass, Is.InRange(0.1f, 3f), "本物の葉と同じくらいの重さ（グラム）");
+                Assert.Greater(l.Mass, LooseBody.WormPushLimit, "しゃくとりむしには押せない");
+            }
+            Assert.IsTrue(leaves.Any(l => l.Pinned), "しずくがのった葉は動かない");
+            Assert.IsTrue(leaves.Any(l => !l.Pinned));
+        }
+
+        [Test]
+        public void SmallThings_HaveRealisticWeights()
+        {
+            var a = _gen.assets;
+            // 1 単位 = 2.5cm。1cm くらいの小石は 1g ほど、5cm の松ぼっくりは数 g、落ち葉はとても軽い
+            float pebble = LooseProps.MassOf(a.Get("Rock_A"), LooseProps.Shape.Pebble, 0.15f);
+            Assert.That(pebble, Is.InRange(0.3f, 3f), "1cm ほどの小石");
+            float cone = LooseProps.MassOf(a.Get("Pinecone"), LooseProps.Shape.Pinecone, 1f);
+            Assert.That(cone, Is.InRange(2f, 12f), "松ぼっくり");
+            float leaf = LooseProps.MassOf(a.Get("Leaf_Oak_Brown"), LooseProps.Shape.Leaf, 0.12f);
+            Assert.Less(leaf, 0.3f, "落ち葉");
+            Assert.Less(leaf, pebble);
+            // しゃくとりむしが押せない重い小石は、動かない石（よじのぼれる）として置いてある
+            for (int i = 0; i < _gen.loose.Count; i++)
+                if (_gen.loose.MeshNameOf(i).StartsWith("Rock_"))
+                    Assert.LessOrEqual(LooseProps.MassOf(_gen.loose.MeshOf(i), LooseProps.Shape.Pebble, _gen.loose.ScaleOf(i)), LooseBody.WormPushLimit);
+            int fixedStones = 0;
+            foreach (var mc in Object.FindObjectsByType<MeshCollider>(FindObjectsSortMode.None))
+                if (mc.name.StartsWith("Rock_") && mc.transform.lossyScale.x < 0.25f) fixedStones++;
+            Assert.Greater(fixedStones, 10, "重い小石は、動かない石");
         }
 
         [Test]

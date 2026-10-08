@@ -20,6 +20,12 @@ namespace Shakutori
     /// </summary>
     public abstract class AreaLayout
     {
+        /// <summary>
+        /// しゃくとりむしが沈まずに歩ける水の深さ（体の太さくらい）。これより浅い水ぎわや水たまりには入れる。
+        /// 「水の中」は、この深さより深い所。
+        /// </summary>
+        public const float WadeDepth = 0.1f;
+
         public abstract string Id { get; }
         public abstract string DisplayName { get; }
         public abstract string Subtitle { get; }

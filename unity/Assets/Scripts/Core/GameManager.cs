@@ -126,6 +126,7 @@ namespace Shakutori
                 };
             }
             ui.FastTravelRequested += id => FastTravel(id);
+            ui.LandmarkTravelRequested += id => TravelToLandmark(id);
             ui.RescueRequested += Rescue;
             ui.SaveRequested += () =>
             {
@@ -348,7 +349,31 @@ namespace Shakutori
             return true;
         }
 
-        IEnumerator Travel(AreaLayout to)
+        /// <summary>
+        /// 見つけた名所へ移動する（図鑑から）。いまのエリアならファストトラベル、
+        /// 行ったことのあるほかのエリアなら、そのエリアへ移動して、名所の景色から始める。
+        /// </summary>
+        public bool TravelToLandmark(int landmarkId)
+        {
+            if (State != GameState.Playing && State != GameState.Paused) return false;
+            if (!SaveSystem.Data.places.Contains(landmarkId)) return false;
+            AreaLayout area = null;
+            LandmarkDef lm = null;
+            foreach (var a in Areas.All)
+            {
+                lm = a.Landmarks.Find(l => l.id == landmarkId);
+                if (lm != null) { area = a; break; }
+            }
+            if (lm == null) return false;
+            if (area != Areas.Current && !SaveSystem.Data.visited.Contains(area.Id)) return false;
+            if (State == GameState.Paused) Resume();
+            ui.CloseAllOverlays();
+            if (area == Areas.Current) return FastTravel(landmarkId);
+            StartCoroutine(Travel(area, lm));
+            return true;
+        }
+
+        IEnumerator Travel(AreaLayout to, LandmarkDef target = null)
         {
             var from = Areas.Current;
             State = GameState.Traveling;
@@ -368,7 +393,13 @@ namespace Shakutori
             to.ArrivalFrom(from.Id, out Vector2 xz, out Vector3 fwd);
             var view = to.ArrivalViewFrom(from.Id);
             Vector3 arrive = world.TopSurface(xz);
-            if (view != null && world.ViewPoint(view, out var vp, out var vf)) { arrive = vp; fwd = vf; }
+            if (target != null)
+            {
+                // 図鑑から名所へ：トンネルではなく、その名所の景色から始める
+                arrive = world.ArrivalPoint(target, out fwd);
+                view = target.view;
+            }
+            else if (view != null && world.ViewPoint(view, out var vp, out var vf)) { arrive = vp; fwd = vf; }
             worm.enabled = true;
             worm.Spawn(arrive, fwd);
             followCamera.titleMode = false;
@@ -386,6 +417,7 @@ namespace Shakutori
             collectibles.Active = true;
             if (creatures != null) creatures.Active = true;
             ui.ShowAreaBanner(to);
+            if (target != null) ui.Toast($"「{target.name}」へ移動しました", "icon-place");
             AudioManager.Instance?.Discover();
             worm.Survey(1f);   // 新しいエリアに着いたら、まわりを見わたす
             AnnounceRare();

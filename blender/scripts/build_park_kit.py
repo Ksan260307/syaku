@@ -18,7 +18,7 @@ from mathutils import Matrix, Vector
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_forest_kit as kit  # noqa: E402
-from build_forest_kit import (MB, TAU, bark_color, build, hexc, lathe, lerp, mixc, polar_sheet, scalec,  # noqa: E402
+from build_forest_kit import (MB, TAU, bark_color, build, hexc, lathe, lerp, mixc, polar_sheet, ribbon, scalec,  # noqa: E402
                               sstep, trunk_mesh, tube, uv_sphere, with_alpha)
 
 
@@ -110,8 +110,8 @@ def lit(col, k=0.12):
 # ---------------------------------------------------------------------------
 SLIDE_TOP = 10.0
 SLIDE_RAMP_TOP = Vector((0.0, 2.3, SLIDE_TOP))       # すべる面の上のはし（まん中）
-SLIDE_RAMP_LOW = Vector((0.0, 17.9, 1.0))            # 坂の下のはし
-SLIDE_RAMP_END = Vector((0.0, 20.9, 0.8))            # 平らな出口の先
+SLIDE_RAMP_LOW = Vector((0.0, 17.9, 0.55))           # 坂の下のはし
+SLIDE_RAMP_END = Vector((0.0, 20.9, 0.4))            # 平らな出口の先（地面のすぐ上）
 SLIDE_WIDTH = 3.6
 
 
@@ -185,6 +185,9 @@ def make_slide_ramp():
         cen = mb.v(sum((mb.V[i] for i in row), Vector()) / m, PAINT_ORANGE)
         for j in range(m):
             mb.f(cen, row[(j + 1) % m], row[j]) if row is rows[0] else mb.f(cen, row[j], row[(j + 1) % m])
+    # 出口の下の土台（コンクリート）：出口が地面にのっている
+    y0, y1 = SLIDE_RAMP_LOW.y - 0.9, SLIDE_RAMP_END.y
+    box(mb, (0, (y0 + y1) * 0.5, 0.0), (SLIDE_WIDTH + 0.8, y1 - y0, 0.3), hexc("#b9b4aa"))
     # 坂を支える柱
     for t in (0.55,):
         p = SLIDE_RAMP_TOP.lerp(SLIDE_RAMP_LOW, t)
@@ -438,6 +441,17 @@ def make_flower_bed():
     brick = hexc("#b5523a")
     rnd = random.Random(9)
     bw, bh = 1.6, 0.5
+    # 目地（レンガのあいだをうめる、すき間のない壁）。レンガは、ここから少しだけ出っぱる
+    mortar = hexc("#cbbfa6")
+    hgt = 3 * bh - 0.04
+    for side in range(4):
+        horiz = side < 2
+        if horiz:
+            y = (D * 0.5 - 0.3) * (1 if side == 0 else -1)
+            box(mb, (0, y, hgt * 0.5), (W - 0.04, 0.54, hgt), mortar)
+        else:
+            x = (W * 0.5 - 0.3) * (1 if side == 2 else -1)
+            box(mb, (x, 0, hgt * 0.5), (0.54, D - 1.2, hgt), mortar)
     for row in range(3):
         z = row * bh + bh * 0.5
         shift = 0.8 if row % 2 else 0.0
@@ -566,7 +580,56 @@ def make_lamp():
 # ---------------------------------------------------------------------------
 # クヌギの木（ごつごつの幹と、甘い樹液のしみ）
 # ---------------------------------------------------------------------------
+# クヌギの枝：(高さ, 向き(度), 長さ, 太さ, 上がり)。しゃくとりむしが幹から枝へわたって、葉のしげみまで行ける
+KUNUGI_BRANCHES = [
+    (9.0, 300.0, 15.0, 1.7, 4.0),
+    (15.0, 20.0, 21.0, 2.1, 6.0),
+    (22.0, 150.0, 25.0, 2.3, 8.0),
+    (30.0, 255.0, 23.0, 2.0, 8.0),
+    (39.0, 75.0, 22.0, 1.8, 7.0),
+    (48.0, 205.0, 20.0, 1.6, 7.0),
+    (57.0, 320.0, 18.0, 1.4, 6.0),
+    (66.0, 120.0, 16.0, 1.2, 5.0),
+]
+
+
+def kunugi_branch_points(z, deg, length, rise, R=4.2):
+    """枝の中心線（幹の中から外へ、少し上がってから、先はやや下がる）"""
+    a = math.radians(deg)
+    d = Vector((math.cos(a), math.sin(a), 0.0))
+    p0 = d * (R * 0.4) + Vector((0, 0, z - 1.0))
+    p1 = d * (R + length * 0.25) + Vector((0, 0, z + rise * 0.45))
+    p2 = d * (R + length * 0.6) + Vector((0, 0, z + rise * 0.85))
+    p3 = d * (R + length) + Vector((0, 0, z + rise * 0.75))
+    return [p0, p1, p2, p3]
+
+
+def kunugi_leaf(mb, rnd, base, direction, length, up=Vector((0, 0, 1))):
+    """クヌギの葉：細長く、ふちにのこぎりのようなぎざぎざ。葉脈の明るいすじ"""
+    d = direction.normalized()
+    side = d.cross(up)
+    if side.length < 1e-3:
+        side = Vector((1, 0, 0))
+    side.normalize()
+    nrm = side.cross(d).normalized()
+    n = 9
+    pts, widths = [], []
+    for i in range(n):
+        t = i / (n - 1)
+        sag = -0.12 * length * t * t
+        pts.append(base + d * (length * t) + nrm * sag)
+        w = length * 0.17 * math.sin(math.pi * min(1.0, t * 1.05)) ** 0.8
+        if 0 < i < n - 1 and i % 2 == 1:
+            w *= 1.12   # ぎざぎざ
+        widths.append(w)
+    widths[-1] = 0.0
+    base_col = mixc(hexc("#3f7f34"), hexc("#5f9e45"), rnd.random())
+    ribbon(mb, pts, widths, [side] * n, lambda t, v, p: mixc(mixc(base_col, hexc("#9cc86c"), 0.35 * (1 - abs(v))), hexc("#2f5f28"), 0.3 * t),
+           fold=0.18, normal_vecs=[nrm] * n)
+
+
 def make_kunugi():
+    """公園の大きなクヌギ：ごつごつの幹（樹液のしみ・根）に、登ってわたれる太い枝と、葉のしげみ"""
     rnd = random.Random(31)
     mb = MB()
     R = 4.2
@@ -583,6 +646,40 @@ def make_kunugi():
         d = Vector((math.cos(a), math.sin(a), 0))
         pts = [d * (R * 0.8) + Vector((0, 0, 1.8)), d * (R + 2.5) + Vector((0, 0, 0.4)), d * (R + 5.5) + Vector((0, 0, -0.6))]
         tube(mb, pts, [1.3, 0.8, 0.0], 12, lambda t, a2, p, dd: bark_color(p * 0.5, a2, 0.3, 7.0 + k, 0.2, 0.1))
+    # 枝：幹から外へ。先で 2 本に分かれ、それぞれの先に葉のしげみ
+    for bi, (z, deg, length, rad, rise) in enumerate(KUNUGI_BRANCHES):
+        pts = kunugi_branch_points(z, deg, length, rise, R)
+        tube(mb, pts, [rad * 1.25, rad, rad * 0.75, rad * 0.35], 14,
+             lambda t, a2, p, dd, bi=bi: bark_color(p * 0.5, a2, 0.25, 11.0 + bi, 0.15, 0.1))
+        tip = pts[-1]
+        d = (pts[-1] - pts[-2]).normalized()
+        clusters = [tip + d * 2.0 + Vector((0, 0, 1.5)), pts[2] + Vector((0, 0, 2.0))]
+        for sgn in (-1, 1):
+            side = d.cross(Vector((0, 0, 1))).normalized() * sgn
+            fork0 = pts[2]
+            fork1 = fork0 + (d * 0.6 + side * 0.8).normalized() * (length * 0.35) + Vector((0, 0, rise * 0.4))
+            tube(mb, [fork0, fork0.lerp(fork1, 0.5) + Vector((0, 0, 0.6)), fork1], [rad * 0.55, rad * 0.4, rad * 0.15], 10,
+                 lambda t, a2, p, dd, bi=bi: bark_color(p * 0.5, a2, 0.25, 21.0 + bi, 0.1, 0.1))
+            clusters.append(fork1 + Vector((0, 0, 1.2)))
+        # 葉のしげみ：まん中から、まわりへ向いた葉をたくさん
+        for c in clusters:
+            for k in range(38):
+                th = rnd.uniform(0, TAU)
+                ph = rnd.uniform(-0.6, 1.1)
+                dirv = Vector((math.cos(th) * math.cos(ph), math.sin(th) * math.cos(ph), math.sin(ph)))
+                base = c + dirv * rnd.uniform(0.5, 3.5)
+                kunugi_leaf(mb, rnd, base, dirv + Vector((0, 0, -0.25)), rnd.uniform(4.0, 6.0))
+    # 上の樹冠：高い所に、大きな葉のかたまり（遠くからも木に見える）
+    for k in range(9):
+        a = TAU * k / 9 + rnd.uniform(-0.2, 0.2)
+        c = Vector((math.cos(a) * rnd.uniform(8, 16), math.sin(a) * rnd.uniform(8, 16), rnd.uniform(74, 100)))
+        tube(mb, [Vector((0, 0, c.z - 6)), c * 0.5 + Vector((0, 0, c.z * 0.5)), c], [2.0, 1.4, 0.4], 10,
+             lambda t, a2, p, dd: bark_color(p * 0.5, a2, 0.25, 31.0, 0.1, 0.1))
+        for j in range(50):
+            th = rnd.uniform(0, TAU)
+            ph = rnd.uniform(-0.8, 1.2)
+            dirv = Vector((math.cos(th) * math.cos(ph), math.sin(th) * math.cos(ph), math.sin(ph)))
+            kunugi_leaf(mb, rnd, c + dirv * rnd.uniform(1.0, 6.0), dirv + Vector((0, 0, -0.2)), rnd.uniform(5.0, 7.0))
     return build(mb, "Park_Kunugi")
 
 

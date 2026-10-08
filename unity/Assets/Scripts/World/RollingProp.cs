@@ -18,6 +18,7 @@ namespace Shakutori
         Vector3 _home;
         Quaternion _homeRot;
         float _radius;
+        float _lift;            // 置いたときの、地面からの高さ（もぐったかを見る）
         float _rolled;          // 転がった角度の合計（度）
 
         public Vector3 Home => _home;
@@ -29,8 +30,12 @@ namespace Shakutori
 
         static PhysicsMaterial _material;
 
-        /// <summary>転がる物にする（size は体の大きさ、radius はおよその半径）。</summary>
-        public static RollingProp Make(GameObject go, Mesh mesh, float size, float radius)
+        /// <summary>
+        /// 転がる物にする（size は体の大きさ、radius はおよその半径）。
+        /// 重さは本物と同じグラム：包む箱の体積（1 単位 = 2.5cm）に、箱あたりの密度 density（g/cm³）をかける
+        /// （どんぐりは中身がつまった楕円体で 0.47、ボールは中が空っぽで軽い）。
+        /// </summary>
+        public static RollingProp Make(GameObject go, Mesh mesh, float size, float radius, AreaLayout area = null, float density = 0.47f)
         {
             go.layer = ShakuConst.RollingLayer;
             var mc = go.GetComponent<MeshCollider>();
@@ -48,7 +53,8 @@ namespace Shakutori
                 };
             mc.sharedMaterial = _material;
             var rb = go.AddComponent<Rigidbody>();
-            rb.mass = 0.3f * size * size * size;   // 重さは体の大きさの 3 乗
+            Vector3 box = mesh != null ? mesh.bounds.size * size : Vector3.one * size;
+            rb.mass = Mathf.Max(0.01f, density * box.x * box.y * box.z * LooseBody.Cm3PerUnit3);
             rb.linearDamping = 0.15f;               // 空気のてい抗
             rb.angularDamping = 1.1f;               // 転がりのてい抗（だんだん止まる）
             rb.interpolation = RigidbodyInterpolation.Interpolate;
@@ -59,6 +65,8 @@ namespace Shakutori
             rp._home = go.transform.position;
             rp._homeRot = go.transform.rotation;
             rp._radius = radius;
+            var a = area ?? Areas.Current;
+            rp._lift = go.transform.position.y - a.Height(go.transform.position.x, go.transform.position.z);
             rb.Sleep();   // 押されるまでは、そのまま（立っているどんぐりも倒れない）
             return rp;
         }
@@ -87,6 +95,12 @@ namespace Shakutori
             if (!_rb.IsSleeping()) _rolled += _rb.angularVelocity.magnitude * Mathf.Rad2Deg * dt;
             // 遊べる場所の外・地面の下へ行ってしまったら、もとの場所へ
             if (!area.InPlayArea(p) || p.y < area.Height(p.x, p.z) - 2f || !ShakuPhysics.IsFinite(p)) ReturnHome();
+            else if (!_rb.IsSleeping() && p.y < area.Height(p.x, p.z) + _lift - Mathf.Max(0.05f, _radius * 0.5f))
+            {
+                // 押されて地面の下へもぐってしまった：その場で、地面の上へもどす
+                _rb.position = new Vector3(p.x, area.Height(p.x, p.z) + _lift + 0.01f, p.z);
+                _rb.linearVelocity = Vector3.zero;
+            }
         }
 
         public void ReturnHome()

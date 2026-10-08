@@ -56,13 +56,14 @@ namespace Shakutori
         public float legSwing = 22f;
         public float legLift = 16f;
         public float birdSize;     // 鳥の羽の姿勢を Blender の作りから求めるときの大きさ
+        public float birdShoulder = 0.38f;   // 鳥の羽の付け根の高さ（birdSize に対する割合。フラミンゴは脚が長いので高い）
         // レア
         public string rareOf;      // 元になるいきもの（その個体がまれにレアになる）
         public float rareChance;
         public bool IsRare => rareOf != null;
     }
 
-    /// <summary>いきもの図鑑にのる 23 しゅと、めったに会えないレア 2 しゅ。</summary>
+    /// <summary>いきもの図鑑にのる 30 しゅと、めったに会えないレア 6 しゅ。</summary>
     public static class SpeciesCatalog
     {
         static List<SpeciesDef> _all;
@@ -225,6 +226,35 @@ namespace Shakutori
                     parts = new[] { new PartMount { mesh = "Monshiro_Wing", restRoll = 25f, flapAmp = 65f, flapHz = 6.5f } },
                     description = "白いはねの、いちばん身近なチョウ。キャベツの葉に卵をうむ。",
                     hint = "公園の花だん。キャベツのまわりをひらひら。" },
+                // ---- 森・川辺・公園の、新しいなかま ----
+                new SpeciesDef { id = "koumori", name = "アブラコウモリ", areaLabel = "森", kind = MobKind.Flutter, body = "Koumori_Body", speed = 2.4f, discoverRadius = 7f,
+                    parts = new[] { new PartMount { mesh = "Koumori_Wing", restRoll = 8f, flapAmp = 70f, flapHz = 7.5f } },
+                    description = "家のまわりでもくらす、いちばん身近なコウモリ。自分の声のはね返りを耳できいて、くらがりでも虫をつかまえる。",
+                    hint = "光るキノコの洞のあたりを、ひらひら飛びまわっている。" },
+                new SpeciesDef { id = "mogura", name = "アズマモグラ", areaLabel = "森・公園", kind = MobKind.Crawler, body = "Mogura", speed = 0f, discoverRadius = 5f,
+                    description = "土の中にトンネルをほってくらす。ほり出した土の山（モグラ塚）から、ときどき顔を出す。目はとても小さい。",
+                    hint = "土がもり上がった山のそば。はなれて、じっと待ってみよう。" },
+                new SpeciesDef { id = "okera", name = "ケラ", areaLabel = "川辺・公園", kind = MobKind.Crawler, body = "Okera", speed = 0.35f, discoverRadius = 2.6f,
+                    climbs = true, rig = "Okera", stride = 0.1f, legSwing = 22f, legLift = 12f,
+                    description = "シャベルのような前足で、土をほって進む。夜は「ジー」と鳴く。泳ぐことも、飛ぶこともできる、なんでも屋。",
+                    hint = "しめった土の上。水ぎわや、水たまりのまわり。" },
+                new SpeciesDef { id = "nanafushi", name = "ナナフシ", areaLabel = "森", kind = MobKind.Crawler, body = "Nanafushi", speed = 0.07f, discoverRadius = 3f,
+                    climbs = true, rig = "Nanafushi", stride = 0.25f, legSwing = 14f, legLift = 14f,
+                    description = "小枝そっくりの虫。風にゆれる枝のまねをして、ゆらゆらしながら、ゆっくり歩く。近づくと、ぴたりと止まる。",
+                    hint = "草むらのなか。動かない小枝を、よく見てみよう。" },
+                new SpeciesDef { id = "gengorou", name = "ゲンゴロウ", areaLabel = "森・川辺", kind = MobKind.Skater, body = "Gengorou", speed = 1.1f, discoverRadius = 4.5f,
+                    description = "水の中を、オールのようなうしろ足で泳ぐ甲虫。おしりに空気をためて、ときどき水面で息つぎする。",
+                    hint = "鏡の水たまりや、流れのゆるい水の中。" },
+                new SpeciesDef { id = "hanakamakiri", name = "ハナカマキリ", areaLabel = "森・公園", kind = MobKind.Stalker, body = "Hanakamakiri", speed = 0.2f, discoverRadius = 3.5f,
+                    rig = "Hanakamakiri", stride = 0.3f, legSwing = 14f, legLift = 14f,
+                    parts = new[] { new PartMount { mesh = "Hanakamakiri_Arm", offset = CreatureRig.HanaShoulder } },
+                    description = "ランの花そっくりの、ピンクのカマキリ。花にまぎれて、みつをすいにくる虫を待ちぶせする。",
+                    hint = "花の草原や、チューリップの花だん。" },
+                new SpeciesDef { id = "hato", name = "ドバト", areaLabel = "公園", kind = MobKind.Bird, body = "Hato_Body", speed = 1.6f, discoverRadius = 13f, fleeRadius = 5f,
+                    birdSize = 13f, gait = GaitKind.None,
+                    parts = new[] { new PartMount { mesh = "Hato_Wing", flapAmp = 55f, flapHz = 6f } },
+                    description = "首を前後にふりながら歩く、公園でおなじみの鳥。首は見る向きで、緑や紫に光る。",
+                    hint = "公園のひろば。みんなで地面をつついている。" },
                 // ---- レア ----
                 new SpeciesDef { id = "ant_helmet", name = "ヘルメットアリ", areaLabel = "？？？（とてもめずらしい）", kind = MobKind.Marcher, body = "Ant", speed = 0.9f, discoverRadius = 2.8f,
                     climbs = true, rig = "Ant", stride = 0.11f, legSwing = 26f, legLift = 18f, rareOf = "ant", rareChance = 0.05f,
@@ -239,6 +269,23 @@ namespace Shakutori
                     climbs = true, rig = "Spider", legSuffix = "_Sneaker", stride = 0.14f, legSwing = 20f, legLift = 22f, rareOf = "spider", rareChance = 0.05f,
                     description = "8本の足ぜんぶにスニーカーをはいたクモ。足音がちょっとだけかわいい。",
                     hint = "ハエトリグモのなかに、ときどき…。" },
+                new SpeciesDef { id = "kameleon", name = "カメレオン", areaLabel = "？？？（とてもめずらしい）", kind = MobKind.Crawler, body = "Kameleon", speed = 0.5f, discoverRadius = 5f,
+                    climbs = true, rideable = true, rig = "Kameleon", stride = 0.4f, legSwing = 20f, legLift = 12f, rareOf = "tokage", rareChance = 0.05f,
+                    description = "ぐるぐる動く大きな目と、くるんと巻いたしっぽ。トカゲのなかまにまじって、ゆっくり歩く。",
+                    hint = "ニホントカゲのなかに、ときどき…。" },
+                new SpeciesDef { id = "herakuresu", name = "ヘラクレスオオカブト", areaLabel = "？？？（とてもめずらしい）", kind = MobKind.Crawler, body = "Herakuresu", speed = 0.1f, discoverRadius = 6f,
+                    climbs = true, rideable = true, rig = "Herakuresu", stride = 0.45f, legSwing = 16f, legLift = 12f, rareOf = "beetle", rareChance = 0.05f,
+                    description = "世界でいちばん大きなカブトムシ。黒くて長い角と、黒い点のあるオリーブ色のはね。",
+                    hint = "カブトムシのなかに、ときどき…。" },
+                new SpeciesDef { id = "flamingo", name = "フラミンゴ", areaLabel = "？？？（とてもめずらしい）", kind = MobKind.Bird, body = "Flamingo_Body", speed = 2.5f, discoverRadius = 24f, fleeRadius = 9f,
+                    birdSize = 20f, birdShoulder = 1.02f, gait = GaitKind.None, rareOf = "crow", rareChance = 0.05f,
+                    parts = new[] { new PartMount { mesh = "Flamingo_Wing", flapAmp = 45f, flapHz = 2.6f } },
+                    description = "ピンクの羽の、背の高い鳥。しゃくとりむしから見ると、空までとどく塔のよう。",
+                    hint = "カラスのなかに、ときどき…。" },
+                new SpeciesDef { id = "harinezumi", name = "ハリネズミ", areaLabel = "？？？（とてもめずらしい）", kind = MobKind.Crawler, body = "Harinezumi", speed = 0.25f, discoverRadius = 4.5f,
+                    rareOf = "pillbug", rareChance = 0.05f,
+                    description = "せなかいっぱいの、とがったはり。おどろくと、だんごむしのように、くるんとまるくなる。",
+                    hint = "だんごむしのなかに、ときどき…。" },
             };
             _byId = new Dictionary<string, SpeciesDef>();
             _regular = new List<SpeciesDef>();

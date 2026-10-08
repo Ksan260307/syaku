@@ -3,6 +3,8 @@
 //    （赤い光から先に水にすわれる）
 //  ・流れ：頂点色 R = 流れの速さ（まん中は速く、岸ぎわ・よどみはゆっくり）。2 つの位相をまぜて、模様がのびない
 //  ・流れにそった細い筋と、さざ波。岸ぎわ・石のまわり・滝の下（頂点色 G = 白くあわ立つ所）は白い泡
+//  ・映りこみ：はね返った向きが上を向くほど空の色、水平に近いほど、まわりの木々の色（低い所から見ても白くならない）
+//  ・しずくの波紋（_Drip = 落ちる場所 xz・広がる半径・強さ）：じゃぐちからぽたぽた落ちる水たまりに、輪が広がる
 Shader "Shakutori/ToonRiver"
 {
     Properties
@@ -12,6 +14,7 @@ Shader "Shakutori/ToonRiver"
         _Absorb ("Absorption (RGB / depth)", Vector) = (2.4, 1.0, 0.75, 0)
         _Clarity ("Clarity", Float) = 1.8
         _ReflectColor ("Reflection Color", Color) = (0.58, 0.74, 0.82, 1)
+        _HorizonReflect ("Horizon Reflection Color", Color) = (0.58, 0.74, 0.82, 1)
         _FresnelStrength ("Fresnel Strength", Range(0, 1)) = 0.38
         _FoamColor ("Foam Color", Color) = (0.93, 0.98, 1, 1)
         _FoamDepth ("Foam Depth", Float) = 0.12
@@ -22,6 +25,8 @@ Shader "Shakutori/ToonRiver"
         _RippleStrength ("Ripple Strength", Float) = 0.6
         _Refraction ("Refraction", Float) = 0.025
         _SpecStrength ("Specular", Float) = 1.6
+        _Drip ("Drip (xz, radius, strength)", Vector) = (0, 0, 2, 0)
+        _Glint ("Glint", Float) = 0
     }
 
     SubShader
@@ -53,6 +58,7 @@ Shader "Shakutori/ToonRiver"
                 half4 _Absorb;
                 half _Clarity;
                 half4 _ReflectColor;
+                half4 _HorizonReflect;
                 half _FresnelStrength;
                 half4 _FoamColor;
                 half _FoamDepth;
@@ -63,6 +69,8 @@ Shader "Shakutori/ToonRiver"
                 half _RippleStrength;
                 half _Refraction;
                 half _SpecStrength;
+                float4 _Drip;
+                half _Glint;
             CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; half4 color : COLOR; };
@@ -146,6 +154,22 @@ Shader "Shakutori/ToonRiver"
                 float hz = Ripple(uv0 + float2(0, e)) * w0 + Ripple(uv1 + float2(0, e)) * w1;
                 half rough = _RippleStrength * (0.6h + 0.8h * i.color.r + 1.2h * i.color.g);   // 速い所・あわ立つ所は波立つ
                 float3 N = normalize(float3(-(hx - h0) / e * rough * 0.01, 1.0, (hz - h0) / e * rough * 0.01));
+                // しずくの波紋：落ちた所から輪が広がって、うすれていく（2 つずらして、とぎれなく）
+                if (_Drip.w > 0.0)
+                {
+                    float2 dd = i.positionWS.xz - _Drip.xy;
+                    float dist = length(dd);
+                    float2 radial = dd / max(dist, 1e-3);
+                    float slope = 0.0;
+                    for (int k = 0; k < 2; k++)
+                    {
+                        float ph = frac(_Time.y * 0.45 + k * 0.5);
+                        float ringR = ph * _Drip.z;
+                        float x = (dist - ringR) * 9.0;
+                        slope += -2.0 * x * exp(-x * x) * (1.0 - ph) * (1.0 - ph);
+                    }
+                    N = normalize(N + float3(radial.x, 0.0, radial.y) * slope * _Drip.w);
+                }
                 float3 V = normalize(_WorldSpaceCameraPos.xyz - i.positionWS);
 
                 // ---- 水の深さと、川底の見え方（屈折） ----
@@ -169,9 +193,17 @@ Shader "Shakutori/ToonRiver"
 
                 // ---- 空の映りこみ・日の光のきらめき ----
                 half fres = pow(1.0h - saturate(dot(N, V)), 4.0h);
-                col = lerp(col, _ReflectColor.rgb * (_MainLightColor.rgb * 0.5h + 0.5h), fres * _FresnelStrength);
+                float3 R = reflect(-V, N);
+                half3 env = lerp(_HorizonReflect.rgb, _ReflectColor.rgb, smoothstep(0.02h, 0.6h, R.y));
+                col = lerp(col, env * (_MainLightColor.rgb * 0.5h + 0.5h), fres * _FresnelStrength);
                 half3 H = normalize(light.direction + V);
                 col += smoothstep(0.985h, 0.995h, saturate(dot(N, H))) * _SpecStrength * light.color * light.shadowAttenuation;
+                // 水面のきらめき：さざ波の頂に、光の点がちらちら（ななめから見るほど多い）
+                if (_Glint > 0.0)
+                {
+                    float g = vnoise(i.positionWS.xz * 7.0 + float2(_Time.y * 0.7, -_Time.y * 0.5)) * vnoise(i.positionWS.xz * 11.0 - _Time.y * 0.9);
+                    col += smoothstep(0.55h, 0.8h, g) * _Glint * (0.4h + fres) * light.color * light.shadowAttenuation;
+                }
 
                 // ---- 流れにそった細い筋 ----
                 half streak = Streak(uv0) * w0 + Streak(uv1) * w1;

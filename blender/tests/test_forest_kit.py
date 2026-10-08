@@ -36,6 +36,17 @@ class KitTests(unittest.TestCase):
     def setUp(self):
         reset()
 
+    def test_lilypad_collider_covers_the_notch(self):
+        # 見た目の葉には切れこみがあるが、当たり判定の葉は切れこみもふさいでいる（その上で水に落ちない）
+        R = 3.0
+        look = kit.make_lilypad("LilyPad", 1)
+        col = kit.make_lilypad("LilyPad_Col", 1, notch=False)
+
+        def in_notch(ob):
+            return [v.co for v in ob.data.vertices if v.co.y < -0.6 * R and abs(v.co.x) < 0.15]
+        self.assertEqual(len(in_notch(look)), 0, "見た目の葉には切れこみがある")
+        self.assertGreater(len(in_notch(col)), 2, "当たり判定の葉は、切れこみの所にも面がある")
+
     def test_inchworm_has_deform_uvs(self):
         ob = kit.make_inchworm()
         names = [uv.name for uv in ob.data.uv_layers]

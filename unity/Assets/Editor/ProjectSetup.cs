@@ -419,16 +419,19 @@ namespace Shakutori.EditorTools
                 m.SetVector("_Absorb", new Vector4(2.2f, 0.95f, 0.7f, 0f));
                 m.SetFloat("_Clarity", 1.6f);
                 m.SetColor("_ReflectColor", new Color(0.62f, 0.78f, 0.86f, 1f));
+                // 低い所から見ると、まわりの木々や草が映る（空の色だけだと、白っぽい円盤に見える）
+                m.SetColor("_HorizonReflect", new Color(0.24f, 0.38f, 0.34f, 1f));
                 m.SetFloat("_FresnelStrength", 0.55f);
                 m.SetColor("_FoamColor", new Color(0.93f, 0.98f, 1f, 1f));
-                m.SetFloat("_FoamDepth", 0.06f);
+                m.SetFloat("_FoamDepth", 0.1f);
                 m.SetColor("_StreakColor", new Color(0.72f, 0.9f, 0.9f, 1f));
                 m.SetFloat("_FlowSpeed", 0.06f);
                 m.SetFloat("_StreakScale", 6f);
                 m.SetFloat("_StreakStrength", 0f);
-                m.SetFloat("_RippleStrength", 0.35f);
+                m.SetFloat("_RippleStrength", 0.7f);
                 m.SetFloat("_Refraction", 0.02f);
                 m.SetFloat("_SpecStrength", 1.8f);
+                m.SetFloat("_Glint", 0.9f);
             });
             assets.river = Mat("M_River", "Shakutori/ToonRiver", m =>
             {
@@ -663,6 +666,8 @@ namespace Shakutori.EditorTools
             var audio = game.AddComponent<AudioManager>();
             AudioClip Clip(string n) => AssetDatabase.LoadAssetAtPath<AudioClip>($"Assets/Audio/{n}.wav");
             audio.music = Clip("music_forest");
+            audio.musicRiver = Clip("music_river");
+            audio.musicPark = Clip("music_park");
             audio.ambience = Clip("ambience_forest");
             audio.steps = new[] { Clip("step_1"), Clip("step_2"), Clip("step_3") };
             audio.collect = Clip("collect");

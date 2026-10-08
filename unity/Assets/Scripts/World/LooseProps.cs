@@ -9,13 +9,17 @@ namespace Shakutori
     /// ふだんは絵だけ（まとめて描く）。しゃくとりむしが近づくと、そのまわりの物だけが当たり判定のある体を持ち、
     /// どんぐりと同じように、押されると転がる・すべる。はなれて止まったら、動いた先のまま、また絵だけにもどる
     /// （体を持つ物の数を少なくおさえる）。
+    /// 重さは本物と同じグラムで（1 単位 = 2.5cm の体積に、石・松ぼっくりなどの密度をかける）。
+    /// 地面にふれる形で置き（うまっていると、体を持ったときに地面からはじき出されて転がりだす）、
+    /// 地面の下へもぐってしまったら、地面の上へもどす。
     /// </summary>
     [ExecuteAlways]
     public class LooseProps : MonoBehaviour
     {
         static readonly Unity.Profiling.ProfilerMarker s_Loose = new Unity.Profiling.ProfilerMarker("Shaku.Loose");
 
-        public enum Shape { Leaf, Pebble, Pinecone, Cap }
+        /// <summary>BigLeaf は大きな葉：いつも当たり判定があり、しゃくとりむしが乗れる（風ですべる）。</summary>
+        public enum Shape { Leaf, Pebble, Pinecone, Cap, BigLeaf }
 
         /// <summary>これより近い物は、体を持つ（押せる）。</summary>
         public const float WakeRadius = 5f;
@@ -45,6 +49,8 @@ namespace Shakutori
             public Quaternion rot, homeRot;
             public float scale;
             public Matrix4x4 m;
+            public float lift;    // 置いたときの、地面からの高さ（もぐったかを見る）
+            public float half;    // 物の大きさの半分
             public int body;      // 体（なければ -1）
             public long cell;
         }
@@ -59,6 +65,7 @@ namespace Shakutori
         readonly List<LooseBody> _bodies = new List<LooseBody>();
         readonly Stack<int> _freeBodies = new Stack<int>();
         readonly List<int> _awake = new List<int>();   // 体を持っている物（item の番号）
+        readonly List<BigLeaf> _leaves = new List<BigLeaf>();   // 大きな葉（いつも体がある）
         Transform _bodyRoot;
         // 描く
         readonly List<Matrix4x4[]> _pool = new List<Matrix4x4[]>();
@@ -71,8 +78,13 @@ namespace Shakutori
         readonly List<Call> _calls = new List<Call>();
         public float distanceScale = 1f;
 
+        /// <summary>置いたエリア（地面の高さ）。なければ、いまのエリア。</summary>
+        public AreaLayout area;
+        AreaLayout Area => area ?? Areas.Current;
+
         public int Count => _count;
         public int BodyCount => _awake.Count;
+        public IReadOnlyList<BigLeaf> BigLeaves => _leaves;
         /// <summary>直前に数えなおしたときに描いた数（テスト用）。</summary>
         public int DrawnCount { get; private set; }
 
@@ -82,6 +94,13 @@ namespace Shakutori
         public void Clear()
         {
             ReleaseAllBodies();
+            foreach (var l in _leaves)
+                if (l != null)
+                {
+                    if (Application.isPlaying) Destroy(l.gameObject);
+                    else DestroyImmediate(l.gameObject);
+                }
+            _leaves.Clear();
             _batches.Clear();
             _batchIndex.Clear();
             _count = 0;
@@ -108,12 +127,25 @@ namespace Shakutori
             _batches[b].maxDistance = Mathf.Max(_batches[b].maxDistance, maxDistance);
             if (_count == _items.Length) System.Array.Resize(ref _items, _items.Length * 2);
             var it = new Item { batch = b, pos = pos, home = pos, rot = rot, homeRot = rot, scale = scale, body = -1 };
+            it.lift = pos.y - Area.Height(pos.x, pos.z);
+            it.half = mesh.bounds.extents.magnitude * scale;
             it.m = Matrix4x4.TRS(pos, rot, Vector3.one * scale);
             it.cell = CellOf(pos);
             _items[_count] = it;
             AddToCell(_count, it);
+            if (shape == Shape.BigLeaf) _leaves.Add(BigLeaf.Create(BodyRoot(), mesh, pos, rot, scale, Area, _count));
             _count++;
             _dirty = true;
+        }
+
+        Transform BodyRoot()
+        {
+            if (_bodyRoot == null)
+            {
+                _bodyRoot = new GameObject("LooseBodies").transform;
+                _bodyRoot.SetParent(transform, false);
+            }
+            return _bodyRoot;
         }
 
         static long CellOf(Vector3 p)
@@ -168,6 +200,59 @@ namespace Shakutori
         public Vector3 HomeOf(int i) => _items[i].home;
         public bool HasBody(int i) => _items[i].body >= 0;
         public string MeshNameOf(int i) => _batches[_items[i].batch].mesh.name;
+        public Mesh MeshOf(int i) => _batches[_items[i].batch].mesh;
+        public Matrix4x4 MatrixOf(int i) => _items[i].m;
+        public float ScaleOf(int i) => _items[i].scale;
+        public LooseBody BodyOf(int i) => _items[i].body >= 0 ? _bodies[_items[i].body] : null;
+
+        // ------------------------------------------------------------------
+        // 地面にのせる
+        // ------------------------------------------------------------------
+        static readonly Dictionary<Mesh, Vector3[]> s_samples = new Dictionary<Mesh, Vector3[]>();
+
+        /// <summary>形の頂点を間引いた物（置く高さの計算用）。</summary>
+        static Vector3[] Samples(Mesh mesh)
+        {
+            if (s_samples.TryGetValue(mesh, out var arr) && arr != null) return arr;
+            Vector3[] v = mesh.isReadable ? mesh.vertices : null;
+            if (v == null || v.Length == 0)
+            {
+                var b = mesh.bounds;
+                v = new Vector3[8];
+                for (int i = 0; i < 8; i++)
+                    v[i] = b.center + Vector3.Scale(b.extents, new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+            }
+            int step = Mathf.Max(1, v.Length / 160);
+            var list = new List<Vector3>(v.Length / step + 1);
+            for (int i = 0; i < v.Length; i += step) list.Add(v[i]);
+            arr = list.ToArray();
+            s_samples[mesh] = arr;
+            return arr;
+        }
+
+        /// <summary>
+        /// いちばん下が地面にふれる高さに直した位置（sink だけ、地面に少しめりこませる）。
+        /// 坂では、地面のかたむきに合わせて、どの頂点も地面より下にならないようにする。
+        /// </summary>
+        public static Vector3 RestOnGround(Mesh mesh, Vector3 pos, Quaternion rot, float scale, AreaLayout area, float sink = 0.01f)
+        {
+            if (mesh == null || area == null) return pos;
+            float h = area.Height(pos.x, pos.z);
+            Vector3 n = area.Normal(pos.x, pos.z);
+            float gx = n.y > 0.1f ? -n.x / n.y : 0f, gz = n.y > 0.1f ? -n.z / n.y : 0f;
+            float lift = float.MinValue;
+            foreach (var v in Samples(mesh))
+            {
+                Vector3 d = rot * (v * scale);
+                float ground = h + gx * d.x + gz * d.z;
+                lift = Mathf.Max(lift, ground - (pos.y + d.y));
+            }
+            pos.y += lift - sink;
+            return pos;
+        }
+
+        /// <summary>重さ（グラム）。体積（1 単位 = 2.5cm）に、その物の密度をかける。</summary>
+        public static float MassOf(Mesh mesh, Shape shape, float scale) => LooseBody.MassOf(mesh.bounds.size * scale, shape);
 
         // ------------------------------------------------------------------
         // 体（しゃくとりむしのまわりだけ）
@@ -189,10 +274,22 @@ namespace Shakutori
                 for (int k = 0; k < list.Count && _awake.Count < MaxBodies; k++)
                 {
                     int i = list[k];
-                    if (_items[i].body >= 0) continue;
+                    if (_items[i].body >= 0 || _batches[_items[i].batch].shape == Shape.BigLeaf) continue;
                     if ((_items[i].pos - p).sqrMagnitude > (WakeRadius + RadiusOf(_items[i])) * (WakeRadius + RadiusOf(_items[i]))) continue;
                     Wake(i);
                 }
+            }
+            // 大きな葉：風ですべったら、絵もうごかす
+            foreach (var leaf in _leaves)
+            {
+                if (leaf == null || !leaf.Moved) continue;
+                leaf.Moved = false;
+                ref var li = ref _items[leaf.Index];
+                li.pos = leaf.transform.position;
+                li.rot = leaf.transform.rotation;
+                li.m = Matrix4x4.TRS(li.pos, li.rot, Vector3.one * li.scale);
+                MoveToCell(leaf.Index);
+                _dirty = true;
             }
             // 体を持つ物：動いた分を絵にうつす。はなれて止まったら、絵だけにもどる
             var area = Areas.Current;
@@ -204,6 +301,15 @@ namespace Shakutori
                 var t = body.transform;
                 Vector3 bp = t.position;
                 bool lost = !area.InPlayArea(bp) || bp.y < area.Height(bp.x, bp.z) - 2f || !ShakuPhysics.IsFinite(bp);
+                if (!lost && bp.y < area.Height(bp.x, bp.z) + it.lift - Mathf.Max(0.05f, it.half * 0.5f))
+                {
+                    // 地面の下へもぐってしまった：その場で、地面の上へもどす
+                    t.position = new Vector3(bp.x, area.Height(bp.x, bp.z) + it.lift + 0.01f, bp.z);
+                    body.Body.position = t.position;
+                    body.Body.linearVelocity = Vector3.zero;
+                    body.Body.angularVelocity = Vector3.zero;
+                    bp = t.position;
+                }
                 if (lost)
                 {
                     // 遊べる場所の外・地面の下へ行ってしまったら、もとの場所へ
@@ -244,13 +350,8 @@ namespace Shakutori
             if (_freeBodies.Count > 0) b = _freeBodies.Pop();
             else
             {
-                if (_bodyRoot == null)
-                {
-                    _bodyRoot = new GameObject("LooseBodies").transform;
-                    _bodyRoot.SetParent(transform, false);
-                }
                 b = _bodies.Count;
-                _bodies.Add(LooseBody.Create(_bodyRoot));
+                _bodies.Add(LooseBody.Create(BodyRoot()));
             }
             _bodies[b].Setup(batch.mesh, batch.shape, it.scale, it.pos, it.rot);
             it.body = b;
@@ -380,16 +481,48 @@ namespace Shakutori
     /// <summary>
     /// 小さな物の体（当たり判定と重さ）。使いまわすので、形に合わせて作りなおす。
     /// しゃくとりむしの体に押されて動き、水には浮く（小石はしずむ）。
+    /// 重さは本物と同じグラム。小石・松ぼっくり・ぼうしは、形そのもの（つつみこむ形）で地面にふれ、
+    /// でこぼこなので、ゆるい坂では転がらない（転がりのてい抗）。押されて動いても、すぐに止まる。
+    /// 落ち葉は軽く、風や少しの力でふわっと動く。
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     public class LooseBody : MonoBehaviour
     {
+        /// <summary>1 単位（しゃくとりむしの体長 = 2.5cm）の立方体の体積（cm³）。</summary>
+        public const float Cm3PerUnit3 = 15.625f;
+        /// <summary>しゃくとりむし（本物は約 0.1g）が押して動かせる重さ（グラム）。これより重い小石は動かない。</summary>
+        public const float WormPushLimit = 0.3f;
+
         public Rigidbody Body { get; private set; }
         LooseProps.Shape _shape;
         float _radius;
+        float _rollResist;
+        bool _touching;
         Collider _col;
 
-        static PhysicsMaterial s_leaf, s_hard;
+        static PhysicsMaterial s_leaf, s_stone, s_cone;
+        static readonly HashSet<EntityId> s_baked = new HashSet<EntityId>();
+
+        /// <summary>
+        /// 重さ（グラム）。size は物を包む箱の大きさ（単位）。
+        /// 小石は石の密度（2.6 g/cm³）で、箱の半分くらいが石。松ぼっくりとぼうしは、すき間だらけで軽い。
+        /// 落ち葉は、うすい葉の面の重さ（1cm² あたり 0.01g）。
+        /// </summary>
+        public static float MassOf(Vector3 size, LooseProps.Shape shape)
+        {
+            float box = size.x * size.y * size.z * Cm3PerUnit3;
+            switch (shape)
+            {
+                case LooseProps.Shape.Leaf:
+                {
+                    float a = Mathf.Max(size.x * size.z, Mathf.Max(size.x * size.y, size.y * size.z)) * 6.25f;   // cm²
+                    return Mathf.Max(0.001f, 0.01f * 0.6f * a);
+                }
+                case LooseProps.Shape.Pebble: return Mathf.Max(0.001f, 2.6f * 0.5f * box);
+                case LooseProps.Shape.Pinecone: return Mathf.Max(0.01f, 0.06f * box);
+                default: return Mathf.Max(0.005f, 0.06f * box);   // どんぐりのぼうし
+            }
+        }
 
         public static LooseBody Create(Transform parent)
         {
@@ -404,16 +537,31 @@ namespace Shakutori
             return lb;
         }
 
+        /// <summary>つつみこむ形の当たり判定（形ごとに一度だけ作っておく）。</summary>
+        MeshCollider Hull(Mesh mesh, PhysicsMaterial mat)
+        {
+            Mesh cm = DetailMeshes.ForCollision(mesh);
+            if (cm != null && s_baked.Add(cm.GetEntityId())) Physics.BakeMesh(cm.GetEntityId(), true);
+            var mc = _col as MeshCollider ?? gameObject.AddComponent<MeshCollider>();
+            mc.convex = true;
+            mc.sharedMesh = cm;
+            mc.sharedMaterial = mat;
+            return mc;
+        }
+
         public void Setup(Mesh mesh, LooseProps.Shape shape, float scale, Vector3 pos, Quaternion rot)
         {
             if (s_leaf == null)
             {
                 s_leaf = new PhysicsMaterial("Leaf") { dynamicFriction = 0.9f, staticFriction = 1f, bounciness = 0f, frictionCombine = PhysicsMaterialCombine.Maximum };
-                s_hard = new PhysicsMaterial("Small") { dynamicFriction = 0.55f, staticFriction = 0.7f, bounciness = 0.2f, frictionCombine = PhysicsMaterialCombine.Average };
+                // 石と松ぼっくりは、ざらざら（すべりにくい）。はね返りは小さい
+                s_stone = new PhysicsMaterial("Stone") { dynamicFriction = 0.75f, staticFriction = 0.9f, bounciness = 0.1f, frictionCombine = PhysicsMaterialCombine.Maximum };
+                s_cone = new PhysicsMaterial("Cone") { dynamicFriction = 0.7f, staticFriction = 0.85f, bounciness = 0.05f, frictionCombine = PhysicsMaterialCombine.Maximum };
             }
-            if (_col != null && _shape != shape)
+            bool wantBox = shape == LooseProps.Shape.Leaf;
+            if (_col != null && (_col is BoxCollider) != wantBox)
             {
-                Destroy(_col);
+                DestroyImmediate(_col);
                 _col = null;
             }
             _shape = shape;
@@ -422,6 +570,7 @@ namespace Shakutori
             Bounds mb = mesh.bounds;
             Vector3 size = mb.size;
             float big = Mathf.Max(size.x, Mathf.Max(size.y, size.z)) * scale;
+            Body.mass = MassOf(size * scale, shape);
             switch (shape)
             {
                 case LooseProps.Shape.Leaf:
@@ -433,54 +582,36 @@ namespace Shakutori
                     box.size = new Vector3(size.x, h, size.z);
                     box.sharedMaterial = s_leaf;
                     _col = box;
-                    Body.mass = Mathf.Max(0.002f, 0.004f * size.x * size.z * scale * scale);
                     Body.linearDamping = 4f;    // 葉っぱは空気でふわっと止まる
                     Body.angularDamping = 4f;
+                    Body.sleepThreshold = 0.005f;
+                    _rollResist = 0f;
                     break;
                 }
                 case LooseProps.Shape.Pebble:
-                {
-                    var sph = _col as SphereCollider ?? gameObject.AddComponent<SphereCollider>();
-                    sph.center = mb.center;
-                    sph.radius = (size.x + size.y + size.z) / 6f;
-                    sph.sharedMaterial = s_hard;
-                    _col = sph;
-                    Body.mass = 2.5f * big * big * big;
+                    _col = Hull(mesh, s_stone);
                     Body.linearDamping = 0.2f;
-                    Body.angularDamping = 1.5f;
+                    Body.angularDamping = 2.5f;
+                    Body.sleepThreshold = 0.03f;
+                    _rollResist = 0.35f;   // でこぼこの石は、ほとんど転がらない
                     break;
-                }
                 case LooseProps.Shape.Pinecone:
-                {
-                    var cap = _col as CapsuleCollider ?? gameObject.AddComponent<CapsuleCollider>();
-                    cap.center = mb.center;
-                    int axis = size.x >= size.y && size.x >= size.z ? 0 : (size.y >= size.z ? 1 : 2);
-                    cap.direction = axis;
-                    float len = axis == 0 ? size.x : axis == 1 ? size.y : size.z;
-                    float w = axis == 0 ? Mathf.Max(size.y, size.z) : axis == 1 ? Mathf.Max(size.x, size.z) : Mathf.Max(size.x, size.y);
-                    cap.radius = w * 0.45f;
-                    cap.height = len;
-                    cap.sharedMaterial = s_hard;
-                    _col = cap;
-                    Body.mass = 0.3f * big * big * big * 0.2f;
-                    Body.linearDamping = 0.15f;
-                    Body.angularDamping = 1.1f;   // 転がりのてい抗
+                    _col = Hull(mesh, s_cone);
+                    Body.linearDamping = 0.2f;
+                    Body.angularDamping = 2f;
+                    Body.sleepThreshold = 0.03f;
+                    _rollResist = 0.25f;   // かさが地面にひっかかる
                     break;
-                }
                 default:
-                {
-                    var mc = _col as MeshCollider ?? gameObject.AddComponent<MeshCollider>();
-                    mc.sharedMesh = DetailMeshes.ForCollision(mesh);
-                    mc.convex = true;
-                    mc.sharedMaterial = s_hard;
-                    _col = mc;
-                    Body.mass = 0.1f * big * big * big;
+                    _col = Hull(mesh, s_cone);
                     Body.linearDamping = 0.3f;
-                    Body.angularDamping = 1.2f;
+                    Body.angularDamping = 2f;
+                    Body.sleepThreshold = 0.03f;
+                    _rollResist = 0.3f;
                     break;
-                }
             }
             _radius = big * 0.5f;
+            _touching = false;
             gameObject.SetActive(true);
             Body.position = pos;
             Body.rotation = rot;
@@ -494,6 +625,13 @@ namespace Shakutori
             gameObject.SetActive(false);
         }
 
+        void OnCollisionStay(Collision c)
+        {
+            if (c.gameObject.layer != ShakuConst.WormBodyLayer) _touching = true;
+        }
+
+        void OnCollisionEnter(Collision c) => OnCollisionStay(c);
+
         void FixedUpdate()
         {
             if (Body == null || Body.IsSleeping()) return;
@@ -502,16 +640,31 @@ namespace Shakutori
             var area = Areas.Current;
             // 水に浮く（小石はしずむ）。浮いた物は流れにのる
             float wl = area.WaterLevelAt(p.x, p.z);
+            bool floating = false;
             if (wl > -100f && _shape != LooseProps.Shape.Pebble)
             {
                 float depth = wl - (p.y - _radius * 0.5f);
                 if (depth > 0f)
                 {
+                    floating = true;
                     Body.AddForce(Vector3.up * ShakuPhysics.BuoyantAccel(depth, Mathf.Max(_radius, 0.05f) * 0.6f, 30f), ForceMode.Acceleration);
                     Vector3 flow = Creatures.WaterFlow(p, area);
                     Body.linearVelocity = flow + (Body.linearVelocity - flow) * Mathf.Exp(-2.5f * dt);
                 }
             }
+            // 転がりのてい抗：地面にふれていると、転がり・すべりを重さに見合った力でおさえる
+            // （でこぼこの物は、ゆるい坂では止まったまま。押されて動いても、すぐに止まる）
+            if (_rollResist > 0f && _touching && !floating)
+            {
+                float dv = _rollResist * -Physics.gravity.y * dt;
+                Vector3 v = Body.linearVelocity;
+                float speed = v.magnitude;
+                Body.linearVelocity = speed <= dv ? Vector3.zero : v * (1f - dv / speed);
+                Vector3 w = Body.angularVelocity;
+                float spin = w.magnitude, dw = dv / Mathf.Max(_radius, 0.02f);
+                Body.angularVelocity = spin <= dw ? Vector3.zero : w * (1f - dw / spin);
+            }
+            _touching = false;
         }
     }
 }

@@ -760,39 +760,67 @@ def make_mantis_arm():
     return build(mb, "Mantis_Arm")
 
 
+# ヘルメットのふち（目のてっぺん z = 0.12 より上。目がヘルメットをつきぬけない）
+HELMET_RIM = Vector((0.0, 0.112, 0.126))
+
+
 def make_ant_helmet():
-    """工事現場のヘルメット（アリの頭にのせる。アリと同じ座標）"""
+    """工事現場のヘルメット（アリの頭にのせる。アリと同じ座標）。
+    頭のてっぺんにかぶせる半球で、ふちとつばは目より上にある"""
     mb = MB()
     yellow = hexc("#f6c21c")
-    head = Vector((0, 0.125, 0.12))
-    r = 0.052
+    shade = hexc("#e0a810")
+    stripe = hexc("#ffd84a")
+    c = HELMET_RIM
+    rx, ry, h = 0.058, 0.064, 0.044
+    seg = 28
 
-    def dome(n):
-        if n.z < 0.12:
-            return hexc("#e0a810")
-        if abs(n.x) < 0.09 and n.z > 0.2:
-            return hexc("#ffd84a")   # まんなかのすじ
-        return yellow
-    uv_sphere(mb, head, r, dome, seg=20, rings=12, scale=Vector((1.0, 1.08, 0.82)))
-    # つば（前が長い）
-    ring = []
-    for j in range(24):
-        a = TAU * j / 24
-        f = 1.0 + 0.45 * max(0.0, math.sin(a))
-        ring.append(Vector((math.cos(a) * r * 1.22, math.sin(a) * r * 1.22 * f, 0.0)))
-    top = [mb.v(head + v + Vector((0, 0, -0.012)), yellow) for v in ring]
-    inner = [mb.v(head + v * 0.78 + Vector((0, 0, -0.008)), yellow) for v in ring]
-    bot = [mb.v(head + v + Vector((0, 0, -0.02)), hexc("#d89a10")) for v in ring]
-    n = len(ring)
+    def dome_col(zf, x):
+        if abs(x) < 0.008 and zf > 0.35:
+            return stripe   # まんなかのすじ
+        return mixc(shade, yellow, sstep(0.0, 0.35, zf))
+    # ドーム（上半分だけ）：ふちから上の極へ
+    prof = [(1.0, 0.0), (0.985, 0.2), (0.93, 0.42), (0.82, 0.62), (0.64, 0.8), (0.38, 0.94), (0.0, 1.0)]
+    rings = []
+    for rf, zf in prof:
+        if rf <= 1e-6:
+            p = c + Vector((0, 0, h))
+            rings.append([mb.v(p, dome_col(zf, 0.0))])
+            continue
+        ring = []
+        for j in range(seg):
+            a = TAU * j / seg
+            p = c + Vector((math.cos(a) * rx * rf, math.sin(a) * ry * rf, h * zf))
+            ring.append(mb.v(p, dome_col(zf, p.x)))
+        rings.append(ring)
+    connect_rings(mb, rings)
+    # まんなかのすじ（少しもり上がった帯）
+    pts = []
+    for k in range(9):
+        ang = math.radians(-62 + 124 * k / 8)
+        pts.append(c + Vector((0.0, ry * math.sin(ang) * 1.0, h * math.cos(ang) * 1.0 + 0.0015)))
+    tube(mb, pts, [0.0035] * len(pts), 8, lambda t, a, p, d: stripe)
+    # つば：前が長い。上の面・下の面・外のへり（下の面は頭のまわりまでふさぐ）
+    rim = []
+    for j in range(seg):
+        a = TAU * j / seg
+        f = 1.0 + 0.4 * max(0.0, math.sin(a)) ** 1.5
+        rim.append((math.cos(a) * rx, math.sin(a) * ry, f))
+    top = [mb.v(c + Vector((x * 1.18 * f, y * 1.18 * f, 0.0)), yellow) for x, y, f in rim]
+    bot = [mb.v(c + Vector((x * 1.18 * f, y * 1.18 * f, -0.004)), shade) for x, y, f in rim]
+    inner_top = [mb.v(c + Vector((x, y, 0.0005)), yellow) for x, y, f in rim]
+    inner_bot = [mb.v(c + Vector((x * 0.5, y * 0.5, -0.004)), shade) for x, y, f in rim]
+    n = len(rim)
     for j in range(n):
         k = (j + 1) % n
-        mb.f(inner[j], inner[k], top[k], top[j])
+        mb.f(inner_top[j], inner_top[k], top[k], top[j])
         mb.f(top[j], top[k], bot[k], bot[j])
-        mb.f(bot[j], bot[k], inner[k], inner[j])
-    # 緑十字（安全）
-    c = head + Vector((0, r * 0.98, r * 0.2))
-    for dx, dz, w, h in ((0, 0, 0.012, 0.03), (0, 0, 0.03, 0.012)):
-        uv_sphere(mb, c, 1.0, lambda nn: hexc("#2fa04a"), seg=6, rings=4, scale=Vector((w * 0.5, 0.006, h * 0.5)))
+        mb.f(bot[j], bot[k], inner_bot[k], inner_bot[j])
+    # 緑十字（安全）：ドームの前
+    zf = 0.32
+    cross = c + Vector((0.0, ry * 0.97 + 0.001, h * zf))
+    for w, hh in ((0.012, 0.03), (0.03, 0.012)):
+        uv_sphere(mb, cross, 1.0, lambda nn: hexc("#2fa04a"), seg=6, rings=4, scale=Vector((w * 0.5, 0.004, hh * 0.5)))
     return build(mb, "Ant_Helmet")
 
 
@@ -872,89 +900,334 @@ def make_anthill():
     return build(mb, "AntHill")
 
 
-def make_bird_body(name, L, crow):
-    mb = MB()
-    if crow:
-        back, belly, cap = hexc("#18181f"), hexc("#22222c"), hexc("#18181f")
+def loft(mb, pts, rx, rz, colfn, seg=24, cap0=True, cap1=True):
+    """背骨 pts にそって、だ円の輪（横 rx・たて rz）をつないだ、なめらかな体。colfn(p, n, t) -> 色。
+    はしは、とがった極でとじる"""
+    n = len(pts)
+    rings = []
+    for i in range(n):
+        p = pts[i]
+        tng = (pts[min(i + 1, n - 1)] - pts[max(i - 1, 0)]).normalized()
+        # 背骨は左右対称の面（x = 0）にあるので、横の向きはいつも x（首が真上を向いても、輪がねじれない）
+        side = Vector((1, 0, 0)) - tng * tng.x
+        side.normalize()
+        upv = side.cross(tng).normalized()
+        if upv.z < 0 and abs(tng.z) < 0.99:
+            upv = -upv
+        t = i / (n - 1)
+        ring = []
+        for j in range(seg):
+            ang = TAU * j / seg
+            nrm = (side * math.cos(ang) * rz[i] + upv * math.sin(ang) * rx[i])
+            q = p + side * math.cos(ang) * rx[i] + upv * math.sin(ang) * rz[i]
+            nn = (side * math.cos(ang) / max(rx[i], 1e-4) + upv * math.sin(ang) / max(rz[i], 1e-4)).normalized()
+            ring.append(mb.v(q, colfn(q, nn, t)))
+        rings.append(ring)
+    for i in range(n - 1):
+        A, B = rings[i], rings[i + 1]
+        for j in range(seg):
+            k = (j + 1) % seg
+            mb.f(A[j], A[k], B[k], B[j])
+    for idx, cap in ((0, cap0), (n - 1, cap1)):
+        if not cap:
+            continue
+        tng = (pts[min(idx + 1, n - 1)] - pts[max(idx - 1, 0)]).normalized() * (1 if idx else -1)
+        tip = mb.v(pts[idx] + tng * min(rx[idx], rz[idx]) * 0.6, colfn(pts[idx], tng, idx / (n - 1)))
+        ring = rings[idx]
+        for j in range(seg):
+            k = (j + 1) % seg
+            if idx == 0:
+                mb.f(ring[k], ring[j], tip)
+            else:
+                mb.f(ring[j], ring[k], tip)
+    return rings
+
+
+def bird_style(crow):
+    """鳥の種類（True/False は、カラス/スズメ）"""
+    if crow is True:
+        return "crow"
+    if crow is False:
+        return "sparrow"
+    return crow
+
+
+# 鳥の体の背骨（尾の付け根 → 腰 → 胴 → 胸 → 首 → 頭 → 顔。y が前、z が上）と、そこでの幅・高さ（半分）
+BIRD_SPINES = {
+    "sparrow": ([(-0.24, 0.36), (-0.17, 0.33), (-0.08, 0.30), (0.02, 0.30), (0.11, 0.34), (0.17, 0.41), (0.205, 0.48),
+                 (0.235, 0.535), (0.27, 0.555), (0.305, 0.55), (0.33, 0.535)],
+                [0.07, 0.12, 0.165, 0.175, 0.16, 0.12, 0.105, 0.12, 0.125, 0.105, 0.06],
+                [0.06, 0.11, 0.155, 0.165, 0.15, 0.11, 0.1, 0.115, 0.115, 0.095, 0.055]),
+    "crow": ([(-0.25, 0.37), (-0.17, 0.335), (-0.07, 0.31), (0.03, 0.31), (0.12, 0.35), (0.18, 0.42), (0.215, 0.485),
+              (0.245, 0.53), (0.28, 0.55), (0.315, 0.545), (0.34, 0.53)],
+             [0.062, 0.106, 0.145, 0.154, 0.141, 0.106, 0.092, 0.106, 0.11, 0.092, 0.053],
+             [0.054, 0.099, 0.14, 0.149, 0.135, 0.099, 0.09, 0.104, 0.104, 0.086, 0.05]),
+    # ハト：胸が厚く、頭は小さい
+    "pigeon": ([(-0.26, 0.36), (-0.18, 0.33), (-0.08, 0.30), (0.03, 0.31), (0.12, 0.37), (0.17, 0.44), (0.2, 0.5),
+                (0.225, 0.545), (0.255, 0.565), (0.285, 0.56), (0.305, 0.55)],
+               [0.06, 0.11, 0.15, 0.165, 0.16, 0.115, 0.085, 0.085, 0.09, 0.075, 0.045],
+               [0.055, 0.1, 0.15, 0.17, 0.155, 0.105, 0.085, 0.085, 0.085, 0.07, 0.04]),
+    # フラミンゴ：高い脚の上の体から、長い S 字の首がのびる
+    "flamingo": ([(-0.28, 1.02), (-0.2, 0.99), (-0.08, 0.97), (0.06, 1.0), (0.14, 1.08), (0.15, 1.25), (0.1, 1.42),
+                  (0.08, 1.58), (0.12, 1.72), (0.18, 1.8), (0.24, 1.83), (0.29, 1.82)],
+                 [0.06, 0.12, 0.16, 0.16, 0.1, 0.045, 0.042, 0.042, 0.045, 0.06, 0.055, 0.035],
+                 [0.06, 0.12, 0.15, 0.15, 0.09, 0.045, 0.042, 0.042, 0.045, 0.06, 0.05, 0.03]),
+}
+BIRD_HEAD = {"sparrow": 8, "crow": 8, "pigeon": 8, "flamingo": 9}   # 頭のまん中の背骨の番号
+
+
+def bird_sections(crow):
+    spine, w, h = BIRD_SPINES[bird_style(crow)]
+    return spine, w, h
+
+
+def bird_side_x(crow, y, z):
+    """体の横の表面の x（高さ z・前後 y の所）。体の外なら、いちばん近い所"""
+    spine, w, h = bird_sections(crow)
+    # 胴の部分だけ（首から先は見ない）
+    n = 6
+    ys = [p[0] for p in spine[:n]]
+    if y <= ys[0]:
+        i, t = 0, 0.0
+    elif y >= ys[-1]:
+        i, t = n - 2, 1.0
     else:
-        back, belly, cap = hexc("#8b5a36"), hexc("#e6dccb"), hexc("#7a3a22")
+        i = max(k for k in range(n - 1) if ys[k] <= y)
+        t = (y - ys[i]) / max(1e-4, ys[i + 1] - ys[i])
+    zc = lerp(spine[i][1], spine[i + 1][1], t)
+    ww = lerp(w[i], w[i + 1], t)
+    hh = lerp(h[i], h[i + 1], t)
+    k = max(0.0, 1.0 - ((z - zc) / max(hh, 1e-4)) ** 2)
+    return ww * math.sqrt(k)
+
+
+BIRD_COLORS = {
+    "sparrow": dict(back="#8b5a36", belly="#e8dfcf", cap="#7a3a22", leg="#c09070", beak="#3a3634"),
+    "crow": dict(back="#17171d", belly="#20202a", cap="#17171d", leg="#2a2a2e", beak="#26262c"),
+    "pigeon": dict(back="#aab0bd", belly="#c6cad3", cap="#8f95a3", leg="#d97a78", beak="#3a3a40"),
+    "flamingo": dict(back="#f39aa6", belly="#f7b6bd", cap="#f39aa6", leg="#e98a95", beak="#f3d6d0"),
+}
+
+
+def make_bird_body(name, L, crow):
+    """スズメ・カラス・ハト・フラミンゴの体：尾の付け根から胴・胸・首・頭まで、ひとつながりのなめらかな体（首が胴とはなれない）。
+    頭の模様（スズメは茶色のぼうし、白いほおに黒い点、黒いのど。ハトは首が緑と紫に光る）、くちばし・目・尾羽・足"""
+    style = bird_style(crow)
+    mb = MB()
+    pal = BIRD_COLORS[style]
+    back, belly, cap = hexc(pal["back"]), hexc(pal["belly"]), hexc(pal["cap"])
     sheen = hexc("#3b4470")
+    spine, w, h = bird_sections(style)
+    pts = [Vector((0, y, z)) for y, z in spine]
+    hi = BIRD_HEAD[style]
+    head_c = pts[hi]
 
-    def body_col(n):
-        if crow:
-            return mixc(back, sheen, sstep(0.3, 0.9, n.z) * 0.6)
-        c = mixc(belly, back, sstep(-0.1, 0.35, n.z))
-        stripe = abs(math.sin(n.x * 18 + n.y * 6))
-        if n.z > 0.3 and stripe > 0.85:
-            c = hexc("#4a2e1c")
+    def col(p, n, t):
+        if style == "crow":
+            return mixc(back, sheen, sstep(0.3, 0.9, n.z) * 0.55 + 0.1 * math.sin(p.y * 40))
+        if style == "flamingo":
+            c = mixc(belly, back, sstep(-0.3, 0.6, n.z))
+            return mixc(c, hexc("#ff7f8f"), 0.25 * sstep(0.4, 0.9, t))
+        if style == "pigeon":
+            if t > 0.72:
+                return cap                                        # 頭は少し濃い灰色
+            if t > 0.48:
+                # 首：見る向きで、緑と紫に光る
+                return mixc(hexc("#7fbf92"), hexc("#ab84bd"), 0.5 + 0.5 * math.sin(n.x * 4 + n.z * 3))
+            c = mixc(belly, back, sstep(-0.2, 0.4, n.z))
+            return c
+        if t > 0.62:   # スズメの頭
+            rel = p - head_c
+            if n.z > 0.5 and rel.y < 0.05:
+                return cap                       # 茶色のぼうし
+            if n.y > 0.3 and n.z < -0.2:
+                return hexc("#1e1a18")           # 黒いのど
+            if abs(n.x) > 0.5 and -0.45 < n.z < 0.5:
+                if abs(n.x) > 0.75 and -0.15 < n.z < 0.2 and rel.y < 0.0:
+                    return hexc("#1e1a18")       # ほおの黒い点
+                return hexc("#f6f4ee")           # 白いほお
+            return mixc(cap, belly, 0.35)
+        if t > 0.5 and n.y > 0.2 and n.z < 0.0:
+            return hexc("#1e1a18") if t > 0.55 else belly   # のどの黒が、胸の上まで
+        c = mixc(belly, back, sstep(-0.15, 0.3, n.z))
+        if n.z > 0.25 and abs(math.sin(p.x * 30 + p.y * 9)) > 0.8:
+            c = hexc("#3e2618")   # 背中のしま
         return c
-    bw, bl = (0.13, 0.3) if crow else (0.17, 0.27)
-    rot = Matrix.Rotation(math.radians(-14), 4, "X")
-    tmp = MB()
-    uv_sphere(tmp, Vector((0, 0, 0)), 1.0, body_col, seg=28, rings=18, scale=Vector((bw, bl, bw)))
-    mb.add(tmp, Matrix.Translation(Vector((0, -0.02, 0.32))) @ rot)
-    hc = Vector((0, 0.27 if crow else 0.24, 0.47))
-    hr = 0.11 if crow else 0.13
-
-    def head_col(n):
-        if crow:
-            return mixc(back, sheen, sstep(0.3, 0.9, n.z) * 0.6)
-        if n.z > 0.45:
-            return cap
-        if n.y > 0.45 and n.z < -0.05:
-            return hexc("#1e1a18")
-        if abs(n.x) > 0.55 and -0.35 < n.z < 0.45:
-            if abs(n.x) > 0.8 and -0.1 < n.z < 0.2 and n.y < 0.2:
-                return hexc("#1e1a18")
-            return hexc("#f6f4ee")
-        return mixc(cap, belly, 0.4)
-    uv_sphere(mb, hc, hr, head_col, seg=22, rings=14)
+    loft(mb, pts, w, h, col, seg=28)
     # くちばし
-    blen = 0.22 if crow else 0.09
-    brad = 0.05 if crow else 0.035
-    base = hc + Vector((0, hr * 0.85, -0.01))
-    tube(mb, [base, base + Vector((0, blen * 0.6, -0.005)), base + Vector((0, blen, -0.03 if crow else -0.02))], [brad, brad * 0.6, 0.0], 10,
-         lambda t, a, p, d: hexc("#2a2a2e") if crow else hexc("#3a3a3a"))
+    beak_col = hexc(pal["beak"])
+    base = pts[-1] + Vector((0, -0.015, -0.005))
+    if style == "flamingo":
+        # 太く、途中で下へ曲がる。先は黒い
+        tip = base + Vector((0, 0.06, -0.09))
+        tube(mb, [base, base + Vector((0, 0.05, -0.005)), base + Vector((0, 0.07, -0.04)), tip],
+             [0.03, 0.026, 0.018, 0.0], 12, lambda t, a, p, d: mixc(beak_col, hexc("#1b1b1f"), sstep(0.55, 0.7, t)))
+    else:
+        blen = {"crow": 0.2, "sparrow": 0.085, "pigeon": 0.07}[style]
+        brad = {"crow": 0.045, "sparrow": 0.032, "pigeon": 0.022}[style]
+        tube(mb, [base, base + Vector((0, blen * 0.55, -0.004)), base + Vector((0, blen, -0.028 if style == "crow" else -0.018))],
+             [brad, brad * 0.62, 0.0], 12, lambda t, a, p, d: beak_col)
+        if style == "pigeon":
+            uv_sphere(mb, base + Vector((0, 0.012, 0.012)), 0.018, lambda n: hexc("#f0ece6"), seg=8, rings=5)   # 白い鼻こぶ
+    # 目
+    er = {"crow": 0.026, "sparrow": 0.03, "pigeon": 0.014, "flamingo": 0.018}[style]
+    ex = {"crow": 0.095, "sparrow": 0.095, "pigeon": 0.07, "flamingo": 0.045}[style]
     for sx in (-1, 1):
-        cute_eye(mb, hc + Vector((0.075 * sx, 0.06, 0.03)), 0.028 if crow else 0.032, (0.6 * sx, 1, 0.1), white=False)
-    # 尾
-    tl = 0.32 if crow else 0.26
-    tail = [Vector((0, -0.22, 0.38)), Vector((0, -0.22 - tl * 0.5, 0.36)), Vector((0, -0.22 - tl, 0.32))]
-    ribbon(mb, tail, [0.1, 0.13, 0.11 if crow else 0.09], [Vector((1, 0, 0))] * 3,
-           lambda tt, v, p: back if crow else mixc(back, hexc("#4a2e1c"), tt), fold=0.05, normal_vecs=[Vector((0, 0, 1))] * 3)
+        if style == "pigeon":
+            uv_sphere(mb, head_c + Vector((ex * sx * 0.97, 0.034, 0.022)), er * 1.35, lambda n: hexc("#e8762e"), seg=10, rings=6)   # だいだい色の目
+        cute_eye(mb, head_c + Vector((ex * sx, 0.035 if style != "flamingo" else 0.02, 0.022)), er, (0.75 * sx, 0.7, 0.1), white=False)
+    # 尾羽：羽を 1 枚ずつ、扇に重ねる
+    nfe = 7
+    tl = {"crow": 0.3, "sparrow": 0.24, "pigeon": 0.26, "flamingo": 0.12}[style]
+    root_z = spine[0][1]
+    for k in range(nfe):
+        u = (k / (nfe - 1)) * 2 - 1
+        root = Vector((u * 0.035, spine[0][0] + 0.02, root_z))
+        tip = root + Vector((u * 0.07, -tl, -0.045 + 0.01 * abs(u)))
+        mid = root.lerp(tip, 0.5) + Vector((0, 0, 0.01))
+        if style == "crow":
+            fc = mixc(back, hexc("#101015"), 0.3 + 0.4 * abs(u))
+        elif style == "pigeon":
+            fc = hexc("#2a2a30") if False else back
+        else:
+            fc = mixc(back, hexc("#4a2e1c"), 0.3 + 0.4 * abs(u))
+        ribbon(mb, [root, mid, tip], [0.045, 0.06, 0.04], [Vector((1, 0, 0))] * 3,
+               lambda tt, v, p, fc=fc: mixc(fc, hexc("#2a2a30"), sstep(0.7, 0.9, tt)) if style == "pigeon" else fc,
+               fold=0.12, normal_vecs=[Vector((0, 0, 1))] * 3)
     # 足
-    leg = hexc("#2a2a2e") if crow else hexc("#b88a6a")
-    for sx in (-1, 1):
-        hip = Vector((0.05 * sx, 0.02, 0.2))
-        ft = Vector((0.06 * sx, 0.04, 0.0))
-        tube(mb, [hip, ft], [0.015, 0.012], 6, lambda t, a, p, d: leg)
-        for ang in (-0.5, 0.0, 0.5):
-            tube(mb, [ft, ft + Vector((math.sin(ang) * 0.06, math.cos(ang) * 0.07, 0))], [0.01, 0.006], 5, lambda t, a, p, d: leg)
-        tube(mb, [ft, ft + Vector((0, -0.05, 0))], [0.01, 0.006], 5, lambda t, a, p, d: leg)
+    leg = hexc(pal["leg"])
+    if style == "flamingo":
+        # 長い脚（ひざのように見えるのは、かかと。うしろへ曲がる）
+        for sx in (-1, 1):
+            hip = Vector((0.05 * sx, 0.02, 0.92))
+            heel = Vector((0.055 * sx, -0.04, 0.48))
+            ft = Vector((0.055 * sx, 0.03, 0.01))
+            tube(mb, [hip, heel, ft], [0.022, 0.018, 0.015], 8, lambda t, a, p, d: leg)
+            uv_sphere(mb, heel, 0.026, lambda n: hexc("#d9707e"), seg=8, rings=5)
+            for ang in (-0.45, 0.0, 0.45):
+                tip = ft + Vector((math.sin(ang) * 0.06, math.cos(ang) * 0.075, -0.006))
+                tube(mb, [ft, tip], [0.012, 0.006], 5, lambda t, a, p, d: leg)
+    else:
+        for sx in (-1, 1):
+            hip = Vector((0.055 * sx, 0.02, 0.2))
+            knee = Vector((0.06 * sx, 0.0, 0.1))
+            ft = Vector((0.06 * sx, 0.035, 0.008))
+            tube(mb, [hip, knee, ft], [0.016, 0.013, 0.011], 7, lambda t, a, p, d: leg)
+            for ang in (-0.45, 0.0, 0.45):
+                tip = ft + Vector((math.sin(ang) * 0.065, math.cos(ang) * 0.075, -0.006))
+                tube(mb, [ft, ft.lerp(tip, 0.6) + Vector((0, 0, 0.004)), tip], [0.009, 0.007, 0.004], 5, lambda t, a, p, d: leg)
+            tube(mb, [ft, ft + Vector((0, -0.055, -0.004))], [0.009, 0.005], 5, lambda t, a, p, d: leg)
     mb.xform(Matrix.Diagonal((L, L, L, 1)))
-    return build(mb, name)
+    return build(mb, name, smooth=True, sharp_deg=75)
+
+
+def bird_wing_colors(style):
+    if style == "crow":
+        return hexc("#1d1d26"), hexc("#141419"), hexc("#0b0b0f"), hexc("#3b4470")
+    if style == "pigeon":
+        return hexc("#b4bac6"), hexc("#7a808d"), hexc("#2a2a30"), hexc("#d0d4dc")
+    if style == "flamingo":
+        return hexc("#f6a3ae"), hexc("#1b1b20"), hexc("#0e0e12"), hexc("#ff8091")
+    return hexc("#a2714a"), hexc("#5a3a24"), hexc("#2e2018"), hexc("#c8a07a")
+
+
+def make_bird_wing_folded(name, L, crow):
+    """地上で体の横にたたんだ翼（右がわ。体と同じ座標）。肩から尾のほうへ、体の表面にそってのび、
+    風切り羽の先は尾の上で重なる。雨おおい羽（明るい）・帯（スズメの白・ハトの黒）・1 枚ずつの風切り羽のすじ"""
+    style = bird_style(crow)
+    mb = MB()
+    cov, flight, edge, sheen = bird_wing_colors(style)
+    spine, _, _ = bird_sections(style)
+    body_z = spine[3][1]
+    y0, y1 = spine[4][0] + 0.03, spine[0][0] - 0.1
+    nu, nv = 26, 8
+    rows = []
+    for i in range(nu + 1):
+        u = i / nu
+        y = lerp(y0, y1, u)
+        top = body_z + lerp(0.17, 0.08, u) + 0.02 * math.sin(math.pi * u)
+        depth = 0.19 * math.sin(math.pi * min(1.0, 0.12 + 0.95 * u)) ** 0.7 + 0.015
+        row = []
+        for j in range(nv + 1):
+            v = j / nv
+            z = top - depth * v
+            x = bird_side_x(style, y, z)
+            x = max(x, 0.04 + 0.03 * (1 - u)) + 0.012 + 0.012 * (1 - v)
+            c = mixc(cov, sheen, 0.25 * (1 - v) * (1 - u if style == "crow" else 1.0))
+            fl = sstep(0.3, 0.5, u + v * 0.35)
+            c = mixc(c, flight, fl)
+            if fl > 0.5 and (i % 3) == 0:
+                c = mixc(c, edge, 0.5)
+            if style == "sparrow" and 0.12 < u < 0.42 and 0.45 < v < 0.6:
+                c = hexc("#f2ece0")   # スズメの白い帯
+            if style == "pigeon" and 0.25 < u < 0.5 and (0.35 < v < 0.45 or 0.6 < v < 0.7):
+                c = hexc("#2a2a30")   # ハトの黒い 2 本の帯
+            if v > 0.85:
+                c = mixc(c, edge, 0.5)
+            row.append(mb.v((x, y, z), c))
+        rows.append(row)
+    for i in range(nu):
+        for j in range(nv):
+            mb.f(rows[i][j], rows[i][j + 1], rows[i + 1][j + 1], rows[i + 1][j])
+    mb.xform(Matrix.Diagonal((L, L, L, 1)))
+    return build(mb, name, solidify=0.01 * L)
 
 
 def make_bird_wing(name, L, crow):
+    """鳥の翼：付け根が広く、先がとがる。肩から外（+X）へのび、うしろ（-Y）が風切り羽。
+    雨おおい羽（明るい帯）と、1 枚ずつの風切り羽。カラスは、翼の先の羽が指のように分かれる"""
+    style = bird_style(crow)
+    crowish = style in ("crow", "flamingo")
     mb = MB()
-    length = 0.48 if crow else 0.4
-
-    def rfn(th):
-        d = th - 1.75
-        r = length * math.exp(-(d / 0.55) ** 2) + 0.06
-        return r * (1.0 + 0.07 * abs(math.sin(th * 22)) * sstep(1.6, 2.2, th))
-
-    def cf(rho, th, p):
-        if crow:
-            c = mixc(hexc("#18181f"), hexc("#3b4470"), 0.35 + 0.3 * math.sin(th * 20))
-            return mixc(c, hexc("#101015"), sstep(0.8, 1.0, rho))
-        c = mixc(hexc("#9a6a44"), hexc("#6a442a"), sstep(0.5, 1.0, rho))
-        if 0.42 < rho < 0.5:
-            c = hexc("#f2ece0")
-        return mixc(c, hexc("#2e2018"), sstep(0.85, 1.0, rho) * 0.8)
-    polar_sheet(mb, rfn, cf, n_ang=40, n_rad=6, a0=math.pi / 2 - 0.5, a1=math.pi / 2 + 1.0, full=False)
+    span = 0.5 if crowish else 0.42
+    cov, flight, edge, sheen = bird_wing_colors(style)
+    rows = 6
+    cols = 10
+    grid = []
+    for i in range(cols + 1):
+        x = span * 0.62 * i / cols
+        lead = 0.0 - 0.02 * (x / span) ** 2
+        chord = (0.15 if crowish else 0.13) * (1.0 - 0.45 * (x / (span * 0.62)) ** 1.5)
+        row = []
+        for j in range(rows + 1):
+            v = j / rows
+            y = lead - chord * v
+            z = 0.025 * math.sin(math.pi * v) * (1 - x / span)
+            if style == "crow":
+                c = mixc(cov, sheen, 0.3 * math.sin(i * 1.3) ** 2)
+            else:
+                c = mixc(cov, sheen, 0.25 * (1 - v))
+            if style == "sparrow" and 0.55 < v < 0.75:
+                c = hexc("#f2ece0")
+            if style == "pigeon" and (0.45 < v < 0.55 or 0.7 < v < 0.8) and i < cols * 0.7:
+                c = hexc("#2a2a30")
+            row.append(mb.v((x, y, z), c))
+        grid.append(row)
+    for i in range(cols):
+        for j in range(rows):
+            mb.f(grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1])
+    nf = 12 if crowish else 10
+    for k in range(nf):
+        u = k / (nf - 1)
+        x0 = span * 0.6 * u
+        chord0 = (0.15 if crowish else 0.13) * (1.0 - 0.45 * min(1.0, u) ** 1.5)
+        root = Vector((x0, -chord0 * 0.55, 0.012))
+        ang = math.radians(-20 + 75 * u ** 1.4)
+        flen = (0.17 if crowish else 0.15) + (0.2 if crowish else 0.16) * u ** 1.2
+        d = Vector((math.sin(ang), -math.cos(ang), 0.0))
+        tip = root + d * flen
+        mid = root.lerp(tip, 0.55)
+        wid = 0.05 if crowish else 0.045
+        if crowish and u > 0.75:
+            wid *= 0.7
+        fc = mixc(flight, edge, 0.4 * u)
+        if style == "flamingo" and u < 0.35:
+            fc = mixc(cov, hexc("#ff7f8f"), 0.4)   # 内がわの羽はピンク、外がわの羽は黒
+        ribbon(mb, [root, mid, tip], [wid, wid * 1.05, wid * 0.45], [Vector((math.cos(ang), math.sin(ang), 0))] * 3,
+               lambda tt, v, p, fc=fc: mixc(fc, edge, sstep(0.75, 1.0, tt) * 0.6), fold=0.08,
+               normal_vecs=[Vector((0, 0, 1))] * 3)
     mb.xform(Matrix.Diagonal((L, L, L, 1)))
-    return build(mb, name)
+    return build(mb, name, solidify=0.012 * L)
 
 # ---------------------------------------------------------------------------
 # 川辺のステージ
@@ -1312,8 +1585,19 @@ CREATURES = [
     ("kamemushi", ["Kamemushi"]),
     ("tokage", ["Tokage"]),
     ("monshiro", ["Monshiro_Body", "Monshiro_Wing", "Monshiro_Wing_L"]),
+    ("koumori", ["Koumori_Body", "Koumori_Wing", "Koumori_Wing_L"]),
+    ("mogura", ["Mogura"]),
+    ("okera", ["Okera"]),
+    ("nanafushi", ["Nanafushi"]),
+    ("gengorou", ["Gengorou"]),
+    ("hanakamakiri", ["Hanakamakiri", "Hanakamakiri_Arm_R", "Hanakamakiri_Arm_L"]),
+    ("hato", ["Hato_Body", "Hato_Wing_R", "Hato_Wing_L"]),
     ("ant_helmet", ["Ant", "Ant_Helmet"]),
     ("spider_sneaker", ["Spider"]),
+    ("kameleon", ["Kameleon"]),
+    ("herakuresu", ["Herakuresu"]),
+    ("flamingo", ["Flamingo_Body", "Flamingo_Wing_R", "Flamingo_Wing_L"]),
+    ("harinezumi", ["Harinezumi"]),
 ]
 
 # 図鑑の絵で脚をつける体（脚メッシュのコピーを付け根に置く）。スニーカーグモだけ脚の種類がちがう
@@ -1322,11 +1606,24 @@ PORTRAIT_LEGS = {
     "grasshopper": "Grasshopper", "otoshibumi": "Otoshibumi", "spider": "Spider", "mantis": "Mantis",
     "ant_helmet": "Ant", "spider_sneaker": "Spider",
     "kamikiri": "Kamikiri", "kuwagata": "Kuwagata", "kamemushi": "Kamemushi", "tokage": "Tokage",
+    "okera": "Okera", "nanafushi": "Nanafushi", "hanakamakiri": "Hanakamakiri", "kameleon": "Kameleon", "herakuresu": "Herakuresu",
 }
 
 
 def pose_portrait_copies(objs):
     """図鑑の絵のために、羽を広げた姿勢のコピーを作る"""
+    kw = objs.get("Koumori_Wing")
+    if kw:
+        l = kw.copy()
+        l.data = kw.data
+        l.name = "Koumori_Wing_L"
+        bpy.context.scene.collection.objects.link(l)
+        l.scale = (-1, 1, 1)
+        kw.location = (0.25, 0.3, 0.05)
+        l.location = (-0.25, 0.3, 0.05)
+        kw.rotation_euler = (0, -0.25, 0)
+        l.rotation_euler = (0, 0.25, 0)
+        objs["Koumori_Wing_L"] = l
     mw = objs.get("Monshiro_Wing")
     if mw:
         l = mw.copy()
@@ -1359,21 +1656,21 @@ def pose_portrait_copies(objs):
             c.rotation_euler = (0, 0, (0.15 if y > 0 else -0.25) * sx)
             objs[nm] = c
         dw.hide_render = True
-    for bird, L in (("Sparrow", 5.5), ("Crow", 18.0)):
-        w = objs.get(bird + "_Wing")
+    for bird, L in (("Sparrow", 5.5), ("Crow", 18.0), ("Hato", 13.0), ("Flamingo", 20.0)):
+        w = objs.get(bird + "_WingFolded")
         if not w:
             continue
+        # たたんだ羽（体と同じ座標で、体にそわせて作ってある）：左は鏡にうつす
         for nm, sx in ((bird + "_Wing_R", 1), (bird + "_Wing_L", -1)):
             c = w.copy()
             c.data = w.data
             c.name = nm
             bpy.context.scene.collection.objects.link(c)
             c.scale = (sx, 1, 1)
-            c.location = (0.12 * L * sx, 0.02 * L, 0.38 * L)
-            # たたんだ羽：体の横に沿わせる
-            c.rotation_euler = (0.0, -0.25 * sx, -1.35 * sx)
             objs[nm] = c
         w.hide_render = True
+        if objs.get(bird + "_Wing"):
+            objs[bird + "_Wing"].hide_render = True
     arm = objs.get("Mantis_Arm")
     if arm:
         for nm, sx in (("Mantis_Arm_R", 1), ("Mantis_Arm_L", -1)):
@@ -1385,6 +1682,17 @@ def pose_portrait_copies(objs):
             c.location = (MANTIS_SHOULDER.x * sx, MANTIS_SHOULDER.y, MANTIS_SHOULDER.z)
             objs[nm] = c
         arm.hide_render = True
+    harm = objs.get("Hanakamakiri_Arm")
+    if harm:
+        for nm, sx in (("Hanakamakiri_Arm_R", 1), ("Hanakamakiri_Arm_L", -1)):
+            c = harm.copy()
+            c.data = harm.data
+            c.name = nm
+            bpy.context.scene.collection.objects.link(c)
+            c.scale = (sx, 1, 1)
+            c.location = (HANA_SHOULDER.x * sx, HANA_SHOULDER.y, HANA_SHOULDER.z)
+            objs[nm] = c
+        harm.hide_render = True
     crumb = objs.get("Crumb")
     if crumb:
         c = crumb.copy()
@@ -1464,6 +1772,7 @@ def write_rig(path):
         "",
         f"        public static readonly Vector3 GrasshopperHip = {u(GRASSHOPPER_HIP)};",
         f"        public static readonly Vector3 MantisShoulder = {u(MANTIS_SHOULDER)};",
+        f"        public static readonly Vector3 HanaShoulder = {u(HANA_SHOULDER)};",
         "    }",
         "}",
         "",
@@ -1510,13 +1819,393 @@ def render_portraits(objs, out_dir):
         center = (mn + mx) / 2
         size = (mx - mn).length
         d = Vector((0.9, 1.25, 0.75)).normalized()
-        cam.location = center + d * size * 1.55
+        cam.location = center + d * size * (2.0 if cid == "flamingo" else 1.55)
         cam.rotation_euler = (center - cam.location).to_track_quat("-Z", "Y").to_euler()
         cam_data.clip_start = size * 0.01
         cam_data.clip_end = size * 20
         scene.render.filepath = os.path.join(out_dir, cid + ".png")
         bpy.ops.render.render(write_still=True)
         print("portrait", cid)
+
+
+# ---------------------------------------------------------------------------
+# 新しいいきもの：コウモリ・モグラ・オケラ・ナナフシ・ゲンゴロウ・ハナカマキリ（ハトは鳥の作り方）
+# レア：カメレオン・ヘラクレスオオカブト・ハリネズミ（フラミンゴは鳥の作り方）
+# 大きさは本物と同じ（1 単位 = 2.5cm）
+# ---------------------------------------------------------------------------
+def make_koumori_body():
+    """アブラコウモリ：茶色の毛の体（約 4.5cm）、大きな耳、小さな目、豚のような鼻"""
+    mb = MB()
+    fur = hexc("#5a4436")
+    dark = hexc("#3a2c24")
+
+    def col(n):
+        return mixc(dark, fur, sstep(-0.4, 0.6, n.z))
+    uv_sphere(mb, Vector((0, 0, 0)), 1.0, col, seg=22, rings=14, scale=Vector((0.34, 0.75, 0.32)))
+    hc = Vector((0, 0.82, 0.08))
+    uv_sphere(mb, hc, 0.3, col, seg=20, rings=12)
+    uv_sphere(mb, hc + Vector((0, 0.26, -0.05)), 1.0, lambda n: hexc("#7a5a4a"), seg=12, rings=8, scale=Vector((0.12, 0.1, 0.09)))
+    for sx in (-1, 1):
+        cute_eye(mb, hc + Vector((0.13 * sx, 0.22, 0.08)), 0.055, (0.4 * sx, 1, 0.1), white=False)
+        ear0 = hc + Vector((0.16 * sx, 0.02, 0.2))
+        tube(mb, [ear0, ear0 + Vector((0.12 * sx, -0.02, 0.22)), ear0 + Vector((0.18 * sx, -0.06, 0.42))], [0.13, 0.1, 0.0], 10,
+             lambda t, a, p, d: mixc(hexc("#4a362a"), hexc("#9a7262"), sstep(0.2, 0.9, t) * 0.5), oval=(1.0, 0.45))
+        # うしろ足（小さなかぎづめ）
+        tube(mb, [Vector((0.15 * sx, -0.65, -0.05)), Vector((0.22 * sx, -0.85, -0.08))], [0.04, 0.02], 6, lambda t, a, p, d: dark)
+    return build(mb, "Koumori_Body")
+
+
+def make_koumori_wing():
+    """右の翼（肩が原点、+X へのびる）：指の骨のあいだに、うすい皮の膜。うしろのへりは、指のあいだでへこむ"""
+    mb = MB()
+    mem = hexc("#4a3a34")
+    vein = hexc("#2a1e1a")
+    P0 = Vector((0, 0, 0))
+    W = Vector((1.6, 0.25, 0.04))
+    tips = [Vector((4.0, -0.05, 0.0)), Vector((3.7, -1.1, -0.02)), Vector((2.7, -1.9, -0.03)), Vector((1.4, -1.8, -0.02))]
+    B = Vector((0.15, -1.1, 0.0))
+
+    def scallop(a, b):
+        m = a.lerp(b, 0.5)
+        return m.lerp(W, 0.22)
+    ring = [tips[0], scallop(tips[0], tips[1]), tips[1], scallop(tips[1], tips[2]), tips[2], scallop(tips[2], tips[3]), tips[3]]
+    wv = mb.v(W, mem)
+    vs = [mb.v(p, mixc(mem, hexc("#6a5048"), 0.3)) for p in ring]
+    for i in range(len(vs) - 1):
+        mb.f(wv, vs[i], vs[i + 1])
+    p0 = mb.v(P0, mem)
+    s4 = mb.v(tips[3].lerp(B, 0.5).lerp(W, 0.15), mem)
+    bv = mb.v(B, mem)
+    mb.f(p0, wv, vs[-1])
+    mb.f(p0, vs[-1], s4)
+    mb.f(p0, s4, bv)
+    # 骨（腕と指）
+    tube(mb, [P0, W], [0.06, 0.045], 6, lambda t, a, p, d: vein)
+    for t_ in tips:
+        tube(mb, [W, W.lerp(t_, 0.5) + Vector((0, 0, 0.01)), t_], [0.035, 0.025, 0.008], 5, lambda t, a, p, d: vein)
+    uv_sphere(mb, W + Vector((0, 0.08, 0.02)), 0.05, lambda n: vein, seg=6, rings=4)   # 親指のかぎづめ
+    return build(mb, "Koumori_Wing", solidify=0.02)
+
+
+def make_mogura():
+    """アズマモグラ（約 13cm）：ビロードのような灰黒色の毛、ピンクの鼻先、大きなシャベルのような前足、小さな目"""
+    mb = MB()
+    fur = hexc("#2c2a2e")
+    sheen = hexc("#5a5866")
+    pink = hexc("#e7a3a0")
+    pts = [Vector((0, -2.7, 0.75)), Vector((0, -2.3, 0.9)), Vector((0, -1.4, 1.0)), Vector((0, -0.2, 1.02)), Vector((0, 0.9, 0.98)),
+           Vector((0, 1.7, 0.9)), Vector((0, 2.25, 0.8)), Vector((0, 2.6, 0.7)), Vector((0, 2.85, 0.62))]
+    radii = [0.0, 0.6, 0.98, 1.05, 1.0, 0.85, 0.55, 0.3, 0.0]
+
+    def col(t, a, p, d):
+        if t > 0.86:
+            return pink
+        return mixc(fur, sheen, sstep(0.3, 1.0, d.z) * 0.5)
+    tube(mb, pts, radii, 24, col, oval=(1.1, 0.95))
+    uv_sphere(mb, Vector((0, 2.92, 0.62)), 0.13, lambda n: hexc("#d47f80"), seg=10, rings=7)   # 鼻の先
+    tube(mb, [Vector((0, -2.6, 0.8)), Vector((0, -3.1, 0.95))], [0.12, 0.04], 6, lambda t, a, p, d: pink)   # しっぽ
+    for sx in (-1, 1):
+        uv_sphere(mb, Vector((0.36 * sx, 2.15, 1.12)), 0.045, lambda n: BLACK, seg=6, rings=4)   # 小さな目
+        # 前足：外を向いた、大きなシャベル（ピンクの手のひらと、5 本のつめ）
+        c = Vector((0.98 * sx, 1.55, 0.42))
+        uv_sphere(mb, c, 1.0, lambda n: pink, seg=14, rings=9, scale=Vector((0.18, 0.5, 0.42)))
+        for k in range(5):
+            a0 = c + Vector((0.05 * sx, 0.25 - 0.12 * k, 0.35))
+            tube(mb, [a0, a0 + Vector((0.05 * sx, 0.05, 0.22))], [0.05, 0.0], 5, lambda t, a, p, d: hexc("#f3e6d6"))
+        # うしろ足
+        uv_sphere(mb, Vector((0.7 * sx, -1.6, 0.18)), 1.0, lambda n: pink, seg=10, rings=6, scale=Vector((0.22, 0.32, 0.15)))
+    return build(mb, "Mogura")
+
+
+def make_mogura_hill():
+    """モグラ塚：ほりだした土の山。まん中に、モグラが顔を出す穴"""
+    mb = MB()
+    rnd = random.Random(5)
+    prof = [(2.6, -0.05), (2.3, 0.35), (1.8, 0.75), (1.25, 1.0), (1.0, 1.02), (0.85, 0.8), (0.7, 0.3), (0.0, 0.25)]
+    soil = hexc("#6b4a33")
+    dark = hexc("#3e2a1c")
+
+    def col(t, a, p):
+        c = mixc(soil, hexc("#8a6446"), 0.5 + 0.5 * noise.noise(p * 2.0))
+        return mixc(c, dark, sstep(0.7, 0.95, t))
+    lathe(mb, prof, 28, col, rfn=lambda t, a: 1.0 + 0.08 * noise.noise(Vector((math.cos(a) * 2, math.sin(a) * 2, t * 3))))
+    for k in range(10):
+        a = rnd.uniform(0, TAU)
+        r = rnd.uniform(1.4, 2.6)
+        uv_sphere(mb, Vector((math.cos(a) * r, math.sin(a) * r, rnd.uniform(0.1, 0.5))), rnd.uniform(0.15, 0.3),
+                  lambda n: mixc(soil, dark, 0.4), seg=6, rings=4)
+    return build(mb, "Mogura_Hill")
+
+
+def make_okera():
+    """オケラ（約 3cm）：ビロードの茶色の体、土をほるシャベルの前足、短いはね、2 本の尾"""
+    mb = MB()
+    brown = hexc("#6a4a30")
+    light = hexc("#a07a52")
+
+    def col(t, a, p):
+        return mixc(brown, light, sstep(-0.4, -0.9, math.sin(a)) * 0.6 + 0.1 * math.sin(p.y * 40))
+    seg_body(mb, -0.62, 0.05, 0.2, 0.17, col, rings=30, seg=20, z0=0.18,
+             prof=lambda t: (math.sin(math.pi * min(1.0, t * 1.0 + 0.1)) ** 0.5, math.sin(math.pi * t) ** 0.6))
+    # 前胸（かたいよろい）と頭
+    uv_sphere(mb, Vector((0, 0.18, 0.22)), 1.0, lambda n: mixc(hexc("#4a3220"), light, sstep(0.4, 0.95, n.z) * 0.4), seg=18, rings=12,
+              scale=Vector((0.2, 0.22, 0.17)))
+    uv_sphere(mb, Vector((0, 0.43, 0.2)), 1.0, lambda n: hexc("#3a2818"), seg=14, rings=9, scale=Vector((0.12, 0.1, 0.1)))
+    for sx in (-1, 1):
+        cute_eye(mb, (0.08 * sx, 0.48, 0.24), 0.028, (0.5 * sx, 1, 0.1), white=False)
+        a0 = Vector((0.04 * sx, 0.52, 0.24))
+        tube(mb, [a0, a0 + Vector((0.08 * sx, 0.15, 0.04)), a0 + Vector((0.18 * sx, 0.28, 0.02))], [0.008, 0.006, 0.0], 4,
+             lambda t, a, p, d: hexc("#3a2818"))
+        # 前足のシャベル（ぎざぎざのつめ）
+        c = Vector((0.2 * sx, 0.42, 0.1))
+        uv_sphere(mb, c, 1.0, lambda n: hexc("#5a3a22"), seg=10, rings=6, scale=Vector((0.06, 0.1, 0.08)))
+        for k in range(4):
+            q = c + Vector((0.04 * sx, 0.04 + 0.025 * k, -0.06))
+            tube(mb, [q, q + Vector((0.06 * sx, 0.03, -0.04))], [0.018, 0.0], 4, lambda t, a, p, d: hexc("#2a1a10"))
+        # 尾（2 本）
+        tube(mb, [Vector((0.04 * sx, -0.6, 0.2)), Vector((0.1 * sx, -0.85, 0.24))], [0.012, 0.0], 4, lambda t, a, p, d: brown)
+    roots = []
+    for (y, k, t) in ((0.12, 0.18, 0.28), (-0.12, -0.2, -0.38)):
+        for sx in (-1, 1):
+            roots.append(((0.15 * sx, y, 0.14), (0.3 * sx, k, 0.16), (0.38 * sx, t, 0.0)))
+    legs(mb, roots, brown, hexc("#3a2818"), radius=0.025)
+    return build(mb, "Okera")
+
+
+def make_nanafushi():
+    """ナナフシ（約 8cm）：小枝そっくりの、細長い体と長い脚。ふしごとに少し太い"""
+    mb = MB()
+    green = hexc("#7c8a44")
+    brown = hexc("#8a7448")
+    pts = [Vector((0, -1.7, 0.36)), Vector((0, -1.1, 0.37)), Vector((0, -0.5, 0.38)), Vector((0, 0.1, 0.39)), Vector((0, 0.7, 0.4)),
+           Vector((0, 1.3, 0.41)), Vector((0, 1.55, 0.42))]
+    radii = [0.02, 0.05, 0.06, 0.065, 0.06, 0.05, 0.0]
+
+    def col(t, a, p, d):
+        node = abs(math.sin(p.y * 6.0))
+        return mixc(mixc(green, brown, 0.5 + 0.5 * math.sin(p.y * 2.3)), hexc("#b8a878"), sstep(0.95, 1.0, node) * 0.6)
+    tube(mb, pts, radii, 10, col)
+    uv_sphere(mb, Vector((0, 1.5, 0.43)), 0.07, lambda n: green, seg=10, rings=6)
+    for sx in (-1, 1):
+        cute_eye(mb, (0.05 * sx, 1.56, 0.47), 0.022, (0.6 * sx, 1, 0.1), white=False)
+        a0 = Vector((0.02 * sx, 1.58, 0.45))
+        tube(mb, [a0, a0 + Vector((0.08 * sx, 0.35, 0.05)), a0 + Vector((0.12 * sx, 0.8, 0.0))], [0.01, 0.008, 0.0], 4, lambda t, a, p, d: brown)
+    roots = []
+    for (y, k, t) in ((0.95, 1.4, 1.75), (0.25, 0.35, 0.3), (-0.2, -0.45, -0.7)):
+        for sx in (-1, 1):
+            roots.append(((0.05 * sx, y, 0.36), (0.45 * sx, k, 0.52), (0.75 * sx, t, 0.0)))
+    legs(mb, roots, green, brown, radius=0.022)
+    return build(mb, "Nanafushi")
+
+
+def make_gengorou():
+    """ゲンゴロウ（約 4cm）：つやつやのだ円の体（こい緑の黒に、黄色のふち）、オールのようなうしろ足"""
+    mb = MB()
+    shell = hexc("#1f2a20")
+    rim = hexc("#d9c34a")
+
+    def col(n):
+        if abs(n.z) < 0.28 and n.z > -0.4:
+            return rim
+        return mixc(shell, hexc("#3f5a3a"), sstep(0.5, 1.0, n.z) * 0.6)
+    uv_sphere(mb, Vector((0, 0, 0)), 1.0, col, seg=24, rings=14, scale=Vector((0.48, 0.78, 0.26)))
+    uv_sphere(mb, Vector((0, 0.68, 0.0)), 1.0, lambda n: mixc(shell, rim, 0.2 if abs(n.x) > 0.7 else 0.0), seg=14, rings=8,
+              scale=Vector((0.28, 0.16, 0.14)))
+    for sx in (-1, 1):
+        cute_eye(mb, (0.16 * sx, 0.78, 0.06), 0.035, (0.6 * sx, 1, 0.2), white=False)
+        # オールのうしろ足（毛のふさ）
+        base = Vector((0.3 * sx, -0.25, -0.05))
+        mid = base + Vector((0.35 * sx, -0.25, -0.02))
+        tip = mid + Vector((0.25 * sx, -0.35, 0.0))
+        tube(mb, [base, mid, tip], [0.04, 0.035, 0.02], 6, lambda t, a, p, d: hexc("#3a3a2a"))
+        ribbon(mb, [mid, mid.lerp(tip, 0.5), tip], [0.08, 0.1, 0.06], [Vector((0, 1, 0))] * 3,
+               lambda t, v, p: hexc("#b8a868"), fold=0.0, normal_vecs=[Vector((0, 0, 1))] * 3)
+        # 前・なかの足
+        for y in (0.45, 0.15):
+            b = Vector((0.25 * sx, y, -0.08))
+            tube(mb, [b, b + Vector((0.2 * sx, 0.12, -0.04)), b + Vector((0.28 * sx, 0.25, -0.08))], [0.025, 0.02, 0.0], 5,
+                 lambda t, a, p, d: hexc("#3a3a2a"))
+    return build(mb, "Gengorou")
+
+
+HANA_SHOULDER = Vector((0.04, 0.28, 0.42))
+
+
+def make_hanakamakiri():
+    """ハナカマキリ（約 4cm）：ランの花そっくりの、うすいピンクと白。脚の花びらのようなふくらみ"""
+    mb = MB()
+    pink = hexc("#f3c4d6")
+    white = hexc("#fbf2f5")
+    deep = hexc("#e48aaa")
+
+    def body(t, a, p):
+        return mixc(mixc(white, pink, sstep(0.3, 1.0, t)), deep, sstep(0.75, 1.0, math.sin(a)) * 0.2)
+    seg_body(mb, -0.85, 0.0, 0.2, 0.13, body, rings=30, seg=20, z0=0.28,
+             prof=lambda t: (math.sin(math.pi * min(1.0, t * 0.95 + 0.1)) ** 0.45, math.sin(math.pi * t) ** 0.55), flat=0.6)
+    neck = [Vector((0, -0.04, 0.32)), Vector((0, 0.12, 0.38)), Vector((0, 0.28, 0.44))]
+    tube(mb, neck, [0.06, 0.05, 0.045], 10, lambda t, a, p, d: mixc(white, pink, 0.4))
+    uv_sphere(mb, Vector((0, 0.36, 0.48)), 1.0, lambda n: white, seg=16, rings=10, scale=Vector((0.1, 0.06, 0.075)))
+    for sx in (-1, 1):
+        uv_sphere(mb, Vector((0.09 * sx, 0.37, 0.52)), 0.04, lambda n: mixc(pink, deep, 0.3), seg=12, rings=8)
+        uv_sphere(mb, Vector((0.11 * sx, 0.39, 0.53)), 0.013, lambda n: BLACK, seg=6, rings=4)
+        # 腹のわきの、花びらのようなひらひら
+        for k in range(3):
+            c = Vector((0.2 * sx, -0.2 - 0.18 * k, 0.3))
+            uv_sphere(mb, c, 1.0, lambda n: mixc(white, pink, 0.5), seg=10, rings=6, scale=Vector((0.12, 0.09, 0.025)))
+    roots = []
+    for (b, k, t) in (((0.04, -0.02, 0.3), (0.22, 0.06, 0.36), (0.3, 0.18, 0.0)),
+                      ((0.04, -0.14, 0.3), (0.25, -0.26, 0.38), (0.34, -0.48, 0.0))):
+        for sx in (-1, 1):
+            roots.append(((b[0] * sx, b[1], b[2]), (k[0] * sx, k[1], k[2]), (t[0] * sx, t[1], t[2])))
+    legs(mb, roots, pink, white, radius=0.022)
+    # 脚の花びら（ふともものふくらみ）：脚と同じ場所に、体の部品として
+    for (b, k, t) in (((0.04, -0.02, 0.3), (0.22, 0.06, 0.36), (0.3, 0.18, 0.0)),
+                      ((0.04, -0.14, 0.3), (0.25, -0.26, 0.38), (0.34, -0.48, 0.0))):
+        for sx in (-1, 1):
+            c = Vector((b[0] * sx, b[1], b[2])).lerp(Vector((k[0] * sx, k[1], k[2])), 0.6)
+            uv_sphere(mb, c + Vector((0, 0, 0.03)), 1.0, lambda n: mixc(white, pink, 0.6), seg=10, rings=6,
+                      scale=Vector((0.1, 0.07, 0.025)))
+    return build(mb, "Hanakamakiri")
+
+
+def make_hanakamakiri_arm():
+    """右のかま（肩が原点）：ピンクの花びらのようなかま"""
+    mb = MB()
+    pink = hexc("#f3c4d6")
+    white = hexc("#fbf2f5")
+    o = HANA_SHOULDER
+    s0 = Vector((HANA_SHOULDER.x, HANA_SHOULDER.y, HANA_SHOULDER.z)) - o
+    coxa = s0 + Vector((0.025, 0.09, -0.16))
+    femur = coxa + Vector((0.01, 0.22, 0.09))
+    tibia = femur + Vector((0.0, -0.12, -0.08))
+    tube(mb, [s0, coxa], [0.035, 0.03], 8, lambda t, a, p, d: pink)
+    tube(mb, [coxa, femur], [0.032, 0.025], 8, lambda t, a, p, d: white)
+    tube(mb, [femur, tibia], [0.022, 0.0], 7, lambda t, a, p, d: pink)
+    uv_sphere(mb, coxa.lerp(femur, 0.5) + Vector((0.03, 0, 0)), 1.0, lambda n: mixc(white, pink, 0.5), seg=10, rings=6,
+              scale=Vector((0.05, 0.1, 0.03)))
+    return build(mb, "Hanakamakiri_Arm")
+
+
+def make_kameleon():
+    """エボシカメレオン（レア）：とさかのような頭、くるっと巻いたしっぽ、ぐるぐる動く目。緑に黄色と青の帯"""
+    mb = MB()
+    green = hexc("#4fb34a")
+    yellow = hexc("#e8d84a")
+    blue = hexc("#4a8fd8")
+    pts = [Vector((0, -1.0, 0.75)), Vector((0, -0.6, 0.9)), Vector((0, -0.1, 0.98)), Vector((0, 0.4, 0.95)), Vector((0, 0.85, 0.9)),
+           Vector((0, 1.15, 0.92)), Vector((0, 1.4, 0.9))]
+    radii = [0.25, 0.42, 0.5, 0.48, 0.38, 0.3, 0.0]
+
+    def col(t, a, p, d):
+        band = math.sin(p.y * 7.0)
+        c = green if band < 0.3 else (yellow if band < 0.8 else blue)
+        return mixc(c, hexc("#d8f0a0"), sstep(-0.3, -0.8, d.z) * 0.6)
+    tube(mb, pts, radii, 18, col, oval=(0.7, 1.15))
+    # とさか（頭の上の高いかぶと）
+    tube(mb, [Vector((0, 0.95, 1.1)), Vector((0, 0.85, 1.55)), Vector((0, 0.7, 1.75))], [0.2, 0.12, 0.0], 10,
+         lambda t, a, p, d: mixc(green, yellow, t * 0.6), oval=(0.5, 1.0))
+    # くるっと巻いたしっぽ
+    tail = []
+    for k in range(14):
+        a = k * 0.55
+        r = 0.6 * (1.0 - k / 16)
+        tail.append(Vector((0, -1.0 - r * math.sin(a) - 0.05 * k, 0.75 - r * (1 - math.cos(a)) * 0.9)))
+    tube(mb, tail, [0.25 * (1 - k / 14) + 0.03 for k in range(14)], 10, lambda t, a, p, d: mixc(green, blue, sstep(0.4, 1.0, t)))
+    for sx in (-1, 1):
+        # 大きくて丸い目（まん中に小さな黒目）
+        uv_sphere(mb, Vector((0.24 * sx, 1.12, 1.02)), 0.15, lambda n: mixc(green, yellow, 0.3), seg=14, rings=10)
+        uv_sphere(mb, Vector((0.36 * sx, 1.17, 1.04)), 0.045, lambda n: BLACK, seg=8, rings=5)
+    roots = []
+    for (y, k, t) in ((0.55, 0.7, 0.85), (-0.45, -0.55, -0.65)):
+        for sx in (-1, 1):
+            roots.append(((0.3 * sx, y, 0.8), (0.6 * sx, k, 0.55), (0.62 * sx, t, 0.0)))
+    legs(mb, roots, green, hexc("#2f7a2a"), radius=0.09)
+    return build(mb, "Kameleon")
+
+
+def make_herakuresu():
+    """ヘラクレスオオカブト（レア、約 15cm）：オリーブ色に黒い点の前ばね、黒くて長い胸の角と頭の角"""
+    mb = MB()
+    olive = hexc("#c9b25a")
+    black = hexc("#16120e")
+
+    def elytra(t, a, p):
+        c = mixc(olive, hexc("#e2cf7a"), sstep(0.6, 1.0, math.sin(a)) * 0.5 * (1 - t))
+        if noise.noise(Vector((p.x * 9, p.y * 9, 1.3))) > 0.35:
+            c = mixc(c, black, 0.8)   # 黒い点
+        if abs(p.x) < 0.03 and math.sin(a) > 0:
+            c = mixc(c, black, 0.6)
+        return c
+    seg_body(mb, -2.2, 0.6, 1.15, 0.95, elytra, rings=36, seg=28,
+             prof=lambda t: (math.sin(math.pi * min(1.0, t * 1.05 + 0.08)) ** 0.4, math.sin(math.pi * t) ** 0.6), z0=0.5)
+    # 前胸（黒くつやつや）と、長くのびる胸の角（先は下へ曲がり、毛のふさ）
+    uv_sphere(mb, Vector((0, 1.0, 0.9)), 1.0, lambda n: mixc(black, hexc("#3a3428"), sstep(0.4, 0.95, n.z)), seg=22, rings=14,
+              scale=Vector((0.95, 0.6, 0.55)))
+    horn = [Vector((0, 1.3, 1.35)), Vector((0, 2.2, 1.7)), Vector((0, 3.4, 1.85)), Vector((0, 4.2, 1.6)), Vector((0, 4.5, 1.2))]
+    tube(mb, horn, [0.28, 0.24, 0.18, 0.12, 0.0], 12, lambda t, a, p, d: mixc(black, hexc("#3a2a1e"), t * 0.3))
+    for k in range(3):
+        q = Vector((0, 3.3 + 0.3 * k, 1.68))
+        tube(mb, [q, q + Vector((0, 0.05, -0.25))], [0.08, 0.0], 6, lambda t, a, p, d: hexc("#b8763a"))   # 毛のふさ
+    # 頭と、下から上へ曲がる頭の角
+    uv_sphere(mb, Vector((0, 1.65, 0.55)), 1.0, lambda n: black, seg=16, rings=10, scale=Vector((0.4, 0.3, 0.3)))
+    tube(mb, [Vector((0, 1.85, 0.55)), Vector((0, 2.8, 0.7)), Vector((0, 3.6, 1.05)), Vector((0, 3.9, 1.35))],
+         [0.18, 0.14, 0.09, 0.0], 10, lambda t, a, p, d: black)
+    for sx in (-1, 1):
+        cute_eye(mb, (0.3 * sx, 1.8, 0.65), 0.08, (0.5 * sx, 1, 0.1), white=False)
+    roots = []
+    for y in (1.0, 0.3, -0.6):
+        for sx in (-1, 1):
+            roots.append(((0.7 * sx, y, 0.5), (1.4 * sx, y + 0.15, 0.6), (1.8 * sx, y + 0.25, 0.0)))
+    legs(mb, roots, black, hexc("#3a2a1e"), radius=0.09)
+    return build(mb, "Herakuresu")
+
+
+def harinezumi_spines(mb, center, rx, ry, rz, n, rnd, zmin=-0.2, length=0.35, face=False):
+    """ハリネズミのはり：だ円の上半分から、外向きに。根もとは白、先は茶色。face なら、顔のまわり（前）には生やさない"""
+    for _ in range(n):
+        th = rnd.uniform(0, TAU)
+        ph = math.asin(rnd.uniform(zmin, 1.0))
+        d = Vector((math.cos(th) * math.cos(ph), math.sin(th) * math.cos(ph), math.sin(ph)))
+        if face and d.y > 0.55 and d.z < 0.75:
+            continue
+        base = center + Vector((d.x * rx, d.y * ry, d.z * rz)) * 0.92
+        tipd = (Vector((d.x / rx, d.y / ry, d.z / rz))).normalized()
+        tipd = (tipd + Vector((0, -0.6, 0.15))).normalized()   # うしろへ流れる
+        tube(mb, [base, base + tipd * length * 0.5, base + tipd * length], [0.045, 0.03, 0.0], 4,
+             lambda t, a, p, d: mixc(hexc("#efe6d6"), hexc("#5a4030"), sstep(0.3, 0.9, t)))
+
+
+def make_harinezumi():
+    """ハリネズミ（レア、子ども・約 10cm）：背中いっぱいのはり、とがった顔、黒い鼻"""
+    mb = MB()
+    rnd = random.Random(17)
+    face = hexc("#c9b29a")
+    uv_sphere(mb, Vector((0, -0.25, 0.75)), 1.0, lambda n: hexc("#8a6a52"), seg=22, rings=14, scale=Vector((1.0, 1.15, 0.8)))
+    harinezumi_spines(mb, Vector((0, -0.25, 0.78)), 1.0, 1.15, 0.82, 240, rnd, face=True)
+    # 顔：体の前へ、とがった鼻先まで
+    snout = [Vector((0, 0.55, 0.62)), Vector((0, 1.05, 0.55)), Vector((0, 1.5, 0.44))]
+    tube(mb, snout, [0.62, 0.4, 0.1], 16, lambda t, a, p, d: face)
+    uv_sphere(mb, Vector((0, 1.56, 0.44)), 0.1, lambda n: hexc("#1a1414"), seg=8, rings=5)
+    for sx in (-1, 1):
+        # つぶらな瞳：まんまるの黒い目に、大きな光と小さな光
+        ec = Vector((0.3 * sx, 0.95, 0.82))
+        look = Vector((0.55 * sx, 1.0, 0.15)).normalized()
+        uv_sphere(mb, ec, 0.15, lambda n: mixc(hexc("#0e0b0b"), hexc("#3a2a28"), sstep(0.2, -0.8, n.z)), seg=16, rings=12)
+        uv_sphere(mb, ec + look * 0.125 + Vector((0, 0, 0.055)), 0.048, lambda n: WHITE, seg=8, rings=5)
+        uv_sphere(mb, ec + look * 0.14 + Vector((0.025 * sx, 0, -0.045)), 0.02, lambda n: WHITE, seg=6, rings=4)
+        uv_sphere(mb, Vector((0.4 * sx, 0.68, 1.02)), 1.0, lambda n: hexc("#d8b8a0"), seg=8, rings=5, scale=Vector((0.12, 0.05, 0.12)))
+        for y in (0.5, -0.85):
+            uv_sphere(mb, Vector((0.55 * sx, y, 0.12)), 1.0, lambda n: face, seg=8, rings=5, scale=Vector((0.14, 0.18, 0.12)))
+    return build(mb, "Harinezumi")
+
+
+def make_harinezumi_ball():
+    """まるくなったハリネズミ：はりの玉"""
+    mb = MB()
+    rnd = random.Random(23)
+    uv_sphere(mb, Vector((0, 0, 0.9)), 0.9, lambda n: hexc("#8a6a52"), seg=20, rings=14)
+    harinezumi_spines(mb, Vector((0, 0, 0.9)), 0.9, 0.9, 0.9, 300, rnd, zmin=-0.85, length=0.35)
+    return build(mb, "Harinezumi_Ball")
 
 
 def main():
@@ -1529,6 +2218,8 @@ def main():
         (make_water_strider, "WaterStrider", None), (make_crab, "Crab", None), (make_grasshopper, "Grasshopper", None),
         (make_otoshibumi, "Otoshibumi", None), (make_spider, "Spider", spider_sneaker_variant), (make_mantis, "Mantis", None),
         (make_kamikiri, "Kamikiri", None), (make_kuwagata, "Kuwagata", None), (make_kamemushi, "Kamemushi", None), (make_tokage, "Tokage", None),
+        (make_okera, "Okera", None), (make_nanafushi, "Nanafushi", None), (make_hanakamakiri, "Hanakamakiri", None),
+        (make_kameleon, "Kameleon", None), (make_herakuresu, "Herakuresu", None),
     ]
     makers = [
         make_snail, make_pillbug, make_butterfly_body, make_butterfly_wing,
@@ -1536,11 +2227,19 @@ def main():
         make_firefly_body, make_firefly_glow, make_monshiro_body, make_monshiro_wing,
         make_cradle, make_anthill, make_grasshopper_hind, make_mantis_arm, make_ant_helmet, make_crumb, make_pillbug_ball,
         lambda: make_bird_body("Sparrow_Body", 5.5, False), lambda: make_bird_wing("Sparrow_Wing", 5.5, False),
+        lambda: make_bird_wing_folded("Sparrow_WingFolded", 5.5, False),
         lambda: make_bird_body("Crow_Body", 18.0, True), lambda: make_bird_wing("Crow_Wing", 18.0, True),
+        lambda: make_bird_wing_folded("Crow_WingFolded", 18.0, True),
         lambda: make_river_stone("RiverStone_A", 1, (1.6, 1.2, 0.55), (hexc("#8d96a3"), hexc("#b7b2a5"))),
         lambda: make_river_stone("RiverStone_B", 2, (1.3, 1.1, 0.7), (hexc("#a99a84"), hexc("#d2c4a8"))),
         lambda: make_river_stone("RiverStone_C", 3, (1.9, 1.5, 0.45), (hexc("#7d8a86"), hexc("#a6b0a4"))),
         make_horsetail, make_iris, make_root_arch,
+        make_koumori_body, make_koumori_wing, make_mogura, make_mogura_hill, make_gengorou, make_hanakamakiri_arm,
+        make_harinezumi, make_harinezumi_ball,
+        lambda: make_bird_body("Hato_Body", 13.0, "pigeon"), lambda: make_bird_wing("Hato_Wing", 13.0, "pigeon"),
+        lambda: make_bird_wing_folded("Hato_WingFolded", 13.0, "pigeon"),
+        lambda: make_bird_body("Flamingo_Body", 20.0, "flamingo"), lambda: make_bird_wing("Flamingo_Wing", 20.0, "flamingo"),
+        lambda: make_bird_wing_folded("Flamingo_WingFolded", 20.0, "flamingo"),
     ]
     objs = {}
     for mk, name, variant in walkers:
@@ -1566,6 +2265,7 @@ def main():
     x = 0.0
     for name, ob in objs.items():
         if name.startswith(("Butterfly_Wing_", "Monshiro_Wing_", "Dragonfly_Wing_", "Sparrow_Wing_", "Crow_Wing_", "Cradle_Portrait", "Mantis_Arm_",
+                            "Koumori_Wing_", "Hato_Wing_", "Flamingo_Wing_", "Hanakamakiri_Arm_",
                             "Grasshopper_Hind_", "Crumb_Portrait")) or "_Leg" in name:
             continue
         w = max(ob.dimensions.x, 0.5)

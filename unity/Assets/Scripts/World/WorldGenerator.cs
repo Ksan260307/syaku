@@ -182,6 +182,7 @@ namespace Shakutori
                 PlaceRiverCreatures();
                 BuildLightShafts(RiverShaftSpots());
             }
+            PinLeavesUnderDew();
             BuildMap();
             instanced.Build();
             ComputeSpawn();
@@ -458,10 +459,28 @@ namespace Shakutori
         }
 
         /// <summary>押すと動く小さな物を置く（ふだんは絵だけ。しゃくとりむしが近づくと体を持つ）。</summary>
+        /// <summary>しずくがのっている大きな葉は、風ですべらないようにする（しずくが宙に浮かない）。</summary>
+        void PinLeavesUnderDew()
+        {
+            if (loose == null) return;
+            foreach (var d in DewdropPoints)
+                foreach (var h in Physics.RaycastAll(d + Vector3.up * 0.4f, Vector3.down, 1.2f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
+                    if (h.collider.TryGetComponent<BigLeaf>(out var leaf)) leaf.Pinned = true;
+        }
+
         void PlaceLoose(string meshName, Material mat, Vector3 pos, Quaternion rot, float scale, LooseProps.Shape shape, bool shadows, float maxDistance)
         {
             Mesh m = assets.Get(meshName);
             if (m == null || mat == null || loose == null) return;
+            // 落ち葉のほかは、いちばん下が地面にふれるように置く（うまっていると、体を持ったときにはじき出されて転がる）
+            if (shape != LooseProps.Shape.Leaf && shape != LooseProps.Shape.BigLeaf) pos = LooseProps.RestOnGround(m, pos, rot, scale, Area);
+            // しゃくとりむしには重すぎる小石は、動かない石として置く（よじのぼって越える）
+            if (shape == LooseProps.Shape.Pebble && LooseProps.MassOf(m, shape, scale) > LooseBody.WormPushLimit)
+            {
+                Place(meshName, mat, pos, rot, scale, true, shadows, maxDistance);
+                return;
+            }
+            loose.area = Area;
             loose.Add(m, mat, pos, rot, scale, shape, shadows, maxDistance);
         }
 

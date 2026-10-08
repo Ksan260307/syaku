@@ -60,7 +60,11 @@ namespace Shakutori.Tests
         public void Puddle_IsWaterDrawnLikeTheRiver()
         {
             Vector2 c = ParkLayout.Puddle;
-            Assert.IsTrue(ParkLayout.IsUnderwater(new Vector3(c.x, ParkLayout.Height(c.x, c.y) + 0.1f, c.y)), "水たまりの中は水");
+            // 浅い水たまり：水はあるが、しゃくとりむしが沈まない深さなので、底を歩ける
+            float depth = ParkLayout.WaterLevelAt(c.x, c.y) - ParkLayout.Height(c.x, c.y);
+            Assert.That(depth, Is.InRange(0.02f, AreaLayout.WadeDepth), "水たまりは浅い");
+            Assert.IsFalse(ParkLayout.IsUnderwater(ParkLayout.Ground(c.x, c.y)), "水たまりの底は歩ける");
+            Assert.IsTrue(ParkLayout.IsUnderwater(new Vector3(c.x, ParkLayout.WaterLevel - 0.3f, c.y)), "それより深い所は水の中");
             Assert.IsFalse(ParkLayout.IsUnderwater(ParkLayout.Ground(ParkLayout.Spawn.x, ParkLayout.Spawn.y) + Vector3.up * 0.1f));
             var water = Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None).FirstOrDefault(r => r.name == "Water");
             Assert.IsNotNull(water);
@@ -74,7 +78,7 @@ namespace Shakutori.Tests
             Assert.AreEqual(Areas.Park.DropCount, _gen.DewdropPoints.Count);
             foreach (var d in _gen.DewdropPoints)
             {
-                Assert.IsTrue(ParkLayout.InPlayArea(d));
+                Assert.IsTrue(ParkLayout.InPlayArea(d), $"{d} が遊べる場所の外");
                 Assert.IsFalse(ParkLayout.IsUnderwater(d), "しずくが水の中");
             }
             Assert.IsTrue(_gen.DewdropPoints.Any(d => d.y - ParkLayout.Height(d.x, d.z) > 8f), "遊具の上にもしずくがある");
@@ -102,7 +106,9 @@ namespace Shakutori.Tests
             var ids = _gen.Mobs.Select(m => m.species).ToList();
             foreach (var id in new[] { "kamikiri", "kuwagata", "kamemushi", "tokage", "monshiro" })
                 CollectionAssert.Contains(ids, id, $"{id} が公園にいる");
-            Assert.AreEqual(23, SpeciesCatalog.Count, "図鑑は 23 種");
+            Assert.AreEqual(30, SpeciesCatalog.Count, "図鑑は 30 種");
+            foreach (var id in new[] { "hato", "mogura", "okera", "hanakamakiri" })
+                CollectionAssert.Contains(ids, id, $"{id} が公園にいる");
             foreach (var id in new[] { "kamikiri", "kuwagata", "kamemushi", "tokage", "monshiro" })
             {
                 var sp = SpeciesCatalog.Get(id);

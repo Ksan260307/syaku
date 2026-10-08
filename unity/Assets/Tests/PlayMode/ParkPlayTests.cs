@@ -32,7 +32,26 @@ namespace Shakutori.Tests
             Assert.Less(Vector2.Distance(new Vector2(w.x, w.z), ParkLayout.Spawn), 4f, "トンネルを出た所");
             Assert.Less(Vector3.Dot(Worm.Heading, Vector3.right), -0.6f, "公園のまん中（西）を向く");
             Assert.IsTrue(Cam.ShowingView, "景色を写す");
+            Assert.AreSame(AudioManager.Instance.musicPark, AudioManager.Instance.CurrentMusic, "公園の BGM");
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator Puddle_IsShallowEnoughToWadeThrough()
+        {
+            // 水たまりの東のふちから、西へまっすぐ歩いて入る
+            Vector2 c = ParkLayout.Puddle;
+            Place(c + new Vector2(ParkLayout.PuddleRadius + 2f, 0f), Vector3.left);
+            yield return FaceCamera(Vector3.left);
+            float closest = 99f;
+            yield return Hold(Vector2.up, 9f, () =>
+            {
+                Vector3 w = Worm.CenterPosition;
+                closest = Mathf.Min(closest, Vector2.Distance(new Vector2(w.x, w.z), c));
+            });
+            Assert.Less(closest, 1.5f, "水たまりのまん中まで歩いて入れる");
+            Assert.AreEqual(GameManager.GameState.Playing, GM.State);
+            Assert.IsFalse(Worm.IsFalling, "しずまない");
         }
 
         [UnityTest]
@@ -92,7 +111,7 @@ namespace Shakutori.Tests
             {
                 Vector3 p = GM.creatures.PositionOf(id, 0);
                 Assert.AreNotEqual(Vector3.zero, p, id);
-                Worm.Spawn(TopSurface(new Vector2(p.x + 1.2f, p.z)), Vector3.left);
+                Worm.Spawn(SurfaceNear(p, 1.2f), Vector3.left);
                 yield return Seconds(1f);
                 CollectionAssert.Contains(SaveSystem.Data.creatures, id, $"{id} を見つけた");
             }

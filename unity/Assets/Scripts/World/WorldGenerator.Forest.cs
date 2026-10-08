@@ -218,7 +218,7 @@ namespace Shakutori
                 float s = R(0.7f, 1.25f);
                 Vector3 pos = ForestLayout.Ground(p.x, p.y) + Vector3.up * 0.04f;
                 Quaternion rot = GroundRotation(p, R(0, 360), 1f, 3f);
-                Place(leaf, prop, pos, rot, s, true, true, 120f);
+                PlaceLoose(leaf, prop, pos, rot, s, LooseProps.Shape.BigLeaf, true, 120f);   // 乗れる足場で、強い風ですべる
                 if (_bigLeaves.Count < 40) _bigLeaves.Add(pos);
             }
 
@@ -247,7 +247,7 @@ namespace Shakutori
                 Vector3 pos = ForestLayout.Ground(p.x, p.y) + (lying ? Vector3.up * 0.42f * s : Vector3.down * 0.03f);
                 // どんぐりは、押すと転がる
                 var acorn = Place("Acorn", assets.propGlossy, pos, rot, s, true, true, 150f, true);
-                if (acorn != null) RollingProp.Make(acorn, assets.Get("Acorn"), s, 0.47f * s);
+                if (acorn != null) RollingProp.Make(acorn, assets.Get("Acorn"), s, 0.47f * s, Area);
                 Occupy(p, 0.7f * s);
             }
             for (int i = 0; i < 6; i++)
@@ -429,7 +429,7 @@ namespace Shakutori
             {
                 Vector2 p = RandomInRing(1f, 70f);
                 if (!IsLand(p, -0.5f)) continue;
-                PlaceLoose(Pick(Rocks), assets.prop, ForestLayout.Ground(p.x, p.y), Quaternion.Euler(R(0, 360), R(0, 360), R(0, 360)), R(0.06f, 0.2f), LooseProps.Shape.Pebble, false, 40f);
+                PlaceLoose(Pick(Rocks), assets.prop, ForestLayout.Ground(p.x, p.y), Quaternion.Euler(R(-12f, 12f), R(0, 360), R(-12f, 12f)), R(0.06f, 0.2f), LooseProps.Shape.Pebble, false, 40f);
             }
             // 芽生え
             for (int i = 0; i < 40; i++)
@@ -643,6 +643,18 @@ namespace Shakutori
             AddMob("mantis", ForestLayout.Ground(meadow.x + 7f, meadow.y - 7f), 1, 3f);
             AddMob("mantis", ForestLayout.Ground(meadow.x - 9f, meadow.y + 5f), 1, 3f);
             AddMob("mantis", ForestLayout.Ground(ForestLayout.GreatTree.x + 10f, ForestLayout.GreatTree.y - 20f), 1, 3f);
+            // 光るキノコの洞のまわりを飛ぶコウモリ
+            Vector2 cave = ForestLayout.ArchTarget + new Vector2(1.5f, 2.5f);
+            AddMob("koumori", ForestLayout.Ground(cave.x, cave.y), 3, 6f, 3.5f);
+            // 草むらの小枝にまぎれるナナフシ
+            AddMob("nanafushi", ForestLayout.Ground(ForestLayout.MossHill.x + 4f, ForestLayout.MossHill.y - 3f), 1, 2.5f);
+            AddMob("nanafushi", ForestLayout.Ground(ForestLayout.GreatTree.x + 12f, ForestLayout.GreatTree.y - 18f), 1, 3f);
+            // 水たまりの中を泳ぐゲンゴロウ
+            AddMob("gengorou", new Vector3(pond.x - 4f, ForestLayout.WaterLevel, pond.y + 3f), 2, 6f);
+            // 花の草原の花にまぎれるハナカマキリ
+            AddMob("hanakamakiri", ForestLayout.Ground(meadow.x + 5f, meadow.y + 3f), 1, 3f);
+            // 草原のはしのモグラ塚
+            AddMob("mogura", ForestLayout.Ground(meadow.x - 14f, meadow.y - 10f), 1, 0.3f);
             // カラス（高い場所に下りて見張る）
             {
                 var g = AddMob("crow", TopSurface(ForestLayout.Stump), 1, 2f);

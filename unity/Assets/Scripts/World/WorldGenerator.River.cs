@@ -237,7 +237,7 @@ namespace Shakutori
                 Vector2 p = RandomInRing(4f, 62f);
                 if (!IsLand(p, 0.3f) || InsideOccupied(p) || RiverLayout.InChannel(p.x, p.y, 2f)) continue;
                 float s = R(0.6f, 1.1f);
-                Place(Pick(BigLeaves), prop, RiverLayout.Ground(p.x, p.y) + Vector3.up * 0.04f, GroundRotation(p, R(0, 360), 1f, 3f), s, true, true, 120f);
+                PlaceLoose(Pick(BigLeaves), prop, RiverLayout.Ground(p.x, p.y) + Vector3.up * 0.04f, GroundRotation(p, R(0, 360), 1f, 3f), s, LooseProps.Shape.BigLeaf, true, 120f);
                 if (_bigLeaves.Count < 20) _bigLeaves.Add(RiverLayout.Ground(p.x, p.y));
             }
             // 小枝
@@ -554,6 +554,10 @@ namespace Shakutori
             Vector2 ic = RiverLayout.IslandCenter;
             AddMob("crab", RiverLayout.Ground(ic.x, ic.y), 2, 2.5f);
             AddMob("crab", RiverLayout.Ground(RiverBankEdgeX(RiverLayout.StonesZ + 4f, -1f) - 1.5f, RiverLayout.StonesZ + 4f), 1, 2f);
+            // しめった岸の土にもぐるケラと、よどみを泳ぐゲンゴロウ
+            AddMob("okera", RiverLayout.Ground(RiverBankEdgeX(-20f, 1f) + 2.5f, -20f), 1, 2.5f);
+            AddMob("okera", RiverLayout.Ground(RiverBankEdgeX(20f, -1f) - 2.5f, 20f), 1, 2.5f);
+            AddMob("gengorou", new Vector3(pcx + 3f, pwl, pz - 2f), 2, 5f);
             // カワニナ：とびいしと水ぎわ
             if (_stepStones.Count > 4)
             {

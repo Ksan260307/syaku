@@ -250,11 +250,11 @@ namespace Shakutori.Tests
     public class SpeciesCatalogTests
     {
         [Test]
-        public void Catalog_Has23SpeciesAnd2RaresWithTexts()
+        public void Catalog_Has30SpeciesAnd6RaresWithTexts()
         {
-            Assert.AreEqual(23, SpeciesCatalog.Count, "図鑑のコンプリートに必要なのは 23 しゅ");
-            Assert.AreEqual(2, SpeciesCatalog.RareCount);
-            Assert.AreEqual(25, SpeciesCatalog.All.Select(s => s.id).Distinct().Count());
+            Assert.AreEqual(30, SpeciesCatalog.Count, "図鑑のコンプリートに必要なのは 30 しゅ");
+            Assert.AreEqual(6, SpeciesCatalog.RareCount);
+            Assert.AreEqual(36, SpeciesCatalog.All.Select(s => s.id).Distinct().Count());
             foreach (var s in SpeciesCatalog.All)
             {
                 Assert.IsFalse(string.IsNullOrEmpty(s.name), s.id);
@@ -833,12 +833,14 @@ namespace Shakutori.Tests
         public void EverySpecies_LivesSomewhere()
         {
             var forest = _gen.Mobs.Select(m => m.species);
-            var river = new[] { "waterstrider", "dragonfly", "crab", "riversnail", "frog", "firefly" };
-            var park = new[] { "kamikiri", "kuwagata", "kamemushi", "tokage", "monshiro" };   // 公園のいきもの（ParkTests で確かめる）
+            var river = new[] { "waterstrider", "dragonfly", "crab", "riversnail", "frog", "firefly", "okera", "gengorou" };
+            var park = new[] { "kamikiri", "kuwagata", "kamemushi", "tokage", "monshiro", "hato", "okera" };   // 公園のいきもの（ParkTests で確かめる）
             foreach (var s in SpeciesCatalog.Regular)
                 Assert.IsTrue(forest.Contains(s.id) || river.Contains(s.id) || park.Contains(s.id), $"{s.id} がどこにもいない");
             foreach (var r in SpeciesCatalog.Rares)
-                Assert.IsTrue(forest.Contains(r.rareOf), $"{r.id} の元になる {r.rareOf} が森にいる");
+                Assert.IsTrue(forest.Contains(r.rareOf) || park.Contains(r.rareOf), $"{r.id} の元になる {r.rareOf} が森か公園にいる");
+            foreach (var id in new[] { "koumori", "nanafushi", "gengorou", "hanakamakiri", "mogura" })
+                Assert.IsTrue(forest.Contains(id), $"{id} は森にいる");
         }
 
         [Test]

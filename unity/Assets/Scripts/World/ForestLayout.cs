@@ -259,7 +259,8 @@ namespace Shakutori
 
         public static bool IsUnderwater(Vector3 p)
         {
-            return p.y < WaterLevel + 0.05f && Vector2.Distance(new Vector2(p.x, p.z), Pond) < PondRadius * 1.25f;
+            // 浅い水ぎわ（しゃくとりむしが沈まない深さ）は、水の中ではない
+            return p.y < WaterLevel - AreaLayout.WadeDepth && Vector2.Distance(new Vector2(p.x, p.z), Pond) < PondRadius * 1.25f;
         }
 
         public static bool InPlayArea(Vector3 p)

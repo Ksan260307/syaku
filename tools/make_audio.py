@@ -3,6 +3,8 @@
   python tools/make_audio.py
 出力: unity/Assets/Audio/*.wav
  - music_forest.wav   : 80BPM・ヘ長調のやさしいループ曲（パッド + カリンバ + チェレスタ + ベース）
+ - music_river.wav    : 72BPM・6/8 拍子・ニ長調の流れるループ曲（ハープのアルペジオ + 水のしずくのチェレスタ + 木の笛）
+ - music_park.wav     : 104BPM・ハ長調の、はずむループ曲（ウクレレ + 鉄琴のメロディ + はじくベース + シェイカー + 口笛）
  - ambience_forest.wav: 風・葉ずれ・小鳥のさえずり（つなぎ目のないループ）
  - ambience_river.wav : せせらぎ・遠くの滝・カエル（川辺）
  - 効果音: 足音、しずく、発見、クリック、糸、着地、クリア、いきもの発見、エリア移動、きせかえ解放、カラス
@@ -154,6 +156,74 @@ def flute(freq, dur):
     return (s + breath) * e * 0.35
 
 
+def harp(freq, dur=2.4):
+    """ハープ（はじいた弦）：倍音ほど早く消え、少しだけ音程がずれた倍音でやわらかく"""
+    t = t_axis(dur)
+    s = np.zeros_like(t)
+    for k in range(1, 7):
+        f = freq * k * (1 + 0.0004 * k * k)
+        s += (1.0 / k ** 1.3) * np.sin(2 * np.pi * f * t + rng.uniform(0, 0.4)) * np.exp(-t * (1.1 + 0.9 * k))
+    att = np.minimum(t / 0.006, 1.0)
+    return s * att * 0.45
+
+
+def ukulele(freq, dur=0.9):
+    """ウクレレ（ナイロン弦を短くはじく）：明るく、すぐ消える"""
+    t = t_axis(dur)
+    s = np.zeros_like(t)
+    for k in range(1, 6):
+        s += (0.9 / k ** 1.1) * np.sin(2 * np.pi * freq * k * t + rng.uniform(0, 0.3)) * np.exp(-t * (3.5 + 2.2 * k))
+    att = np.minimum(t / 0.003, 1.0)
+    return s * att * 0.4
+
+
+def glock(freq, dur=1.6):
+    """鉄琴：高く澄んだ音（チェレスタより明るい）"""
+    t = t_axis(dur)
+    s = np.sin(2 * np.pi * freq * t) * np.exp(-t * 2.2)
+    s += 0.35 * np.sin(2 * np.pi * freq * 2.76 * t) * np.exp(-t * 5.0)
+    s += 0.15 * np.sin(2 * np.pi * freq * 5.4 * t) * np.exp(-t * 9.0)
+    return s * np.minimum(t / 0.002, 1.0) * 0.42
+
+
+def pizz_bass(freq, dur=0.5):
+    """はじくベース（短く、はずむ）"""
+    t = t_axis(dur)
+    s = np.sin(2 * np.pi * freq * t) + 0.3 * np.sin(2 * np.pi * freq * 2 * t)
+    return s * np.exp(-t * 7.0) * np.minimum(t / 0.004, 1.0) * 0.6
+
+
+def shaker(dur=0.09, accent=1.0):
+    """シェイカー（高い音のさらさら）"""
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    env = np.minimum(t / 0.01, 1.0) * np.exp(-t * 45)
+    return shaped_noise(n, 0.0, 5000, 12000) * env * 0.25 * accent
+
+
+def whistle(freq, dur):
+    """口笛（すんだ正弦波に、ゆれと息）"""
+    t = t_axis(dur)
+    vib = 1 + 0.01 * np.sin(2 * np.pi * 5.5 * t) * np.minimum(t / 0.3, 1)
+    ph = 2 * np.pi * freq * np.cumsum(vib) / SR
+    s = np.sin(ph) + 0.04 * np.sin(2 * ph)
+    breath = shaped_noise(len(t), 0.0, 2500, 8000) * 0.02
+    e = env_adsr(len(t), 0.05, 0.15, 0.85, min(0.25, dur * 0.4))
+    return (s + breath) * e * 0.3
+
+
+def pick_melody(cands, prev, tones, root, weights_rng):
+    """和音の音を優先して、前の音に近い音をえらぶ"""
+    w = []
+    for c in cands:
+        x = 1.0 / (1 + abs(c - prev) ** 1.3)
+        if (c - root) % 12 in [t % 12 for t in tones]:
+            x *= 2.5
+        w.append(x)
+    w = np.array(w) / np.sum(w)
+    return int(weights_rng.choice(cands, p=w))
+
+
 # ---------------------------------------------------------------------------
 # BGM
 # ---------------------------------------------------------------------------
@@ -226,6 +296,100 @@ def make_music():
 
     buf = circular_reverb(buf, seconds=2.8, mix=0.32)
     write("music_forest.wav", buf)
+
+
+def make_music_river():
+    """川辺：6/8 拍子でゆったり流れる。ハープのアルペジオが水の流れ、高いチェレスタが水のしずく、木の笛が歌う"""
+    r = np.random.default_rng(72)
+    bpm = 72                      # 付点 4 分音符 = 72
+    eighth = 60 / bpm / 3
+    bar = eighth * 6
+    prog = ["D", "Bm", "G", "A", "D", "Em", "G", "A",
+            "Bm", "G", "D", "A", "G", "D", "Em", "A",
+            "G", "A", "F#m", "Bm", "Em", "G", "A", "A",
+            "D", "Bm", "G", "A", "G", "A", "D", "D"]
+    total = bar * len(prog)
+    buf = np.zeros((int(total * SR), 2))
+    pent = [0, 2, 4, 7, 9]   # ニ長調ペンタトニック（D E F# A B）
+    key = 62                 # D4
+    mel_prev = 74
+    for i, ch in enumerate(prog):
+        root, tones = chord_notes(ch)
+        start = int(i * bar * SR)
+        add(buf, start, pad([midi(50 + t + 12) for t in tones], bar + 1.2), gain=0.42)
+        broot = 38 + ((root - 2) % 12)
+        add(buf, start, bass(midi(broot), bar * 0.9), gain=0.42)
+        # ハープ：上って下りるアルペジオ（流れ）
+        up = [tones[0], tones[1], tones[2], tones[0] + 12, tones[1] + 12, tones[2] + 12]
+        arp = up if i % 2 == 0 else list(reversed(up))
+        for k, note in enumerate(arp):
+            pos = start + int(k * eighth * SR) + int(r.normal(0, 0.003) * SR)
+            add(buf, pos, harp(midi(55 + note), 2.4), pan=-0.4 + 0.16 * k, gain=0.5 if k == 0 else 0.36)
+        # 水のしずく：高いチェレスタが、ときどき 2 つ続けて落ちる
+        if r.random() < 0.7:
+            k = int(r.integers(1, 6))
+            n1 = key + 24 + pent[int(r.integers(0, 5))]
+            add(buf, start + int(k * eighth * SR), celesta(midi(n1), 1.6), pan=r.uniform(-0.6, 0.6), gain=0.22)
+            add(buf, start + int((k + 0.5) * eighth * SR), celesta(midi(n1 + 5), 1.4), pan=r.uniform(-0.6, 0.6), gain=0.15)
+        # 木の笛のメロディ（2 小節目から、2 小節で 1 フレーズ）
+        if i % 8 >= 1 and i % 2 == 1:
+            cands = [key + 12 + p + o for p in pent for o in (-12, 0, 12) if 66 <= key + 12 + p + o <= 88]
+            for b_ in (0, 3):
+                note = pick_melody(cands, mel_prev, tones, root, r)
+                mel_prev = note
+                add(buf, start + int(b_ * eighth * SR), flute(midi(note), eighth * 2.8), pan=0.2, gain=0.42)
+    buf = circular_reverb(buf, seconds=3.2, mix=0.36)
+    write("music_river.wav", buf)
+
+
+def make_music_park():
+    """公園：ひだまりの、はずむ曲。ウクレレのきざみ・はじくベース・シェイカーに、鉄琴と口笛のメロディ"""
+    r = np.random.default_rng(104)
+    bpm = 104
+    beat = 60 / bpm
+    bar = beat * 4
+    prog = ["C", "G", "Am", "F", "C", "G", "F", "G",
+            "Am", "Em", "F", "C", "Dm", "G", "C", "C",
+            "F", "G", "Em", "Am", "Dm", "G", "C", "G"]
+    total = bar * len(prog)
+    buf = np.zeros((int(total * SR), 2))
+    pent = [0, 2, 4, 7, 9]   # ハ長調ペンタトニック
+    key = 60
+    mel_prev = 76
+    for i, ch in enumerate(prog):
+        root, tones = chord_notes(ch)
+        start = int(i * bar * SR)
+        add(buf, start, pad([midi(48 + t + 12) for t in tones], bar + 0.8), gain=0.25)
+        # はじくベース：1 拍目と 3 拍目、あいだに 5 度
+        broot = 36 + root
+        for b_, n_ in ((0, broot), (1.5, broot + 7), (2, broot), (3.5, broot + 7)):
+            add(buf, start + int(b_ * beat * SR), pizz_bass(midi(n_ + 12), 0.45), gain=0.5 if b_ in (0, 2) else 0.32)
+        # ウクレレ：裏拍のきざみ（ジャカジャン）
+        for b_ in (0.5, 1, 1.5, 2.5, 3, 3.5):
+            pos = start + int(b_ * beat * SR)
+            strum = [tones[0] + 12, tones[1] + 12, tones[2] + 12, tones[0] + 24]
+            for j, note in enumerate(strum):
+                add(buf, pos + int(j * 0.012 * SR), ukulele(midi(48 + note), 0.6), pan=-0.3, gain=0.22 if b_ % 1 else 0.3)
+        # シェイカー（8 分音符、表拍が強い）
+        for k in range(8):
+            add(buf, start + int(k * beat / 2 * SR), shaker(0.09, 1.0 if k % 2 == 1 else 0.6), pan=0.35, gain=0.6)
+        # 鉄琴のメロディ（はずむリズム）
+        if i >= 2:
+            rhythm = [0, 0.75, 1.5, 2, 3] if i % 2 == 0 else [0, 1, 1.5, 2.5]
+            cands = [key + 12 + p + o for p in pent for o in (0, 12) if 72 <= key + 12 + p + o <= 93]
+            for b_ in rhythm:
+                if r.random() < 0.12:
+                    continue
+                note = pick_melody(cands, mel_prev, tones, root, r)
+                mel_prev = note
+                add(buf, start + int(b_ * beat * SR), glock(midi(note), 1.4), pan=0.25, gain=0.36)
+        # 口笛（後半、2 小節ごと）
+        if 16 <= i < 23 and i % 2 == 0:
+            phrase = [7, 9, 12, 9]
+            for j, p in enumerate(phrase):
+                add(buf, start + int(j * beat * SR), whistle(midi(key + 12 + p), beat * 0.95), pan=0.1, gain=0.38)
+    buf = circular_reverb(buf, seconds=2.2, mix=0.26)
+    write("music_park.wav", buf)
 
 
 # ---------------------------------------------------------------------------
@@ -558,3 +722,5 @@ if __name__ == "__main__":
     make_area_sfx()
     make_motion_sfx()
     make_creature_calls()
+    make_music_river()
+    make_music_park()

@@ -73,10 +73,12 @@ namespace Shakutori.Tests
             yield return Frames(3);
             GameInput.VirtualStand = false;
             Assert.IsTrue(Worm.IsFalling);
-            float end0 = rope.pos[rope.Count - 1].y;
+            Vector3 end0 = rope.pos[rope.Count - 1];
             yield return Seconds(0.4f);
             Assert.IsTrue(Worm.silk.enabled, "しばらくは見えている");
-            Assert.Less(rope.pos[rope.Count - 1].y, end0 - 0.05f, "はなした糸のはしは、落ちていく");
+            // はなした糸のはしは、ひらひら落ちていく（ぴんと張ってたれていたときは、まずゆれてから落ちる）
+            yield return WaitUntil(() => rope.pos[rope.Count - 1].y < end0.y - 0.05f || Vector3.Distance(rope.pos[rope.Count - 1], end0) > 0.15f,
+                1.2f, "はなした糸のはしが、はなれていく");
         }
 
         [UnityTest]

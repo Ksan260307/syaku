@@ -84,10 +84,13 @@ class CreatureKitTests(unittest.TestCase):
             self.assertEqual(len(col.data), len(ob.data.loops), name)
 
     def test_portrait_list_covers_all_species(self):
-        # ふつうの 23 種と、レアの 2 種
+        # ふつうの 30 種と、レアの 6 種
         ids = [c[0] for c in cr.CREATURES]
-        self.assertEqual(len(ids), 25)
-        self.assertEqual(len(set(ids)), 25)
+        self.assertEqual(len(ids), 36)
+        self.assertEqual(len(set(ids)), 36)
+        for need in ("koumori", "mogura", "okera", "nanafushi", "gengorou", "hanakamakiri", "hato",
+                     "kameleon", "herakuresu", "flamingo", "harinezumi"):
+            self.assertIn(need, ids)
         for need in ("ant", "snail", "butterfly", "otoshibumi", "grasshopper", "frog", "sparrow", "crow", "ladybug",
                      "spider", "mantis", "ant_helmet", "spider_sneaker", "kamikiri", "kuwagata", "kamemushi", "tokage", "monshiro"):
             self.assertIn(need, ids)
@@ -106,6 +109,17 @@ class CreatureKitTests(unittest.TestCase):
         for name in ("Ant", "Ladybug", "Frog", "Crab", "Grasshopper", "Sparrow_Body"):
             ob = MAKERS[name]()
             self.assertAlmostEqual(zmin(ob), 0.0, delta=0.15 * max(size(ob)), msg=name)
+
+    def test_helmet_sits_above_the_eyes(self):
+        # ヘルメットは目のてっぺんより上にのる（目がヘルメットをつきぬけない）
+        ant = cr.make_ant()
+        from mathutils import Vector
+        centers = [Vector((0.04 * sx, 0.15, 0.1)) for sx in (-1, 1)]   # make_ant の目（半径 0.02）
+        eyes = [v.co for v in ant.data.vertices if any((v.co - c).length < 0.0215 for c in centers)]
+        self.assertGreater(len(eyes), 10)
+        eye_top = max(p.z for p in eyes)
+        helmet = cr.make_ant_helmet()
+        self.assertGreater(zmin(helmet), eye_top + 0.001, "ヘルメットのいちばん下が、目より上")
 
     def test_wings_are_thin(self):
         for name in ("Butterfly_Wing", "Dragonfly_Wing", "Sparrow_Wing", "Crow_Wing"):

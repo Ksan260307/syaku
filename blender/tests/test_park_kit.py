@@ -9,6 +9,7 @@ import sys
 import unittest
 
 import bpy
+from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
@@ -85,9 +86,16 @@ class ParkKitTests(unittest.TestCase):
         ang = math.degrees(math.atan2(-d.z, d.y))
         self.assertTrue(25.0 < ang < 40.0, ang)
 
+    def test_slide_exit_touches_the_ground(self):
+        ramp = park.make_slide_ramp()
+        exit_verts = [v.co for v in ramp.data.vertices if v.co.y > park.SLIDE_RAMP_LOW.y - 0.5]
+        self.assertLess(min(p.z for p in exit_verts), 0.02, "出口の下は地面にとどく")
+        self.assertLess(park.SLIDE_RAMP_END.z, 0.5, "出口は地面のすぐ上")
+
     def test_slide_ramp_matches_the_game(self):
         """Unity の SlideRide の坂の場所は、Blender の形と同じ（Blender (x, y, z) → Unity (-x, z, -y)）"""
-        src = open(os.path.join(REPO, "unity", "Assets", "Scripts", "World", "ParkRides.cs"), encoding="utf-8").read()
+        with open(os.path.join(REPO, "unity", "Assets", "Scripts", "World", "ParkRides.cs"), encoding="utf-8") as f:
+            src = f.read()
 
         def vec(name):
             m = re.search(name + r" = new Vector3\(([-\d.]+)f, ([-\d.]+)f, ([-\d.]+)f\)", src)
@@ -107,6 +115,31 @@ class ParkKitTests(unittest.TestCase):
         frame = park.make_swing_frame()
         (_, _, _), (_, _, top) = bounds(frame)
         self.assertGreater(top, park.SWING_BAR, "くさりをつるす棒の高さ")
+
+    def test_flower_bed_wall_has_no_gaps(self):
+        # 外から水平に当てた光は、どこでもレンガか目地のすぐ表面で止まる（しゃくとりむしが入りこむすき間がない）
+        from mathutils.bvhtree import BVHTree
+        ob = park.make_flower_bed()
+        tree = BVHTree.FromObject(ob, bpy.context.evaluated_depsgraph_get())
+        W, D = park.BED
+        worst = 0.0
+        for i in range(60):
+            x = -W * 0.5 + 0.8 + (W - 1.6) * i / 59
+            for z in (0.12, 0.25, 0.5, 0.75, 1.0, 1.25):
+                hit = tree.ray_cast(Vector((x, D * 0.5 + 1.0, z)), Vector((0, -1, 0)), 2.0)
+                self.assertIsNotNone(hit[0], (x, z))
+                worst = max(worst, hit[3] - 1.0)
+        self.assertLess(worst, 0.06, "すき間の深さ")
+
+    def test_kunugi_has_branches_and_leaves(self):
+        # 幹だけでなく、登ってわたれる枝と、葉のしげみが横に広がっている
+        ob = park.make_kunugi()
+        (x0, y0, _), (x1, y1, z1) = bounds(ob)
+        self.assertGreater(x1 - x0, 35.0, "枝が横に広がる")
+        self.assertGreater(y1 - y0, 35.0)
+        self.assertGreater(len(park.KUNUGI_BRANCHES), 5)
+        self.assertLess(min(b[0] for b in park.KUNUGI_BRANCHES), 12.0, "低い枝もある（登りやすい）")
+        self.assertGreater(len(ob.data.polygons), 20000, "葉がたくさん")
 
     def test_dokan_is_hollow(self):
         ob = park.make_dokan()

@@ -35,6 +35,8 @@ namespace Shakutori
         public static readonly Vector2 Lamp = new Vector2(-10f, 4f);
 
         public const float PuddleRadius = 5f;
+        /// <summary>水たまりのいちばん深い所（しゃくとりむしが沈まない浅さ）。</summary>
+        public const float PuddleDepth = 0.09f;
         public const float WaterLevel = -0.35f;
         public static readonly Vector2 SandboxSize = new Vector2(26f, 18f);
         public static readonly Vector2 BedSize = new Vector2(22f, 9f);
@@ -46,7 +48,18 @@ namespace Shakutori
             return ShakuMath.SmoothStep(soft, -soft, Mathf.Max(dx, dz));
         }
 
+        /// <summary>すべり台の下は、平らにならしてある（出口まで地面にのる）。</summary>
+        static float _slideBase = float.NaN;
+
         public static float Height(float x, float z)
+        {
+            float h = RawHeight(x, z);
+            if (float.IsNaN(_slideBase)) _slideBase = RawHeight(Slide.x, Slide.y);
+            // すべり台（台・はしご・坂・出口）の下：台のまん中と同じ高さ
+            return Mathf.Lerp(h, _slideBase, InRect(x, z, Slide + new Vector2(7.5f, 0f), new Vector2(31f, 7f), 1.2f));
+        }
+
+        static float RawHeight(float x, float z)
         {
             float r = new Vector2(x, z).magnitude;
             // ほとんど平らなしばふ（ゆるい起伏）
@@ -55,13 +68,14 @@ namespace Shakutori
             h -= 0.3f * InRect(x, z, Sandbox, SandboxSize - new Vector2(2f, 2f), 0.4f);
             // 花だんの中は土が盛ってある
             h += 0.75f * InRect(x, z, FlowerBed, BedSize - new Vector2(1.2f, 1.2f), 0.3f);
-            // 水たまり（水飲み場のそば）
-            float pd = Vector2.Distance(new Vector2(x, z), Puddle);
-            h -= 1.3f * ShakuMath.SmoothStep(PuddleRadius + 1.5f, PuddleRadius - 1.5f, pd);
             // 小道はすこし平らに
             h -= TrailMask(x, z) * 0.05f;
             // 外周はせり上がる（植えこみの土手）
             h += 11f * Mathf.Pow(ShakuMath.SmoothStep(60f, 96f, r), 1.4f);
+            // 水たまり（水飲み場のそば）：底は平らで、しゃくとりむしが沈まない浅さ（歩いて入れる）
+            float pd = Vector2.Distance(new Vector2(x, z), Puddle);
+            float bed = WaterLevel - PuddleDepth * (0.6f + 0.4f * ShakuMath.SmoothStep(PuddleRadius, 0f, pd));
+            h = Mathf.Lerp(h, bed, ShakuMath.SmoothStep(PuddleRadius + 1.2f, PuddleRadius - 0.8f, pd));
             return h;
         }
 
@@ -79,7 +93,8 @@ namespace Shakutori
 
         public static float WaterLevelAt(float x, float z) => InPuddle(x, z, 1.5f) ? WaterLevel : -999f;
 
-        public static bool IsUnderwater(Vector3 p) => InPuddle(p.x, p.z, 1.5f) && p.y < WaterLevel + 0.05f;
+        /// <summary>水たまりは浅いので、底を歩ける（水の中になるのは、それより深い所だけ）。</summary>
+        public static bool IsUnderwater(Vector3 p) => InPuddle(p.x, p.z, 1.5f) && p.y < WaterLevel - AreaLayout.WadeDepth;
 
         public static bool InPlayArea(Vector3 p) => new Vector2(p.x, p.z).magnitude < PlayRadius && p.y < MaxClimbHeight;
 

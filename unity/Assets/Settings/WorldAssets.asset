@@ -67,6 +67,8 @@ MonoBehaviour:
     mesh: {fileID: -6359236477956113890, guid: 99ff6d618f3105a4f972ea3aeab5f081, type: 3}
   - name: Crow_Wing
     mesh: {fileID: 3900200146045287825, guid: 969e53c01f2e77a4692ec5629aa09cb9, type: 3}
+  - name: Crow_WingFolded
+    mesh: {fileID: 2603062476969557387, guid: 892664605a3e4d44dbb675c8c2ff714b, type: 3}
   - name: Crumb
     mesh: {fileID: 4926246069328720381, guid: 4beae06d1d077a54b9329fdf74bb7ce3, type: 3}
   - name: Daisy
@@ -89,8 +91,16 @@ MonoBehaviour:
     mesh: {fileID: 1173725507862548048, guid: 18f3b11574716fe40b8fb1c8ec83852f, type: 3}
   - name: Firefly_Glow
     mesh: {fileID: -6662472806075925294, guid: 7f0d849b8f18c6c499ac49a57be38a4c, type: 3}
+  - name: Flamingo_Body
+    mesh: {fileID: 641043434919947428, guid: 752d2a4b47b33724581767cd36724f53, type: 3}
+  - name: Flamingo_Wing
+    mesh: {fileID: 7736328057773118247, guid: 46897fd91e84a8943b95d36352b747e3, type: 3}
+  - name: Flamingo_WingFolded
+    mesh: {fileID: 5735524263155750965, guid: 04ea5c26863f6174e9152d25868a26ff, type: 3}
   - name: Frog
     mesh: {fileID: -4454997591212173726, guid: 482545432cd2b8b498468bae68b7667f, type: 3}
+  - name: Gengorou
+    mesh: {fileID: -249514128375062826, guid: 1089d032da64f464a8e4a19218c5bdc4, type: 3}
   - name: Grass_A
     mesh: {fileID: -4099415766749746972, guid: b1c32dd35866ace469307a28b7dc439a, type: 3}
   - name: Grass_B
@@ -107,6 +117,32 @@ MonoBehaviour:
     mesh: {fileID: -627736852495485705, guid: 3e685419c94e7b348a425164cd181dec, type: 3}
   - name: GreatTree
     mesh: {fileID: 3387797446468001537, guid: 5544122e31e5bcc4e81cebe448a6d7e3, type: 3}
+  - name: Hanakamakiri
+    mesh: {fileID: 3608716529452032697, guid: 6acdb4510e38a8142a0a2542c3cea6e9, type: 3}
+  - name: Hanakamakiri_Arm
+    mesh: {fileID: 3166637023747221645, guid: e725d1143f6f8e34bb20bc4f83b874c9, type: 3}
+  - name: Hanakamakiri_Leg1
+    mesh: {fileID: -7282255511732477692, guid: 607180b7e3d389b419f4b8d6d6cae2be, type: 3}
+  - name: Hanakamakiri_Leg2
+    mesh: {fileID: -4227979353312376594, guid: a5e0cb8f17fcbbb42be1caeed15b66b7, type: 3}
+  - name: Harinezumi
+    mesh: {fileID: 5472030327047187636, guid: fe628c7f60fc18c45ac943bb2fbec498, type: 3}
+  - name: Harinezumi_Ball
+    mesh: {fileID: 4906029180750668283, guid: e7a4bfba0c0f785429d87f7aad14ed32, type: 3}
+  - name: Hato_Body
+    mesh: {fileID: 7575967685096627474, guid: a740933ce4b710443820d84fb8167303, type: 3}
+  - name: Hato_Wing
+    mesh: {fileID: -3428305673049604716, guid: 6dd6cc32b3e3a3f46a54bbe7fd318163, type: 3}
+  - name: Hato_WingFolded
+    mesh: {fileID: 3949227167624167892, guid: 0dfe7811d5bd72146b0c5f216b7b4026, type: 3}
+  - name: Herakuresu
+    mesh: {fileID: -8670452050161734711, guid: 90f905d60c941934d9fc18036df1c4a5, type: 3}
+  - name: Herakuresu_Leg1
+    mesh: {fileID: -640165240684034667, guid: 75027d38a967cfb4d8b59899a649d4a5, type: 3}
+  - name: Herakuresu_Leg2
+    mesh: {fileID: -8242428885496396791, guid: 624274a595e63e44a9d53af69979a5a7, type: 3}
+  - name: Herakuresu_Leg3
+    mesh: {fileID: 3088439776348100068, guid: 37495e5e2654f784996986ef45dc299e, type: 3}
   - name: HollowLog
     mesh: {fileID: 4769565808284150128, guid: d5cab0f74d390b94b93661531ead7a0f, type: 3}
   - name: Horsetail
@@ -115,6 +151,12 @@ MonoBehaviour:
     mesh: {fileID: -7065828297190242328, guid: 87b4e529b10de504da6c471ca9e8700e, type: 3}
   - name: Iris
     mesh: {fileID: -3322546712403220151, guid: 7eebc446dcf1ce545bd5542313574479, type: 3}
+  - name: Kameleon
+    mesh: {fileID: -8619692211896270374, guid: 98215171a63fa054f9ac19d24aeedbc3, type: 3}
+  - name: Kameleon_Leg1
+    mesh: {fileID: 5450370730756371009, guid: e9b4741aaaa28e241949c77c56b70938, type: 3}
+  - name: Kameleon_Leg2
+    mesh: {fileID: 146139452318556673, guid: 4c2f0463dc151254eaa4ab0cfc4c7154, type: 3}
   - name: Kamemushi
     mesh: {fileID: -3615443358523095356, guid: 61db7e853c745b6429d27c164d73708e, type: 3}
   - name: Kamemushi_Leg1
@@ -131,6 +173,10 @@ MonoBehaviour:
     mesh: {fileID: 5684406655071311006, guid: 91ee11f163bffbe4791732ec9ddd6d45, type: 3}
   - name: Kamikiri_Leg3
     mesh: {fileID: -8219194941444317199, guid: a14a1159cc0f36d4ebb22b72e87f8d3f, type: 3}
+  - name: Koumori_Body
+    mesh: {fileID: -8248474982827443127, guid: 71e58970a8c6eb743840d9ab5255ded1, type: 3}
+  - name: Koumori_Wing
+    mesh: {fileID: -6452655949616350924, guid: a8f799115b5c5c6469f1478a45910850, type: 3}
   - name: Kuwagata
     mesh: {fileID: -3016576712481014300, guid: e94cfa32a95fd4748bc2c73cb5389d6b, type: 3}
   - name: Kuwagata_Leg1
@@ -159,6 +205,8 @@ MonoBehaviour:
     mesh: {fileID: 7599996138912870513, guid: d86d8b781478a114db915c37c37fd1b1, type: 3}
   - name: LilyPad
     mesh: {fileID: -4913708079383263833, guid: b9162904febb5464b92892bb92d355b7, type: 3}
+  - name: LilyPad_Col
+    mesh: {fileID: -2343970843402244847, guid: 7e1cd68ffd62dbb4b8e7bdc6f1409e94, type: 3}
   - name: Mantis
     mesh: {fileID: -5002742827640740714, guid: cebd2517248f41e48b3ecdf7ca638af8, type: 3}
   - name: Mantis_Arm
@@ -167,6 +215,10 @@ MonoBehaviour:
     mesh: {fileID: -4315404616630372145, guid: b64ce18c83bd35c44b59adce37fbdaf6, type: 3}
   - name: Mantis_Leg2
     mesh: {fileID: 2883093166547410592, guid: 9f1299e6cbbd20f46a64623de58569f7, type: 3}
+  - name: Mogura
+    mesh: {fileID: -8190951346876191355, guid: a30a3bb706386224ba9f8e5191f6db15, type: 3}
+  - name: Mogura_Hill
+    mesh: {fileID: 4026278327754073304, guid: a5fd262fcddf29e48b5a766ea726b5ad, type: 3}
   - name: Monshiro_Body
     mesh: {fileID: -5615471362497707985, guid: ce0fd70b9bdbf7745b015cf845dd65ec, type: 3}
   - name: Monshiro_Wing
@@ -187,6 +239,20 @@ MonoBehaviour:
     mesh: {fileID: 8732430369344902774, guid: e1d904f8394f2b24a9f4285366b673c1, type: 3}
   - name: Mushroom_Red_Col
     mesh: {fileID: 6383029536907081715, guid: d23f0f883e7d42247aff6f9da1dc03c0, type: 3}
+  - name: Nanafushi
+    mesh: {fileID: 8087753221134345138, guid: 02597062b322d4447abda63decf2041e, type: 3}
+  - name: Nanafushi_Leg1
+    mesh: {fileID: -2276995886484720741, guid: 625332ee50358864d9a07c222ee22c2f, type: 3}
+  - name: Nanafushi_Leg2
+    mesh: {fileID: -1599934234763369472, guid: e5be3b82dbbeb1048a26b4143206384c, type: 3}
+  - name: Nanafushi_Leg3
+    mesh: {fileID: -4585478585251690312, guid: 079bfef2f98ba2e4cb14ba5b2263c18c, type: 3}
+  - name: Okera
+    mesh: {fileID: -901442137709937791, guid: 1d041f417263bd14988bbecc52656a4b, type: 3}
+  - name: Okera_Leg1
+    mesh: {fileID: -5743684658391964776, guid: 50ba16b31c27aad4db07853104bce4cb, type: 3}
+  - name: Okera_Leg2
+    mesh: {fileID: -8955744753228023923, guid: be817cdad9443df4f9d2471e12d95926, type: 3}
   - name: Otoshibumi
     mesh: {fileID: 2481780481965206165, guid: 32912da873407944fb24652dfe65f4e2, type: 3}
   - name: Otoshibumi_Leg1
@@ -275,6 +341,8 @@ MonoBehaviour:
     mesh: {fileID: -9054712840017786085, guid: 2149518db93b4bc4f9369cf8b8325170, type: 3}
   - name: Sparrow_Wing
     mesh: {fileID: 2847704281731873798, guid: 7b28842e9be474a4ba11be509f6f56ae, type: 3}
+  - name: Sparrow_WingFolded
+    mesh: {fileID: 2262470298741341268, guid: 9a597c43b8c6eef4091327e8d1cdfd9f, type: 3}
   - name: Spider
     mesh: {fileID: -9186107467895962136, guid: 571d0ee7209e1074881c9a8c4973a50e, type: 3}
   - name: Spider_Leg1
@@ -342,22 +410,44 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: ed10e467a92a6a04b876ffc6e642b46f, type: 3}
   - name: firefly
     texture: {fileID: 2800000, guid: d60e50d0356b16b47a0d6cca719fbbfe, type: 3}
+  - name: flamingo
+    texture: {fileID: 2800000, guid: 11a9cadc8d0da404fb1b4ea2c5999c8f, type: 3}
   - name: frog
     texture: {fileID: 2800000, guid: 8fcaf1b260f3bf949a6ee7132e70a1d3, type: 3}
+  - name: gengorou
+    texture: {fileID: 2800000, guid: 9a8df336b305196458ae7332c9152280, type: 3}
   - name: grasshopper
     texture: {fileID: 2800000, guid: 31a4d271760ef9549b51921e6a9c827e, type: 3}
+  - name: hanakamakiri
+    texture: {fileID: 2800000, guid: 392abc548dbc758419e592dce6b6af72, type: 3}
+  - name: harinezumi
+    texture: {fileID: 2800000, guid: 73fbc775d1109324696985eb5945462a, type: 3}
+  - name: hato
+    texture: {fileID: 2800000, guid: d3d1d452e51db91429f6e843a1daf8c4, type: 3}
+  - name: herakuresu
+    texture: {fileID: 2800000, guid: 0b83f4e273a444d43951f0c1145f22b5, type: 3}
+  - name: kameleon
+    texture: {fileID: 2800000, guid: 00487fd5793d4e1438b182c1e122f1c6, type: 3}
   - name: kamemushi
     texture: {fileID: 2800000, guid: c3916bb2bc4c55042a5be808c57409cd, type: 3}
   - name: kamikiri
     texture: {fileID: 2800000, guid: 6d202447e8d59b74e960fd16b08221c8, type: 3}
+  - name: koumori
+    texture: {fileID: 2800000, guid: 99c26dc65f5ca3a4991cf73b27005d84, type: 3}
   - name: kuwagata
     texture: {fileID: 2800000, guid: efbd2d94ae430fe45b3bc9f9e6dc15a1, type: 3}
   - name: ladybug
     texture: {fileID: 2800000, guid: 6ab90112b8809e243855985771340812, type: 3}
   - name: mantis
     texture: {fileID: 2800000, guid: e7315fd762c90314d880531e8ad377ca, type: 3}
+  - name: mogura
+    texture: {fileID: 2800000, guid: 59e46efa95108b54caae8af0b7848249, type: 3}
   - name: monshiro
     texture: {fileID: 2800000, guid: 0c6dce403431aeb4984b91b0bd98aa94, type: 3}
+  - name: nanafushi
+    texture: {fileID: 2800000, guid: b6b7f8693c7655c4ba5f7a75dfaae200, type: 3}
+  - name: okera
+    texture: {fileID: 2800000, guid: e2229fa82ca041640a5e1b465c2cbc0a, type: 3}
   - name: otoshibumi
     texture: {fileID: 2800000, guid: 4be4f69b9ae56504ab4f118c0cffc10b, type: 3}
   - name: pillbug

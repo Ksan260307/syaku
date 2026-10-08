@@ -25,6 +25,7 @@ namespace Shakutori
         public event Action<string> TravelRequested;   // 地図からエリア移動
         public event Action<string> SkinSelected;
         public event Action<int> FastTravelRequested;    // 地図から名所へ
+        public event Action<int> LandmarkTravelRequested;   // 図鑑から、すみかのそばの名所へ（ほかのエリアでも）
         public event Action RescueRequested;             // 動けなくなったら
         public event Action SaveRequested;               // いますぐセーブ
         public event Action PhotoRequested;              // 写真モードの切りかえ
@@ -42,7 +43,7 @@ namespace Shakutori
         Label _bannerSub, _bannerTitle, _bannerDesc, _promptKey, _promptText, _helpHint, _rotateHint;
         Label _mapTitle, _mapSummary, _confirmText, _completeTitle, _completeText;
         Label _creatureCardName, _creatureCardDesc, _zukanCount, _zukanName, _zukanArea, _zukanDesc;
-        VisualElement _zukanHabitat;
+        VisualElement _zukanHabitat, _zukanGo;
         Texture2D _mapTexture;
         ScrollView _legend, _zukanGrid;
         Button _continue, _qLow, _qHigh, _tNormal, _tLarge;
@@ -267,6 +268,7 @@ namespace Shakutori
             _zukanImg = Q<VisualElement>("zukan-img");
             _zukanName = Q<Label>("zukan-name");
             _zukanArea = Q<Label>("zukan-area");
+            _zukanGo = Q<VisualElement>("zukan-go");
             _zukanHabitat = Q<VisualElement>("zukan-habitat");
             _zukanDesc = Q<Label>("zukan-desc");
             _skinGrid = Q<VisualElement>("skin-grid");
@@ -1258,6 +1260,69 @@ namespace Shakutori
             _zukanArea.text = "すみか：" + (known ? Habitats.Describe(id) : sp.areaLabel);
             _zukanDesc.text = known ? sp.description : "ヒント：" + sp.hint;
             ShowHabitatMap(id, known);
+            ShowHabitatTravel(id, known);
+        }
+
+        /// <summary>図鑑の「すみかのそばの名所へ」ボタンの数（テスト用）。</summary>
+        public int HabitatTravelCount => _zukanGo != null ? _zukanGo.Query<Button>().ToList().Count : 0;
+
+        /// <summary>図鑑の「すみかのそばの名所へ」ボタンを押す（テスト用）。</summary>
+        public bool PressHabitatTravel(int index)
+        {
+            var list = _zukanGo != null ? _zukanGo.Query<Button>().ToList() : null;
+            if (list == null || index < 0 || index >= list.Count) return false;
+            using (var e = NavigationSubmitEvent.GetPooled())
+            {
+                e.target = list[index];
+                list[index].SendEvent(e);
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// すみかのそばの名所のうち、見つけた名所へ移動するボタン（いまいるエリアの名所を先に、3 つまで）。
+        /// ほかのエリアの名所は、行ったことのあるエリアなら、そのまま移動できる。
+        /// </summary>
+        void ShowHabitatTravel(string id, bool known)
+        {
+            if (_zukanGo == null) return;
+            _zukanGo.Clear();
+            if (!known) return;
+            var here = _collect != null ? _collect.Area : Areas.Current;
+            var marks = new System.Collections.Generic.List<(LandmarkDef lm, AreaLayout area)>();
+            bool anyNear = false;
+            foreach (var h in Habitats.Of(id))
+            {
+                if (string.IsNullOrEmpty(h.landmark)) continue;
+                var area = Areas.Get(h.area);
+                if (area == null || area.Id != h.area) continue;
+                var lm = area.Landmarks.Find(l => l.name == h.landmark);
+                if (lm == null || marks.Exists(m => m.lm.id == lm.id)) continue;
+                anyNear = true;
+                if (!SaveSystem.Data.places.Contains(lm.id)) continue;
+                if (area != here && !SaveSystem.Data.visited.Contains(area.Id)) continue;
+                marks.Add((lm, area));
+            }
+            marks.Sort((a, b) => (a.area == here ? 0 : 1).CompareTo(b.area == here ? 0 : 1));
+            for (int i = 0; i < marks.Count && i < 3; i++)
+            {
+                var (lm, area) = marks[i];
+                var b = new Button { text = (area == here ? "" : area.DisplayName + "の") + "「" + lm.name + "」へ" };
+                b.AddToClassList("chip");
+                int lmId = lm.id;
+                b.clicked += () =>
+                {
+                    AudioManager.Instance?.Click();
+                    LandmarkTravelRequested?.Invoke(lmId);
+                };
+                _zukanGo.Add(b);
+            }
+            if (marks.Count == 0 && anyNear)
+            {
+                var hint = new Label("そばの名所を見つけると、ここからすぐ行けます") { pickingMode = PickingMode.Ignore };
+                hint.AddToClassList("zukan-go-hint");
+                _zukanGo.Add(hint);
+            }
         }
 
         void BuildSkins()

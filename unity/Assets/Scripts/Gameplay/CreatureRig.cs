@@ -90,10 +90,18 @@ namespace Shakutori
         /// 鳥の羽（Blender で右の羽が +X に広がるメッシュ）。folded=true で体の横にたたむ（図鑑の絵と同じ姿勢）。
         /// flap は羽ばたきの角度（度、+ が上）。L は鳥の大きさ（Blender で作ったときの倍率）。
         /// </summary>
-        public static Matrix4x4 BirdWing(float L, bool right, bool folded, float flapDeg)
+        /// <summary>地上でたたんだ翼（体と同じ座標で作った形なので、左は鏡にうつすだけ）。</summary>
+        public static Matrix4x4 BirdWingFolded(bool right) => FromBlender(Vector3.zero, Vector3.zero, new Vector3(right ? 1f : -1f, 1f, 1f));
+
+        /// <summary>
+        /// はばたきの角度のなみ（-1〜1）。鳥は、打ち下ろしをすばやく、打ち上げをゆっくりする（位相をゆがめる）。
+        /// </summary>
+        public static float FlapWave(float phase) => Mathf.Sin(phase + 0.45f * Mathf.Sin(phase));
+
+        public static Matrix4x4 BirdWing(float L, bool right, bool folded, float flapDeg, float shoulder = 0.38f)
         {
             float sx = right ? 1f : -1f;
-            Vector3 loc = new Vector3(0.12f * L * sx, 0.02f * L, 0.38f * L);
+            Vector3 loc = new Vector3(0.12f * L * sx, 0.02f * L, shoulder * L);
             Vector3 euler = folded
                 ? new Vector3(0f, -0.25f * sx, -1.35f * sx)
                 : new Vector3(0f, -flapDeg * Mathf.Deg2Rad * sx, -0.18f * sx);
