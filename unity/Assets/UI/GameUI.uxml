@@ -124,7 +124,7 @@
                 </ui:VisualElement>
                 <ui:Label name="title-progress" text="" class="title-progress" picking-mode="Ignore" />
             </ui:VisualElement>
-            <ui:Label text="小さなしゃくとりむしになって、森と川辺をのんびり探検しよう。" class="title-hint" picking-mode="Ignore" />
+            <ui:Label text="小さなしゃくとりむしになって、森や川辺、公園をのんびり探検しよう。" class="title-hint" picking-mode="Ignore" />
             <ui:Label text="キーボード＆マウス / ゲームパッド / スマホ・タブレット 対応" class="title-hint title-hint-small" picking-mode="Ignore" />
             <ui:Label name="version" text="" class="version" picking-mode="Ignore" />
         </ui:VisualElement>

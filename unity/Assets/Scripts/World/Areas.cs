@@ -90,6 +90,8 @@ namespace Shakutori
         {
             new GateDef { position = ForestLayout.Gate, targetArea = "river", label = "川辺へ",
                 arrival = new ArrivalView(ForestLayout.Gate + new Vector2(-7f, 0.5f), new Vector3(0f, 26f, 76f), 2f, 4.4f) },   // 森に入ると、大樹が見える
+            new GateDef { position = ForestLayout.ParkGate, targetArea = "park", label = "公園へ",
+                arrival = new ArrivalView(ForestLayout.ParkGate + new Vector2(7f, -3f), new Vector3(0f, 26f, 76f), 0f, 4.4f) },  // 公園からもどると、大樹が見える
         };
 
         public override string Id => "forest";
@@ -146,12 +148,44 @@ namespace Shakutori
         public override bool InPlayArea(Vector3 p) => RiverLayout.InPlayArea(p);
     }
 
+    public class ParkArea : AreaLayout
+    {
+        readonly List<GateDef> _gates = new List<GateDef>
+        {
+            new GateDef { position = ParkLayout.Gate, targetArea = "forest", label = "森へ",
+                arrival = new ArrivalView(ParkLayout.Spawn, new Vector3(0f, 6f, 4f), 2f, 4.4f, clear: 30f) },   // 公園に出ると、遊具が見わたせる
+        };
+
+        public override string Id => "park";
+        public override string DisplayName => "公園";
+        public override string Subtitle => "ひだまり公園";
+        public override string Tagline => "すべり台にブランコ、しばふの広がる、ひだまりの公園";
+        public override string DropName => "公園のしずく";
+        public override float PlayRadius => ParkLayout.PlayRadius;
+        public override float TerrainHalf => ParkLayout.TerrainHalf;
+        public override float MaxClimbHeight => ParkLayout.MaxClimbHeight;
+        public override int DropIdOffset => 2000;
+        public override int DropCount => 35;
+        public override Vector2 Spawn => ParkLayout.Spawn;
+        public override Vector3 SpawnForward => Vector3.left;
+        public override List<LandmarkDef> Landmarks => ParkLayout.Landmarks;
+        public override List<GateDef> Gates => _gates;
+        public override float Height(float x, float z) => ParkLayout.Height(x, z);
+        public override Vector3 Normal(float x, float z) => ParkLayout.Normal(x, z);
+        public override Color GroundColor(float x, float z, float h, Vector3 n) => ParkLayout.GroundColor(x, z, h, n);
+        public override float TrailMask(float x, float z) => ParkLayout.TrailMask(x, z);
+        public override float WaterLevelAt(float x, float z) => ParkLayout.WaterLevelAt(x, z);
+        public override bool IsUnderwater(Vector3 p) => ParkLayout.IsUnderwater(p);
+        public override bool InPlayArea(Vector3 p) => ParkLayout.InPlayArea(p);
+    }
+
     /// <summary>エリアの一覧と、いまいるエリア。</summary>
     public static class Areas
     {
         public static readonly ForestArea Forest = new ForestArea();
         public static readonly RiverArea River = new RiverArea();
-        public static readonly AreaLayout[] All = { Forest, River };
+        public static readonly ParkArea Park = new ParkArea();
+        public static readonly AreaLayout[] All = { Forest, River, Park };
 
         public static AreaLayout Current { get; set; } = Forest;
 

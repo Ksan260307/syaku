@@ -8,7 +8,7 @@ using static Shakutori.Tests.GameHarness;
 
 namespace Shakutori.Tests
 {
-    /// <summary>総合テスト：森と川辺のあいだの移動（トンネル・地図・保存）。</summary>
+    /// <summary>総合テスト：エリアのあいだの移動（トンネル・地図・保存）。</summary>
     public class AreaTravelTests
     {
         [UnitySetUp]
@@ -70,8 +70,9 @@ namespace Shakutori.Tests
             int toasts = UI.ToastCount;
             UI.ShowMap(true);
             yield return Frames(2);
-            Assert.AreEqual(2, UI.AreaChipCount);
+            Assert.AreEqual(3, UI.AreaChipCount, "森・川辺・公園");
             Assert.IsFalse(UI.RequestTravel("river"), "まだ行っていないエリアには地図から行けない");
+            Assert.IsFalse(UI.RequestTravel("park"), "まだ行っていないエリアには地図から行けない");
             Assert.Greater(UI.ToastCount, toasts);
             Assert.IsTrue(UI.IsMapOpen);
             Assert.AreSame(Areas.Forest, Areas.Current);

@@ -25,7 +25,7 @@ if (Want "Tools") {
 
 if (Want "Blender") {
     Write-Host "== Blender kit"
-    foreach ($t in @("test_forest_kit.py", "test_creatures_kit.py")) {
+    foreach ($t in @("test_forest_kit.py", "test_creatures_kit.py", "test_park_kit.py")) {
         & $Blender -b --factory-startup --python-exit-code 1 --python (Join-Path $root "blender/tests/$t")
         if ($LASTEXITCODE -ne 0) { $failed += "Blender($t)" }
     }

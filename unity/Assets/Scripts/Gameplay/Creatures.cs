@@ -24,6 +24,8 @@ namespace Shakutori
         public WorldAssets assets;
         public bool Active { get; set; }
         public event Action<SpeciesDef> Discovered;
+        /// <summary>カメムシがにおいを出した（場所）。</summary>
+        public event Action<Vector3> Stank;
         /// <summary>見つけたいきものと、その場所（演出用）。</summary>
         public event Action<SpeciesDef, Vector3> DiscoveredAt;
 
@@ -922,6 +924,25 @@ namespace Shakutori
                         m.curSpeed = 0f;
                     }
                     else if (m.sp.id == "ladybug") m.deadUntil = m.anim + 3f;   // てんとうむしは死んだふり
+                    else if (m.sp.id == "kamemushi")
+                    {
+                        // カメムシ：くさいにおいを出して（しばらくは出さない）、さっとはなれる
+                        if (m.anim > m.hopNext)
+                        {
+                            m.hopNext = m.anim + 6f;
+                            Stank?.Invoke(m.pos + m.up * (0.2f * m.scale));
+                        }
+                        m.speedMul = 1.6f;
+                        m.timer = R(1f, 1.6f);
+                        m.wantFwd = Quaternion.AngleAxis(R(120f, 240f), m.up) * m.fwd;
+                    }
+                    else if (m.sp.id == "tokage")
+                    {
+                        // トカゲ：さっと走って逃げる
+                        m.speedMul = 1.5f;
+                        m.timer = R(0.5f, 0.9f);
+                        m.wantFwd = Quaternion.AngleAxis(R(120f, 240f), m.up) * m.fwd;
+                    }
                     else m.pauseUntil = m.anim + R(0.5f, 1f);
                     break;
             }
@@ -1099,7 +1120,7 @@ namespace Shakutori
             }
             move = m.sp.sideways ? Vector3.Cross(m.up, m.fwd) * m.sideSign : m.fwd;
             m.pos += move * (m.curSpeed * dt);
-            float above = m.sp.id == "beetle" ? 1.4f : 0.8f * Mathf.Max(1f, m.scale);   // カブトムシは小さな物をのりこえる
+            float above = m.sp.id == "beetle" || m.sp.id == "kuwagata" ? 1.4f : 0.8f * Mathf.Max(1f, m.scale);   // カブトムシ・クワガタは小さな物をのりこえる
             if (near || (index + _frame) % 4 == 0 || m.fallVel > 0f) SnapToSurface(m, above, 2.5f, true);
             m.fwd = ShakuMath.ProjectOnPlaneSafe(m.fwd, m.up, m.fwd).normalized;
         }
@@ -1169,6 +1190,8 @@ namespace Shakutori
                 case "snail": return 25f;
                 case "riversnail": return 20f;
                 case "beetle": return 45f;
+                case "kuwagata": return 50f;
+                case "tokage": return 420f;
                 case "crab": return 160f;
                 case "ladybug": return 140f;
                 case "otoshibumi": return 90f;
@@ -1182,7 +1205,8 @@ namespace Shakutori
             switch (m.sp.id)
             {
                 case "snail": case "riversnail": return 0.3f;
-                case "beetle": return 0.3f;
+                case "beetle": case "kuwagata": return 0.3f;
+                case "tokage": return 9f;   // トカゲは、すぐに走りだし、ぴたりと止まる
                 case "crab": return 4f;
                 default: return 1.5f;
             }
@@ -1251,7 +1275,18 @@ namespace Shakutori
                 m.display = Mathf.MoveTowards(m.display, threat ? 1f : 0f, dt * 3f);   // おどされると、体の前（はさみ）を上げる
             }
             // カブトムシ：しゃくとりむしが前に来ると、角を持ち上げて見せる
-            if (id == "beetle")
+            // トカゲ：しゃくとりむしが近づくと、さっと逃げる
+            if (id == "tokage" && !m.carryingWorm && m.speedMul < 1.4f)
+            {
+                Vector3 away = Vector3.ProjectOnPlane(m.pos - _head, m.up);
+                if (away.sqrMagnitude < 3.2f * 3.2f && away.sqrMagnitude > 1e-4f)
+                {
+                    m.wantFwd = away.normalized;
+                    m.speedMul = 1.5f;
+                    m.timer = R(0.5f, 0.9f);
+                }
+            }
+            if (id == "beetle" || id == "kuwagata")
             {
                 Vector3 to = _head - m.pos;
                 bool show = to.sqrMagnitude < 1.9f * 1.9f && Vector3.Dot(to.normalized, m.fwd) > 0.3f && !m.carryingWorm;
@@ -1288,7 +1323,7 @@ namespace Shakutori
             // カワニナは、水ぎわでは少し速い
             if (id == "riversnail" && _area.WaterLevelAt(m.pos.x, m.pos.z) > -100f && m.pos.y - _area.WaterLevelAt(m.pos.x, m.pos.z) < 0.1f) wantSpeed *= 1.3f;
             // カブトムシ：一歩ずつ、のっしのっし
-            if (id == "beetle") wantSpeed *= (0.6f + 0.4f * Mathf.Abs(Mathf.Sin(m.gait))) * (1f - m.display);
+            if (id == "beetle" || id == "kuwagata") wantSpeed *= (0.6f + 0.4f * Mathf.Abs(Mathf.Sin(m.gait))) * (1f - m.display);
             // オトシブミ：少し歩いては止まって、葉をたしかめるようにうなずく
             if (id == "otoshibumi" && m.speedMul <= 0f) m.display = 0.5f + 0.5f * Mathf.Sin(m.anim * 4f);
             else if (id == "otoshibumi") m.display = Mathf.MoveTowards(m.display, 0f, dt * 2f);
@@ -1333,6 +1368,19 @@ namespace Shakutori
                     m.sideSign = Vector3.Dot(toHome, side) >= 0f ? 1f : -1f;
                 }
                 if (burst && toHome.magnitude < homeR * 0.4f) m.speedMul *= 0.7f;   // すみかの近くでは、ゆっくり
+                return;
+            }
+            if (id == "tokage")
+            {
+                bool dash = m.speedMul <= 0f && R(0f, 1f) < 0.65f;
+                m.speedMul = dash ? R(0.8f, 1.2f) : 0f;
+                m.timer = dash ? R(0.35f, 0.8f) : R(1.5f, 4f);
+                if (dash)
+                {
+                    Vector3 dir = Quaternion.AngleAxis(R(-100f, 100f), m.up) * m.fwd;
+                    if (toHome.magnitude > homeR) dir = Vector3.Slerp(dir.normalized, toHome.normalized, 0.7f);
+                    m.wantFwd = dir.normalized;
+                }
                 return;
             }
             if (id == "ant" || id == "ant_helmet")
@@ -3026,7 +3074,7 @@ namespace Shakutori
                 if (m.sp.kind == MobKind.Hopper && m.airborne) scale3.z *= 1.12f;   // 跳ぶときは体がのびる
                 if (m.sp.kind == MobKind.Stalker) rot *= Quaternion.Euler(0f, 0f, Mathf.Sin(m.anim * 1.1f + m.phase) * 4f * (1f + Wind.Gust(Time.time)) * (1f - m.raise));   // 葉のようにゆらゆら（風が強いと大きく）
                 // カブトムシは角を持ち上げ、オトシブミはうなずく
-                if (m.display > 0f) rot = Quaternion.AngleAxis(-(m.sp.id == "beetle" ? 16f : 10f) * m.display, right) * rot;
+                if (m.display > 0f) rot = Quaternion.AngleAxis(-(m.sp.id == "beetle" ? 16f : m.sp.id == "kuwagata" ? 13f : 10f) * m.display, right) * rot;
                 if (m.sp.kind == MobKind.Bird && !m.airborne && m.resting)
                 {
                     // ついばむ（何回かつついては、ひと休み）
@@ -3049,13 +3097,13 @@ namespace Shakutori
                 {
                     bob = m.up * (Mathf.Abs(Mathf.Sin(m.gait)) * 0.012f * s);   // 歩くと体が少し上下する
                     // 歩くと体が左右にもゆれる（カブトムシは大きく）
-                    float rollAmp = m.sp.id == "beetle" ? 5f : 2.5f;
+                    float rollAmp = m.sp.id == "beetle" || m.sp.id == "kuwagata" ? 5f : m.sp.id == "tokage" ? 7f : 2.5f;
                     rot = Quaternion.AngleAxis(Mathf.Sin(m.gait) * rollAmp * moving, f) * rot;
                 }
                 // カマキリ：歩くときは前後にゆれる
                 if (m.sp.kind == MobKind.Stalker && m.moveSpeed > 0.01f) bob += f * (Mathf.Sin(m.anim * 6f) * 0.015f * s);
                 if (m.retreat > 0f) bob -= m.up * (0.03f * s);
-                if (m.sp.id == "beetle")
+                if (m.sp.id == "beetle" || m.sp.id == "kuwagata")
                 {
                     bob += m.up * (0.04f * m.display * s);                                     // 角を見せるときは、体を高く
                     if (m.moveSpeed < 0.02f && m.display < 0.1f) bob -= m.up * (0.02f * s);    // 止まると、どっしり体を下げる

@@ -150,8 +150,9 @@ namespace Shakutori.Tests
         {
             Assert.AreSame(Areas.Forest, Areas.Get("forest"));
             Assert.AreSame(Areas.River, Areas.Get("river"));
+            Assert.AreSame(Areas.Park, Areas.Get("park"));
             Assert.AreSame(Areas.Forest, Areas.Get("nowhere"), "知らない ID は森（壊れたセーブ対策）");
-            Assert.AreEqual(2, Areas.All.Length);
+            Assert.AreEqual(3, Areas.All.Length);
         }
 
         [Test]
@@ -173,8 +174,8 @@ namespace Shakutori.Tests
             for (int i = 0; i < ranges.Count; i++)
             for (int j = i + 1; j < ranges.Count; j++)
                 Assert.IsTrue(ranges[i].Item2 <= ranges[j].Item1 || ranges[j].Item2 <= ranges[i].Item1);
-            Assert.AreEqual(45 + 30, Areas.TotalDrops);
-            Assert.AreEqual(ForestLayout.Landmarks.Count + RiverLayout.Landmarks.Count, Areas.TotalLandmarks);
+            Assert.AreEqual(45 + 30 + 35, Areas.TotalDrops);
+            Assert.AreEqual(ForestLayout.Landmarks.Count + RiverLayout.Landmarks.Count + ParkLayout.Landmarks.Count, Areas.TotalLandmarks);
             Assert.AreSame(Areas.Forest, Areas.AreaOfDrop(3));
             Assert.AreSame(Areas.River, Areas.AreaOfDrop(1005));
         }
@@ -249,11 +250,11 @@ namespace Shakutori.Tests
     public class SpeciesCatalogTests
     {
         [Test]
-        public void Catalog_Has18SpeciesAnd2RaresWithTexts()
+        public void Catalog_Has23SpeciesAnd2RaresWithTexts()
         {
-            Assert.AreEqual(18, SpeciesCatalog.Count, "図鑑のコンプリートに必要なのは 18 しゅ");
+            Assert.AreEqual(23, SpeciesCatalog.Count, "図鑑のコンプリートに必要なのは 23 しゅ");
             Assert.AreEqual(2, SpeciesCatalog.RareCount);
-            Assert.AreEqual(20, SpeciesCatalog.All.Select(s => s.id).Distinct().Count());
+            Assert.AreEqual(25, SpeciesCatalog.All.Select(s => s.id).Distinct().Count());
             foreach (var s in SpeciesCatalog.All)
             {
                 Assert.IsFalse(string.IsNullOrEmpty(s.name), s.id);
@@ -368,8 +369,8 @@ namespace Shakutori.Tests
             Assert.IsTrue(Skins.IsUnlocked(Skins.Get("sakura"), Stats(0, 5, 0)));
             Assert.IsTrue(Skins.IsUnlocked(Skins.Get("sorairo"), Stats(0, 0, 4)));
             Assert.IsFalse(Skins.IsUnlocked(Skins.Get("kogane"), Stats(99, 99, 15)));
-            Assert.IsFalse(Skins.IsUnlocked(Skins.Get("kogane"), Stats(0, 0, 17)));
-            Assert.IsTrue(Skins.IsUnlocked(Skins.Get("kogane"), Stats(0, 0, 18)));
+            Assert.IsFalse(Skins.IsUnlocked(Skins.Get("kogane"), Stats(0, 0, SpeciesCatalog.Count - 1)));
+            Assert.IsTrue(Skins.IsUnlocked(Skins.Get("kogane"), Stats(0, 0, SpeciesCatalog.Count)), "図鑑のコンプリート（23 しゅ）");
         }
 
         [Test]
@@ -833,8 +834,9 @@ namespace Shakutori.Tests
         {
             var forest = _gen.Mobs.Select(m => m.species);
             var river = new[] { "waterstrider", "dragonfly", "crab", "riversnail", "frog", "firefly" };
+            var park = new[] { "kamikiri", "kuwagata", "kamemushi", "tokage", "monshiro" };   // 公園のいきもの（ParkTests で確かめる）
             foreach (var s in SpeciesCatalog.Regular)
-                Assert.IsTrue(forest.Contains(s.id) || river.Contains(s.id), $"{s.id} がどこにもいない");
+                Assert.IsTrue(forest.Contains(s.id) || river.Contains(s.id) || park.Contains(s.id), $"{s.id} がどこにもいない");
             foreach (var r in SpeciesCatalog.Rares)
                 Assert.IsTrue(forest.Contains(r.rareOf), $"{r.id} の元になる {r.rareOf} が森にいる");
         }
@@ -863,10 +865,11 @@ namespace Shakutori.Tests
         }
 
         [Test]
-        public void Gate_LeadsToTheRiver()
+        public void Gates_LeadToTheRiverAndThePark()
         {
-            Assert.AreEqual(1, _gen.Gates.Count);
+            Assert.AreEqual(2, _gen.Gates.Count);
             Assert.AreEqual("river", _gen.Gates[0].def.targetArea);
+            Assert.AreEqual("park", _gen.Gates[1].def.targetArea);
         }
 
         [Test]

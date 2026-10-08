@@ -115,6 +115,30 @@ MonoBehaviour:
     mesh: {fileID: -7065828297190242328, guid: 87b4e529b10de504da6c471ca9e8700e, type: 3}
   - name: Iris
     mesh: {fileID: -3322546712403220151, guid: 7eebc446dcf1ce545bd5542313574479, type: 3}
+  - name: Kamemushi
+    mesh: {fileID: -3615443358523095356, guid: 61db7e853c745b6429d27c164d73708e, type: 3}
+  - name: Kamemushi_Leg1
+    mesh: {fileID: 4564408820003907622, guid: fd81c6e50132c87419cbb695fcdfdfd5, type: 3}
+  - name: Kamemushi_Leg2
+    mesh: {fileID: -6503455730357004307, guid: 09b619d6c85f68c4181ea8a134996572, type: 3}
+  - name: Kamemushi_Leg3
+    mesh: {fileID: 1154556468631651013, guid: 7c6b5b9f885ec194d8e769bd8a9d2e0c, type: 3}
+  - name: Kamikiri
+    mesh: {fileID: -1381974899230226087, guid: bb26ea788f98e214fac3c08b050ce305, type: 3}
+  - name: Kamikiri_Leg1
+    mesh: {fileID: -343248352120958216, guid: e77ac6b35517ce44fbb21f04a23d2b94, type: 3}
+  - name: Kamikiri_Leg2
+    mesh: {fileID: 5684406655071311006, guid: 91ee11f163bffbe4791732ec9ddd6d45, type: 3}
+  - name: Kamikiri_Leg3
+    mesh: {fileID: -8219194941444317199, guid: a14a1159cc0f36d4ebb22b72e87f8d3f, type: 3}
+  - name: Kuwagata
+    mesh: {fileID: -3016576712481014300, guid: e94cfa32a95fd4748bc2c73cb5389d6b, type: 3}
+  - name: Kuwagata_Leg1
+    mesh: {fileID: 8726153410065383863, guid: 3de1d5f75fbe6534d80cd384d1bd1d13, type: 3}
+  - name: Kuwagata_Leg2
+    mesh: {fileID: -5960913697373668318, guid: 739bc36454f5f12468402f7b0265a004, type: 3}
+  - name: Kuwagata_Leg3
+    mesh: {fileID: 1840405998857788913, guid: 90392955ba648174999cfc1d1011d9b6, type: 3}
   - name: Ladybug
     mesh: {fileID: -1469867499135885838, guid: a51adb2e040c1e8428a34c4b9918d366, type: 3}
   - name: Ladybug_Leg1
@@ -143,6 +167,10 @@ MonoBehaviour:
     mesh: {fileID: -4315404616630372145, guid: b64ce18c83bd35c44b59adce37fbdaf6, type: 3}
   - name: Mantis_Leg2
     mesh: {fileID: 2883093166547410592, guid: 9f1299e6cbbd20f46a64623de58569f7, type: 3}
+  - name: Monshiro_Body
+    mesh: {fileID: -5615471362497707985, guid: ce0fd70b9bdbf7745b015cf845dd65ec, type: 3}
+  - name: Monshiro_Wing
+    mesh: {fileID: 450940268330877283, guid: e5fc43d851044c04889a76e95e6afad2, type: 3}
   - name: Moss
     mesh: {fileID: 1917060837040722765, guid: 3d9d17b1c21e4a64d8f2b848fa27170b, type: 3}
   - name: Mushroom_Brown
@@ -167,6 +195,54 @@ MonoBehaviour:
     mesh: {fileID: 8183672588738695209, guid: 84de320803e5faa438fc3d3f447ebf1b, type: 3}
   - name: Otoshibumi_Leg3
     mesh: {fileID: 7509091732128183767, guid: a9f5237190c63f84397483d3d968936c, type: 3}
+  - name: Park_Ball
+    mesh: {fileID: -7793027966815888929, guid: 80aca4b737fc1aa4593a7698f31adf30, type: 3}
+  - name: Park_Bench
+    mesh: {fileID: -9180856842552378008, guid: a3c07fc59007fc745b4d0cb273b708a7, type: 3}
+  - name: Park_Bucket
+    mesh: {fileID: 5018455078505332292, guid: d4f4054358929c943af855c3b6aad2d2, type: 3}
+  - name: Park_Cabbage
+    mesh: {fileID: 3797662183571129895, guid: e8469707d306e1245a6de4c305954d0d, type: 3}
+  - name: Park_Dokan
+    mesh: {fileID: 4386522872338255738, guid: 57fef183806ecb649b452a84f822b8cc, type: 3}
+  - name: Park_Fence
+    mesh: {fileID: -6165636980924448510, guid: b2ae24d5b870e2240971695734e77793, type: 3}
+  - name: Park_FlowerBed
+    mesh: {fileID: -8113325601733547465, guid: 7b904bbf83eee614680664c4b2096d82, type: 3}
+  - name: Park_Fountain
+    mesh: {fileID: -9068406883012218279, guid: 71ff5c736c1ee9c4db1496cc95520cfd, type: 3}
+  - name: Park_JungleGym
+    mesh: {fileID: -2030937518881133064, guid: dbd4b4faba03d2f4bac3a1a3dc1ca522, type: 3}
+  - name: Park_Kunugi
+    mesh: {fileID: 2353660286966578705, guid: aa5aa05e5db3de94fb6b6a5e14f0c7ff, type: 3}
+  - name: Park_Lamp
+    mesh: {fileID: 3601151012992296162, guid: 23db8678624867448b84ee016a9ed4a5, type: 3}
+  - name: Park_SandboxFrame
+    mesh: {fileID: -142375125553560401, guid: cac46704b9911794badd6d342a5b78ab, type: 3}
+  - name: Park_SandMound
+    mesh: {fileID: 2419943662303324164, guid: a31cc55f057d5aa4d811669b11637436, type: 3}
+  - name: Park_SeesawBase
+    mesh: {fileID: 5730820019357985977, guid: 309125bc1e0aeda42aa5908babca4f74, type: 3}
+  - name: Park_SeesawPlank
+    mesh: {fileID: -2908954996632886351, guid: 4463399f6a4ac644b85f00e79e1d71eb, type: 3}
+  - name: Park_Shovel
+    mesh: {fileID: -7900201657382531419, guid: 736ab7d959dc3ce4db3fbd18308ce33c, type: 3}
+  - name: Park_SlideFrame
+    mesh: {fileID: -5194548317530727809, guid: 84b6d72fc89b8ca498a7cf469651f4bc, type: 3}
+  - name: Park_SlideRamp
+    mesh: {fileID: 4278392455808743713, guid: 5e0635ea201ec3246afb11f3464abca8, type: 3}
+  - name: Park_SwingChain
+    mesh: {fileID: -5735542590515880628, guid: 3818ad94773702a479c642551fedd6fd, type: 3}
+  - name: Park_SwingFrame
+    mesh: {fileID: 6996063253740231799, guid: 6ea219ae496c355488a7e29aca3fca76, type: 3}
+  - name: Park_SwingSeat
+    mesh: {fileID: -4585248545884492884, guid: 30c5c5590af968e4e981146ed6dc273a, type: 3}
+  - name: Park_Tire_Blue
+    mesh: {fileID: -2827330661605432355, guid: 63b237b823f24464ab6853eb130c12c1, type: 3}
+  - name: Park_Tire_Red
+    mesh: {fileID: 1915464708599512105, guid: e2219c04247385a45bf1b79a8afe7e31, type: 3}
+  - name: Park_Tire_Yellow
+    mesh: {fileID: 3981739360344654312, guid: 3e5d6dd21b4b4f646a5b10c628237a18, type: 3}
   - name: PillBug
     mesh: {fileID: 5023893518569675436, guid: 8a5c8f0766bd5d4408d0317f8c936605, type: 3}
   - name: PillBug_Ball
@@ -223,6 +299,18 @@ MonoBehaviour:
     mesh: {fileID: 3840383602836954559, guid: 15080bed2a2c1dc42933d2ce094f121d, type: 3}
   - name: Stump
     mesh: {fileID: -3727755857921736763, guid: 4a85af426b8ef424890624be9f699061, type: 3}
+  - name: Tokage
+    mesh: {fileID: -1723738705104999810, guid: 6879b237a23be21458df025fdec20793, type: 3}
+  - name: Tokage_Leg1
+    mesh: {fileID: 2637486533146488282, guid: e4ce3229946c8014c8949918e2a6b60a, type: 3}
+  - name: Tokage_Leg2
+    mesh: {fileID: 4883398603691130762, guid: f908a221a7db5ad4f993103ef3208199, type: 3}
+  - name: Tulip_Pink
+    mesh: {fileID: -862521941546523501, guid: 8145983b496043c4f99e14dcacdb4fd1, type: 3}
+  - name: Tulip_Red
+    mesh: {fileID: -7796360903865943929, guid: 203babcc05607e54e9520c1f59084a6f, type: 3}
+  - name: Tulip_Yellow
+    mesh: {fileID: -1133842835651291010, guid: 2b6a93c793b449d4ab88734393bada85, type: 3}
   - name: Twig_A
     mesh: {fileID: -6296972413218348916, guid: cdb6c645970d1e64aaa919afd52acab7, type: 3}
   - name: Twig_B
@@ -258,10 +346,18 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 8fcaf1b260f3bf949a6ee7132e70a1d3, type: 3}
   - name: grasshopper
     texture: {fileID: 2800000, guid: 31a4d271760ef9549b51921e6a9c827e, type: 3}
+  - name: kamemushi
+    texture: {fileID: 2800000, guid: c3916bb2bc4c55042a5be808c57409cd, type: 3}
+  - name: kamikiri
+    texture: {fileID: 2800000, guid: 6d202447e8d59b74e960fd16b08221c8, type: 3}
+  - name: kuwagata
+    texture: {fileID: 2800000, guid: efbd2d94ae430fe45b3bc9f9e6dc15a1, type: 3}
   - name: ladybug
     texture: {fileID: 2800000, guid: 6ab90112b8809e243855985771340812, type: 3}
   - name: mantis
     texture: {fileID: 2800000, guid: e7315fd762c90314d880531e8ad377ca, type: 3}
+  - name: monshiro
+    texture: {fileID: 2800000, guid: 0c6dce403431aeb4984b91b0bd98aa94, type: 3}
   - name: otoshibumi
     texture: {fileID: 2800000, guid: 4be4f69b9ae56504ab4f118c0cffc10b, type: 3}
   - name: pillbug
@@ -276,6 +372,8 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 91244354b71478441bef3ad86421a2ce, type: 3}
   - name: spider_sneaker
     texture: {fileID: 2800000, guid: 6c1dbaba024a27f4eb92594b2b6913a3, type: 3}
+  - name: tokage
+    texture: {fileID: 2800000, guid: 22bb01cfbb059cb42888fe5cd993a7f8, type: 3}
   - name: waterstrider
     texture: {fileID: 2800000, guid: 5189426165d8db240afa746472fc8c72, type: 3}
   prop: {fileID: 2100000, guid: a7965964abebd0a4da0383ab074e54e2, type: 2}

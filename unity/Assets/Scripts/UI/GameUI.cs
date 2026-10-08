@@ -1125,7 +1125,7 @@ namespace Shakutori
             // すみかでしぼりこむ
             var filters = new VisualElement();
             filters.AddToClassList("zukan-filters");
-            foreach (var (label, key) in new[] { ("すべて", ""), ("森", "森"), ("川辺", "川辺") })
+            foreach (var (label, key) in new[] { ("すべて", ""), ("森", "森"), ("川辺", "川辺"), ("公園", "公園") })
             {
                 var chip = new Button { text = label };
                 chip.AddToClassList("chip");

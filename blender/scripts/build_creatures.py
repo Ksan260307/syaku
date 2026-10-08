@@ -1098,6 +1098,193 @@ def make_root_arch():
     return build(mb, "RootArch")
 
 
+
+# ---------------------------------------------------------------------------
+# 公園のいきもの（カミキリムシ・クワガタ・カメムシ・トカゲ・モンシロチョウ）
+# ---------------------------------------------------------------------------
+def make_kamikiri():
+    """ゴマダラカミキリ：つやのある黒に白い点。体より長い、白黒のしまの触角"""
+    mb = MB()
+    black = hexc("#16161c")
+    sheen = hexc("#3a3f58")
+    spots = [Vector(v) for v in ((0.08, -0.05), (-0.08, -0.12), (0.1, -0.3), (-0.06, -0.38), (0.05, 0.08), (-0.1, 0.05), (0.03, -0.48))]
+
+    def elytra(t, a, p):
+        c = mixc(black, sheen, sstep(0.5, 1.0, math.sin(a)) * 0.6)
+        if math.sin(a) > 0.2:
+            for sp in spots:
+                if (Vector((p.x, p.y)) - sp).length < 0.032:
+                    return hexc("#f4f4ee")
+        if abs(p.x) < 0.008 and math.sin(a) > 0:
+            return hexc("#060608")
+        return c
+    seg_body(mb, -0.55, 0.26, 0.15, 0.12, elytra, rings=34, seg=22,
+             prof=lambda t: (math.sin(math.pi * min(1.0, t * 1.08 + 0.05)) ** 0.3, math.sin(math.pi * t) ** 0.5), z0=0.12)
+    # 前胸（横にとげ）と頭
+    uv_sphere(mb, Vector((0, 0.32, 0.15)), 1.0, lambda n: mixc(black, sheen, sstep(0.3, 0.9, n.z) * 0.6), seg=16, rings=10,
+              scale=Vector((0.1, 0.08, 0.075)))
+    for sx in (-1, 1):
+        tube(mb, [Vector((0.08 * sx, 0.32, 0.15)), Vector((0.15 * sx, 0.33, 0.16))], [0.02, 0.0], 6, lambda t, a, p, d: black)
+    uv_sphere(mb, Vector((0, 0.44, 0.13)), 1.0, lambda n: black, seg=14, rings=9, scale=Vector((0.085, 0.075, 0.07)))
+    for sx in (-1, 1):
+        cute_eye(mb, (0.06 * sx, 0.47, 0.15), 0.024, (0.5 * sx, 1, 0.1), white=False)
+        # 触角：体の 1.5 倍。白と黒のしま
+        pts = [Vector((0.04 * sx, 0.48, 0.19)), Vector((0.2 * sx, 0.7, 0.38)), Vector((0.5 * sx, 0.62, 0.52)),
+               Vector((0.85 * sx, 0.2, 0.48)), Vector((1.02 * sx, -0.35, 0.34))]
+        from build_forest_kit import bezier
+        curve = bezier(pts[0], pts[1], pts[3], pts[4], 22)
+        tube(mb, curve, [0.016 - 0.01 * (i / 21) for i in range(22)], 5,
+             lambda t, a, p, d: hexc("#f2f2ea") if (t * 11) % 1.0 < 0.38 else black)
+    roots = []
+    for y, dy in ((0.3, 0.1), (0.14, 0.0), (-0.02, -0.1)):
+        for sx in (-1, 1):
+            roots.append(((0.08 * sx, y, 0.09), (0.24 * sx, y + dy * 0.5, 0.15), (0.34 * sx, y + dy, 0.0)))
+    legs(mb, roots, black, sheen, radius=0.018)
+    return build(mb, "Kamikiri")
+
+
+def make_kuwagata():
+    """ノコギリクワガタ：赤みのある黒いつやつやの体と、のこぎりのような大あご"""
+    mb = MB()
+    shell = hexc("#2a160c")
+    shine = hexc("#7a4426")
+
+    def elytra(t, a, p):
+        c = mixc(shell, shine, sstep(0.6, 1.0, math.sin(a)) * 0.55)
+        if abs(p.x) < 0.01 and math.sin(a) > 0:
+            c = hexc("#140904")
+        return c
+    seg_body(mb, -0.6, 0.12, 0.3, 0.2, elytra, rings=32, seg=26,
+             prof=lambda t: (math.sin(math.pi * min(1.0, t * 1.05 + 0.08)) ** 0.35, math.sin(math.pi * t) ** 0.55), z0=0.14, flat=0.4)
+    uv_sphere(mb, Vector((0, 0.26, 0.18)), 1.0, lambda n: mixc(shell, shine, sstep(0.3, 0.9, n.z) * 0.6), seg=20, rings=12,
+              scale=Vector((0.27, 0.15, 0.11)))
+    uv_sphere(mb, Vector((0, 0.45, 0.16)), 1.0, lambda n: mixc(shell, shine, sstep(0.4, 0.9, n.z) * 0.5), seg=18, rings=10,
+              scale=Vector((0.25, 0.12, 0.08)))
+    for sx in (-1, 1):
+        # 大あご：前へのびて、先が内へまがる。内がわに歯
+        jaw = [Vector((0.13 * sx, 0.52, 0.17)), Vector((0.2 * sx, 0.7, 0.2)), Vector((0.19 * sx, 0.9, 0.22)), Vector((0.07 * sx, 1.04, 0.22))]
+        tube(mb, jaw, [0.055, 0.045, 0.035, 0.0], 9, lambda t, a, p, d: mixc(shell, shine, 0.3 + 0.4 * t))
+        for k, t in enumerate((0.35, 0.55, 0.75)):
+            i = int(t * 3)
+            p = jaw[i].lerp(jaw[i + 1], t * 3 - i)
+            tip = p + Vector((-0.06 * sx, 0.02, 0.0))
+            tube(mb, [p, tip], [0.022, 0.0], 5, lambda tt, a, pp, d: shine)
+        cute_eye(mb, (0.21 * sx, 0.48, 0.18), 0.03, (0.6 * sx, 1, 0.1), white=False)
+        tube(mb, [Vector((0.16 * sx, 0.52, 0.2)), Vector((0.3 * sx, 0.62, 0.26)), Vector((0.36 * sx, 0.72, 0.24))], [0.012, 0.01, 0.0], 5,
+             lambda t, a, p, d: shell)
+    roots = []
+    for y in (0.28, 0.06, -0.2):
+        for sx in (-1, 1):
+            roots.append(((0.2 * sx, y, 0.13), (0.4 * sx, y + 0.05, 0.17), (0.54 * sx, y + 0.07, 0.0)))
+    legs(mb, roots, shell, shine, radius=0.03)
+    return build(mb, "Kuwagata")
+
+
+def make_kamemushi():
+    """アオクサカメムシ：たての形の、平たい緑の体"""
+    mb = MB()
+    green = hexc("#6fbf3a")
+    light = hexc("#a8dc6a")
+
+    def shield(t):
+        # 前（t=1）のかたがいちばん広く、うしろ（t=0）は丸くせまい
+        w = 0.55 + 0.5 * sstep(0.0, 0.7, t) - 0.45 * sstep(0.82, 1.0, t)
+        return (max(0.05, w * math.sin(math.pi * min(1.0, t * 1.02 + 0.02)) ** 0.25), math.sin(math.pi * t) ** 0.6)
+
+    def col(t, a, p):
+        c = mixc(green, light, sstep(0.6, 1.0, math.sin(a)) * 0.35)
+        # 小さな三角（背中のまん中）
+        if math.sin(a) > 0 and 0.35 < t < 0.75 and abs(p.x) < 0.09 * (t - 0.35) / 0.4:
+            c = mixc(light, green, 0.3)
+        return c
+    seg_body(mb, -0.28, 0.2, 0.2, 0.07, col, rings=30, seg=24, prof=shield, z0=0.07, flat=0.2)
+    uv_sphere(mb, Vector((0, 0.25, 0.07)), 1.0, lambda n: green, seg=12, rings=8, scale=Vector((0.08, 0.06, 0.04)))
+    for sx in (-1, 1):
+        cute_eye(mb, (0.06 * sx, 0.27, 0.085), 0.018, (0.5 * sx, 1, 0.1), white=False)
+        pts = [Vector((0.04 * sx, 0.29, 0.08)), Vector((0.12 * sx, 0.4, 0.13)), Vector((0.17 * sx, 0.52, 0.12)), Vector((0.2 * sx, 0.62, 0.09))]
+        tube(mb, pts, [0.01, 0.009, 0.008, 0.0], 5, lambda t, a, p, d: mixc(green, hexc("#c25a3a"), sstep(0.6, 1.0, t)))
+    roots = []
+    for y, dy in ((0.12, 0.06), (0.02, 0.0), (-0.08, -0.06)):
+        for sx in (-1, 1):
+            roots.append(((0.07 * sx, y, 0.04), (0.16 * sx, y + dy * 0.5, 0.07), (0.23 * sx, y + dy, 0.0)))
+    legs(mb, roots, green, hexc("#4a8a2a"), radius=0.012)
+    return build(mb, "Kamemushi")
+
+
+def make_tokage():
+    """ニホントカゲの子ども：こげ茶に 5 本のクリーム色の線、つやつやの青いしっぽ"""
+    mb = MB()
+    brown = hexc("#3a2c22")
+    stripe = hexc("#e6d6a4")
+    blue = hexc("#3f7fe0")
+    belly = hexc("#d8cfb8")
+    pts = [Vector((0, -2.5, 0.06)), Vector((0, -1.9, 0.08)), Vector((0, -1.2, 0.12)), Vector((0, -0.6, 0.17)), Vector((0, -0.2, 0.2)),
+           Vector((0, 0.2, 0.21)), Vector((0, 0.5, 0.21)), Vector((0, 0.68, 0.22)), Vector((0, 0.85, 0.24)), Vector((0, 1.02, 0.22)), Vector((0, 1.12, 0.2))]
+    radii = [0.0, 0.05, 0.09, 0.15, 0.2, 0.22, 0.19, 0.15, 0.17, 0.13, 0.0]
+
+    def col(t, a, p, d):
+        up = d.z
+        if up < -0.35:
+            return belly
+        if t < 0.42:
+            # しっぽ：つけ根から先へ、青く光る
+            k = sstep(0.42, 0.3, t)
+            return mixc(mixc(brown, blue, k), hexc("#7ab6ff"), sstep(0.5, 1.0, up) * 0.4 * k)
+        # 5 本の線（背中のまん中と、両がわ 2 本ずつ）
+        for c0 in (0.0, 0.42, -0.42, 0.78, -0.78):
+            if abs(d.x - c0 * max(up, 0.2)) < 0.07 and up > 0.0:
+                return stripe
+        return mixc(brown, hexc("#5a4434"), sstep(0.0, 0.8, up) * 0.4)
+    tube(mb, pts, radii, 18, col, oval=(1.25, 0.75))
+    for sx in (-1, 1):
+        cute_eye(mb, (0.11 * sx, 0.9, 0.29), 0.04, (0.7 * sx, 0.6, 0.15), white=False)
+    # 口のまわり（にっこり）
+    tube(mb, [Vector((-0.07, 1.05, 0.18)), Vector((0, 1.09, 0.17)), Vector((0.07, 1.05, 0.18))], [0.01, 0.01, 0.01], 4, lambda t, a, p, d: hexc("#2a1e16"))
+    roots = []
+    for (y, ky, ty) in ((0.42, 0.55, 0.7), (-0.42, -0.5, -0.32)):
+        for sx in (-1, 1):
+            roots.append(((0.16 * sx, y, 0.18), (0.38 * sx, ky, 0.2), (0.5 * sx, ty, 0.0)))
+    legs(mb, roots, brown, hexc("#2a201a"), radius=0.05)
+    return build(mb, "Tokage")
+
+
+def make_monshiro_body():
+    mb = MB()
+    tube(mb, [Vector((0, -0.26, 0.0)), Vector((0, -0.1, 0.0)), Vector((0, 0.08, 0.0)), Vector((0, 0.12, 0.0))],
+         [0.0, 0.032, 0.038, 0.03], 10, lambda t, a, p, d: mixc(hexc("#3a3a40"), hexc("#d8d8d0"), sstep(0.0, 1.0, d.z) * 0.6))
+    uv_sphere(mb, Vector((0, 0.15, 0.0)), 0.042, lambda n: hexc("#4a4a50"), seg=12, rings=8)
+    for sx in (-1, 1):
+        cute_eye(mb, (0.03 * sx, 0.18, 0.015), 0.017, (0.4 * sx, 1, 0), white=False)
+        a0 = Vector((0.015 * sx, 0.18, 0.03))
+        a1 = Vector((0.11 * sx, 0.4, 0.1))
+        tube(mb, [a0, a0.lerp(a1, 0.5), a1], [0.005, 0.005, 0.004], 5, lambda t, a, p, d: hexc("#2a2a30"))
+        uv_sphere(mb, a1, 0.016, lambda n: hexc("#f0f0e8"), seg=8, rings=5)
+    return build(mb, "Monshiro_Body")
+
+
+def make_monshiro_wing():
+    """モンシロチョウのはね：白に、前ばねの先が黒く、黒い点が 2 つ"""
+    mb = MB()
+
+    def rfn(th):
+        fore = 0.86 * math.exp(-((th - 0.95) / 0.58) ** 2)
+        hind = 0.64 * math.exp(-((th - 2.25) / 0.52) ** 2)
+        return max(0.12, fore, hind)
+
+    def cf(rho, th, p):
+        c = mixc(hexc("#e9ecd8"), hexc("#fbfbf4"), sstep(0.1, 0.6, rho))
+        if th > 1.75:
+            c = mixc(c, hexc("#f6efc2"), 0.4 * sstep(0.2, 0.0, abs(rho - 0.3)))   # うしろばねは、少しクリーム色
+        if th < 1.3 and rho > 0.78:
+            c = mixc(c, hexc("#3a3a40"), 0.85)                                    # 前ばねの先は黒
+        for (r0, t0) in ((0.55, 1.05), (0.42, 1.55)):
+            if math.hypot(rho - r0, (th - t0) * 0.5) < 0.07:
+                c = hexc("#3a3a40")
+        return c
+    polar_sheet(mb, rfn, cf, n_ang=60, n_rad=8, a0=0.05, a1=3.05, zfn=lambda rho, th: 0.03 * rho * rho, full=False)
+    return build(mb, "Monshiro_Wing")
+
+
 # ---------------------------------------------------------------------------
 # 図鑑の絵
 # ---------------------------------------------------------------------------
@@ -1120,6 +1307,11 @@ CREATURES = [
     ("firefly", ["Firefly_Body", "Firefly_Glow"]),
     ("spider", ["Spider"]),
     ("mantis", ["Mantis", "Mantis_Arm_R", "Mantis_Arm_L"]),
+    ("kamikiri", ["Kamikiri"]),
+    ("kuwagata", ["Kuwagata"]),
+    ("kamemushi", ["Kamemushi"]),
+    ("tokage", ["Tokage"]),
+    ("monshiro", ["Monshiro_Body", "Monshiro_Wing", "Monshiro_Wing_L"]),
     ("ant_helmet", ["Ant", "Ant_Helmet"]),
     ("spider_sneaker", ["Spider"]),
 ]
@@ -1129,11 +1321,22 @@ PORTRAIT_LEGS = {
     "ant": "Ant", "ladybug": "Ladybug", "beetle": "Beetle", "waterstrider": "WaterStrider", "crab": "Crab",
     "grasshopper": "Grasshopper", "otoshibumi": "Otoshibumi", "spider": "Spider", "mantis": "Mantis",
     "ant_helmet": "Ant", "spider_sneaker": "Spider",
+    "kamikiri": "Kamikiri", "kuwagata": "Kuwagata", "kamemushi": "Kamemushi", "tokage": "Tokage",
 }
 
 
 def pose_portrait_copies(objs):
     """図鑑の絵のために、羽を広げた姿勢のコピーを作る"""
+    mw = objs.get("Monshiro_Wing")
+    if mw:
+        l = mw.copy()
+        l.data = mw.data
+        l.name = "Monshiro_Wing_L"
+        bpy.context.scene.collection.objects.link(l)
+        l.scale = (-1, 1, 1)
+        mw.rotation_euler = (0, -0.35, 0)
+        l.rotation_euler = (0, 0.35, 0)
+        objs["Monshiro_Wing_L"] = l
     wing = objs.get("Butterfly_Wing")
     if wing:
         l = wing.copy()
@@ -1325,11 +1528,12 @@ def main():
         (make_ladybug, "Ladybug", None), (make_ant, "Ant", None), (make_beetle, "Beetle", None),
         (make_water_strider, "WaterStrider", None), (make_crab, "Crab", None), (make_grasshopper, "Grasshopper", None),
         (make_otoshibumi, "Otoshibumi", None), (make_spider, "Spider", spider_sneaker_variant), (make_mantis, "Mantis", None),
+        (make_kamikiri, "Kamikiri", None), (make_kuwagata, "Kuwagata", None), (make_kamemushi, "Kamemushi", None), (make_tokage, "Tokage", None),
     ]
     makers = [
         make_snail, make_pillbug, make_butterfly_body, make_butterfly_wing,
         make_dragonfly_body, make_dragonfly_wing, make_frog, make_river_snail,
-        make_firefly_body, make_firefly_glow,
+        make_firefly_body, make_firefly_glow, make_monshiro_body, make_monshiro_wing,
         make_cradle, make_anthill, make_grasshopper_hind, make_mantis_arm, make_ant_helmet, make_crumb, make_pillbug_ball,
         lambda: make_bird_body("Sparrow_Body", 5.5, False), lambda: make_bird_wing("Sparrow_Wing", 5.5, False),
         lambda: make_bird_body("Crow_Body", 18.0, True), lambda: make_bird_wing("Crow_Wing", 18.0, True),
@@ -1361,7 +1565,7 @@ def main():
     render_portraits(objs, png_dir)
     x = 0.0
     for name, ob in objs.items():
-        if name.startswith(("Butterfly_Wing_", "Dragonfly_Wing_", "Sparrow_Wing_", "Crow_Wing_", "Cradle_Portrait", "Mantis_Arm_",
+        if name.startswith(("Butterfly_Wing_", "Monshiro_Wing_", "Dragonfly_Wing_", "Sparrow_Wing_", "Crow_Wing_", "Cradle_Portrait", "Mantis_Arm_",
                             "Grasshopper_Hind_", "Crumb_Portrait")) or "_Leg" in name:
             continue
         w = max(ob.dimensions.x, 0.5)

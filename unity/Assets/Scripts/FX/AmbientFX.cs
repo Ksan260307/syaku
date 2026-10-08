@@ -180,6 +180,22 @@ namespace Shakutori
             }
         }
 
+        /// <summary>カメムシのにおい：うすい黄緑のけむりが、ふわっと広がる。</summary>
+        public void Stink(Vector3 pos)
+        {
+            if (_dust == null) return;
+            var ep = new ParticleSystem.EmitParams { startColor = new Color(0.72f, 0.86f, 0.36f, 0.55f), applyShapeToPosition = false };
+            for (int i = 0; i < 18; i++)
+            {
+                Vector3 d = Random.onUnitSphere;
+                d.y = Mathf.Abs(d.y) * 0.6f + 0.2f;
+                ep.position = pos + d * 0.12f;
+                ep.velocity = d * Random.Range(0.25f, 0.7f);
+                ep.startSize = Random.Range(0.25f, 0.45f);
+                _dust.Emit(ep, 1);
+            }
+        }
+
         /// <summary>水に落ちた：勢いに合わせて、水しぶきの粒がとび出す（水面に落ちると消える）。</summary>
         public void Splash(Vector3 pos, float strength, float waterLevel)
         {
@@ -208,6 +224,7 @@ namespace Shakutori
             _areaRoot = new GameObject("AreaFX").transform;
             _areaRoot.SetParent(transform, false);
             if (_area.Id == "forest") BuildForest();
+            else if (_area.Id == "park") BuildPark();
             else BuildRiver();
             foreach (var g in world.Gates) GateMotes(g);
         }
@@ -219,22 +236,29 @@ namespace Shakutori
             Fireflies(_areaRoot, new Vector3(ForestLayout.LogCenter.x, 0f, ForestLayout.LogCenter.y), 10f, 18, new Color(0.85f, 1f, 0.45f));
 
             // 大樹から舞い落ちる葉
+            FallingLeaves(new Vector3(0f, ForestLayout.Height(0f, 30f) + 22f, 30f), new Vector3(70f, 2f, 60f), 1.6f,
+                new Color(1f, 0.6f, 0.25f), new Color(1f, 0.85f, 0.35f));
+        }
+
+        /// <summary>木から舞い落ちる葉（pos の上空の箱から、風にのって落ち、地面や物に落ちて止まる）。</summary>
+        void FallingLeaves(Vector3 pos, Vector3 box, float rate, Color c0, Color c1)
+        {
             _leaves = Create("FallingLeaves", _areaRoot, 40, new Color(1f, 0.7f, 0.3f, 1f));
             {
-                _leaves.transform.position = new Vector3(0f, ForestLayout.Height(0f, 30f) + 22f, 30f);
+                _leaves.transform.position = pos;
                 var main = _leaves.main;
                 main.startLifetime = 16f;
                 main.startSpeed = 0.1f;
                 main.startSize = new ParticleSystem.MinMaxCurve(0.15f, 0.3f);
                 main.gravityModifier = 1f;     // 本当の重力で落ちる
                 Drag(_leaves, 4.6f);           // 空気のてい抗が大きいので、最高速度は 1.4 くらい
-                main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.6f, 0.25f), new Color(1f, 0.85f, 0.35f));
+                main.startColor = new ParticleSystem.MinMaxGradient(c0, c1);
                 main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
                 var em = _leaves.emission;
-                em.rateOverTime = 1.6f;
+                em.rateOverTime = rate;
                 var sh = _leaves.shape;
                 sh.shapeType = ParticleSystemShapeType.Box;
-                sh.scale = new Vector3(70f, 2f, 60f);
+                sh.scale = box;
                 var noise = _leaves.noise;
                 noise.enabled = true;
                 noise.strength = 0.6f;
@@ -262,7 +286,17 @@ namespace Shakutori
                 col.enabled = true;
                 col.color = FadeInOut(Color.white);
             }
+        }
 
+
+        void BuildPark()
+        {
+            // クヌギの木から舞い落ちる、茶色い葉
+            Vector2 k = ParkLayout.Kunugi;
+            FallingLeaves(new Vector3(k.x, ParkLayout.Height(k.x, k.y) + 30f, k.y), new Vector3(26f, 2f, 26f), 0.9f,
+                new Color(0.75f, 0.5f, 0.25f), new Color(0.95f, 0.75f, 0.35f));
+            // 水たまりのまわりのホタル
+            Fireflies(_areaRoot, new Vector3(ParkLayout.Puddle.x, 0f, ParkLayout.Puddle.y), 9f, 18, new Color(0.85f, 1f, 0.45f));
         }
 
         void BuildRiver()
@@ -319,7 +353,8 @@ namespace Shakutori
 
         void GateMotes(GateInstance g)
         {
-            var ps = Create("GateMotes", _areaRoot, 50, g.def.targetArea == "river" ? new Color(0.6f, 0.95f, 1f, 1f) : new Color(0.8f, 1f, 0.6f, 1f));
+            var ps = Create("GateMotes", _areaRoot, 50, g.def.targetArea == "river" ? new Color(0.6f, 0.95f, 1f, 1f)
+                : g.def.targetArea == "park" ? new Color(1f, 0.9f, 0.55f, 1f) : new Color(0.8f, 1f, 0.6f, 1f));
             ps.transform.position = g.position + Vector3.up * 0.4f;
             var main = ps.main;
             main.startLifetime = new ParticleSystem.MinMaxCurve(2.5f, 4.5f);

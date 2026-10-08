@@ -80,6 +80,7 @@ namespace Shakutori
 
             // 川辺へのトンネルと、スタート地点のまわりはあけておく
             Occupy(ForestLayout.Gate, 4.5f);
+            Occupy(ForestLayout.ParkGate, 4.5f);
             Occupy(ForestLayout.Spawn, 3.5f);
             // てんとう虫のいる葉っぱ
             {

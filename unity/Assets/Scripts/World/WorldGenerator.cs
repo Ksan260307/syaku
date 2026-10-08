@@ -49,7 +49,8 @@ namespace Shakutori
         public readonly List<Vector3> DewdropPoints = new List<Vector3>();
         /// <summary>花の頭の位置（チョウやトンボがとまる）。</summary>
         public readonly List<Vector3> FlowerPoints = new List<Vector3>();
-        static readonly HashSet<string> FlowerMeshes = new HashSet<string> { "Daisy", "Bellflower", "Dandelion", "DandelionPuff", "Strawberry", "Iris" };
+        static readonly HashSet<string> FlowerMeshes = new HashSet<string> { "Daisy", "Bellflower", "Dandelion", "DandelionPuff", "Strawberry", "Iris",
+            "Tulip_Red", "Tulip_Yellow", "Tulip_Pink", "Park_Cabbage" };
         public readonly List<MobGroup> Mobs = new List<MobGroup>();
         public readonly List<GateInstance> Gates = new List<GateInstance>();
         public Vector3 SpawnPoint { get; private set; }
@@ -119,6 +120,7 @@ namespace Shakutori
             Clear();
             Area = area;
             bool forest = area.Id == "forest";
+            bool park = area.Id == "park";
             _rng = new Random(forest ? seed : seed + 7919 * area.Id.Length);
             SurfaceProbe.ClearCache();
             var rootGo = new GameObject("World (generated)");
@@ -133,18 +135,23 @@ namespace Shakutori
             yield return null;
             BuildTerrain();
             BuildViewLanes();
-            progress?.Invoke(0.25f, forest ? "大きな木を育てています" : "川の水を流しています");
+            progress?.Invoke(0.25f, forest ? "大きな木を育てています" : park ? "遊具を組み立てています" : "川の水を流しています");
             yield return null;
             BuildOuterRing();
-            if (forest) BuildForestSolids(); else BuildRiverSolids();
+            if (forest) BuildForestSolids(); else if (park) BuildParkSolids(); else BuildRiverSolids();
             BuildGates();
-            progress?.Invoke(0.4f, forest ? "キノコと岩を並べています" : "川石を並べています");
+            progress?.Invoke(0.4f, forest ? "キノコと岩を並べています" : park ? "砂場をならしています" : "川石を並べています");
             yield return null;
             if (forest)
             {
                 PlaceForestMobProps();
                 ScatterForestProps();
                 BuildForestWater();
+            }
+            else if (park)
+            {
+                ScatterParkProps();
+                BuildParkWater();
             }
             else
             {
@@ -154,7 +161,7 @@ namespace Shakutori
             Physics.SyncTransforms();
             progress?.Invoke(0.6f, "草花を植えています");
             yield return null;
-            if (forest) BuildForestFoliage(); else BuildRiverFoliage();
+            if (forest) BuildForestFoliage(); else if (park) BuildParkFoliage(); else BuildRiverFoliage();
             progress?.Invoke(0.8f, "しずくを置いています");
             yield return null;
             if (forest)
@@ -162,6 +169,12 @@ namespace Shakutori
                 PlaceForestDewdrops();
                 PlaceForestCreatures();
                 BuildLightShafts(ForestShaftSpots);
+            }
+            else if (park)
+            {
+                PlaceParkDewdrops();
+                PlaceParkCreatures();
+                BuildLightShafts(ParkShaftSpots());
             }
             else
             {
@@ -212,6 +225,7 @@ namespace Shakutori
             _poolPads.Clear();
             _fallRocks.Clear();
             Ferry = null;
+            ClearPark();
             _specialCap = Vector3.zero;
             DewdropPoints.Clear();
             FlowerPoints.Clear();
@@ -537,7 +551,8 @@ namespace Shakutori
                 mr.sharedMaterial = assets.particle;
                 mr.shadowCastingMode = ShadowCastingMode.Off;
                 var mpb = new MaterialPropertyBlock();
-                mpb.SetColor("_TintColor", g.targetArea == "river" ? new Color(0.55f, 0.95f, 1.4f, 0.55f) : new Color(0.75f, 1.3f, 0.6f, 0.55f));
+                mpb.SetColor("_TintColor", g.targetArea == "river" ? new Color(0.55f, 0.95f, 1.4f, 0.55f)
+                    : g.targetArea == "park" ? new Color(1.4f, 1.15f, 0.55f, 0.55f) : new Color(0.75f, 1.3f, 0.6f, 0.55f));
                 mr.SetPropertyBlock(mpb);
                 Gates.Add(new GateInstance { def = g, position = ground, inward = inward });
             }
@@ -886,6 +901,7 @@ namespace Shakutori
                 px[j * size + i] = c;
             }
             if (Area.Id == "forest") DrawForestMap(px, size);
+            else if (Area.Id == "park") DrawParkMap(px, size);
             else DrawRiverMap(px, size);
             tex.SetPixels32(px);
             tex.Apply(false, true);

@@ -83,6 +83,8 @@ namespace Shakutori
         public static readonly Vector2 MossHill = new Vector2(-22f, 20f);
         /// <summary>川辺へ続く木の根のトンネル（森の東の端）</summary>
         public static readonly Vector2 Gate = new Vector2(58.5f, -15f);
+        /// <summary>公園へ続く木の根のトンネル（森の西の端）</summary>
+        public static readonly Vector2 ParkGate = new Vector2(-57f, 30f);
 
         static List<LandmarkDef> _landmarks;
         static List<Vector2[]> _trails;

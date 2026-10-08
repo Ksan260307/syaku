@@ -60,6 +60,12 @@ MAKERS = {
     "Horsetail": cr.make_horsetail,
     "Iris": cr.make_iris,
     "RootArch": cr.make_root_arch,
+    "Kamikiri": cr.make_kamikiri,
+    "Kuwagata": cr.make_kuwagata,
+    "Kamemushi": cr.make_kamemushi,
+    "Tokage": cr.make_tokage,
+    "Monshiro_Body": cr.make_monshiro_body,
+    "Monshiro_Wing": cr.make_monshiro_wing,
 }
 
 
@@ -78,12 +84,12 @@ class CreatureKitTests(unittest.TestCase):
             self.assertEqual(len(col.data), len(ob.data.loops), name)
 
     def test_portrait_list_covers_all_species(self):
-        # ふつうの 18 種と、レアの 2 種
+        # ふつうの 23 種と、レアの 2 種
         ids = [c[0] for c in cr.CREATURES]
-        self.assertEqual(len(ids), 20)
-        self.assertEqual(len(set(ids)), 20)
+        self.assertEqual(len(ids), 25)
+        self.assertEqual(len(set(ids)), 25)
         for need in ("ant", "snail", "butterfly", "otoshibumi", "grasshopper", "frog", "sparrow", "crow", "ladybug",
-                     "spider", "mantis", "ant_helmet", "spider_sneaker"):
+                     "spider", "mantis", "ant_helmet", "spider_sneaker", "kamikiri", "kuwagata", "kamemushi", "tokage", "monshiro"):
             self.assertIn(need, ids)
 
     def test_sizes_match_the_inchworm_scale(self):

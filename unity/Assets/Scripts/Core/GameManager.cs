@@ -117,6 +117,7 @@ namespace Shakutori
             if (creatures != null)
             {
                 creatures.Discovered += OnCreature;
+                creatures.Stank += p => fx.Stink(p);   // カメムシのにおい
                 creatures.DiscoveredAt += (sp, pos) =>
                 {
                     if (pos == Vector3.zero) return;

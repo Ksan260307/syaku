@@ -27,6 +27,7 @@ if ($Assets) {
     Write-Host "== Blender でモデルを生成"
     & $Blender -b --factory-startup --python (Join-Path $root "blender/scripts/build_forest_kit.py")
     & $Blender -b --factory-startup --python (Join-Path $root "blender/scripts/build_creatures.py")
+    & $Blender -b --factory-startup --python (Join-Path $root "blender/scripts/build_park_kit.py")
     Write-Host "== アイコン・フォント・音を生成"
     python (Join-Path $root "tools/make_icons.py")
     python (Join-Path $root "tools/make_fonts.py")
