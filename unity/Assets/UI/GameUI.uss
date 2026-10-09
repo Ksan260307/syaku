@@ -1246,6 +1246,78 @@
     align-self: stretch;
 }
 
+/* もう一度会う：なかよし・すきなもの・ひみつ・しぐさの観察・大きさ */
+.zukan-friend {
+    align-self: stretch;
+    margin-top: 12px;
+    padding: 10px 10px 8px 10px;
+    border-radius: 14px;
+    background-color: rgba(255, 250, 238, 0.7);
+}
+
+.zukan-friend-stars {
+    font-size: 18px;
+    color: rgb(226, 120, 150);
+    -unity-font-style: bold;
+    margin-bottom: 4px;
+}
+
+.zukan-friend-line {
+    font-size: 15px;
+    white-space: normal;
+    color: rgb(90, 74, 58);
+    margin-bottom: 4px;
+}
+
+.zukan-friend-line--locked {
+    color: rgb(160, 145, 125);
+}
+
+.zukan-friend-head {
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: rgb(120, 98, 70);
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.zukan-stamps {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.zukan-stamp {
+    font-size: 13px;
+    padding: 3px 8px 3px 8px;
+    margin: 0 5px 5px 0;
+    border-radius: 10px;
+    white-space: normal;
+}
+
+.zukan-stamp--on {
+    background-color: rgb(255, 214, 102);
+    color: rgb(110, 80, 20);
+}
+
+.zukan-stamp--off {
+    background-color: rgba(150, 135, 115, 0.25);
+    color: rgb(150, 135, 115);
+}
+
+.zukan-card-friend {
+    position: absolute;
+    left: 4px;
+    top: 2px;
+    font-size: 12px;
+    color: rgb(226, 120, 150);
+    -unity-font-style: bold;
+}
+
+.zukan-card--master {
+    border-color: rgb(240, 190, 60);
+    border-width: 3px;
+}
+
 .skin-grid {
     flex-direction: row;
     flex-wrap: wrap;

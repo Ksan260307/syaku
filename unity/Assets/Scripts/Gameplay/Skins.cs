@@ -9,11 +9,14 @@ namespace Shakutori
         public int drops;
         public int places;
         public int species;
+        public int observed;      // 観察したしぐさ
+        public int bestFriends;   // なかよし ★5 の種
 
         public static ProgressStats FromSave()
         {
             var d = SaveSystem.Data;
-            return new ProgressStats { drops = d.drops.Count, places = d.places.Count, species = Creatures.DiscoveredCount };
+            return new ProgressStats { drops = d.drops.Count, places = d.places.Count, species = Creatures.DiscoveredCount,
+                observed = Friends.TotalObserved, bestFriends = Friends.BestFriendCount };
         }
 
         public bool IsComplete => drops >= Areas.TotalDrops && places >= Areas.TotalLandmarks && species >= SpeciesCatalog.Count;
@@ -28,7 +31,7 @@ namespace Shakutori
         public float val = 1f;
         public Color swatch;
         public string condition;
-        public int needDrops, needPlaces, needSpecies;
+        public int needDrops, needPlaces, needSpecies, needObserved, needFriends;
         public bool needAll;
         public bool rainbow;
     }
@@ -53,6 +56,8 @@ namespace Shakutori
                         new SkinDef { id = "momiji", name = "もみじ", hue = -75f, sat = 1.2f, val = 1.0f, swatch = Hex("#e8663a"), needDrops = 30, condition = "しずくを 30 こ" },
                         new SkinDef { id = "yozora", name = "よぞら", hue = 175f, sat = 0.85f, val = 0.8f, swatch = Hex("#6a5ac8"), needSpecies = 10, condition = "いきものを 10 しゅ" },
                         new SkinDef { id = "kogane", name = "こがね", hue = -45f, sat = 1.35f, val = 1.25f, swatch = Hex("#f2c53a"), needSpecies = SpeciesCatalog.Count, condition = "いきもの図鑑をコンプリート" },
+                        new SkinDef { id = "ruri", name = "るりいろ", hue = 130f, sat = 1.05f, val = 0.85f, swatch = Hex("#3a62c8"), needObserved = 30, condition = "しぐさを 30 こ観察" },
+                        new SkinDef { id = "fuji", name = "ふじいろ", hue = -170f, sat = 0.5f, val = 1.15f, swatch = Hex("#b9a2e6"), needFriends = 5, condition = "5 しゅと、なかよし ★5" },
                         new SkinDef { id = "niji", name = "にじいろ", rainbow = true, sat = 1.1f, val = 1.1f, swatch = Hex("#ff7ad0"), needAll = true, condition = "ぜんぶ集める" },
                     };
                 }
@@ -76,7 +81,8 @@ namespace Shakutori
         public static bool IsUnlocked(SkinDef s, ProgressStats st)
         {
             if (s.needAll) return st.IsComplete;
-            return st.drops >= s.needDrops && st.places >= s.needPlaces && st.species >= s.needSpecies;
+            return st.drops >= s.needDrops && st.places >= s.needPlaces && st.species >= s.needSpecies
+                && st.observed >= s.needObserved && st.bestFriends >= s.needFriends;
         }
 
         public static List<SkinDef> NewlyUnlocked(ProgressStats before, ProgressStats after)

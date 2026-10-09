@@ -17,7 +17,7 @@ namespace Shakutori
     /// 飛び立つ、アメンボは水をこいで進む、ホタルは光をそろえる…）をつけている。
     /// </summary>
     [DefaultExecutionOrder(-50)]
-    public class Creatures : MonoBehaviour
+    public partial class Creatures : MonoBehaviour
     {
         static readonly Unity.Profiling.ProfilerMarker s_CreatureDraw = new Unity.Profiling.ProfilerMarker("Shaku.CreatureDraw");
         static readonly Unity.Profiling.ProfilerMarker s_Creatures = new Unity.Profiling.ProfilerMarker("Shaku.Creatures");
@@ -192,6 +192,12 @@ namespace Shakutori
             public float startBlink;                    // このフレームのはじめの光るリズム
             public float startPathS, startLat;           // このフレームのはじめの、行列の道のり・左右のずれ
             public int cellX, cellZ;                   // 格子のます
+            // ---- もう一度会う（Creatures.Friends.cs） ----
+            public float friendNext;                   // つぎにあいさつできる時刻
+            public bool sizeSeen;                      // 大きさをはかった
+            public float guideUntil = -1f, guideNext;  // あんないしている間・つぎにあんないできる時刻
+            public Vector3 guideTo;                    // あんないする先
+            public float trailNext;                    // つぎに光のあとを残す時刻
         }
 
         public struct MobInfo
@@ -492,6 +498,8 @@ namespace Shakutori
             // レアは遊ぶたびにちがう（決まった場所にいつもいるわけではない）。
             // 時計は 15 ミリ秒ほどごとにしか進まないので、続けて作ったときも同じにならないよう、作った回数もまぜる
             var rareRng = new System.Random(Environment.TickCount ^ world.Area.Id.GetHashCode() ^ (++s_builds * 7919));
+            // 一匹ずつの大きさのばらつき（遊ぶたびに、ちがう大きさの一匹に会える）
+            var sizeRng = new System.Random(Environment.TickCount * 31 ^ world.Area.Id.GetHashCode() ^ (s_builds * 104729));
             foreach (var g in world.Mobs)
             {
                 var baseSp = SpeciesCatalog.Get(g.species);
@@ -516,7 +524,7 @@ namespace Shakutori
                         radius = g.radius,
                         height = g.height,
                         phase = R(0f, 100f),
-                        scale = sp.scale * R(0.9f, 1.1f),
+                        scale = sp.scale * R(0.9f, 1.1f) * SizeFactor(sizeRng, sp.rideable),   // 一匹ずつの大きさ（大物も小さいものもいる）
                         timer = R(0.2f, 3f),
                         pace = R(0.9f, 1.1f),
                         blink = R(0f, Mathf.PI * 2f),
@@ -917,6 +925,7 @@ namespace Shakutori
                     Vector3 c = m.pos + m.up * (0.3f * m.scale);
                     if ((_head - c).sqrMagnitude < m.sp.discoverRadius * m.sp.discoverRadius) Discover(m.sp, m.pos);
                 }
+                else if (Active) UpdateFriendly(m, worm);   // もう一度会った（あいさつ・観察・大きさ）
             }
         }
 
@@ -940,11 +949,14 @@ namespace Shakutori
         {
             if (IsDiscovered(sp.id)) return;
             SaveSystem.Data.creatures.Add(sp.id);
+            // はじめて会ったときは、なかよしは上がらない（つぎに会ったときから）。大きさは、いまはかる
+            Friends.Note(sp.id).friendAt = SaveSystem.Data.playTime;
             SaveSystem.Save();
             foreach (var m in _mobs)
             {
                 if (m.sp != sp) continue;
                 m.joy = 1f;
+                m.friendNext = m.anim + GreetInterval;
                 // 見つけられたいきものは、しゃくとりむしの方を向いて、少し止まる
                 Vector3 toW = Vector3.ProjectOnPlane(_head - m.pos, m.up);
                 if (toW.sqrMagnitude < 16f && toW.sqrMagnitude > 1e-4f && !m.airborne)
@@ -2073,7 +2085,8 @@ namespace Shakutori
             }
             float ground = GroundOrWater(m.pos);
             Vector3 goal;
-            if (m.resting) goal = m.target;
+            if (GuideGoal(m, out var guide)) { m.resting = false; m.chase = null; goal = guide; }   // あんないしている
+            else if (m.resting) goal = m.target;
             else if (m.chase != null && m.anim < m.chaseUntil && !m.chase.resting)
             {
                 // くるくる回りながら追いかけ、らせんをえがいて上へ上がっていく
@@ -2675,7 +2688,7 @@ namespace Shakutori
                 return;
             }
             m.timer -= dt;
-            float flee = m.sp.fleeRadius;
+            float flee = m.sp.fleeRadius * FearScale(m);   // なかよしの鳥は、近くまで来させてくれる
             float dWorm = (_head - m.pos).magnitude;
             bool scared = dWorm < flee;
             bool alarmed = m.alarmAt >= 0f && m.anim >= m.alarmAt;
@@ -2846,7 +2859,7 @@ namespace Shakutori
         {
             Vector3 dest = m.home;
             var spots = m.group.path;
-            float avoid = m.sp.fleeRadius * 1.5f;
+            float avoid = m.sp.fleeRadius * FearScale(m) * 1.5f;
             // 下りる場所は、しゃくとりむしから十分はなれた所を選ぶ
             for (int tries = 0; tries < 4; tries++)
             {
@@ -3044,6 +3057,7 @@ namespace Shakutori
             Vector3 goal = m.perched ? m.target
                 : new Vector3(m.target.x, GroundOrWater(m.target) + m.height + Mathf.Sin(m.anim * 1.3f + m.phase) * 0.5f, m.target.z);
             if (m.prey != null && m.anim < m.preyUntil) goal = m.prey.pos + new Vector3(0.4f, 0.2f, 0.4f);
+            if (GuideGoal(m, out var guide)) { m.perched = false; m.prey = null; goal = guide; }   // あんないしている
             Vector3 d = goal - m.pos;
             float dist = d.magnitude;
             // すいっと飛んで、ぴたっと止まる
@@ -3130,6 +3144,7 @@ namespace Shakutori
             float ground = GroundOrWater(m.target);
             Vector3 goal = m.perched ? m.target
                 : new Vector3(m.target.x, ground + m.height + Mathf.Sin(m.anim * 1.3f + m.phase) * 0.5f + glow * 0.3f, m.target.z);
+            if (GuideGoal(m, out var guide)) { m.perched = false; goal = guide; }   // あんないしている
             Vector3 d = goal - m.pos;
             // 風が強いほど、大きく流される
             Vector3 want = Vector3.ClampMagnitude(d * 2f, m.sp.speed)

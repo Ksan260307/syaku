@@ -45,7 +45,7 @@ namespace Shakutori
         Label _bannerSub, _bannerTitle, _bannerDesc, _promptKey, _promptText, _helpHint, _rotateHint;
         Label _mapTitle, _mapSummary, _confirmText, _completeTitle, _completeText;
         Label _creatureCardName, _creatureCardDesc, _zukanCount, _zukanName, _zukanArea, _zukanDesc;
-        VisualElement _zukanHabitat, _zukanGo;
+        VisualElement _zukanHabitat, _zukanGo, _zukanFriend;
         Label _zukanHabitatTitle;
         ScrollView _zukanDetail;
         Texture2D _mapTexture;
@@ -317,6 +317,7 @@ namespace Shakutori
             _zukanHabitatTitle = Q<Label>("zukan-habitat-title");
             _zukanDetail = Q<ScrollView>("zukan-detail");
             _zukanDesc = Q<Label>("zukan-desc");
+            _zukanFriend = Q<VisualElement>("zukan-friend");
             _skinGrid = Q<VisualElement>("skin-grid");
             _recordList = Q<VisualElement>("record-list");
             _confirmText = Q<Label>("confirm-text");
@@ -1209,6 +1210,18 @@ namespace Shakutori
                 name.AddToClassList("zukan-card-name");
                 card.Add(img);
                 card.Add(name);
+                if (known)
+                {
+                    // なかよしの★と、しぐさをぜんぶ観察した金のわく
+                    int lv = Friends.Level(sp.id);
+                    if (lv > 0)
+                    {
+                        var fb = new Label("★" + lv) { pickingMode = PickingMode.Ignore };
+                        fb.AddToClassList("zukan-card-friend");
+                        card.Add(fb);
+                    }
+                    card.EnableInClassList("zukan-card--master", Friends.FullyObserved(sp.id));
+                }
                 if (known && !SaveSystem.Data.seenCreatures.Contains(sp.id))
                 {
                     var nw = new Label("NEW") { pickingMode = PickingMode.Ignore };
@@ -1327,9 +1340,66 @@ namespace Shakutori
             // すみか：見つけたいきものは、どの名所のまわりにいるかと、地図の上の場所を見せる
             _zukanArea.text = "すみか：" + (known ? Habitats.Describe(id) : sp.areaLabel);
             _zukanDesc.text = known ? sp.description : "ヒント：" + sp.hint;
+            ShowFriendNotes(id, known);
             ShowHabitatMap(id, known);
             ShowHabitatTravel(id, known);
             if (_zukanDetail != null) _zukanDetail.scrollOffset = Vector2.zero;   // ほかのいきものをえらんだら、上から
+        }
+
+        /// <summary>図鑑の、もう一度会うとわかること（なかよし・すきなもの・ひみつ・しぐさ・大きさ）。</summary>
+        void ShowFriendNotes(string id, bool known)
+        {
+            if (_zukanFriend == null) return;
+            _zukanFriend.Clear();
+            _zukanFriend.style.display = known ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!known) return;
+            void Line(string text, string cls, bool locked = false)
+            {
+                var l = new Label(text) { pickingMode = PickingMode.Ignore };
+                l.AddToClassList(cls);
+                if (locked) l.AddToClassList("zukan-friend-line--locked");
+                _zukanFriend.Add(l);
+            }
+            int lv = Friends.Level(id);
+            Line($"なかよし　{Friends.Stars(lv)}", "zukan-friend-stars");
+            if (lv < Friends.MaxFriend) Line("しずかに近づくと、あいさつしてくれる。会うたびに、なかよしになれる", "zukan-friend-line", true);
+            Line(lv >= Friends.LikesAt ? "すきなもの：" + Friends.Likes(id) : "すきなもの：？（なかよし ★1 で）", "zukan-friend-line", lv < Friends.LikesAt);
+            Line(lv >= Friends.SecretAt ? "ひみつ：" + Friends.Secret(id) : "ひみつ：？（なかよし ★3 で）", "zukan-friend-line", lv < Friends.SecretAt);
+            var sp = SpeciesCatalog.Get(id);
+            if (sp != null && (sp.kind == MobKind.Flutter || sp.kind == MobKind.Hover))
+                Line(lv >= Friends.GuideAt ? "なかよし ★2：しずくのある方へ、あんないしてくれる" : "なかよし ★2 で：あんないしてくれる…？", "zukan-friend-line", lv < Friends.GuideAt);
+            var bs = Friends.BehaviorsOf(id);
+            Line($"しぐさの観察（{Friends.SeenCount(id)} / {bs.Length}）", "zukan-friend-head");
+            var stamps = new VisualElement { pickingMode = PickingMode.Ignore };
+            stamps.AddToClassList("zukan-stamps");
+            for (int i = 0; i < bs.Length; i++)
+            {
+                bool seen = Friends.HasSeen(id, bs[i].key);
+                string text = seen ? bs[i].label : i == bs.Length - 1 ? "？？？（とっておき）" : "？？？";
+                var s = new Label(text) { pickingMode = PickingMode.Ignore };
+                s.AddToClassList("zukan-stamp");
+                s.AddToClassList(seen ? "zukan-stamp--on" : "zukan-stamp--off");
+                stamps.Add(s);
+            }
+            _zukanFriend.Add(stamps);
+            var note = Friends.Find(id);
+            if (note != null && note.bigMm > 0f)
+                Line(Mathf.Abs(note.bigMm - note.smallMm) < 0.05f
+                    ? $"大きさ：{Friends.FormatSize(note.bigMm)}（会うたびに、はかる）"
+                    : $"大きさ：いちばん大きい {Friends.FormatSize(note.bigMm)}　／　いちばん小さい {Friends.FormatSize(note.smallMm)}", "zukan-friend-line");
+            else Line("大きさ：まだはかっていない（近くで会うと、はかる）", "zukan-friend-line", true);
+        }
+
+        /// <summary>図鑑の、もう一度会うとわかることの文（テスト用）。</summary>
+        public string ZukanFriendText
+        {
+            get
+            {
+                if (_zukanFriend == null) return "";
+                var sb = new System.Text.StringBuilder();
+                foreach (var l in _zukanFriend.Query<Label>().ToList()) sb.AppendLine(l.text);
+                return sb.ToString();
+            }
         }
 
         /// <summary>図鑑の「すみかのそばの名所へ」ボタンの数（テスト用）。</summary>
@@ -1473,6 +1543,8 @@ namespace Shakutori
             }
             AddRecord("見つけたいきもの", $"{Creatures.DiscoveredCount} / {SpeciesCatalog.Count}");
             AddRecord("レアないきもの", $"{Creatures.RareDiscoveredCount} / {SpeciesCatalog.RareCount}");
+            AddRecord("観察したしぐさ", $"{Friends.TotalObserved} / {SpeciesCatalog.All.Sum(s => Friends.BehaviorsOf(s.id).Length)}");
+            AddRecord("なかよし ★5 のいきもの", $"{Friends.BestFriendCount} しゅ");
             AddRecord("歩いた歩数", $"{d.steps:N0} 歩");
             AddRecord("糸を使った回数", $"{d.silkUses} 回");
             AddRecord("落ちた回数", $"{d.falls} 回");

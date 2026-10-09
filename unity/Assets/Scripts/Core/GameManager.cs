@@ -134,6 +134,18 @@ namespace Shakutori
                     fx.Burst(pos + Vector3.up * 0.3f, sp.IsRare ? 80 : 30);
                     worm.LookAt(pos, 1.6f);   // 見つけたいきもののほうを見る
                 };
+                // もう一度会う：あいさつ・なかよし・しぐさの観察・大きさの記録・あんない
+                creatures.Greeted += OnGreeted;
+                creatures.Observed += OnObserved;
+                creatures.Measured += OnMeasured;
+                creatures.GuideStarted += (sp, from, to) =>
+                {
+                    worm.LookAt(from, 1.2f);
+                    AudioManager.Instance?.Friend();
+                    ui.Toast($"{sp.name}が、あんないしてくれる！ ついていこう", "icon-book", 3.5f);
+                };
+                creatures.GuideTrail += p => fx.Glint(p);
+                creatures.GuideTarget = GuideTarget;
             }
             ui.FastTravelRequested += id => FastTravel(id);
             ui.LandmarkTravelRequested += id => TravelToLandmark(id);
@@ -832,6 +844,71 @@ namespace Shakutori
             }
             SaveProgress();
             CheckProgress();
+        }
+
+        // ------------------------------------------------------------------
+        // もう一度会う
+        // ------------------------------------------------------------------
+        void OnGreeted(SpeciesDef sp, Vector3 pos, int level, bool up)
+        {
+            if (sp.kind == MobKind.Bird)
+            {
+                if (sp.id == "crow" || sp.id == "flamingo") AudioManager.Instance?.Caw(0.35f);
+                else AudioManager.Instance?.Chirp(0.5f);
+            }
+            else if (sp.id == "frog") AudioManager.Instance?.Croak(0.5f);
+            else AudioManager.Instance?.Greet();
+            fx.Burst(pos + Vector3.up * 0.35f, 8, new Color(1f, 0.62f, 0.78f, 1f));
+            worm.LookAt(pos, 1.2f);
+            ui.Tip("friend-first", "見つけたいきものに、しずかに近づくと、あいさつしてくれる。会うたびに、なかよしになれるよ（図鑑で見られる）");
+            if (!up) return;
+            AudioManager.Instance?.Friend();
+            string extra = level == Friends.LikesAt ? "　すきなものが、わかった"
+                : level == Friends.GuideAt && (sp.kind == MobKind.Flutter || sp.kind == MobKind.Hover) ? "　しずくのある方へ、あんないしてくれるように"
+                : level == Friends.SecretAt ? "　ひみつが、わかった"
+                : level == Friends.SignatureAt ? "　とっておきのしぐさを見せてくれた！" : "";
+            ui.Toast($"{sp.name}と、なかよし {Friends.Stars(level)}{extra}", "icon-book", 3.4f);
+            SaveProgress();
+            CheckProgress();
+        }
+
+        void OnObserved(SpeciesDef sp, Behavior b, Vector3 pos)
+        {
+            int n = Friends.SeenCount(sp.id), all = Friends.BehaviorsOf(sp.id).Length;
+            AudioManager.Instance?.Friend();
+            ui.Toast($"かんさつ：{sp.name}が「{b.label}」（{n} / {all}）", "icon-book", 3f);
+            if (n >= all)
+            {
+                AudioManager.Instance?.Unlock();
+                fx.Burst(pos + Vector3.up * 0.4f, 40, new Color(1f, 0.85f, 0.35f, 1f));
+                ui.Toast($"{sp.name}のしぐさを、ぜんぶ観察した！", "icon-book", 4f);
+            }
+            SaveProgress();
+            CheckProgress();
+        }
+
+        void OnMeasured(SpeciesDef sp, float mm, Vector3 pos)
+        {
+            int r = Friends.RecordSize(sp.id, mm);
+            if (r == 0) return;
+            AudioManager.Instance?.Friend();
+            ui.Toast($"{(r > 0 ? "いちばん大きい" : "いちばん小さい")}{sp.name}！ {Friends.FormatSize(mm)}", "icon-book", 3f);
+        }
+
+        /// <summary>あんないする先：近くの、まだ取っていないしずく（なければ、まだ見つけていない名所）。</summary>
+        Vector3? GuideTarget(Vector3 from)
+        {
+            if (collectibles.NearestDrop(from, 45f, out var drop)) return drop;
+            Vector3? best = null;
+            float bd = 60f * 60f;
+            foreach (var lm in collectibles.Area.Landmarks)
+            {
+                if (collectibles.IsDiscovered(lm.id)) continue;
+                Vector3 p = collectibles.Area.Ground(lm.position.x, lm.position.y);
+                float d = (p - from).sqrMagnitude;
+                if (d < bd) { bd = d; best = p; }
+            }
+            return best;
         }
 
         /// <summary>きせかえの解放・エリアのクリア・ぜんぶのクリアを調べる。</summary>

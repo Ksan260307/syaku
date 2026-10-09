@@ -22,6 +22,7 @@ namespace Shakutori
         public List<string> completedAreas = new List<string>();   // しずくと名所をぜんぶ見つけたエリア
         public List<string> tipsShown = new List<string>();        // 一度だけ出すヒント
         public List<string> habitats = new List<string>();         // いきもののすみか（図鑑用。"種|エリア|x|z|広さ|名所"）
+        public List<CreatureNote> notes = new List<CreatureNote>(); // いきものとのなかよし・観察したしぐさ・大きさの記録
         public string skin = "wakaba";
         // きろく
         public int steps;
@@ -138,6 +139,14 @@ namespace Shakutori
             d.visited ??= new List<string>();
             d.completedAreas ??= new List<string>();
             d.tipsShown ??= new List<string>();
+            d.habitats ??= new List<string>();
+            d.notes ??= new List<CreatureNote>();
+            d.notes.RemoveAll(n => n == null || string.IsNullOrEmpty(n.id));
+            foreach (var n in d.notes)
+            {
+                n.seen ??= new List<string>();
+                n.friend = Mathf.Clamp(n.friend, 0, Friends.MaxFriend);
+            }
             if (string.IsNullOrEmpty(d.area)) d.area = "forest";
             if (string.IsNullOrEmpty(d.skin)) d.skin = "wakaba";
             if (d.version < 2)

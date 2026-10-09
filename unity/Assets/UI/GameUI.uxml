@@ -221,6 +221,7 @@
                                 <ui:Label name="zukan-area" text="" class="zukan-area" picking-mode="Ignore" />
                                 <ui:VisualElement name="zukan-go" class="zukan-go" />
                                 <ui:Label name="zukan-desc" text="" class="zukan-desc" picking-mode="Ignore" />
+                                <ui:VisualElement name="zukan-friend" class="zukan-friend" picking-mode="Ignore" />
                                 <ui:Label name="zukan-habitat-title" text="" class="zukan-habitat-title" picking-mode="Ignore" />
                                 <ui:VisualElement name="zukan-habitat" class="zukan-habitat" picking-mode="Ignore" />
                             </ui:VisualElement>

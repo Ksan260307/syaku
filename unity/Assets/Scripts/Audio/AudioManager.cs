@@ -246,6 +246,10 @@ namespace Shakutori
             Play(complete, 0.9f);
         }
         public void Creature() => Play(creature, 0.85f);
+        /// <summary>見つけたいきものが、あいさつしてくれた（小さく、高めに）。</summary>
+        public void Greet() => Play(creature, 0.32f, Random.Range(1.3f, 1.45f));
+        /// <summary>しぐさを観察した・なかよしが上がった。</summary>
+        public void Friend() => Play(discover, 0.5f, 1.2f);
         public void Travel() => Play(travel, 0.8f);
         public void Unlock() => Play(unlock, 0.8f);
         public void Caw(float volume) => Play(caw, volume, Random.Range(0.92f, 1.05f));
