@@ -351,6 +351,10 @@ namespace Shakutori
             var mr = go.AddComponent<MeshRenderer>();
             mr.sharedMaterial = assets.pond != null ? assets.pond : assets.water;
             mr.shadowCastingMode = ShadowCastingMode.Off;
+            // 21. ときどき雨だれのような波紋が広がる（葉っぱの舟のあいだ）
+            var mpb = new MaterialPropertyBlock();
+            mpb.SetVector("_Drip", new Vector4(ForestLayout.Pond.x - 3f, ForestLayout.Pond.y + 3f, 2.4f, 0.55f));
+            mr.SetPropertyBlock(mpb);
             WaterView.Register(mr);   // 水が映るときだけ、深さと色の写しを作る
         }
 
@@ -690,8 +694,45 @@ namespace Shakutori
                 if (ShakuMath.DistToSegment(p, la, lb) < 5f) c = bark * 1.15f;
                 px[j * size + i] = c;
             }
+            // 86. 小道・90. 花の草原の花畑・91. 苔の丘・93. 大樹の根
+            MapTrails(px, size, ForestLayout.Trails, new Color32(214, 194, 150, 255));
+            for (int k = 0; k < 60; k++)
+            {
+                float a = k * 2.39996f, r = Mathf.Sqrt(k / 60f) * 12f;
+                Vector2 p = ForestLayout.Meadow + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
+                var fc = k % 3 == 0 ? new Color32(255, 240, 120, 255) : k % 3 == 1 ? new Color32(255, 255, 255, 255) : new Color32(180, 150, 230, 255);
+                MapDot(px, size, new Vector3(p.x, 0f, p.y), 0.6f, fc);
+            }
+            for (int j = 0; j < size; j++)
+            for (int i = 0; i < size; i++)
+            {
+                Vector2 p = MapToWorld(i, j, size);
+                float m = ShakuMath.SmoothStep(14f, 9f, Vector2.Distance(p, ForestLayout.MossHill));
+                if (m > 0f) px[j * size + i] = Color32.Lerp(px[j * size + i], new Color32(96, 170, 70, 255), m * 0.45f);
+            }
+            for (int k = 0; k < 9; k++)
+            {
+                float a = Mathf.Lerp(Mathf.PI * 1.1f, Mathf.PI * 1.9f, k / 8f);
+                for (float d = 15f; d < 34f; d += 1.2f)
+                    MapDot(px, size, new Vector3(ForestLayout.GreatTree.x + Mathf.Cos(a) * d, 0f, ForestLayout.GreatTree.y + Mathf.Sin(a) * d + Mathf.Sin(d * 0.4f + k) * 0.8f), 1f, new Color32(120, 86, 58, 255));
+            }
             if (generated)
                 foreach (var (pos, s) in _redCaps) MapDot(px, size, pos, Mathf.Max(2f, 2.5f * s), new Color32(230, 70, 60, 255));
+            if (generated)
+            {
+                // 87. 葉っぱの舟・88. どんぐり・89. 光るキノコと道しるべ・92. 外周の大岩
+                foreach (var p in _lilyPads) MapDot(px, size, p, 2.2f, new Color32(84, 160, 80, 255));
+                for (int k = 0; k < 18; k++)
+                {
+                    float a = k * 2.39996f, r = Mathf.Sqrt(k / 18f) * 11f;
+                    MapDot(px, size, new Vector3(ForestLayout.AcornPlaza.x + Mathf.Cos(a) * r, 0f, ForestLayout.AcornPlaza.y + Mathf.Sin(a) * r), 1f, new Color32(150, 98, 52, 255));
+                }
+                Vector2 h = ForestLayout.ArchTarget + new Vector2(1.5f, 2.5f);
+                for (int k = 0; k < 10; k++)
+                    MapDot(px, size, new Vector3(h.x + Mathf.Cos(k * 2.4f) * 4f, 0f, h.y + Mathf.Sin(k * 2.4f) * 4f), 1f, new Color32(110, 220, 255, 255));
+                foreach (var p in ExtraSpots("glowtrail")) MapDot(px, size, p, 0.8f, new Color32(110, 220, 255, 255));
+                foreach (var p in ExtraSpots("boundary")) MapDot(px, size, p, 0.9f, new Color32(150, 150, 140, 255));
+            }
             else
                 for (int i = 0; i < BigReds.Length; i++)
                 {

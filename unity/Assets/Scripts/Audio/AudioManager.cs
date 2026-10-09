@@ -28,18 +28,32 @@ namespace Shakutori
         public AudioClip rare;
         public AudioClip chirp;
         public AudioClip croak;
+        public AudioClip parkAmbience;   // 公園の環境音
+        /// <summary>エリアの音（場所で聞こえるループと、できごとの音）。名前でさがす。</summary>
+        public AudioClip[] areaClips = new AudioClip[0];
+
+        public AudioClip AreaClip(string name)
+        {
+            foreach (var c in areaClips)
+                if (c != null && c.name == name) return c;
+            return null;
+        }
+
+        /// <summary>音を出せるようになったか（ブラウザでは、最初のクリックのあと）。</summary>
+        public bool Started => _started;
 
         /// <summary>足もとの種類（足音の高さや大きさが変わる）。</summary>
-        public enum Surface { Ground, Wood, Stone, Leaf, Creature }
+        public enum Surface { Ground, Wood, Stone, Leaf, Creature, Moss, Sand, Metal }
 
         float _waterNear = 1f;
         float _duckUntil;
 
-        AudioSource _music, _amb, _amb2;
+        AudioSource _music, _amb, _amb2, _amb3;
         AudioSource _musicOut;        // 前のエリアの曲（ゆっくり小さくなって止まる）
         string _area = "forest";
         float _ambMix;   // 0 = 森, 1 = 川
         float _ambMixTarget;
+        float _parkMix, _parkMixTarget;   // 1 = 公園
         AudioSource[] _sfx;
         int _next;
         float _musicTarget, _ambTarget;
@@ -64,6 +78,10 @@ namespace Shakutori
             _amb2.loop = true;
             _amb2.playOnAwake = false;
             _amb2.volume = 0f;
+            _amb3 = gameObject.AddComponent<AudioSource>();
+            _amb3.loop = true;
+            _amb3.playOnAwake = false;
+            _amb3.volume = 0f;
             _sfx = new AudioSource[8];
             for (int i = 0; i < _sfx.Length; i++)
             {
@@ -81,6 +99,7 @@ namespace Shakutori
             if (clip != null) { _music.clip = clip; _music.Play(); }
             if (ambience != null) { _amb.clip = ambience; _amb.Play(); }
             if (riverAmbience != null) { _amb2.clip = riverAmbience; _amb2.Play(); }
+            if (parkAmbience != null) { _amb3.clip = parkAmbience; _amb3.Play(); }
         }
 
         /// <summary>エリアの BGM（なければ森の曲）。</summary>
@@ -98,6 +117,7 @@ namespace Shakutori
         {
             _area = areaId;
             _ambMixTarget = areaId == "river" ? 1f : 0f;
+            _parkMixTarget = areaId == "park" ? 1f : 0f;
             var clip = MusicFor(areaId);
             if (_music == null || clip == null || _music.clip == clip) return;
             if (!_started)
@@ -127,7 +147,9 @@ namespace Shakutori
                 if (_musicOut.volume <= 0.001f) _musicOut.Stop();
             }
             _ambMix = Mathf.MoveTowards(_ambMix, _ambMixTarget, Time.unscaledDeltaTime * 0.5f);
-            _amb.volume = Mathf.Lerp(_amb.volume, _started ? _ambTarget * (1f - _ambMix) : 0f, k);
+            _parkMix = Mathf.MoveTowards(_parkMix, _parkMixTarget, Time.unscaledDeltaTime * 0.5f);
+            _amb.volume = Mathf.Lerp(_amb.volume, _started ? _ambTarget * (1f - _ambMix) * (1f - _parkMix) : 0f, k);
+            _amb3.volume = Mathf.Lerp(_amb3.volume, _started ? _ambTarget * 1.05f * _parkMix : 0f, k);
             _amb2.volume = Mathf.Lerp(_amb2.volume, _started ? _ambTarget * 1.1f * _ambMix * Mathf.Lerp(0.5f, 1.25f, _waterNear) : 0f, k);
         }
 
@@ -149,7 +171,11 @@ namespace Shakutori
             if (layer == ShakuConst.CreatureLayer) return Surface.Creature;
             if (string.IsNullOrEmpty(objectName)) return Surface.Ground;
             string n = objectName;
-            if (n.Contains("Rock") || n.Contains("Stone") || n.Contains("Pebble")) return Surface.Stone;
+            if (n.Contains("JungleGym") || n.Contains("Slide") || n.Contains("Swing") || n.Contains("Lamp") || n.Contains("SeesawBase")) return Surface.Metal;
+            if (n.Contains("SandMound") || n.Contains("SandCastle")) return Surface.Sand;
+            if (n.Contains("Rock") || n.Contains("Stone") || n.Contains("Pebble") || n.Contains("Marble")) return Surface.Stone;
+            if (n.Contains("Fungus") || n.Contains("PaperPlane")) return Surface.Leaf;
+            if (n.Contains("Park_Block")) return Surface.Wood;
             if (n.Contains("Leaf") || n.Contains("Lily") || n.Contains("Mushroom") || n.Contains("Fern") || n.Contains("Moss")) return Surface.Leaf;
             if (n.Contains("Trunk") || n.Contains("Stump") || n.Contains("Log") || n.Contains("Root") || n.Contains("Branch")
                 || n.Contains("Twig") || n.Contains("Pine") || n.Contains("Acorn") || n.Contains("Bark") || n.Contains("Wood")) return Surface.Wood;
@@ -160,19 +186,44 @@ namespace Shakutori
         public void Step(bool head, Surface surface) => Step(head, surface, 1f);
 
         /// <summary>loudness：はやくで大きく、ゆっくり・いきものの近くでは小さく。</summary>
-        public void Step(bool head, Surface surface, float loudness)
+        public void Step(bool head, Surface surface, float loudness) => Step(head, surface, loudness, false);
+
+        /// <summary>echo = true なら、丸太や土管の中のように、少しおくれて小さくひびく。</summary>
+        public void Step(bool head, Surface surface, float loudness, bool echo)
         {
             if (steps == null || steps.Length == 0) return;
             float vol = (head ? 0.35f : 0.25f) * Mathf.Clamp(loudness, 0.3f, 1.6f);
             float pitch = Random.Range(0.9f, 1.15f) * (head ? 1.08f : 0.95f);
+            AudioClip clip = steps[Random.Range(0, steps.Length)];
             switch (surface)
             {
                 case Surface.Wood: pitch *= 0.78f; vol *= 1.1f; break;
                 case Surface.Stone: pitch *= 1.3f; vol *= 0.9f; break;
                 case Surface.Leaf: pitch *= 1.12f; vol *= 1.25f; break;
                 case Surface.Creature: pitch *= 0.85f; vol *= 0.6f; break;
+                case Surface.Moss: pitch *= 0.85f; vol *= 0.5f; break;   // 苔の上は、やわらかく小さい
+                case Surface.Sand:
+                    // 砂は、しゃりしゃり
+                    var sand = AreaClip("sand_step");
+                    if (sand != null) { clip = sand; vol *= 0.9f; }
+                    break;
+                case Surface.Metal:
+                    // ジャングルジム・すべり台：ちん、と金属の音
+                    pitch *= 1.35f;
+                    Play(AreaClip("ting"), vol * 0.35f, Random.Range(0.95f, 1.1f));
+                    break;
             }
-            Play(steps[Random.Range(0, steps.Length)], vol, pitch);
+            Play(clip, vol, pitch);
+            if (echo && clip != null)
+            {
+                // 少しおくれて、こもった音がひびく
+                var src = _sfx[_next];
+                _next = (_next + 1) % _sfx.Length;
+                src.clip = clip;
+                src.pitch = pitch * 0.9f;
+                src.volume = vol * 0.4f * SaveSystem.Settings.sfx;
+                src.PlayDelayed(0.11f);
+            }
         }
 
         /// <summary>川の音の近さ（0 = 遠い、1 = すぐそば）。川辺では水に近いほど水音が大きい。</summary>

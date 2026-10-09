@@ -61,6 +61,8 @@ namespace Shakutori
 #endif
         bool _starting;
         ProgressStats _stats;
+        AreaProps _areaProps;
+        AreaSounds _areaSounds;
         Renderer _wormRenderer;
 
         IEnumerator Start()
@@ -81,11 +83,17 @@ namespace Shakutori
             _wormRenderer = worm.body != null ? worm.body.GetComponent<Renderer>() : null;
 
             var area = SaveSystem.HasSave ? Areas.Get(SaveSystem.Data.area) ?? Areas.Forest : Areas.Forest;
+            ui.LoadingAreaId = area.Id;
             ui.SetLoading(0f, area.DisplayName + "を準備しています");
             yield return null;
 
             fx.followTarget = followCamera.transform;
             fx.Build();
+            // エリアの動く小物と、場所で聞こえる音
+            _areaProps = GetComponent<AreaProps>();
+            if (_areaProps == null) _areaProps = gameObject.AddComponent<AreaProps>();
+            _areaSounds = GetComponent<AreaSounds>();
+            if (_areaSounds == null) _areaSounds = gameObject.AddComponent<AreaSounds>();
             yield return BuildArea(area, (p, t) => ui.SetLoading(p * 0.95f, t));
             PlaceWorm(SaveSystem.HasSave);
             followCamera.target = worm;
@@ -94,7 +102,9 @@ namespace Shakutori
 
             worm.Stepped += (p, head) =>
             {
-                AudioManager.Instance?.Step(head, SurfaceAt(p), worm.StepLoudness);
+                // 足音：苔の上はやわらかく、公園の砂はしゃりしゃり、丸太や土管の中はひびく
+                AudioManager.Instance?.Step(head, AreaProps.Refine(SurfaceAt(p), p), worm.StepLoudness, AreaProps.Echo(p));
+                _areaProps?.OnStep(p);
                 if (head) SaveSystem.Data.steps++;
                 // 一歩ごとの小さな力：乗っている舟がゆれ、近くのしずくがふるえる
                 PlatformFerry()?.Push(p, 0.25f * worm.StepLoudness);
@@ -166,6 +176,9 @@ namespace Shakutori
             if (creatures != null) creatures.Build(world);
             Habitats.Record(area, world.Mobs);   // 図鑑で見られるように、いきもののすみかを記録
             fx.BuildArea(world);
+            AreaAtmosphere.Apply(area, world.sun);   // エリアの空気と光
+            _areaProps?.Build(world, fx);
+            _areaSounds?.Build(world);
             ui.Init(collectibles, worm, followCamera.transform, world.MapTexture, world.assets);
             AudioManager.Instance?.SetArea(area.Id);
             if (!SaveSystem.Data.visited.Contains(area.Id)) SaveSystem.Data.visited.Add(area.Id);
@@ -204,6 +217,7 @@ namespace Shakutori
                 if (Areas.Current != Areas.Forest)
                 {
                     // 森から始めなおす
+                    ui.LoadingAreaId = "forest";
                     ui.ShowLoading("森を準備しています");
                     yield return BuildArea(Areas.Forest, (p, t) => ui.SetLoading(p, t));
                     ui.HideLoading();
@@ -387,6 +401,7 @@ namespace Shakutori
             ui.Fade(true);
             yield return new WaitForSecondsRealtime(0.7f);
             ui.CloseAllOverlays();
+            ui.LoadingAreaId = to.Id;   // 読み込み画面に、行き先のエリアのヒント
             ui.ShowLoading(to.Subtitle + "へ向かっています");
             worm.enabled = false;
             yield return BuildArea(to, (p, t) => ui.SetLoading(p, t));
@@ -534,10 +549,12 @@ namespace Shakutori
             PlatformFerry()?.Push(worm.CenterPosition, 0.5f + 2f * k);
             collectibles.Impulse(worm.CenterPosition, 1f + 4f * k);
             // 音は、落ちた所の材質でちがう（石は高く、葉っぱはこもって小さく）
-            AudioManager.Instance?.Thud(0.15f + 0.85f * k, worm.LastImpactMaterial);
+            // 苔の丘・目覚めの苔原では、ふわっと着地（土けむりが出ない・音もやわらか）
+            float soft = Mathf.Max(worm.LastImpactSoftness, AreaProps.SoftGround(worm.TailPoint));
+            AudioManager.Instance?.Thud(0.15f + 0.85f * k, soft > 0.5f && worm.LastImpactMaterial == "ground" ? "leaf" : worm.LastImpactMaterial);
             fx.Burst(worm.CenterPosition, 6 + Mathf.RoundToInt(18f * k));
-            // 土けむりは、面にそって広がる（やわらかい葉っぱの上では、ほとんど出ない）
-            fx.Dust(worm.TailPoint, worm.LastImpactNormal, k, worm.LastImpactSoftness);
+            // 土けむりは、面にそって広がる（やわらかい葉っぱや苔の上では、ほとんど出ない）
+            fx.Dust(worm.TailPoint, worm.LastImpactNormal, k, soft);
             followCamera.Dip(k);
             if (creatures != null) creatures.Disturb(worm.CenterPosition, 2f + 5f * k);   // 落ちた音に、近くのいきものがおどろく
             followCamera.Shake(0.25f + 0.6f * k, -worm.LastImpactNormal);   // ぶつかった向きにゆれる（壁なら横、床なら下）
@@ -618,7 +635,11 @@ namespace Shakutori
             Vector3 c = worm.CenterPosition;
             float near = 0f;
             if (Areas.Current == Areas.River)
+            {
                 near = 1f - Mathf.Clamp01((RiverLayout.DistToRiver(c.x, c.z) - RiverLayout.HalfWidth(c.z)) / 14f);
+                // 滝の上の台地では、川の音が少し小さい（せせらぎが、ゆるやか）
+                near *= Mathf.Lerp(1f, 0.6f, ShakuMath.SmoothStep(RiverLayout.FallZ + 3f, RiverLayout.FallZ + 10f, c.z));
+            }
             AudioManager.Instance?.SetWaterNearness(near);
 
             if (!Assists) return;
@@ -764,7 +785,7 @@ namespace Shakutori
             _combo = Time.time - _lastDropTime < 4f ? _combo + 1 : 1;
             _lastDropTime = Time.time;
             AudioManager.Instance?.Collect(count + _combo - 1);
-            fx.Burst(pos);
+            fx.Burst(pos, 40, AreaAtmosphere.DropTint(collectibles.Area.Id));   // エリアの色がまじる
             worm.Cheer(_combo >= 3 ? 1.4f : 1f);   // 続けて取ると、もっと大きくよろこぶ
             string text = $"{collectibles.Area.DropName}  {count} / {collectibles.TotalDrops}";
             if (_combo >= 3) text += $"　れんぞく ×{_combo}！";
@@ -784,7 +805,7 @@ namespace Shakutori
         {
             AudioManager.Instance?.Discover();
             ui.ShowBanner(lm);
-            fx.Burst(worm.HeadPosition + Vector3.up * 0.4f, 50);
+            fx.Burst(worm.HeadPosition + Vector3.up * 0.4f, 50, AreaAtmosphere.DiscoverTint(collectibles.Area.Id));   // エリアの色のきらめき
             worm.Survey(0.3f);   // 名所を見つけると、背伸びして見わたす
             if (collectibles.DiscoveredPlaces == collectibles.TotalPlaces)
                 ui.Toast($"{collectibles.Area.DisplayName}の名所を、ぜんぶ見つけた！", "icon-place", 4f);

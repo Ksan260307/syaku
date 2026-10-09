@@ -50,7 +50,7 @@ namespace Shakutori
         /// <summary>花の頭の位置（チョウやトンボがとまる）。</summary>
         public readonly List<Vector3> FlowerPoints = new List<Vector3>();
         static readonly HashSet<string> FlowerMeshes = new HashSet<string> { "Daisy", "Bellflower", "Dandelion", "DandelionPuff", "Strawberry", "Iris",
-            "Tulip_Red", "Tulip_Yellow", "Tulip_Pink", "Park_Cabbage" };
+            "Tulip_Red", "Tulip_Yellow", "Tulip_Pink", "Park_Cabbage", "Park_WhiteClover" };
         public readonly List<MobGroup> Mobs = new List<MobGroup>();
         public readonly List<GateInstance> Gates = new List<GateInstance>();
         public Vector3 SpawnPoint { get; private set; }
@@ -182,6 +182,7 @@ namespace Shakutori
                 PlaceRiverCreatures();
                 BuildLightShafts(RiverShaftSpots());
             }
+            BuildExtras();   // エリアの改善：小物・道・遠景（しずくの場所は変えない）
             PinLeavesUnderDew();
             BuildMap();
             instanced.Build();
@@ -221,6 +222,7 @@ namespace Shakutori
             _lilyPads.Clear();
             _bigLeaves.Clear();
             _twigs.Clear();
+            _extraSpots.Clear();
             _riverStones.Clear();
             _stepStones.Clear();
             _poolPads.Clear();
@@ -921,6 +923,21 @@ namespace Shakutori
             return t;
         }
 
+        /// <summary>地図に小道を描く。</summary>
+        static void MapTrails(Color32[] px, int size, List<Vector2[]> trails, Color32 color)
+        {
+            foreach (var t in trails)
+                for (int i = 0; i < t.Length - 1; i++)
+                {
+                    float len = Vector2.Distance(t[i], t[i + 1]);
+                    for (float s = 0f; s <= len; s += 0.6f)
+                    {
+                        Vector2 p = Vector2.Lerp(t[i], t[i + 1], s / len);
+                        MapDot(px, size, new Vector3(p.x, 0f, p.y), 0.9f, color);
+                    }
+                }
+        }
+
         void BuildMap()
         {
             MapTexture = Own(RenderMap(Area, true));
@@ -954,7 +971,7 @@ namespace Shakutori
             else if (area.Id == "park") DrawParkMap(px, size);
             else DrawRiverMap(px, size, generated);
             tex.SetPixels32(px);
-            tex.Apply(false, true);
+            tex.Apply(false, false);   // 読めるままにしておく（地図の絵を確かめられるように。256×256 なので小さい）
             return tex;
         }
     }

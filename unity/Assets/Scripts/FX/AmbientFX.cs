@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Shakutori
 {
     /// <summary>森の空気感：光の中をただよう花粉、ホタル、舞い落ちる葉、しずくを取ったときのきらめき。</summary>
-    public class AmbientFX : MonoBehaviour
+    public partial class AmbientFX : MonoBehaviour
     {
         static readonly Unity.Profiling.ProfilerMarker s_Fx = new Unity.Profiling.ProfilerMarker("Shaku.Fx");
         public Material particleMaterial;
@@ -227,6 +227,7 @@ namespace Shakutori
             else if (_area.Id == "park") BuildPark();
             else BuildRiver();
             foreach (var g in world.Gates) GateMotes(g);
+            BuildAreaExtras(world);   // エリアの改善：ただよう物
         }
 
         void BuildForest()
@@ -443,6 +444,7 @@ namespace Shakutori
         {
             using var prof = s_Fx.Auto();   // 処理時間の計測（パフォーマンスの調整用）
             Wind.Publish(Time.time);
+            UpdateAreaExtras();
             if (_pollen != null && followTarget != null)
                 _pollen.transform.position = followTarget.position;
             // 風に流される力（粒のある場所の風。軽い粒ほどよく流される）

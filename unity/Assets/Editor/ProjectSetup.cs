@@ -266,7 +266,7 @@ namespace Shakutori.EditorTools
                 string p = AssetDatabase.GUIDToAssetPath(guid);
                 var imp = (AudioImporter)AssetImporter.GetAtPath(p);
                 var s = imp.defaultSampleSettings;
-                bool longClip = p.Contains("music") || p.Contains("ambience");
+                bool longClip = p.Contains("music") || p.Contains("ambience") || p.Contains("loop_");
                 s.loadType = longClip ? AudioClipLoadType.CompressedInMemory : AudioClipLoadType.DecompressOnLoad;
                 s.compressionFormat = AudioCompressionFormat.Vorbis;
                 s.quality = longClip ? 0.45f : 0.6f;
@@ -686,6 +686,13 @@ namespace Shakutori.EditorTools
             audio.rare = Clip("rare");
             audio.chirp = Clip("chirp");
             audio.croak = Clip("croak");
+            audio.parkAmbience = Clip("ambience_park");
+            audio.areaClips = new[]
+            {
+                Clip("loop_waterfall"), Clip("loop_shallows"), Clip("loop_frogs"), Clip("loop_cave_drip"), Clip("loop_canopy"),
+                Clip("woodpecker"), Clip("knock_acorn"), Clip("puff"), Clip("creak"), Clip("clunk"), Clip("plink"), Clip("bell"),
+                Clip("fish_jump"), Clip("ting"), Clip("sand_step"), Clip("fall"),
+            };
             var creatures = game.AddComponent<Creatures>();
             creatures.assets = assets;
 

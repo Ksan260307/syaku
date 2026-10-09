@@ -224,6 +224,9 @@ namespace Shakutori
             // しばふ（刈りこまれて、少しまだら）
             Color c = Color.Lerp(LawnDeep, Lawn, ShakuMath.SmoothStep(0.3f, 0.75f, n1));
             c = Color.Lerp(c, c * 1.08f, ShakuMath.SmoothStep(0.45f, 0.55f, Mathf.PerlinNoise(x * 0.18f, z * 0.18f)) * 0.5f);
+            // 99. 芝刈りのあとのしま模様（刈った向きで、明るさがかわる）
+            float stripe = Mathf.Sin((x * 0.6f + z * 0.8f) * 0.42f);
+            c = Color.Lerp(c, c * (stripe > 0f ? 1.07f : 0.95f), ShakuMath.SmoothStep(58f, 50f, new Vector2(x, z).magnitude) * 0.8f);
             // 小道
             c = Color.Lerp(c, Color.Lerp(Path, Sand, n2 * 0.4f), TrailMask(x, z) * 0.7f);
             // 砂

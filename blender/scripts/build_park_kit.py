@@ -683,6 +683,143 @@ def make_kunugi():
     return build(mb, "Park_Kunugi")
 
 
+
+# ---------------------------------------------------------------------------
+# わすれもの・小さなおもちゃ（ビー玉・積み木・じょうろ・紙ひこうき・砂の城）と、シロツメクサ
+# ---------------------------------------------------------------------------
+def make_marble():
+    """ビー玉（ガラスの中に、色のおびがうずを巻く）。押すと転がる"""
+    mb = MB()
+    glass = hexc("#9fd8f2")
+
+    def col(n):
+        a = math.atan2(n.y, n.x) + n.z * 2.4
+        band = 0.5 + 0.5 * math.sin(a * 2.0)
+        c = mixc(glass, hexc("#2f8fd8"), sstep(0.75, 0.95, band))
+        c = mixc(c, hexc("#f2f9ff"), sstep(0.6, 0.95, n.z) * 0.5)
+        return c
+    uv_sphere(mb, Vector((0, 0, 0)), 0.9, col, seg=28, rings=16)
+    return build(mb, "Park_Marble")
+
+
+def make_block_cube():
+    """積み木（立方体。面ごとに色がちがう）。登れる"""
+    mb = MB()
+    cols = {(1, 0, 0): PAINT_RED, (-1, 0, 0): PAINT_BLUE, (0, 1, 0): PAINT_YELLOW, (0, -1, 0): PAINT_GREEN,
+            (0, 0, 1): WOOD, (0, 0, -1): WOOD_DARK}
+
+    def col(n):
+        return scalec(cols[(round(n.x), round(n.y), round(n.z))], 1.0 + 0.08 * n.z)
+    box(mb, (0, 0, 1.3), (2.6, 2.6, 2.6), col)
+    return build(mb, "Park_Block_Cube", smooth=False)
+
+
+def make_block_roof():
+    """積み木（三角の屋根）"""
+    mb = MB()
+    w, d, h = 1.3, 1.3, 1.8
+    red = PAINT_RED
+    side = scalec(red, 0.85)
+    A = [Vector((-w, -d, 0)), Vector((w, -d, 0)), Vector((0, -d, h))]
+    B = [Vector((-w, d, 0)), Vector((w, d, 0)), Vector((0, d, h))]
+    def face(pts, c):
+        ids = [mb.v(p, c) for p in pts]
+        mb.f(*ids)
+    face([A[0], A[1], A[2]], WOOD)
+    face([B[1], B[0], B[2]], WOOD)
+    face([A[1], B[1], B[2], A[2]], red)
+    face([B[0], A[0], A[2], B[2]], side)
+    face([A[0], B[0], B[1], A[1]], WOOD_DARK)
+    return build(mb, "Park_Block_Roof", smooth=False)
+
+
+def make_watering_can():
+    """じょうろ（花だんのそばのわすれもの）"""
+    mb = MB()
+    green = hexc("#3fae6a")
+    prof = [(0.0, 0.0), (1.05, 0.0), (1.12, 0.2), (1.12, 1.9), (1.0, 2.05), (0.6, 2.1), (0.0, 2.1)]
+    lathe(mb, prof, 28, lambda t, a, p: scalec(green, 0.92 + 0.12 * (p.z / 2.1)))
+    # 注ぎ口とはす口
+    pts = [Vector((0.9, 0, 0.5)), Vector((1.7, 0, 1.2)), Vector((2.4, 0, 2.0)), Vector((2.7, 0, 2.35))]
+    tube(mb, pts, [0.18, 0.14, 0.12, 0.12], 10, lambda t, a, p, d: green)
+    rose = MB()
+    lathe(rose, [(0.0, 0.0), (0.12, 0.0), (0.36, 0.28), (0.36, 0.34), (0.0, 0.34)], 16,
+          lambda t, a, p: hexc("#f2c232") if p.z < 0.3 else hexc("#d9a520"))
+    rot = Vector((0, 0, 1)).rotation_difference((pts[-1] - pts[-2]).normalized())
+    mb.add(rose, Matrix.Translation(pts[-1]) @ rot.to_matrix().to_4x4())
+    # とって
+    hp = [Vector((-0.95, 0, 0.6)), Vector((-1.6, 0, 1.3)), Vector((-1.2, 0, 2.3)), Vector((0.2, 0, 2.3))]
+    tube(mb, hp, [0.13, 0.13, 0.13, 0.13], 8, lambda t, a, p, d: scalec(green, 0.85))
+    return build(mb, "Park_WateringCan", smooth=True, sharp_deg=50)
+
+
+def make_paper_plane():
+    """紙ひこうき（しばふに落ちている。白い紙）"""
+    mb = MB()
+    white = hexc("#fbfaf4")
+    shade = hexc("#e2e0d6")
+    L = 4.0
+    nose = Vector((0, L * 0.5, 0.25))
+    tail_l, tail_r = Vector((-1.4, -L * 0.5, 0.55)), Vector((1.4, -L * 0.5, 0.55))
+    keel_t, keel_b = Vector((0, -L * 0.5, 0.45)), Vector((0, -L * 0.42, 0.0))
+    def tri(a, b, c, col):
+        mb.f(mb.v(a, col), mb.v(b, col), mb.v(c, col))
+        mb.f(mb.v(a, col), mb.v(c, col), mb.v(b, col))   # 両面
+    tri(nose, tail_l, keel_t, white)
+    tri(nose, keel_t, tail_r, white)
+    tri(nose, keel_t, keel_b, shade)
+    return build(mb, "Park_PaperPlane", smooth=False)
+
+
+def make_white_clover():
+    """シロツメクサ（三つ葉と、白いまるい花）"""
+    rnd = random.Random(11)
+    mb = MB()
+    dark, light = hexc("#3f8a35"), hexc("#8fcf63")
+    for i in range(7):
+        a = rnd.uniform(0, TAU)
+        r = rnd.uniform(0.0, 1.0)
+        base = Vector((math.cos(a) * r, math.sin(a) * r, -0.05))
+        h = rnd.uniform(0.6, 1.1)
+        top = base + Vector((0, 0, h))
+        tube(mb, [base, top], [0.04, 0.03], 5, lambda t, a2, p, d: with_alpha(mixc(hexc("#5c8f3a"), hexc("#86c25a"), t), t * 0.6))
+        for k in range(3):
+            lf = MB()
+            polar_sheet(lf, lambda th: 0.36 * (0.7 + 0.3 * math.cos(th)), lambda rho, th, p: with_alpha(mixc(dark, light, 0.4 + 0.4 * rho), 0.7),
+                        n_ang=12, n_rad=2, a0=-1.5, a1=1.5, full=False, zfn=lambda rho, th: 0.06 * rho)
+            mb.add(lf, Matrix.Translation(top) @ Matrix.Rotation(k * TAU / 3 + a, 4, "Z") @ Matrix.Rotation(-0.2, 4, "X"))
+    for i in range(3):
+        a = rnd.uniform(0, TAU)
+        base = Vector((math.cos(a) * 0.5, math.sin(a) * 0.5, -0.05))
+        top = base + Vector((rnd.uniform(-0.2, 0.2), rnd.uniform(-0.2, 0.2), rnd.uniform(1.6, 2.1)))
+        tube(mb, [base, top], [0.045, 0.035], 5, lambda t, a2, p, d: with_alpha(hexc("#6a9a44"), t * 0.7))
+        uv_sphere(mb, top + Vector((0, 0, 0.22)), 0.32,
+                  lambda n: with_alpha(mixc(hexc("#fbfbf4"), hexc("#f2d8e0"), sstep(-0.2, -0.8, n.z)), 0.8), seg=12, rings=7)
+    return build(mb, "Park_WhiteClover")
+
+
+def make_sand_castle():
+    """砂場の砂の城（だれかが作った）。登れる"""
+    mb = MB()
+    sand = hexc("#e2cd96")
+    dark = hexc("#c6ad72")
+
+    def sc(t, a, p):
+        return mixc(sand, dark, 0.35 + 0.35 * math.sin(p.z * 9.0 + a * 3.0) * 0.5)
+    lathe(mb, [(0.0, 0.0), (2.6, 0.0), (2.4, 1.2), (2.2, 1.3), (0.0, 1.3)], 24, sc)
+    for k in range(4):
+        a = TAU * k / 4 + 0.4
+        c = Vector((math.cos(a) * 1.6, math.sin(a) * 1.6, 1.25))
+        lathe(mb, [(0.0, 0.0), (0.55, 0.0), (0.5, 1.4), (0.62, 1.45), (0.62, 1.75), (0.0, 1.75)], 12, sc, center=c)
+    lathe(mb, [(0.0, 0.0), (0.8, 0.0), (0.7, 2.2), (0.86, 2.25), (0.86, 2.6), (0.0, 2.6)], 14, sc, center=Vector((0, 0, 1.25)))
+    # てっぺんの小さな旗（アイスの棒と葉っぱ）
+    rod(mb, (0, 0, 3.8), (0, 0, 5.0), 0.05, hexc("#d9b07a"), seg=6)
+    tri = [mb.v(Vector((0, 0, 4.95)), PAINT_RED), mb.v(Vector((0.9, 0, 4.7)), PAINT_RED), mb.v(Vector((0, 0, 4.45)), PAINT_RED)]
+    mb.f(*tri)
+    mb.f(tri[0], tri[2], tri[1])
+    return build(mb, "Park_SandCastle", smooth=True, sharp_deg=60)
+
+
 def main():
     fbx_dir, blend_out = parse_args()
     os.makedirs(fbx_dir, exist_ok=True)
@@ -700,6 +837,7 @@ def main():
         lambda: make_tire("Park_Tire_Blue", hexc("#3a7fd0")),
         lambda: make_tire("Park_Tire_Yellow", hexc("#f2c232")),
         make_ball, make_fence, make_lamp, make_kunugi,
+        make_marble, make_block_cube, make_block_roof, make_watering_can, make_paper_plane, make_white_clover, make_sand_castle,
     ]
     objs = []
     for mk in makers:

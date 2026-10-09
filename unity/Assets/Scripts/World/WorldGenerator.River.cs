@@ -267,11 +267,18 @@ namespace Shakutori
         {
             float fz = RiverLayout.FallZ;
             RiverStrip(fz + 0.4f, 100f, "RiverUpper");
-            RiverStrip(-100f, fz - 0.3f, "RiverLower");
+            var lower = RiverStrip(-100f, fz - 0.3f, "RiverLower");
+            // 99. 滝つぼの水面に、波紋が広がる
+            if (lower != null)
+            {
+                var mpb = new MaterialPropertyBlock();
+                mpb.SetVector("_Drip", new Vector4(RiverLayout.CenterX(fz - 3f), fz - 3f, 4f, 0.5f));
+                lower.SetPropertyBlock(mpb);
+            }
             BuildWaterfall();
         }
 
-        void RiverStrip(float z0, float z1, string name)
+        MeshRenderer RiverStrip(float z0, float z1, string name)
         {
             const int cols = 8;
             const float step = 1.5f;
@@ -328,6 +335,7 @@ namespace Shakutori
             mr.sharedMaterial = assets.river != null ? assets.river : assets.water;
             mr.shadowCastingMode = ShadowCastingMode.Off;
             WaterView.Register(mr);   // 水が映るときだけ、深さと色の写しを作る
+            return mr;
         }
 
         /// <summary>
@@ -639,6 +647,14 @@ namespace Shakutori
 
         void DrawRiverMap(Color32[] px, int size, bool generated)
         {
+            // 86. 小道・91. 川の流れのすじ
+            MapTrails(px, size, RiverLayout.Trails, new Color32(214, 196, 150, 255));
+            for (float z = -60f; z <= 60f; z += 7f)
+                for (int k = -1; k <= 1; k++)
+                {
+                    float x = RiverLayout.CenterX(z) + k * RiverLayout.HalfWidth(z) * 0.45f;
+                    for (float dz = 0f; dz < 3f; dz += 0.6f) MapDot(px, size, new Vector3(RiverLayout.CenterX(z - dz) + k * RiverLayout.HalfWidth(z) * 0.45f, 0f, z - dz), 0.5f, new Color32(150, 205, 235, 255));
+                }
             var stones = generated ? (IList<Vector3>)_stepStones : StepStonePlan();
             Vector3 ba = _bridgeA, bb = _bridgeB;
             if (!generated) BridgePlan(out ba, out bb);
@@ -652,6 +668,22 @@ namespace Shakutori
             for (float x = -w; x <= w; x += 0.6f) MapDot(px, size, new Vector3(cx + x, 0f, fz - 1f), 1.2f, new Color32(240, 250, 255, 255));
             foreach (var p in pads) MapDot(px, size, p, 3f, new Color32(84, 160, 80, 255));
             if (generated && Ferry != null) MapDot(px, size, (Ferry.dockA + Ferry.dockB) * 0.5f, 2.5f, new Color32(120, 190, 80, 255));
+            if (generated)
+            {
+                // 87. 流木・88. 中州の小石の浜・89. 滝の上のとびいし・90. 岩の階段・92. 外周の大岩・93. 舟の乗り場
+                foreach (var p in ExtraSpots("drift")) MapDot(px, size, p, 1.6f, new Color32(214, 206, 188, 255));
+                Vector2 ic = RiverLayout.IslandCenter;
+                for (int k = 0; k < 16; k++)
+                {
+                    float a = k / 16f * Mathf.PI * 2f;
+                    MapDot(px, size, new Vector3(ic.x + Mathf.Cos(a) * 4.3f, 0f, ic.y + Mathf.Sin(a) * 7.1f), 0.8f, new Color32(190, 184, 170, 255));
+                }
+                foreach (var p in ExtraSpots("upstones")) MapDot(px, size, p, 1.8f, new Color32(200, 196, 186, 255));
+                foreach (var p in ExtraSpots("weir")) MapDot(px, size, p, 1.5f, new Color32(200, 196, 186, 255));
+                foreach (var p in ExtraSpots("stairs")) MapDot(px, size, p, 1.5f, new Color32(170, 160, 150, 255));
+                foreach (var p in ExtraSpots("boundary")) MapDot(px, size, p, 0.9f, new Color32(150, 150, 140, 255));
+                foreach (var p in ExtraSpots("dock")) MapDot(px, size, p, 1.4f, new Color32(150, 110, 70, 255));
+            }
             else if (!generated)
             {
                 float iz = RiverLayout.IslandZ;

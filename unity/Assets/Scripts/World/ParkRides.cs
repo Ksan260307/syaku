@@ -62,6 +62,8 @@ namespace Shakutori
         bool _init;
 
         public float Angle => _angle;
+        /// <summary>地面に当たった（強さ：当たったときの速さ。角度/秒を 20 でわったもの）。</summary>
+        public event System.Action<float> Bumped;
         /// <summary>下がっている側（+1 = +X のはし）。</summary>
         public float DownSide => _down;
 
@@ -87,12 +89,20 @@ namespace Shakutori
             ShakuPhysics.SpringSteps(ref _angle, ref _vel, target, 2.6f, 0.45f, dt);
             if (Mathf.Abs(_angle) > MaxTilt)
             {
-                // 地面に当たって、少しはね返る
+                // 地面に当たって、少しはね返る（音と土けむり）
                 _angle = Mathf.Sign(_angle) * MaxTilt;
+                if (Mathf.Abs(_vel) > 4f) Bumped?.Invoke(Mathf.Abs(_vel) / 20f);
                 _vel = -_vel * 0.25f;
             }
             transform.localRotation = _base * Quaternion.Euler(0f, 0f, _angle);
             Physics.SyncTransforms();
+        }
+
+        /// <summary>テスト用：反対がわへかたむけはじめる（ばねで動いて、地面に当たる）。</summary>
+        public void Flip()
+        {
+            if (!_init) Init();
+            _down = -_down;
         }
 
         /// <summary>テスト用：かたむきを決める（+1 = +X のはしが下）。</summary>

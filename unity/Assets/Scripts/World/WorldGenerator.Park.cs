@@ -518,6 +518,27 @@ namespace Shakutori
             var blue = new Color32(58, 127, 208, 255);
             var yellow = new Color32(242, 194, 50, 255);
             var steel = new Color32(206, 214, 220, 255);
+            // 86. 小道・87. 水たまり・92. さく・93. 街灯と水飲み場
+            MapTrails(px, size, ParkLayout.Trails, new Color32(222, 204, 160, 255));
+            for (int i = 0; i < 96; i++)
+            {
+                float a = i / 96f * Mathf.PI * 2f;
+                if (Vector2.Distance(new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 61f, ParkLayout.Gate) < 10f) continue;
+                MapDot(px, size, new Vector3(Mathf.Cos(a) * 61f, 0f, Mathf.Sin(a) * 61f), 0.8f, new Color32(240, 236, 226, 255));
+            }
+            MapDot(px, size, new Vector3(ParkLayout.Puddle.x, 0f, ParkLayout.Puddle.y), ParkLayout.PuddleRadius * 1.6f, new Color32(110, 170, 210, 255));
+            MapDot(px, size, new Vector3(ParkLayout.Fountain.x, 0f, ParkLayout.Fountain.y), 2.2f, new Color32(190, 190, 186, 255));
+            MapDot(px, size, new Vector3(ParkLayout.Lamp.x, 0f, ParkLayout.Lamp.y), 1.6f, new Color32(250, 220, 120, 255));
+            // 91. タイヤ
+            for (int i = 0; i < 5; i++)
+            {
+                float a = Mathf.Lerp(-0.8f, 0.8f, i / 4f);
+                MapDot(px, size, new Vector3(ParkLayout.Tires.x + Mathf.Sin(a) * 9f, 0f, ParkLayout.Tires.y - Mathf.Cos(a) * 9f), 2f, i % 3 == 0 ? new Color32(226, 72, 58, 255) : i % 3 == 1 ? new Color32(242, 194, 50, 255) : new Color32(58, 127, 208, 255));
+            }
+            // 88. 砂の城・89. 積み木・90. シロツメクサの群れ
+            foreach (var p in ExtraSpots("castle")) MapDot(px, size, p, 2.4f, new Color32(226, 205, 150, 255));
+            foreach (var p in ExtraSpots("blocks")) MapDot(px, size, p, 1.4f, new Color32(226, 72, 58, 255));
+            foreach (var p in ExtraSpots("clover")) MapDot(px, size, p, 2.6f, new Color32(236, 240, 228, 255));
             // すべり台（台と坂）
             Vector2 s = ParkLayout.Slide;
             for (int i = 0; i <= 12; i++) MapDot(px, size, new Vector3(s.x + i * 1.8f, 0f, s.y), 2.2f, steel);

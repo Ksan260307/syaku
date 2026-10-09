@@ -1733,6 +1733,188 @@ def make_dewdrop():
 
 
 # ---------------------------------------------------------------------------
+# エリアの小物（森：サルノコシカケ・クモの巣・ホコリタケ。川辺：流木・笹舟・水草）
+# ---------------------------------------------------------------------------
+def make_shelf_fungus(name="ShelfFungus", R=2.2, D=1.7):
+    """木の幹にはえる、棚のようなキノコ（サルノコシカケ）。背中（y=0）を幹につけ、-Y（Unity の +Z）へ張り出す。
+    上はほぼ平らで、しゃくとりむしが乗って休める"""
+    mb = MB()
+    n_ang, n_rad = 24, 6
+
+    def rim(th):
+        return 1.0 + 0.05 * math.sin(th * 5.0) + 0.03 * math.sin(th * 11.0 + 1.0)
+
+    def pt(rho, th, top):
+        r = rho * rim(th)
+        x = math.cos(th) * R * r
+        y = -math.sin(th) * D * r
+        if top:
+            z = 0.32 * (1.0 - rho * rho) + 0.06
+        else:
+            z = -0.08 - 0.22 * (1.0 - rho)
+        return Vector((x, y, z))
+
+    def top_col(rho, th):
+        band = 0.5 + 0.5 * math.sin(rho * 22.0)
+        c = mixc(hexc("#5e3c22"), hexc("#b07a45"), 0.35 + 0.45 * rho)
+        c = mixc(c, hexc("#d6a46a"), band * 0.35 * rho)
+        return mixc(c, hexc("#f1dfb8"), sstep(0.86, 1.0, rho) * 0.8)
+
+    def bot_col(rho, th):
+        return mixc(hexc("#efe2c6"), hexc("#d8c6a0"), 0.5 * (1.0 - rho))
+
+    top_rings, bot_rings = [], []
+    for k in range(n_rad + 1):
+        rho = k / n_rad
+        tr, br = [], []
+        for j in range(n_ang + 1):
+            th = math.pi * j / n_ang
+            tr.append(mb.v(pt(rho, th, True), top_col(rho, th)))
+            br.append(mb.v(pt(rho, th, False), bot_col(rho, th)))
+        top_rings.append(tr)
+        bot_rings.append(br)
+    for k in range(n_rad):
+        for j in range(n_ang):
+            A, B = top_rings[k], top_rings[k + 1]
+            mb.f(A[j], A[j + 1], B[j + 1], B[j])
+            C, E = bot_rings[k], bot_rings[k + 1]
+            mb.f(C[j], E[j], E[j + 1], C[j + 1])
+    # 外のふち
+    T, Bt = top_rings[-1], bot_rings[-1]
+    for j in range(n_ang):
+        mb.f(T[j], T[j + 1], Bt[j + 1], Bt[j])
+    # 幹につく背中（y = 0 の面）
+    for side in (0, n_ang):
+        for k in range(n_rad):
+            a, b = top_rings[k][side], top_rings[k + 1][side]
+            c, d = bot_rings[k + 1][side], bot_rings[k][side]
+            if side == 0:
+                mb.f(a, d, c, b)
+            else:
+                mb.f(a, b, c, d)
+    return build(mb, name, smooth=True)
+
+
+def make_spider_web(name="SpiderWeb", R=2.3, spokes=10, seed=3):
+    """朝つゆのついたクモの巣（Blender の XZ 面 = Unity のたての面）。糸は細い管、つゆは小さな玉"""
+    rnd = random.Random(seed)
+    mb = MB()
+    thread = hexc("#eef4fa")
+    angs = [TAU * k / spokes + rnd.uniform(-0.12, 0.12) for k in range(spokes)]
+    lens = [R * rnd.uniform(0.82, 1.0) for _ in range(spokes)]
+
+    def at(k, r):
+        a = angs[k % spokes]
+        return Vector((math.cos(a) * r, 0.0, math.sin(a) * r))
+    cf = (lambda t, a, p, d: with_alpha(thread, 0.35))
+    for k in range(spokes):
+        tube(mb, [Vector((0, 0, 0)), at(k, lens[k])], [0.022, 0.018], 4, cf)
+    # うずまき（スポークの間は、まっすぐな糸）
+    r = 0.25
+    k = 0
+    while r < R * 0.8:
+        a, b = at(k, min(r, lens[k % spokes] * 0.95)), at(k + 1, min(r + 0.06, lens[(k + 1) % spokes] * 0.95))
+        tube(mb, [a, b], [0.014, 0.014], 4, cf)
+        if rnd.random() < 0.35:
+            uv_sphere(mb, a.lerp(b, rnd.uniform(0.2, 0.8)), rnd.uniform(0.045, 0.07),
+                      lambda n: with_alpha(hexc("#dff4ff"), 0.35), seg=8, rings=5)
+        r += 0.032
+        k += 1
+    return build(mb, name)
+
+
+def make_puffball(name="Mushroom_Puffball"):
+    """ホコリタケ（ころんと丸いキノコ。てっぺんに胞子の出る穴）"""
+    mb = MB()
+    prof = [(0.0, 0.0), (0.38, 0.0), (0.55, 0.12), (0.82, 0.45), (0.92, 0.85), (0.86, 1.2), (0.6, 1.48), (0.22, 1.6), (0.0, 1.58)]
+    rnd = random.Random(7)
+
+    def col(t, a, p):
+        c = mixc(hexc("#d9c7a2"), hexc("#f4ead2"), sstep(0.1, 1.0, p.z))
+        wart = sstep(0.62, 0.8, noise.noise(p * 6.0 + Vector((3, 1, 0))))
+        c = mixc(c, hexc("#b39a70"), wart * 0.6)
+        hole = sstep(0.3, 0.05, math.hypot(p.x, p.y)) * sstep(1.4, 1.58, p.z)
+        return mixc(c, hexc("#6d5a3e"), hole)
+    lathe(mb, prof, 24, col, rfn=lambda t, a: 1.0 + 0.04 * math.sin(a * 3 + 1.0))
+    return build(mb, name)
+
+
+def make_drift_log(name="DriftLog", length=9.0, seed=4):
+    """川岸の流木（白っぽく、すべすべ。登れる）"""
+    rnd = random.Random(seed)
+    mb = MB()
+    n = 18
+    pts, rad = [], []
+    for i in range(n):
+        t = i / (n - 1)
+        pts.append(Vector(((t - 0.5) * length, 0.35 * math.sin(t * 2.6 + seed), 0.45 + 0.08 * math.sin(t * math.pi))))
+        rad.append(lerp(0.55, 0.36, t) * (1.0 + 0.06 * math.sin(t * 17.0)))
+
+    def bc(t, a, p, d):
+        grain = 0.5 + 0.5 * math.sin(a * 9.0 + p.x * 1.4)
+        c = mixc(hexc("#bdb3a0"), hexc("#ddd5c4"), grain * 0.6 + 0.2 * noise.noise(p * 1.3))
+        return mixc(c, hexc("#8f8574"), sstep(0.8, 1.0, grain) * 0.4)
+    rings = tube(mb, pts, rad, 14, bc)
+    for end in (0, len(rings) - 1):
+        ring = rings[end]
+        c = mb.v(pts[end] + (pts[end] - pts[1 if end == 0 else end - 1]).normalized() * 0.04, hexc("#e8dcc0"))
+        cnt = len(ring)
+        for j in range(cnt):
+            if end == 0:
+                mb.f(c, ring[(j + 1) % cnt], ring[j])
+            else:
+                mb.f(c, ring[j], ring[(j + 1) % cnt])
+    # 折れた枝の根もと
+    base = pts[n // 3]
+    bp = [base + Vector((0.2 * s, -1.6 * s, 0.25 * s)) for s in (0.0, 0.33, 0.66, 1.0)]
+    tube(mb, bp, [0.28, 0.22, 0.16, 0.0], 8, bc)
+    return build(mb, name)
+
+
+def make_sasa_bune(name="SasaBune", L=2.6, W=0.42):
+    """笹の葉で折った小舟（川を流れていく）"""
+    mb = MB()
+    nu, nv = 16, 6
+    rows = []
+    for i in range(nu + 1):
+        u = i / nu
+        w = W * math.sin(math.pi * u) ** 0.55
+        end = 0.55 * abs(2 * u - 1) ** 3
+        row = []
+        for j in range(nv + 1):
+            v = -1.0 + 2.0 * j / nv
+            p = Vector(((u - 0.5) * L, v * w, abs(v) * 0.32 * (0.4 + 0.6 * math.sin(math.pi * u)) + end))
+            c = mixc(hexc("#3f7f30"), hexc("#7fb54a"), 0.5 + 0.5 * abs(v))
+            c = mixc(c, hexc("#a8c870"), sstep(0.8, 1.0, abs(2 * u - 1)))
+            row.append(mb.v(p, c))
+        rows.append(row)
+    for i in range(nu):
+        for j in range(nv):
+            mb.f(rows[i][j], rows[i][j + 1], rows[i + 1][j + 1], rows[i + 1][j])
+    return build(mb, name, solidify=0.04)
+
+
+def make_water_grass(name="WaterGrass", seed=5):
+    """水面にうかぶ水草のしげみ（丸い小さな葉がたくさん）"""
+    rnd = random.Random(seed)
+    mb = MB()
+    for k in range(22):
+        a = rnd.uniform(0, TAU)
+        d = math.sqrt(rnd.random()) * 1.9
+        r = rnd.uniform(0.22, 0.42)
+        tmp = MB()
+        base = mixc(hexc("#3e8a3a"), hexc("#79b84e"), rnd.random())
+
+        def cf(rho, th, p, base=base):
+            return mixc(base, hexc("#a9d47a"), 0.3 * rho)
+        polar_sheet(tmp, lambda th, r=r: r * (1.0 - 0.18 * math.exp(-(th / 0.25) ** 2)), cf, n_ang=14, n_rad=2,
+                    zfn=lambda rho, th: 0.02 * rho)
+        mb.add(tmp, Matrix.Translation(Vector((math.cos(a) * d, math.sin(a) * d, 0.02 + k * 0.002)))
+               @ Matrix.Rotation(rnd.uniform(0, TAU), 4, "Z"))
+    return build(mb, name, solidify=0.03)
+
+
+# ---------------------------------------------------------------------------
 # メイン
 # ---------------------------------------------------------------------------
 def export_fbx(ob, out_dir):
@@ -1814,6 +1996,12 @@ def main():
         lambda: make_water_lily("WaterLily"),
         lambda: make_reed("Reed", 1),
         make_dewdrop,
+        make_shelf_fungus,
+        make_spider_web,
+        make_puffball,
+        make_drift_log,
+        make_sasa_bune,
+        make_water_grass,
     ]
     objs = []
     for mk in makers:

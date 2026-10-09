@@ -120,6 +120,7 @@ namespace Shakutori
                         new[] { new Vector2(wx(-2f, -1f), -2f), new Vector2(wx(StonesZ, -1f), StonesZ), new Vector2(wx(24f, -1f), 24f) },
                         new[] { new Vector2(wx(-2f, -1f), -2f), new Vector2(wx(BridgeZ, -1f), BridgeZ), new Vector2(wx(-36f, -1f), -36f) },
                         new[] { new Vector2(wx(StonesZ, 1f), StonesZ), new Vector2(wx(IslandZ, 1f), IslandZ), new Vector2(wx(BridgeZ, 1f), BridgeZ) },
+                        new[] { new Vector2(wx(24f, -1f), 24f), new Vector2(CenterX(FallZ) - HalfWidth(FallZ) - 9.5f, FallZ), new Vector2(wx(46f, -1f), 46f), new Vector2(wx(53f, -1f), 53f) },
                     };
                 }
                 return _trails;

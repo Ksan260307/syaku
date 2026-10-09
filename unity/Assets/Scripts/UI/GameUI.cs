@@ -95,6 +95,45 @@ namespace Shakutori
             "F2 キーで写真モード。景色をゆっくりながめられます。",
         };
 
+        /// <summary>行き先のエリアのヒント（読み込み画面に、ふつうのヒントとまぜて出す）。</summary>
+        public static readonly System.Collections.Generic.Dictionary<string, string[]> AreaTips = new System.Collections.Generic.Dictionary<string, string[]>
+        {
+            ["forest"] = new[]
+            {
+                "古い切り株の東がわには、サルノコシカケの階段。休みながら頂まで登れます。",
+                "ホコリタケをふむと、ぽよんと弾んで、胞子のけむりが出ます。",
+                "丸太のトンネルから光るキノコをたどっていくと、光るキノコの洞に着きます。",
+                "草むらの小枝のあいだには、つゆのついたクモの巣。ときどき、きらっと光ります。",
+            },
+            ["river"] = new[]
+            {
+                "しぶきの滝のわきの岩の階段を登ると、滝の上の台地へ行けます。台地にも、とびいしがあります。",
+                "葉っぱの舟は、岸と中州のあいだを行ったり来たりしています。",
+                "上流から流れてくる笹舟は、近づくと少しのあいだ止まります。",
+                "睡蓮のよどみでは、ときどき魚がはねます。",
+            },
+            ["park"] = new[]
+            {
+                "すべり台は、坂の上で下を向いて乗ると、すべりおりられます。",
+                "ブランコに乗ると、だんだん大きくゆれます。シーソーは、乗っている側へかたむきます。",
+                "積み木を階段にすると、ベンチやタイヤの上へ登れます。",
+                "砂場の砂の城は、てっぺんの旗のそばまで登れます。",
+            },
+        };
+
+        /// <summary>読み込み画面の行き先のエリア（そのエリアのヒントを出す）。</summary>
+        public string LoadingAreaId { get; set; } = "forest";
+
+        /// <summary>読み込み画面のヒントを 1 つ選ぶ：行き先のエリアのヒントを多めに（4 回に 3 回）。</summary>
+        public static string PickTip(string areaId, int salt)
+        {
+            if (areaId != null && AreaTips.TryGetValue(areaId, out var area) && (salt & 3) != 3)
+                return area[Mathf.Abs(salt) % area.Length];
+            return Tips[Mathf.Abs(salt) % Tips.Length];
+        }
+
+        public string PickTip(int salt) => PickTip(LoadingAreaId, salt);
+
         /// <summary>クレジット（素材はすべてこのリポジトリのスクリプトで作ったもの）。</summary>
         public const string CreditsText =
             "しゃくとりの森\n\n" +
@@ -321,7 +360,7 @@ namespace Shakutori
             if (_version != null) _version.text = "ver. " + Application.version;
             var credits = Q<Label>("credits-text");
             if (credits != null) credits.text = CreditsText;
-            if (_loadingTip != null) _loadingTip.text = Tips[UnityEngine.Random.Range(0, Tips.Length)];
+            if (_loadingTip != null) _loadingTip.text = PickTip(UnityEngine.Random.Range(0, 1000));
 
             _tabs["zukan"] = Q<Button>("tab-zukan");
             _tabs["skin"] = Q<Button>("tab-skin");
@@ -561,8 +600,8 @@ namespace Shakutori
         void NextTip()
         {
             if (_loadingTip == null) return;
-            _tipIndex = (_tipIndex + 1 + UnityEngine.Random.Range(0, Tips.Length - 1)) % Tips.Length;
-            _loadingTip.text = Tips[_tipIndex];
+            _tipIndex = (_tipIndex + 1 + UnityEngine.Random.Range(0, 7)) % 1000;
+            _loadingTip.text = PickTip(_tipIndex);
             _tipTimer = 0f;
         }
 

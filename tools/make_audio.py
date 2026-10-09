@@ -8,6 +8,8 @@
  - ambience_forest.wav: 風・葉ずれ・小鳥のさえずり（つなぎ目のないループ）
  - ambience_river.wav : せせらぎ・遠くの滝・カエル（川辺）
  - 効果音: 足音、しずく、発見、クリック、糸、着地、クリア、いきもの発見、エリア移動、きせかえ解放、カラス
+ - エリアの音: 公園の環境音、滝・浅瀬・カエルの合唱・ほら穴のしずく・森の葉ずれ（場所で聞こえるループ）、
+   キツツキ・どんぐり・ホコリタケ・ブランコ・シーソー・水飲み場・自転車のベル・魚・金属・砂の音
 """
 import os
 import wave
@@ -713,6 +715,182 @@ def make_area_sfx():
     write("caw.wav", buf)
 
 
+# ---------------------------------------------------------------------------
+# エリアの音（場所で聞こえるループと、できごとの音）
+# ---------------------------------------------------------------------------
+def plink(f0, dur=0.35):
+    """水のしずくが落ちる「ぽちゃ」（音程が上がって消える）"""
+    t = t_axis(dur)
+    f = f0 * (1 + 0.9 * (1 - np.exp(-t * 40)))
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    return np.sin(ph) * np.exp(-t * 14) * np.minimum(t / 0.002, 1)
+
+
+def wood_knock(f0=900.0, dur=0.08):
+    t = t_axis(dur)
+    s = np.sin(2 * np.pi * f0 * t) + 0.5 * np.sin(2 * np.pi * f0 * 2.7 * t)
+    click = shaped_noise(len(t), 0.0, 1500, 8000) * 0.5
+    return (s * 0.6 + click) * np.exp(-t * 60)
+
+
+def frog_call(f0, n=3, gap=0.17):
+    out = []
+    for k in range(n):
+        tk = t_axis(0.1)
+        kero = np.sign(np.sin(2 * np.pi * f0 * tk)) * np.sin(2 * np.pi * 20 * tk) ** 2 * np.exp(-tk * 15)
+        out.append(np.convolve(kero, np.ones(10) / 10, mode="same"))
+        out.append(np.zeros(int(gap * SR) - len(tk)))
+    return np.concatenate(out)
+
+
+def make_area_sounds():
+    # 公園の環境音：そよ風・スズメ・遠くの自転車のベル・木の葉
+    total = 40.0
+    n = int(total * SR)
+    t = np.arange(n) / SR
+    buf = np.zeros((n, 2))
+    for ch in range(2):
+        w = shaped_noise(n, 1.4, 60, 900)
+        buf[:, ch] += w * (0.4 + 0.15 * np.sin(2 * np.pi * t * (3 / total) + ch)) * 0.45
+    leaves = shaped_noise(n, 0.4, 2000, 7000)
+    buf[:, 0] += leaves * 0.05
+    buf[:, 1] += np.roll(leaves, SR // 4) * 0.05
+    birds = np.zeros((n, 2))
+    time = 0.4
+    while time < total - 0.4:
+        add(birds, int(time * SR), bird_song(int(rng.choice([0, 0, 2]))), pan=rng.uniform(-0.8, 0.8), gain=rng.uniform(0.12, 0.35))
+        time += rng.uniform(1.0, 3.2)
+    for bt in (9.0, 27.5):
+        tb = t_axis(1.2)
+        bell = (np.sin(2 * np.pi * 2350 * tb) + 0.6 * np.sin(2 * np.pi * 3180 * tb)) * np.exp(-tb * 4) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 9 * tb)))
+        add(birds, int(bt * SR), bell, pan=rng.uniform(-0.6, 0.6), gain=0.05)
+    buf += circular_reverb(birds, seconds=1.4, mix=0.3) * 0.7
+    write("ambience_park.wav", buf)
+
+    # 滝のごうごう（近くで聞こえるループ）
+    total = 12.0
+    n = int(total * SR)
+    t = np.arange(n) / SR
+    buf = np.zeros((n, 2))
+    for ch in range(2):
+        roar = shaped_noise(n, 1.0, 50, 5000)
+        buf[:, ch] += roar * (0.75 + 0.1 * np.sin(2 * np.pi * t * (3 / total) + ch * 1.7))
+    hiss = shaped_noise(n, 0.2, 3000, 12000)
+    buf[:, 0] += hiss * 0.18
+    buf[:, 1] += np.roll(hiss, 900) * 0.18
+    write("loop_waterfall.wav", buf)
+
+    # 浅瀬のさらさら（とびいしの瀬）
+    total = 10.0
+    n = int(total * SR)
+    buf = np.zeros((n, 2))
+    for _ in range(int(total * 60)):
+        add(buf, int(rng.uniform(0, total) * SR), bubble(rng.uniform(500, 1800), rng.uniform(0.01, 0.035)), pan=rng.uniform(-0.8, 0.8), gain=rng.uniform(0.05, 0.25))
+    hiss = shaped_noise(n, 0.5, 1200, 7000)
+    buf[:, 0] += hiss * 0.1
+    buf[:, 1] += np.roll(hiss, 400) * 0.1
+    write("loop_shallows.wav", circular_reverb(buf, seconds=0.5, mix=0.2))
+
+    # カエルの合唱（水たまり・よどみ）
+    total = 16.0
+    n = int(total * SR)
+    buf = np.zeros((n, 2))
+    for k in range(5):
+        f0 = 150 + k * 22
+        time = rng.uniform(0, 3)
+        pan = -0.8 + k * 0.4
+        while time < total:
+            add(buf, int(time * SR), frog_call(f0, int(rng.integers(2, 5))), pan=pan, gain=rng.uniform(0.25, 0.5))
+            time += rng.uniform(1.6, 3.6)
+    write("loop_frogs.wav", circular_reverb(buf, seconds=1.2, mix=0.3))
+
+    # ほら穴のしずく（ぽちゃん、と遠くでひびく）
+    total = 12.0
+    n = int(total * SR)
+    buf = np.zeros((n, 2))
+    time = 0.3
+    while time < total:
+        add(buf, int(time * SR), plink(rng.uniform(900, 1700)), pan=rng.uniform(-0.6, 0.6), gain=rng.uniform(0.3, 0.7))
+        time += rng.uniform(0.6, 2.2)
+    write("loop_cave_drip.wav", circular_reverb(buf, seconds=2.6, mix=0.5, damp=1.6))
+
+    # 森の葉ずれ（風が強いと大きくする）
+    total = 16.0
+    n = int(total * SR)
+    t = np.arange(n) / SR
+    buf = np.zeros((n, 2))
+    for ch in range(2):
+        r = shaped_noise(n, 0.6, 900, 8000)
+        flutter = 0.6 + 0.4 * np.abs(np.sin(2 * np.pi * t * (13 / total) + ch))
+        buf[:, ch] += r * flutter
+    write("loop_canopy.wav", buf)
+
+    # キツツキ（遠くで、とととと…）
+    total = 1.6
+    buf = np.zeros((int(total * SR), 2))
+    for k in range(14):
+        add(buf, int(k * 0.055 * SR), wood_knock(720 + rng.uniform(-20, 20)), pan=0.3, gain=1.0 - k * 0.05, wrap=False)
+    buf = circular_reverb(buf, seconds=1.4, mix=0.4)
+    buf[-int(0.2 * SR):] *= np.linspace(1, 0, int(0.2 * SR))[:, None]
+    write("woodpecker.wav", buf)
+
+    # どんぐりが落ちる（ころん）
+    total = 0.7
+    buf = np.zeros((int(total * SR), 2))
+    for k, (dt, g) in enumerate(((0.0, 1.0), (0.18, 0.55), (0.3, 0.3), (0.37, 0.15))):
+        add(buf, int(dt * SR), wood_knock(1300 - k * 60, 0.06), gain=g, wrap=False)
+    buf[-int(0.02 * SR):] *= np.linspace(1, 0, int(0.02 * SR))[:, None]
+    write("knock_acorn.wav", buf)
+
+    # ホコリタケ（ぽふっ）
+    tq = t_axis(0.5)
+    puff = shaped_noise(len(tq), 1.4, 80, 1800) * np.exp(-tq * 9) * np.minimum(tq / 0.01, 1)
+    thump = np.sin(2 * np.pi * 110 * tq) * np.exp(-tq * 25) * 0.6
+    write("puff.wav", fade_tail(puff + thump))
+
+    # ブランコのきしみ（きいっ）
+    tq = t_axis(0.6)
+    f = 1500 + 500 * np.sin(np.pi * tq / 0.6)
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    squeak = (np.sin(ph) + 0.4 * np.sin(2 * ph) + 0.2 * np.sin(3.01 * ph)) * np.sin(np.pi * tq / 0.6) ** 2
+    squeak *= 0.7 + 0.3 * np.sin(2 * np.pi * 37 * tq)
+    write("creak.wav", fade_tail(squeak))
+
+    # シーソーが地面に当たる（ごとん）
+    tq = t_axis(0.45)
+    clunk = (np.sin(2 * np.pi * 95 * tq) + 0.5 * np.sin(2 * np.pi * 190 * tq)) * np.exp(-tq * 14)
+    clunk += shaped_noise(len(tq), 1.0, 100, 2500) * np.exp(-tq * 40) * 0.5
+    write("clunk.wav", fade_tail(clunk))
+
+    # 水飲み場のしずく（ぽちゃ）
+    write("plink.wav", fade_tail(plink(1250.0, 0.4)))
+
+    # 自転車のベル（ちりん）
+    tq = t_axis(1.0)
+    bell = (np.sin(2 * np.pi * 2350 * tq) + 0.6 * np.sin(2 * np.pi * 3180 * tq) + 0.3 * np.sin(2 * np.pi * 5100 * tq)) * np.exp(-tq * 4.5)
+    write("bell.wav", fade_tail(bell))
+
+    # 魚がはねる（ぱしゃっ）
+    tq = t_axis(0.5)
+    sp = shaped_noise(len(tq), 0.3, 500, 9000) * np.exp(-tq * 18)
+    drop = np.zeros_like(tq)
+    for k in range(5):
+        st = int(rng.uniform(0.08, 0.3) * SR)
+        b = bubble(rng.uniform(600, 1400), 0.03)
+        drop[st:st + len(b)] += b[: len(drop) - st] * 0.4
+    write("fish_jump.wav", fade_tail(sp + drop))
+
+    # 金属をふむ（ちん。ジャングルジム・すべり台）
+    tq = t_axis(0.35)
+    ting = (np.sin(2 * np.pi * 1850 * tq) + 0.5 * np.sin(2 * np.pi * 4630 * tq)) * np.exp(-tq * 16)
+    write("ting.wav", fade_tail(ting))
+
+    # 砂をふむ（しゃり）
+    tq = t_axis(0.18)
+    sand = shaped_noise(len(tq), 0.1, 2500, 11000) * np.exp(-tq * 22) * np.minimum(tq / 0.004, 1)
+    write("sand_step.wav", fade_tail(sand))
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     make_sfx()
@@ -724,3 +902,4 @@ if __name__ == "__main__":
     make_creature_calls()
     make_music_river()
     make_music_park()
+    make_area_sounds()

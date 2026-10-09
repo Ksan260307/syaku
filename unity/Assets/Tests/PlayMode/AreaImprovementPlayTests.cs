@@ -1,0 +1,184 @@
+using System.Collections;
+using System.Linq;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
+using static Shakutori.Tests.GameHarness;
+
+namespace Shakutori.Tests
+{
+    /// <summary>総合テスト：エリアの改善 300（森）。ホコリタケ・落ちてくるどんぐり・空気と光・場所の音・ただよう物。</summary>
+    public class ForestAreaPlayTests
+    {
+        [UnitySetUp]
+        public IEnumerator SetUp()
+        {
+            yield return Boot();
+            yield return StartNewGame();
+            yield return Seconds(0.3f);
+        }
+
+        [TearDown]
+        public void TearDown() => ResetInput();
+
+        [UnityTest]
+        public IEnumerator Forest_HasItsOwnAir_Sounds_AndFloatingThings()
+        {
+            yield return null;
+            Assert.AreEqual(AreaAtmosphere.For("forest").fog, RenderSettings.fogColor, "森の霧の色");
+            Assert.IsTrue(AreaSounds.Instance.HasLoop("loop_cave_drip"), "ほら穴のしずくの音");
+            Assert.IsTrue(AreaSounds.Instance.HasLoop("loop_frogs"), "水たまりのカエル");
+            Assert.IsTrue(AreaSounds.Instance.HasLoop("loop_canopy"), "森の葉ずれ");
+            foreach (var fx in new[] { "GroveSpores", "MeadowSeeds", "MapleSeeds", "HollowMotes", "Midges", "RootFireflies" })
+                Assert.IsTrue(GM.fx.HasEffect(fx), fx);
+        }
+
+        [UnityTest]
+        public IEnumerator Puffball_PuffsWhenStepped_AndAcornsFallInThePlaza()
+        {
+            var puffs = GM.world.ExtraSpots("puffball");
+            Assert.Greater(puffs.Count, 0);
+            Vector3 top = puffs[0];
+            int before = AreaProps.Instance.Puffs;
+            Worm.Spawn(top + Vector3.up * 0.3f, Vector3.forward);
+            yield return WaitUntil(() => AreaProps.Instance.Puffs > before, 3f, "ホコリタケをふむと、ぽふっ");
+            Assert.Greater(AreaSounds.Instance.CountOf("puff"), 0, "ぽふっと音");
+            // どんぐり広場：ときどき上からどんぐりが落ちてきて、ころんと音がする
+            yield return WaitUntil(() => AreaProps.Instance.AcornsDropped > 0, 12f, "どんぐりが落ちてくる");
+            yield return WaitUntil(() => AreaSounds.Instance.CountOf("knock_acorn") > 0, 6f, "地面に当たって、ころん");
+        }
+
+        [UnityTest]
+        public IEnumerator LogTunnel_EchoesFootsteps_AndMossIsSoft()
+        {
+            var log = ForestLayout.Landmarks.Find(l => l.useCapsule);
+            Vector3 inside = Vector3.Lerp(log.capsuleA, log.capsuleB, 0.5f);
+            Assert.IsTrue(AreaProps.Echo(inside), "丸太の中は、足音がひびく");
+            Assert.IsFalse(AreaProps.Echo(ForestLayout.Ground(ForestLayout.Spawn.x, ForestLayout.Spawn.y)));
+            Vector3 moss = ForestLayout.Ground(ForestLayout.MossHill.x, ForestLayout.MossHill.y);
+            Assert.Greater(AreaProps.SoftGround(moss), 0.5f, "苔の丘はふわっと着地");
+            yield return null;
+        }
+    }
+
+    /// <summary>総合テスト：エリアの改善 300（川辺）。流れていく落ち葉と笹舟・滝の虹・場所の音・空気と光。</summary>
+    public class RiverAreaPlayTests
+    {
+        [UnitySetUp]
+        public IEnumerator SetUp()
+        {
+            yield return Boot();
+            yield return StartNewGame();
+            yield return Seconds(0.3f);
+            SaveSystem.Data.visited.Add("river");
+            GM.TravelTo("river");
+            yield return WaitUntil(() => Areas.Current == Areas.River && GM.State == GameManager.GameState.Playing, 120f, "川辺へ");
+            yield return Seconds(0.3f);
+        }
+
+        [TearDown]
+        public void TearDown() => ResetInput();
+
+        [UnityTest]
+        public IEnumerator River_HasItsOwnAir_Sounds_Rainbow_AndDrifters()
+        {
+            Assert.AreEqual(AreaAtmosphere.For("river").fog, RenderSettings.fogColor, "川辺の霧の色");
+            Assert.IsTrue(AreaSounds.Instance.HasLoop("loop_waterfall"), "滝の音");
+            Assert.IsTrue(AreaSounds.Instance.HasLoop("loop_shallows"), "浅瀬の音");
+            Assert.IsTrue(GM.fx.HasEffect("Rainbow"), "滝の虹");
+            Assert.IsTrue(GM.fx.HasEffect("PoolBubbles"), "よどみのあわ");
+            var drift = AreaProps.Instance.Drifters;
+            Assert.GreaterOrEqual(drift.Count(d => !d.boat), 6, "流れていく落ち葉");
+            Assert.GreaterOrEqual(drift.Count(d => d.boat), 1, "笹舟");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator Leaves_DriftDownstream_AndFallOverTheFalls()
+        {
+            var leaf = AreaProps.Instance.Drifters.First(d => !d.boat);
+            float fz = RiverLayout.FallZ;
+            // 滝の少し上の、川のまん中に置く
+            leaf.pos = new Vector3(RiverLayout.CenterX(fz + 3f), RiverLayout.UpperLevel + 0.04f, fz + 3f);
+            leaf.fallT = -1f;
+            float startZ = leaf.pos.z;
+            yield return Seconds(0.5f);
+            Assert.Less(leaf.pos.z, startZ, "下流へ流れる");
+            yield return WaitUntil(() => leaf.pos.z < fz - 1f && leaf.pos.y < RiverLayout.UpperLevel - 1.5f && leaf.fallT < 0f, 20f, "滝を落ちて、滝つぼへ");
+            Assert.Greater(Mathf.Abs(leaf.spinVel), 50f, "滝つぼで、くるりと回る");
+            Assert.IsTrue(RiverLayout.InChannel(leaf.pos.x, leaf.pos.z, 0f), "川の中");
+        }
+
+        [UnityTest]
+        public IEnumerator SasaBune_WaitsWhenTheWormIsNear()
+        {
+            var boat = AreaProps.Instance.Drifters.First(d => d.boat);
+            boat.wait = 0f;
+            float z = -10f;
+            boat.pos = new Vector3(RiverLayout.CenterX(z), RiverLayout.WaterLevel(z) + 0.04f, z);
+            float bank = WorldGenerator.RiverBankEdgeX(z, -1f);
+            Worm.Spawn(RiverLayout.Ground(bank - 1.8f, z), Vector3.right);
+            yield return Seconds(0.2f);
+            // 岸のすぐそばへ
+            boat.pos = new Vector3(bank + 1.2f, RiverLayout.WaterLevel(z) + 0.04f, z);
+            yield return null;
+            Vector3 p0 = boat.pos;
+            yield return Seconds(0.8f);
+            Assert.Less(Vector3.Distance(p0, boat.pos), 0.3f, "近づくと、少しのあいだ止まる（のぞいて見られる）");
+        }
+    }
+
+    /// <summary>総合テスト：エリアの改善 300（公園）。シーソーの音と土けむり・水飲み場のしずく・空気と光・シャボン玉。</summary>
+    public class ParkAreaPlayTests
+    {
+        [UnitySetUp]
+        public IEnumerator SetUp()
+        {
+            yield return Boot();
+            yield return StartNewGame();
+            yield return Seconds(0.3f);
+            SaveSystem.Data.visited.Add("park");
+            GM.TravelTo("park");
+            yield return WaitUntil(() => Areas.Current == Areas.Park && GM.State == GameManager.GameState.Playing && Worm.InputEnabled, 120f, "公園へ");
+            yield return Seconds(0.3f);
+        }
+
+        [TearDown]
+        public void TearDown() => ResetInput();
+
+        [UnityTest]
+        public IEnumerator Park_HasItsOwnAir_Bubbles_Clunks_AndDrips()
+        {
+            Assert.AreEqual(AreaAtmosphere.For("park").fog, RenderSettings.fogColor, "公園の霧の色");
+            Assert.IsTrue(GM.fx.HasEffect("SoapBubbles"), "シャボン玉");
+            Assert.IsTrue(GM.fx.HasEffect("LampMoths"), "街灯の虫");
+            Assert.IsNotNull(AudioManager.Instance.parkAmbience, "公園の環境音");
+            // シーソーが反対がわへかたむいて、地面に当たると「ごとん」と土けむり
+            int bumps = AreaProps.Instance.SeesawBumps;
+            GM.world.Seesaw.Flip();
+            yield return WaitUntil(() => AreaProps.Instance.SeesawBumps > bumps, 4f, "シーソーが地面に当たる");
+            Assert.Greater(AreaSounds.Instance.CountOf("clunk"), 0, "ごとん");
+            // 水飲み場のしずく（水たまりの波紋と同じリズム）
+            int drips = AreaSounds.Instance.CountOf("plink");
+            yield return Seconds(2.5f);
+            int n = AreaSounds.Instance.CountOf("plink") - drips;
+            Assert.GreaterOrEqual(n, 2, "ぽちゃ、ぽちゃ");
+            Assert.LessOrEqual(n, 3, "波紋と同じ、1 秒に 0.9 回");
+        }
+
+        [UnityTest]
+        public IEnumerator SandCastle_And_Blocks_CanBeClimbed()
+        {
+            var castle = GM.world.ExtraSpots("castle");
+            Assert.AreEqual(1, castle.Count);
+            Vector3 c = castle[0];
+            Assert.IsTrue(Physics.Raycast(c + Vector3.up * 20f, Vector3.down, out var hit, 30f, ShakuConst.SurfaceMask), "城に当たり判定");
+            Assert.Greater(hit.point.y, c.y + 2f, "城の上に乗れる高さ");
+            var blocks = GM.world.ExtraSpots("benchstep");
+            Assert.Greater(blocks.Count, 0);
+            Assert.IsTrue(Physics.Raycast(blocks[0] + Vector3.up * 20f, Vector3.down, out var bh, 30f, ShakuConst.SurfaceMask), "積み木に当たり判定");
+            Assert.Greater(bh.point.y, blocks[0].y + 1f, "積み木の上は、ベンチへの段");
+            yield return null;
+        }
+    }
+}

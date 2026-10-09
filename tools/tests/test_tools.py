@@ -98,7 +98,9 @@ class AudioTests(unittest.TestCase):
     def test_generated_audio_assets_exist(self):
         d = os.path.join(ROOT, "unity", "Assets", "Audio")
         for n in ["music_forest", "music_river", "music_park", "ambience_forest", "step_1", "step_2", "step_3", "collect", "discover", "click", "silk", "land", "complete",
-                  "ambience_river", "creature", "travel", "unlock", "caw", "fall", "splash", "rare", "chirp", "croak"]:
+                  "ambience_river", "creature", "travel", "unlock", "caw", "fall", "splash", "rare", "chirp", "croak",
+                  "ambience_park", "loop_waterfall", "loop_shallows", "loop_frogs", "loop_cave_drip", "loop_canopy", "woodpecker",
+                  "knock_acorn", "puff", "creak", "clunk", "plink", "bell", "fish_jump", "ting", "sand_step"]:
             p = os.path.join(d, n + ".wav")
             self.assertTrue(os.path.isfile(p), p)
             with wave.open(p) as w:
