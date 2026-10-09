@@ -402,9 +402,9 @@ namespace Shakutori
             Flowers("Dandelion", 26, 0.6f, 0.9f);
             Flowers("DandelionPuff", 8, 0.7f, 1.0f);
             Flowers("Daisy", 18, 0.6f, 0.95f);
-            // 花だん：チューリップの列と、キャベツ
+            // 花だん：チューリップの列（土の上の面に植える）
             Vector2 c = ParkLayout.FlowerBed;
-            float bedTop = ParkLayout.Height(c.x, c.y);
+            float bedTop = ParkLayout.BedSoilY;
             for (int row = 0; row < 3; row++)
             {
                 for (int i = 0; i < 9; i++)
@@ -413,7 +413,8 @@ namespace Shakutori
                     string tulip = Tulips[(i + row) % Tulips.Length];
                     if (row == 1 && (i == 2 || i == 6))
                     {
-                        Place("Park_Cabbage", flw, new Vector3(p.x, bedTop - 0.1f, p.y), Quaternion.Euler(0f, R(0, 360), 0f), R(0.9f, 1.1f), false, true, 120f);
+                        // 前はキャベツ（レタスのような緑のかたまり）だった所も、チューリップにする（乱数の使い方は変えない）
+                        Place(Tulips[(i + row + 1) % Tulips.Length], flw, new Vector3(p.x, bedTop - 0.05f, p.y), Quaternion.Euler(0f, R(0, 360), 0f), R(0.9f, 1.1f), false, true, 120f);
                         continue;
                     }
                     Place(tulip, flw, new Vector3(p.x, bedTop - 0.05f, p.y), Quaternion.Euler(R(-4, 4), R(0, 360), R(-4, 4)), R(0.85f, 1.1f), false, true, 120f);
@@ -498,8 +499,8 @@ namespace Shakutori
         void PlaceParkCreatures()
         {
             Vector2 bed = ParkLayout.FlowerBed;
-            float bedTop = ParkLayout.Height(bed.x, bed.y);
-            // モンシロチョウ（花だんのキャベツとチューリップ）とルリシジミ
+            float bedTop = ParkLayout.BedSoilY;
+            // モンシロチョウ（花だんのチューリップ）とルリシジミ
             AddMob("monshiro", new Vector3(bed.x, bedTop, bed.y), 3, 9f, 3f);
             AddMob("monshiro", ParkLayout.Ground(18f, 8f), 2, 12f, 3.4f);
             AddMob("butterfly", ParkLayout.Ground(-20f, 30f), 1, 9f, 3.2f);
@@ -536,8 +537,9 @@ namespace Shakutori
                 foreach (var p in spots) g.path.Add(ParkLayout.Ground(p.x, p.y));
             }
             {
-                var g = AddMob("sparrow", ParkLayout.Ground(4f, -10f), 3, 3f);
-                Vector2[] spots = { new Vector2(4f, -10f), new Vector2(30f, 14f), new Vector2(-14f, -30f), new Vector2(-20f, 20f) };
+                // スズメ：ハトのいるひろばとは、はなれた所から（降りる場所も、ハトの場所と重ねない）
+                var g = AddMob("sparrow", ParkLayout.Ground(30f, 14f), 3, 3f);
+                Vector2[] spots = { new Vector2(30f, 14f), new Vector2(-20f, 20f), new Vector2(-14f, -30f), new Vector2(40f, -10f) };
                 foreach (var p in spots) g.path.Add(ParkLayout.Ground(p.x, p.y));
             }
             {

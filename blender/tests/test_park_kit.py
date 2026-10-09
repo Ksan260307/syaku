@@ -50,7 +50,6 @@ MAKERS = {
     "Park_Fountain": park.make_fountain,
     "Park_FlowerBed": park.make_flower_bed,
     "Tulip_Red": lambda: park.make_tulip("Tulip_Red", kit.hexc("#e83a3a"), kit.hexc("#ff8a7a")),
-    "Park_Cabbage": park.make_cabbage,
     "Park_Tire_Red": lambda: park.make_tire("Park_Tire_Red", kit.hexc("#e2483a")),
     "Park_Ball": park.make_ball,
     "Park_Fence": park.make_fence,
@@ -162,6 +161,18 @@ class ParkKitTests(unittest.TestCase):
                 self.assertIsNotNone(hit[0], (x, z))
                 worst = max(worst, hit[3] - 1.0)
         self.assertLess(worst, 0.06, "すき間の深さ")
+
+    def test_flower_bed_soil_sits_just_below_the_bricks(self):
+        # 中の土は、れんがの上の面とほぼ同じ高さ（ふちから土へ、段なしで歩ける。がけにならない）
+        ob = park.make_flower_bed()
+        W, D = park.BED
+        inside = [v.co.z for v in ob.data.vertices if abs(v.co.x) < W * 0.5 - 1.0 and abs(v.co.y) < D * 0.5 - 1.0]
+        top = max(v.co.z for v in ob.data.vertices)
+        self.assertTrue(inside)
+        self.assertAlmostEqual(max(inside), park.BED_SOIL, delta=0.05)
+        self.assertLess(top - park.BED_SOIL, 0.05, "ふちと土のあいだに段がない（がけにならない）")
+        with open(os.path.join(REPO, "unity", "Assets", "Scripts", "World", "ParkLayout.cs"), encoding="utf-8") as fh:
+            self.assertIn(f"BedSoilTop = {park.BED_SOIL:.2f}f", fh.read())
 
     def test_kunugi_has_branches_and_leaves(self):
         # 幹だけでなく、登ってわたれる枝と、葉のしげみが横に広がっている

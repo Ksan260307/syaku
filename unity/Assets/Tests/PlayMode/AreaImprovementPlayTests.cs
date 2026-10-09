@@ -167,6 +167,48 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
+        public IEnumerator FlowerBed_CanBeClimbedOnto_AndWalkedOff()
+        {
+            // 外かられんがを登って土の上へ。土の上から、れんがのふちをこえて外へ（がけで止まらない）
+            Vector2 c = ParkLayout.FlowerBed;
+            bool OnSoil() => Mathf.Abs(Worm.CenterPosition.x - c.x) < ParkLayout.BedSize.x * 0.5f - 0.6f
+                && Mathf.Abs(Worm.CenterPosition.z - c.y) < ParkLayout.BedSize.y * 0.5f - 0.6f && Worm.CenterPosition.y > ParkLayout.BedSoilY - 0.4f;
+            bool Outside() => (Mathf.Abs(Worm.CenterPosition.x - c.x) > ParkLayout.BedSize.x * 0.5f + 0.3f
+                || Mathf.Abs(Worm.CenterPosition.z - c.y) > ParkLayout.BedSize.y * 0.5f + 0.3f) && Worm.CenterPosition.y < ParkLayout.BedBase + 0.5f;
+            Place(c + new Vector2(2f, -7f), Vector3.forward);
+            yield return FaceCamera(Vector3.forward);
+            GameInput.VirtualMove = Vector2.up;
+            yield return WaitUntil(OnSoil, 14f, "外から登って、花だんの土の上へ");
+            ResetInput();
+            Place(c + new Vector2(6f, 0.5f), Vector3.right);
+            yield return FaceCamera(Vector3.right);
+            GameInput.VirtualMove = Vector2.up;
+            yield return WaitUntil(Outside, 14f, "土の上から、れんがのふちをこえて外へ");
+            ResetInput();
+        }
+
+        [UnityTest]
+        public IEnumerator AimButton_DragTurnsTheCameraWhileAiming()
+        {
+            // スマホ：「ねらう」を押したまま指をすべらせると、ねらいながら見まわせる
+            Place(ParkLayout.Spawn + new Vector2(-6f, 0f), Vector3.left);
+            yield return FaceCamera(Vector3.left);
+            GameInput.VirtualAim = true;
+            yield return WaitUntil(() => Worm.IsAiming, 3f, "ねらう");
+            float yaw0 = Cam.yaw;
+            for (int i = 0; i < 12; i++)
+            {
+                UI.AimButtonDrag(new Vector2(30f, 0f));
+                yield return null;
+            }
+            Assert.Greater(Mathf.Abs(Mathf.DeltaAngle(yaw0, Cam.yaw)), 20f, "ねらいながら、カメラが回る");
+            Assert.IsTrue(Worm.IsAiming, "ねらったまま");
+            GameInput.VirtualAim = false;
+            UI.AimButtonDrag(new Vector2(30f, 0f));   // ねらっていないときは、何もしない
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator SandCastle_And_Bucket_CanBeClimbed()
         {
             var castle = GM.world.ExtraSpots("castle");

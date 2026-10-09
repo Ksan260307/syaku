@@ -50,6 +50,20 @@ namespace Shakutori
         public const float WaterLevel = -0.35f;
         public static readonly Vector2 SandboxSize = new Vector2(26f, 18f);
         public static readonly Vector2 BedSize = new Vector2(22f, 9f);
+        /// <summary>花だんの中の土の上の面（れんがの根もとから）。れんがの上の面 1.47 とほぼ同じ高さまで盛ってあるので、ふちと土のあいだに段がない（がけにならない）。</summary>
+        public const float BedSoilTop = 1.45f;
+        static float _bedBase = float.NaN;
+        /// <summary>花だんの、れんがの根もとの高さ（花だんの外の地面）。</summary>
+        public static float BedBase
+        {
+            get
+            {
+                if (float.IsNaN(_bedBase)) _bedBase = Height(FlowerBed.x + BedSize.x * 0.5f + 1.5f, FlowerBed.y);
+                return _bedBase;
+            }
+        }
+        /// <summary>花だんの中の土の上の面の高さ。</summary>
+        public static float BedSoilY => BedBase + BedSoilTop;
 
         static float InRect(float x, float z, Vector2 c, Vector2 size, float soft)
         {
@@ -76,8 +90,9 @@ namespace Shakutori
             float h = 0.25f * (ShakuMath.Fbm(x * 0.025f + 11.1f, z * 0.025f + 3.7f, 3) - 0.5f) * 2f;
             // 砂場の中は少し低い（わくのふちで止まる）
             h -= 0.3f * InRect(x, z, Sandbox, SandboxSize - new Vector2(2f, 2f), 0.4f);
-            // 花だんの中は土が盛ってある
-            h += 0.75f * InRect(x, z, FlowerBed, BedSize - new Vector2(1.2f, 1.2f), 0.3f);
+            // 花だんの中は土が盛ってある（れんがの上の面のすぐ下まで。土の上の面は花だんの形の中にあり、地面はそのすぐ下）
+            float inBed = InRect(x, z, FlowerBed, BedSize - new Vector2(1.2f, 1.2f), 0.3f);
+            if (inBed > 0f) h = Mathf.Lerp(h, BedSoilY - 0.04f, inBed);
             // 小道はすこし平らに
             h -= TrailMask(x, z) * 0.05f;
             // 外周はせり上がる（植えこみの土手）
@@ -107,6 +122,13 @@ namespace Shakutori
         public static bool IsUnderwater(Vector3 p) => InPuddle(p.x, p.z, 1.5f) && p.y < WaterLevel - AreaLayout.WadeDepth;
 
         public static bool InPlayArea(Vector3 p) => new Vector2(p.x, p.z).magnitude < PlayRadius && p.y < MaxClimbHeight;
+
+        /// <summary>ジャングルジムの中か（ジャングルジムは 15 度回した 12 × 12。margin だけ外まで）。</summary>
+        public static bool InJungleGym(Vector2 p, float margin)
+        {
+            Vector3 l = Quaternion.Euler(0f, -15f, 0f) * new Vector3(p.x - JungleGym.x, 0f, p.y - JungleGym.y);
+            return Mathf.Abs(l.x) < 6f + margin && Mathf.Abs(l.z) < 6f + margin;
+        }
 
         /// <summary>砂の地面か（砂場の中・ブランコとすべり台とジャングルジムの下）。</summary>
         public static float SandMask(float x, float z)
@@ -181,7 +203,7 @@ namespace Shakutori
                             position = JungleGym, radius = 6f, minHeightAboveGround = 10f, mapColor = new Color(0.4f, 0.8f, 0.45f) },
                         new LandmarkDef { id = 25, areaId = "park", name = "砂場の砂山", english = "Sandbox Hill", description = "だれかが作った砂の山と、わすれもののバケツ。",
                             position = Sandbox, radius = 12f, mapColor = new Color(0.9f, 0.82f, 0.55f) },
-                        new LandmarkDef { id = 26, areaId = "park", name = "チューリップの花だん", english = "Tulip Bed", description = "赤・黄・ピンクのチューリップと、キャベツ。モンシロチョウがやってくる。",
+                        new LandmarkDef { id = 26, areaId = "park", name = "チューリップの花だん", english = "Tulip Bed", description = "赤・黄・ピンクのチューリップ。モンシロチョウがやってくる。",
                             position = FlowerBed, radius = 10f, mapColor = new Color(1f, 0.55f, 0.7f) },
                         new LandmarkDef { id = 27, areaId = "park", name = "クヌギの木", english = "Sawtooth Oak", description = "あまい樹液のにおい。夜になると、クワガタやカミキリムシが集まる。",
                             position = Kunugi, radius = 9f, mapColor = new Color(0.55f, 0.4f, 0.28f) },

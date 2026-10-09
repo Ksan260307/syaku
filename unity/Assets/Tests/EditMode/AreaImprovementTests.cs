@@ -162,6 +162,54 @@ namespace Shakutori.Tests
         }
 
         [Test]
+        public void Park_BucketBirdsBedAndJungleGym_AreTidy()
+        {
+            var g = Worlds["park"];
+            // バケツは、モグラ塚（土の山の半径 2.6）にかさならない
+            foreach (var b in Spots("park", "bucket"))
+                foreach (var m in g.Mobs.Where(m => m.species == "mogura" || m.species == "okera"))
+                    Assert.Greater(Vector2.Distance(new Vector2(b.x, b.z), new Vector2(m.center.x, m.center.z)), 4.5f, "バケツとモグラ塚");
+            // ハトとスズメは、はなれた所から（降りる場所も重ねない）
+            var hato = g.Mobs.First(m => m.species == "hato");
+            var sparrow = g.Mobs.First(m => m.species == "sparrow");
+            Assert.Greater(Vector3.Distance(hato.center, sparrow.center), 12f, "ハトとスズメの初めの場所");
+            foreach (var a in hato.path)
+                foreach (var b in sparrow.path)
+                    Assert.Greater(Vector3.Distance(a, b), 10f, "ハトとスズメの降りる場所");
+            // 花だん：キャベツ（緑のかたまり）はない。チューリップは土の上に植わる
+            int tulips = 0;
+            foreach (var (mesh, mat, m) in g.instanced.Instances())
+            {
+                Assert.AreNotEqual("Park_Cabbage", mesh.name, "花だんのキャベツ");
+                if (!mesh.name.StartsWith("Tulip_")) continue;
+                Vector3 p = m.GetColumn(3);
+                if (Mathf.Abs(p.x - ParkLayout.FlowerBed.x) > ParkLayout.BedSize.x * 0.5f || Mathf.Abs(p.z - ParkLayout.FlowerBed.y) > ParkLayout.BedSize.y * 0.5f) continue;
+                tulips++;
+                Assert.AreEqual(ParkLayout.BedSoilY, p.y, 0.15f, "チューリップは土の上");
+            }
+            Assert.GreaterOrEqual(tulips, 20, "花だんのチューリップ（3 列 × 9。景色の通り道の所はのぞく）");
+            WithArea("park", w =>
+            {
+                // 花だんの土は、れんがのふちとほぼ同じ高さ（ふちから土へ段がない）
+                Vector2 c = ParkLayout.FlowerBed;
+                Assert.IsTrue(Physics.Raycast(new Vector3(c.x + 1f, 30f, c.y), Vector3.down, out var soil, 60f, ShakuConst.SurfaceMask));
+                Assert.AreEqual(ParkLayout.BedSoilY, soil.point.y, 0.05f, "土の上の面");
+                Assert.IsTrue(Physics.Raycast(new Vector3(c.x + 1f, 30f, c.y - ParkLayout.BedSize.y * 0.5f + 0.3f), Vector3.down, out var rim, 60f, ShakuConst.SurfaceMask));
+                Assert.Less(rim.point.y - soil.point.y, 0.06f, "れんがのふちと土の段");
+                // ジャングルジムの棒に、石や小石がめりこまない
+                foreach (var col in w.Root.GetComponentsInChildren<Collider>())
+                {
+                    if (col.name.StartsWith("Terrain_") || col.name == "Park_JungleGym") continue;
+                    Vector3 p = col.bounds.center;
+                    Assert.IsFalse(ParkLayout.InJungleGym(new Vector2(p.x, p.z), 0.6f) && p.y < ParkLayout.Ground(p.x, p.z).y + 1.5f, $"ジャングルジムの中の {col.name} {p}");
+                }
+                foreach (var (mesh, pos, home, rot, scale) in w.loose.Items())
+                    if (!mesh.name.StartsWith("Leaf"))
+                        Assert.IsFalse(ParkLayout.InJungleGym(new Vector2(home.x, home.z), 0.4f), $"ジャングルジムの中の小石 {home}");
+            });
+        }
+
+        [Test]
         public void Park_FenceStopsAtTheKunugi_AndPropsKeepOffTheFixtures()
         {
             WithArea("park", g =>
@@ -221,7 +269,7 @@ namespace Shakutori.Tests
             Assert.That(ParkLayout.SandMask(Spots("park", "castle")[0].x, Spots("park", "castle")[0].z), Is.GreaterThan(0.5f), "砂場の中");
             Assert.AreEqual(1, Spots("park", "bucket").Count, "砂場のバケツ");
             Assert.AreEqual(0, Spots("park", "blocks").Count, "四角い積み木は置かない");
-            foreach (var k in new[] { "gymstep", "benchrest", "seesawstep", "tirestep", "tirerest" })
+            foreach (var k in new[] { "benchrest", "seesawstep", "tirestep", "tirerest" })
                 Assert.GreaterOrEqual(Spots("park", k).Count, 1, k + "：遊具のそばの平らな石");
             Assert.GreaterOrEqual(Spots("park", "marble").Count, 5, "ビー玉");
             Assert.GreaterOrEqual(Spots("park", "clover").Count, 3, "シロツメクサ");

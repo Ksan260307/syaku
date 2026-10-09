@@ -62,16 +62,18 @@ namespace Shakutori
             Marbles(new Vector2(-14f, 28f), 10f, 1);
             Marbles(ParkLayout.Bench + new Vector2(-4.5f, -9.5f), 2f, 1);
 
-            // 34. ジャングルジムのそばの、わすれもののバケツ（72. ふちに登って、中をのぞける）
-            if (FindSpot(ParkLayout.JungleGym + new Vector2(9.5f, 6f), 4f, 1.8f, true, out var bp, q => IsLand(q, 0.1f))
-                || FindSpot(ParkLayout.JungleGym + new Vector2(9.5f, 6f), 9f, 1.8f, true, out bp, q => IsLand(q, 0.1f), true)
-                || FindSpot(sb + new Vector2(-9f, 5f), 4f, 1.8f, true, out bp, q => ParkLayout.SandMask(q.x, q.y) > 0.6f, true))
+            // 34. ジャングルジムや砂場のそばの、わすれもののバケツ（72. ふちに登って、中をのぞける）
+            // モグラ塚のそばには置かない（重なって見える）。ジャングルジムのそばか、砂場のまわり
+            bool found = false;
+            Vector2 bp = Vector2.zero;
+            foreach (var near in new[] { ParkLayout.JungleGym + new Vector2(9.5f, 6f), sb + new Vector2(15.5f, 2f), sb + new Vector2(-15.5f, 2f), sb + new Vector2(4f, 11.5f) })
+                if (FindSpot(near, 5f, 1.8f, true, out bp, q => IsLand(q, 0.1f) && !ParkLayout.InJungleGym(q, 2.5f) && AwayFromBurrows(q, 1.8f) && !NearSandboxFrame(q, 2.2f), true)) { found = true; break; }
+            if (found)
             {
                 PutSolid("Park_Bucket", shiny, ParkLayout.Ground(bp.x, bp.y), Quaternion.Euler(0f, XR(0f, 360f), 0f), 0.9f, 2f);
                 Mark("bucket", ParkLayout.Ground(bp.x, bp.y));
             }
-            // 80. ジャングルジムの柱の根もとの平たい石（取りつきやすい）
-            ForcedFlatRock(ParkLayout.JungleGym + (-ParkLayout.JungleGym).normalized * 7.4f, 0.8f, "gymstep");
+            // （ジャングルジムの柱の根もとの平たい石は、下の棒にめりこんでいたので置かない）
             // 35. ベンチの座面の紙ひこうき・73. ベンチの下の日かげの、休める平たい石
             if (_benchSeat != Vector3.zero && CastDown(_benchSeat + new Vector3(0f, 2f, 3.5f), 4f, out var seat))
             {
@@ -116,8 +118,9 @@ namespace Shakutori
                 }
             }
 
-            // 39. 芝生のシロツメクサの群れ・40. さくのそばのシロツメクサとタンポポ・59. キャベツのそばのシロツメクサ
-            foreach (var c in new[] { new Vector2(22f, 18f), new Vector2(-18f, -4f), new Vector2(-38f, 6f), new Vector2(30f, -38f), new Vector2(-6f, 52f) })
+            // 39. 芝生のシロツメクサの群れ・40. さくのそばのシロツメクサとタンポポ・59. 花だんの土のシロツメクサ
+            // （モグラ塚 (-20, -5) の土の上には生やさない）
+            foreach (var c in new[] { new Vector2(22f, 18f), new Vector2(-12f, -9f), new Vector2(-38f, 6f), new Vector2(30f, -38f), new Vector2(-6f, 52f) })
             {
                 if (ScatterDeco(c, 3.5f, 9, 0.7f, 1.0f, flw, 0.05f, "Park_WhiteClover") > 0) Mark("clover", ParkLayout.Ground(c.x, c.y));
             }
@@ -130,9 +133,9 @@ namespace Shakutori
             }
             {
                 Vector2 bed = ParkLayout.FlowerBed;
-                float bedTop = ParkLayout.Height(bed.x, bed.y);
+                float bedTop = ParkLayout.BedSoilY;
                 foreach (float dx in new[] { -4.3f, 4.3f })
-                    PutDeco("Park_WhiteClover", flw, new Vector3(bed.x + dx + 1.1f, bedTop - 0.05f, bed.y + 1.2f), Quaternion.Euler(0f, XR(0f, 360f), 0f), 0.75f, true, 120f);
+                    PutDeco("Park_WhiteClover", flw, new Vector3(bed.x + dx + 1.1f, bedTop - 0.03f, bed.y + 1.2f), Quaternion.Euler(0f, XR(0f, 360f), 0f), 0.75f, true, 120f);
             }
 
             // 41. クヌギの根もとのどんぐり（押すと転がる）・58. クヌギのまわりの小枝
@@ -249,8 +252,10 @@ namespace Shakutori
             }
             for (int i = 0; i < 12; i++)
             {
-                Vector2 p = ParkLayout.JungleGym + new Vector2(XR(-6f, 6f), XR(-6f, 6f));
-                if (NearDew(p, 0.6f)) continue;
+                // ジャングルジムのまわりの砂（下の棒にめりこまないように、ジャングルジムの外がわだけ）
+                float a = XR(0f, Mathf.PI * 2f);
+                Vector2 p = ParkLayout.JungleGym + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * XR(9f, 10.5f);
+                if (NearDew(p, 0.6f) || ParkLayout.InJungleGym(p, 1.2f)) continue;
                 PlaceLoose(XPick(Rocks), prop, ParkLayout.Ground(p.x, p.y), Quaternion.Euler(XR(-15f, 15f), XR(0f, 360f), XR(-15f, 15f)), XR(0.06f, 0.12f), LooseProps.Shape.Pebble, false, 40f);
             }
 
@@ -319,6 +324,14 @@ namespace Shakutori
                         TwigSpan(ParkLayout.Ground(foot.x, foot.y) + Vector3.up * 0.15f, hit.point + new Vector3(dir.x, 0f, dir.y) * 0.3f, "kunugiroot");
                 }
             }
+        }
+
+        /// <summary>モグラ塚・ケラの穴の土の山（半径 2.6）にかさならない所か。</summary>
+        bool AwayFromBurrows(Vector2 q, float r)
+        {
+            foreach (var m in Mobs)
+                if ((m.species == "mogura" || m.species == "okera") && Vector2.Distance(new Vector2(m.center.x, m.center.z), q) < 3.4f + r) return false;
+            return true;
         }
 
         /// <summary>公園の外まわりのさくの半径。</summary>

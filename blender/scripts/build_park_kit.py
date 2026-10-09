@@ -467,6 +467,7 @@ def make_fountain():
 # 花だん（れんがのふち。外 22 × 9、高さ 1.5）
 # ---------------------------------------------------------------------------
 BED = (22.0, 9.0)
+BED_SOIL = 1.45   # 中の土の上の面（れんがの上の面 1.47 とほぼ同じ高さまで盛る。Unity の ParkLayout.BedSoilTop と同じ）
 
 
 def make_flower_bed():
@@ -502,11 +503,29 @@ def make_flower_bed():
                 else:
                     x = (W * 0.5 - 0.3) * (1 if side == 2 else -1)
                     box(mb, (x, u, z), (0.6, length / n - 0.08, bh - 0.06), lit(c, 0.1))
+    # 中の土：れんがの上の面とほぼ同じ高さまで、たっぷり盛る（ふちと土のあいだに段がなく、ふちから土へ歩ける）
+    sw, sd = W - 1.2, D - 1.2
+    soil_dark, soil_light = hexc("#4b3224"), hexc("#6e4b34")
+    box(mb, (0, 0, (BED_SOIL - 0.03) * 0.5), (sw, sd, BED_SOIL - 0.03), soil_dark)
+    nx, ny = 44, 16
+    ids = []
+    for j in range(ny + 1):
+        row = []
+        for i in range(nx + 1):
+            x, y = -sw * 0.5 + sw * i / nx, -sd * 0.5 + sd * j / ny
+            edge = i in (0, nx) or j in (0, ny)
+            n = kit.noise.noise(Vector((x * 0.7, y * 0.7, 3.3)))
+            z = BED_SOIL + (0.0 if edge else 0.02 * n)
+            row.append(mb.v(Vector((x, y, z)), mixc(soil_dark, soil_light, 0.45 + 0.4 * n)))
+        ids.append(row)
+    for j in range(ny):
+        for i in range(nx):
+            mb.f(ids[j][i], ids[j][i + 1], ids[j + 1][i + 1], ids[j + 1][i])
     return build(mb, "Park_FlowerBed", smooth=False)
 
 
 # ---------------------------------------------------------------------------
-# 花だんの草花：チューリップ（色ちがい 3 つ）とキャベツ
+# 花だんの草花：チューリップ（色ちがい 3 つ）
 # ---------------------------------------------------------------------------
 def make_tulip(name, petal, petal_tip):
     mb = MB()
@@ -528,28 +547,6 @@ def make_tulip(name, petal, petal_tip):
     lathe(mb, prof, 24, cup, center=Vector((0, 0.05, h - 0.05)),
           rfn=lambda t, a: 1.0 + 0.16 * t * abs(math.cos(a * 3)) ** 0.6)
     return build(mb, name)
-
-
-def make_cabbage():
-    mb = MB()
-    rnd = random.Random(21)
-    green = hexc("#7fc25a")
-    pale = hexc("#cdeaa0")
-    uv_sphere(mb, Vector((0, 0, 1.2)), 1.3, lambda n: mixc(pale, green, 0.3 + 0.3 * n.z), seg=18, rings=12)
-    for i in range(9):
-        a = TAU * i / 9 + rnd.uniform(-0.2, 0.2)
-        leaf = MB()
-
-        def cf(rho, th, p):
-            vein = sstep(0.06, 0.0, abs(math.sin(th * 3))) * 0.3
-            return with_alpha(mixc(mixc(pale, green, rho), hexc("#e8f7c8"), vein), 0.3 + 0.5 * rho)
-        polar_sheet(leaf, lambda th: 1.0 + 0.12 * math.sin(th * 7), cf, n_ang=18, n_rad=4, a0=-1.3, a1=1.3, full=False,
-                    zfn=lambda rho, th: 0.35 * rho * rho)
-        tilt = rnd.uniform(0.5, 0.9)
-        m = (Matrix.Translation((0, 0, 0.4)) @ Matrix.Rotation(a, 4, "Z") @ Matrix.Rotation(-tilt, 4, "Y")
-             @ Matrix.Diagonal((2.2, 1.6, 1.0, 1.0)))
-        mb.add(leaf, m)
-    return build(mb, "Park_Cabbage")
 
 
 # ---------------------------------------------------------------------------
@@ -866,7 +863,6 @@ def main():
         lambda: make_tulip("Tulip_Red", hexc("#e83a3a"), hexc("#ff8a7a")),
         lambda: make_tulip("Tulip_Yellow", hexc("#f2c41e"), hexc("#fff08a")),
         lambda: make_tulip("Tulip_Pink", hexc("#f07aa8"), hexc("#ffd0e0")),
-        make_cabbage,
         lambda: make_tire("Park_Tire_Red", hexc("#e2483a")),
         lambda: make_tire("Park_Tire_Blue", hexc("#3a7fd0")),
         lambda: make_tire("Park_Tire_Yellow", hexc("#f2c232")),

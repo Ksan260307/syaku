@@ -2058,7 +2058,8 @@ namespace Shakutori
 
             HoldButton("btn-silk", held => GameInput.SetVirtualSilk(held));
             HoldButton("btn-stand", held => GameInput.VirtualStand = held);
-            HoldButton("btn-aim", held => GameInput.VirtualAim = held);
+            // 「ねらう」は押したまま指をすべらせると、ねらいながら見まわせる（はなすと糸を発射）
+            HoldButton("btn-aim", held => GameInput.VirtualAim = held, AimButtonDrag);
             var dash = Q<VisualElement>("btn-dash");
             dash.RegisterCallback<PointerDownEvent>(e =>
             {
@@ -2067,18 +2068,28 @@ namespace Shakutori
             });
         }
 
-        void HoldButton(string name, Action<bool> set)
+        void HoldButton(string name, Action<bool> set, Action<Vector2> drag = null)
         {
             var b = Q<VisualElement>(name);
+            var last = new Dictionary<int, Vector2>();
             b.RegisterCallback<PointerDownEvent>(e =>
             {
                 b.CapturePointer(e.pointerId);
                 b.AddToClassList("touch-button--on");
+                last[e.pointerId] = e.position;
                 set(true);
             });
+            if (drag != null)
+                b.RegisterCallback<PointerMoveEvent>(e =>
+                {
+                    if (!b.HasPointerCapture(e.pointerId) || !last.TryGetValue(e.pointerId, out var prev)) return;
+                    last[e.pointerId] = e.position;
+                    drag((Vector2)e.position - prev);
+                });
             EventCallback<PointerUpEvent> up = e =>
             {
                 if (b.HasPointerCapture(e.pointerId)) b.ReleasePointer(e.pointerId);
+                last.Remove(e.pointerId);
                 b.RemoveFromClassList("touch-button--on");
                 set(false);
             };
@@ -2089,6 +2100,19 @@ namespace Shakutori
                 set(false);
             });
         }
+
+        /// <summary>
+        /// 「ねらう」ボタンを押したまま指をすべらせたとき（画面の点の動き）：カメラを回して、ねらいを動かす。
+        /// 左手でスティック、右手でねらうので、もう 1 本の指がなくても見まわせる。
+        /// </summary>
+        public void AimButtonDrag(Vector2 delta)
+        {
+            if (!GameInput.VirtualAim) return;
+            GameInput.AddLook(new Vector2(delta.x, -delta.y) * AimDragGain);
+        }
+
+        /// <summary>「ねらう」ボタンの上で指をすべらせたときの、見まわす速さ（視点エリアのドラッグと同じ）。</summary>
+        public const float AimDragGain = 1f;
 
         /// <summary>スティックを指の位置（touch 要素の座標）に出す。</summary>
         public void BeginJoystick(Vector2 local)
@@ -2301,6 +2325,7 @@ namespace Shakutori
                 _reticle.EnableInClassList("reticle--ok", _worm.AimValid);
                 _reticle.EnableInClassList("reticle--far", !_worm.AimValid);
                 _reticleText.text = _worm.AimValid ? $"{KeyName("aim")}をはなすと糸を発射" : _worm.AimProblem;
+                if (_touchMode && GameInput.VirtualAim) _reticleText.text += "\n（指をすべらせると、見まわせる）";
             }
             // オートセーブの表示
             _saveIndicator.EnableInClassList("save-indicator--show", Time.unscaledTime < _saveShowUntil);

@@ -225,7 +225,7 @@ namespace Shakutori
                 new SpeciesDef { id = "monshiro", name = "モンシロチョウ", areaLabel = "公園", kind = MobKind.Flutter, body = "Monshiro_Body", speed = 1.3f, discoverRadius = 5.5f,
                     parts = new[] { new PartMount { mesh = "Monshiro_Wing", restRoll = 25f, flapAmp = 65f, flapHz = 6.5f } },
                     description = "白いはねの、いちばん身近なチョウ。キャベツの葉に卵をうむ。",
-                    hint = "公園の花だん。キャベツのまわりをひらひら。" },
+                    hint = "公園の花だん。チューリップのまわりをひらひら。" },
                 // ---- 森・川辺・公園の、新しいなかま ----
                 new SpeciesDef { id = "koumori", name = "アブラコウモリ", areaLabel = "森", kind = MobKind.Flutter, body = "Koumori_Body", speed = 2.4f, discoverRadius = 7f,
                     parts = new[] { new PartMount { mesh = "Koumori_Wing", restRoll = 8f, flapAmp = 70f, flapHz = 7.5f } },

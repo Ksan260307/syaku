@@ -275,8 +275,6 @@ MonoBehaviour:
     mesh: {fileID: -8560499791674417405, guid: 870199b1c88ec92498a5d0b52f4c165c, type: 3}
   - name: Park_Bucket
     mesh: {fileID: 5018455078505332292, guid: d4f4054358929c943af855c3b6aad2d2, type: 3}
-  - name: Park_Cabbage
-    mesh: {fileID: 3797662183571129895, guid: e8469707d306e1245a6de4c305954d0d, type: 3}
   - name: Park_Dokan
     mesh: {fileID: 4386522872338255738, guid: 57fef183806ecb649b452a84f822b8cc, type: 3}
   - name: Park_Fence
