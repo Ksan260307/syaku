@@ -58,7 +58,7 @@ namespace Shakutori
         /// <summary>しゃくとりむしが乗ったときに、しずむ深さ。</summary>
         public const float LoadDip = 0.022f;
 
-        float _clock;
+        float _clock, _bob;
         // 浮力のばね（しずみ・かたむき）
         float _dip, _dipVel;
         Vector2 _tilt, _tiltVel;   // x: 前後, y: 左右（度）
@@ -98,8 +98,10 @@ namespace Shakutori
             }
         }
 
-        public Vector3 Evaluate(float clock, out Quaternion rot)
+        /// <summary>道の上の位置。bob は、ゆれの時計（岸で待っている間も、ゆれはつづく）。</summary>
+        public Vector3 Evaluate(float clock, out Quaternion rot, float bob = float.NaN)
         {
+            if (float.IsNaN(bob)) bob = clock;
             float t = Mathf.Repeat(clock, Cycle);
             float k;
             if (t < waitTime) k = 0f;
@@ -107,8 +109,8 @@ namespace Shakutori
             else if (t < 2f * waitTime + travelTime) k = 1f;
             else k = 1f - ShakuMath.Smoother01((t - 2f * waitTime - travelTime) / travelTime);
             Vector3 p = Vector3.Lerp(dockA, dockB, k);
-            p.y += Mathf.Sin(clock * 1.7f) * 0.025f;
-            rot = baseRotation * Quaternion.Euler(Mathf.Sin(clock * 1.3f) * 1.2f, Mathf.Sin(clock * 0.4f) * 3f * (k > 0f && k < 1f ? 1f : 0.3f), Mathf.Sin(clock * 1.1f) * 1.5f);
+            p.y += Mathf.Sin(bob * 1.7f) * 0.025f;
+            rot = baseRotation * Quaternion.Euler(Mathf.Sin(bob * 1.3f) * 1.2f, Mathf.Sin(bob * 0.4f) * 3f * (k > 0f && k < 1f ? 1f : 0.3f), Mathf.Sin(bob * 1.1f) * 1.5f);
             return p;
         }
 
@@ -119,9 +121,11 @@ namespace Shakutori
             using var prof = s_Ferry.Auto();   // 処理時間の計測（パフォーマンスの調整用）
             float dt = Time.deltaTime;
             _clock += dt;
+            _bob += dt;
             // 乗っているしゃくとりむしの重さで、しずんで、乗った側へかたむく
             var worm = InchwormController.Instance;
             bool loaded = worm != null && worm.PlatformUnder == transform;
+            if (worm != null && Application.isPlaying) Steer(worm, dt);
             float dipTarget = loaded ? LoadDip : 0f;
             Vector2 tiltTarget = Vector2.zero;
             if (loaded)
@@ -159,6 +163,77 @@ namespace Shakutori
             Apply();
         }
 
+        // しゃくとりむしに合わせた動き
+        float _aboard, _call;
+        bool _arrivedAboard;
+
+        /// <summary>しゃくとりむしが近くの岸（または中州）にいるか。</summary>
+        public System.Func<Vector3, bool> NearA, NearB;
+
+        /// <summary>
+        /// しゃくとりむしに合わせて、待つ・出る・むかえに行く。
+        /// 近づいてくる間は待つ。頭もしっぽも乗ったら、少しして出る。向こう岸で待っていたら、むかえに行く。
+        /// 乗ったまま着いたら、降りるまで待つ（しばらく乗ったままなら、また出る）。
+        /// </summary>
+        void Steer(InchwormController worm, float dt)
+        {
+            bool atA = AtA, atB = AtB;
+            bool aboard = worm.FullyOn(transform);
+            bool onIt = worm.PlatformUnder == transform;
+            if (!atA && !atB)
+            {
+                _aboard = 0f;
+                _call = 0f;
+                _arrivedAboard = onIt;
+                return;
+            }
+            Vector3 wp = worm.CenterPosition;
+            bool nearHere = onIt || (atA ? IsNear(NearA, dockA, wp) : IsNear(NearB, dockB, wp));
+            bool nearThere = !onIt && (atA ? IsNear(NearB, dockB, wp) : IsNear(NearA, dockA, wp));
+            if (aboard)
+            {
+                _aboard += dt;
+                _call = 0f;
+                if (_arrivedAboard ? _aboard > ReboardWait : _aboard > BoardWait) { _arrivedAboard = false; Depart(atA); }
+                else Hold(atA, dt);
+                return;
+            }
+            _aboard = 0f;
+            if (!onIt) _arrivedAboard = false;
+            if (nearHere) { Hold(atA, dt); _call = 0f; }
+            else if (nearThere) { _call += dt; if (_call > CallWait) { _call = 0f; Depart(atA); } }
+            else _call = 0f;
+        }
+
+        /// <summary>頭もしっぽも乗ってから、出るまでの時間。</summary>
+        public const float BoardWait = 1.2f;
+        /// <summary>乗ったまま着いて、そのまま乗っていたら、また出るまでの時間。</summary>
+        public const float ReboardWait = 5f;
+        /// <summary>向こう岸で待っているのに気づいて、むかえに出るまでの時間。</summary>
+        public const float CallWait = 0.8f;
+
+        static bool IsNear(System.Func<Vector3, bool> near, Vector3 dock, Vector3 p)
+        {
+            if (near != null) return near(p);
+            return new Vector2(p.x - dock.x, p.z - dock.z).magnitude < 7f;
+        }
+
+        float CycleStart => Mathf.Floor(_clock / Cycle) * Cycle;
+
+        /// <summary>岸で待ちつづける（待ち時間の終わりの手前で、時計を止める）。</summary>
+        void Hold(bool atA, float dt)
+        {
+            float t = Mathf.Repeat(_clock, Cycle);
+            float end = atA ? waitTime : 2f * waitTime + travelTime;
+            if (t > end - 1f) _clock -= dt;
+        }
+
+        /// <summary>すぐに出る。</summary>
+        void Depart(bool atA)
+        {
+            _clock = CycleStart + (atA ? waitTime : 2f * waitTime + travelTime) + 0.001f;
+        }
+
         /// <summary>決まった道を進む速さ（ゆれやしずみはふくめない）。</summary>
         Vector3 RouteVelocity()
         {
@@ -180,7 +255,7 @@ namespace Shakutori
 
         void Apply()
         {
-            Vector3 p = Evaluate(_clock, out var r);
+            Vector3 p = Evaluate(_clock, out var r, _bob);
             p.y -= _dip;
             p += _drift;
             // 風が強いと、波で大きくゆれる（波の高さは風の速さの 2 乗）
@@ -198,6 +273,7 @@ namespace Shakutori
         public void SetClock(float t)
         {
             _clock = t;
+            _bob = t;
             Apply();
         }
     }

@@ -37,7 +37,7 @@ namespace Shakutori
         void BuildExtras()
         {
             _xr = new Random(seed * 3 + 101 * Area.Id.Length);
-            _extraSpots.Clear();
+            // _extraSpots は Clear で空にしてある（地形や大きな物を置くときの目じるしも、残しておく）
             Physics.SyncTransforms();
             if (Area.Id == "forest") BuildForestExtras();
             else if (Area.Id == "park") BuildParkExtras();
@@ -144,7 +144,7 @@ namespace Shakutori
             {
                 float a = XR(0f, Mathf.PI * 2f);
                 Vector2 p = center + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (Mathf.Sqrt(XR01()) * radius);
-                if (!IsLand(p, 0.1f) || !ExtraOk(p, 0.2f, false)) continue;
+                if (!IsLand(p, 0.1f) || !ExtraOk(p, 0.2f, false) || Area.TrailMask(p.x, p.y) > 0.75f) continue;   // 小道のまん中には置かない
                 Vector3 g = Area.Ground(p.x, p.y) + Vector3.down * sink;
                 PutDeco(meshes[_xr.Next(meshes.Length)], mat, g, GroundRotation(p, XR(0f, 360f), 0.3f, 5f), XR(smin, smax), true, 110f);
                 n++;
@@ -154,12 +154,17 @@ namespace Shakutori
 
         /// <summary>押すと動く小物（小石・松ぼっくり）を、中心のまわりに置く。</summary>
         int ScatterLoose(Vector2 center, float radius, int count, float smin, float smax, LooseProps.Shape shape, params string[] meshes)
+            => ScatterLooseRing(center, 0f, radius, count, smin, smax, shape, meshes);
+
+        /// <summary>中心のまわりの輪（r0〜r1）に、押すと動く小物をまく（台の根もとなど、まん中には置かない）。</summary>
+        int ScatterLooseRing(Vector2 center, float r0, float radius, int count, float smin, float smax, LooseProps.Shape shape, params string[] meshes)
         {
             int n = 0;
+            float k0 = r0 * r0 / Mathf.Max(1e-4f, radius * radius);
             for (int i = 0; i < count * 3 && n < count; i++)
             {
                 float a = XR(0f, Mathf.PI * 2f);
-                Vector2 p = center + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (Mathf.Sqrt(XR01()) * radius);
+                Vector2 p = center + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (Mathf.Sqrt(Mathf.Lerp(k0, 1f, XR01())) * radius);
                 if (!IsLand(p, 0.05f) || !ExtraOk(p, 0.3f, false)) continue;
                 Vector3 g = Area.Ground(p.x, p.y);
                 Quaternion rot = shape == LooseProps.Shape.Pinecone
@@ -176,15 +181,17 @@ namespace Shakutori
         /// <summary>小石を積んだ目じるし（ケルン）。登って見わたせる。</summary>
         bool Cairn(Vector2 near)
         {
-            if (!FindSpot(near, 5f, 1.4f, true, out var p, q => IsLand(q, 0.2f))) return false;
+            // 小道のわき（小道の上には積まない）
+            if (!FindSpot(near, 5f, 1.4f, true, out var p, q => IsLand(q, 0.2f) && Area.TrailMask(q.x, q.y) < 0.25f)) return false;
             Vector3 g = Area.Ground(p.x, p.y);
-            float y = 0f;
             float[] sizes = { 1.15f, 0.85f, 0.6f };
             for (int i = 0; i < sizes.Length; i++)
             {
                 float s = sizes[i];
-                Place(i == 0 ? "Rock_C" : i == 1 ? "Rock_A" : "Rock_D", assets.prop, g + Vector3.up * (y - 0.12f * s), Quaternion.Euler(XR(-6f, 6f), XR(0f, 360f), XR(-6f, 6f)), s, true);
-                y += 0.85f * s;
+                // 下の石の上に、のせる（宙にうかない・めりこまない）
+                Physics.SyncTransforms();
+                float y = i == 0 ? g.y - 0.12f * s : (CastDown(g + Vector3.up * 8f, 12f, out var top) ? top.point.y - 0.18f * s : g.y);
+                Place(i == 0 ? "Rock_C" : i == 1 ? "Rock_A" : "Rock_D", assets.prop, new Vector3(g.x, y, g.z), Quaternion.Euler(XR(-6f, 6f), XR(0f, 360f), XR(-6f, 6f)), s, true);
             }
             Occupy(p, 1.6f);
             Mark("cairn", g);
@@ -244,6 +251,46 @@ namespace Shakutori
                 Place(i % 2 == 0 ? "BgTrunk_B" : "BgTrunk_A", assets.bark, g, Quaternion.Euler(0f, XR(0f, 360f), 0f), XR(0.7f, 1.2f), false, true, 500f, asRenderer: true);
                 Mark("trunk", g);
             }
+        }
+
+        /// <summary>
+        /// 地面に小枝を横たえる（見た目だけ）：両はしが地面にふれるように、坂にそってかたむける（片はしが宙にうかない）。
+        /// 小枝の長さは 13.2 で、1 倍。
+        /// </summary>
+        void LayTwig(string mesh, Material mat, Vector2 p, float yawDeg, float rollDeg, float sc, float maxDistance, bool solid = false)
+        {
+            Vector3 dir = Quaternion.Euler(0f, yawDeg, 0f) * Vector3.right;
+            float half = 6.3f * sc;
+            Vector3 a = GroundOrTop(new Vector2(p.x - dir.x * half, p.y - dir.z * half));
+            Vector3 b = GroundOrTop(new Vector2(p.x + dir.x * half, p.y + dir.z * half));
+            Quaternion rot = Quaternion.FromToRotation(Vector3.right, (b - a).normalized) * Quaternion.Euler(rollDeg, 0f, 0f);
+            Place(mesh, mat, (a + b) * 0.5f + Vector3.down * 0.04f * sc, rot, sc, solid, true, maxDistance);
+        }
+
+        /// <summary>そこの、いちばん上の面（地面か、その上の岩など）。</summary>
+        Vector3 GroundOrTop(Vector2 p)
+        {
+            Vector3 g = Area.Ground(p.x, p.y);
+            if (CastDown(new Vector3(p.x, g.y + 6f, p.y), 8f, out var hit) && hit.point.y > g.y) return hit.point;
+            return g;
+        }
+
+        /// <summary>
+        /// 水の中の平たい石の下に、川底までとどく石を足す（見た目だけ）。とびいしが、水の中で宙にういて見えないように。
+        /// </summary>
+        void StoneFooting(Vector3 stonePos, string stoneMesh, float stoneScale)
+        {
+            Mesh stone = assets.Get(stoneMesh), foot = assets.Get("RiverStone_B");
+            if (stone == null || foot == null) return;
+            float bottom = stonePos.y + stone.bounds.min.y * stoneScale + 0.08f;
+            float bed = Area.Height(stonePos.x, stonePos.z);
+            float gap = bottom - bed;
+            if (gap < 0.25f) return;
+            float s = Mathf.Clamp((gap + 0.5f) / Mathf.Max(0.1f, foot.bounds.size.y), 0.4f, 2.4f);
+            float y = bed - 0.35f - foot.bounds.min.y * s;
+            float yaw = Mathf.Repeat(stonePos.x * 37.1f + stonePos.z * 11.3f, 360f);   // 場所で決まる向き（乱数を使わない）
+            Place("RiverStone_B", assets.prop, new Vector3(stonePos.x, y, stonePos.z), Quaternion.Euler(0f, yaw, 0f), s, false, false, 120f);
+            Mark("footing", new Vector3(stonePos.x, bed, stonePos.z));
         }
 
         /// <summary>

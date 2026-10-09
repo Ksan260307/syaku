@@ -633,9 +633,19 @@ namespace Shakutori
         /// 面にのせる。壁登りをしないいきもの（鳥・カエル・カマキリなど）は、体をほとんどかたむけない。
         /// 小さなでこぼこでは高さをなめらかに合わせ（がたがたしない）、足もとに何もなければ重力で落ちる。
         /// </summary>
+        /// <summary>
+        /// 天井や物の裏（下を向いた面）にははりつかないいきもの（トカゲ・カメレオン）。坂や物の横は登れるが、
+        /// タイヤのアーチの裏のような、さかさまの面には行かない。
+        /// </summary>
+        static bool NoCeiling(Mob m) => m.bid == "tokage";
+
+        /// <summary>はりつかないいきものが歩ける面の、いちばん急な向き（面の上向きの成分）。</summary>
+        const float NoCeilingMinUp = 0.35f;
+
         bool SnapToSurface(Mob m, float above, float below, bool canFall = false)
         {
             Vector3 up = m.sp.climbs && m.up.sqrMagnitude > 0.5f ? m.up : Vector3.up;
+            if (NoCeiling(m) && up.y < NoCeilingMinUp) up = Vector3.up;
             if (Physics.Raycast(m.pos + up * above, -up, out var hit, above + below, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)
                 || Physics.Raycast(m.pos + Vector3.up * above, Vector3.down, out hit, above + below, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
             {
@@ -678,7 +688,9 @@ namespace Shakutori
                 else m.pos = hit.point;
                 m.fallVel = 0f;
                 // 面の向きへ、時間に合わせてなめらかに（フレームが長くても短くても同じ速さ）
-                m.up = m.sp.climbs ? (_dt > 0f ? ShakuPhysics.DampDir(m.up, hit.normal, 26f, _dt) : Vector3.Slerp(m.up, hit.normal, 0.35f).normalized) : UprightUp(hit.normal);
+                // トカゲは、さかさまの面（物の裏）には体を合わせない
+                Vector3 n = NoCeiling(m) && hit.normal.y < NoCeilingMinUp ? Vector3.up : hit.normal;
+                m.up = m.sp.climbs ? (_dt > 0f ? ShakuPhysics.DampDir(m.up, n, 26f, _dt) : Vector3.Slerp(m.up, n, 0.35f).normalized) : UprightUp(n);
                 return true;
             }
             // 下に何も見つからない：地面まで重力で落ちる
@@ -1143,8 +1155,15 @@ namespace Shakutori
             Vector3 p = m.pos + dir * dist;
             if (!_area.InPlayArea(p)) return false;
             if (_area.IsUnderwater(new Vector3(p.x, _area.Height(p.x, p.z), p.z)) && !OnLandAbove(p)) return false;
-            if (m.sp.climbs) return true;
             float s = Mathf.Max(1f, m.scale);
+            if (NoCeiling(m))
+            {
+                // トカゲ：前の足場が、さかさまの面や、とびおりるほど下なら、行かない
+                if (!Physics.Raycast(p + Vector3.up * (1.5f * s), Vector3.down, out var gr, 4f * s, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
+                    return false;
+                return gr.normal.y > NoCeilingMinUp && gr.point.y > m.pos.y - 1.2f * s;
+            }
+            if (m.sp.climbs) return true;
             if (Physics.Raycast(m.pos + m.up * (0.15f * s), dir, out var wall, dist, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)
                 && wall.normal.y < 0.5f) return false;
             if (!Physics.Raycast(p + Vector3.up * (1f * s), Vector3.down, out var g, 2.5f * s, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
@@ -3529,9 +3548,15 @@ namespace Shakutori
                 // モグラ塚の穴から、鼻を上へ向けて顔を出す（もぐると、地面の下へ）
                 // 出てくるときは、ためらうように、少し出ては止まりながら
                 float dv = m.digDown ? m.dig : Mathf.Clamp01(m.dig + 0.1f * Mathf.Sin(m.dig * Mathf.PI * 2f));
-                rot = Quaternion.AngleAxis(-38f * (1f - dv), right) * rot;
-                bob -= m.up * ((1.1f + 3.4f * dv) * s);
-                bob += f * (-1.2f * s);
+                // 体はモグラ塚の穴（まん中）をまっすぐ通る：鼻を上へ向けてななめに立ち、穴のふちから鼻先と前足が出る
+                const float tilt = 62f;
+                rot = Quaternion.AngleAxis(-tilt, right) * rot;
+                Vector3 bodyUp = rot * Vector3.up;
+                Vector3 axis = rot * Vector3.back;   // 鼻先の向き（メッシュの前は -Z）
+                Vector3 hole = new Vector3(m.home.x, _area.Height(m.home.x, m.home.z) + MoleHoleRim * s, m.home.z);
+                float noseOut = Mathf.Lerp(-0.9f, 1.35f, 1f - dv) * s;   // 穴のふちから、鼻先がどれだけ出るか
+                Vector3 origin = hole + axis * (noseOut - MoleNose * s) - bodyUp * (MoleAxisHeight * s);
+                bob = origin - m.drawPos;
             }
             else if (m.bid == "okera") bob -= m.up * (0.45f * m.dig * s);   // 土にもぐる
             MotionPose(m, f, right, s, moving, walker, ref rot, ref scale3, ref bob);
@@ -3559,6 +3584,9 @@ namespace Shakutori
             }
             else body = Matrix4x4.TRS(drawAt, rot, scale3);
         }
+
+        // モグラのメッシュの大きさ（Blender の make_mogura）：鼻先の前の長さ・体のまん中の線の高さ。モグラ塚の穴のふちの高さ（make_mogura_hill）
+        const float MoleNose = 2.95f, MoleAxisHeight = 0.8f, MoleHoleRim = 0.95f;
 
         /// <summary>
         /// 種ごとの細かな動き（体の姿勢でえがくもの）を、rot・scale3・bob に重ねる。脚と羽の動きは Draw で。

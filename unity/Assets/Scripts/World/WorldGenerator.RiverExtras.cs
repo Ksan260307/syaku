@@ -178,7 +178,10 @@ namespace Shakutori
                 Vector2 p = new Vector2(RiverLayout.CenterX(z) + XR(-5f, 5f), z);
                 if (Mathf.Abs(z - pz) < 13f || !IsFree(p, 1.6f) || NearDew(p, 2.5f)) continue;
                 float s = XR(0.9f, 1.4f);
-                PutSolid(XPick("RiverStone_A", "RiverStone_B"), prop, new Vector3(p.x, RiverLayout.WaterLevel(z) - 0.45f * s, p.y), Quaternion.Euler(XR(-8f, 8f), XR(0f, 360f), XR(-8f, 8f)), s, 1.4f * s);
+                string mesh = XPick("RiverStone_A", "RiverStone_B");
+                Vector3 sp = new Vector3(p.x, RiverLayout.WaterLevel(z) - 0.45f * s, p.y);
+                PutSolid(mesh, prop, sp, Quaternion.Euler(XR(-8f, 8f), XR(0f, 360f), XR(-8f, 8f)), s, 1.4f * s);
+                StoneFooting(sp, mesh, s);   // 川底までとどく石
                 Mark("midstone", new Vector3(p.x, RiverLayout.WaterLevel(z), p.y));
             }
             {
@@ -207,7 +210,8 @@ namespace Shakutori
                 float side = XR01() < 0.5f ? -1f : 1f;
                 Vector2 p = new Vector2(RiverBankEdgeX(z, side) + side * XR(0.5f, 2f), z);
                 if (!IsLand(p, 0.02f) || !ExtraOk(p, 0.8f, false)) continue;
-                PutDeco("Twig_B", prop, RiverLayout.Ground(p.x, p.y) + Vector3.down * 0.1f, Quaternion.Euler(0f, 90f + XR(-25f, 25f), XR(-3f, 3f)), XR(0.25f, 0.4f), true, 100f);
+                float yaw = 90f + XR(-25f, 25f), roll = XR(-3f, 3f);
+                LayTwig("Twig_B", prop, p, yaw, roll, XR(0.25f, 0.4f), 100f);
             }
             // 51. 岸ぞいの小道のふちの小石
             foreach (var trail in RiverLayout.Trails)
@@ -239,7 +243,7 @@ namespace Shakutori
             for (int i = 0; i < 12; i++)
             {
                 Vector2 p = RandomXInRing(14f, 58f);
-                if (RiverLayout.DistToRiver(p.x, p.y) < RiverLayout.HalfWidth(p.y) + 10f || !IsLand(p, 0.4f) || !ExtraOk(p, 0.3f, false)) continue;
+                if (RiverLayout.DistToRiver(p.x, p.y) < RiverLayout.HalfWidth(p.y) + 10f || !IsLand(p, 0.4f) || !ExtraOk(p, 0.3f, false) || RiverLayout.TrailMask(p.x, p.y) > 0.4f) continue;
                 PutDeco("Mushroom_Cluster", prop, RiverLayout.Ground(p.x, p.y), GroundRotation(p, XR(0f, 360f), 0.4f, 6f), XR(0.45f, 0.75f), true, 120f);
             }
             for (int i = 0; i < 26; i++)
@@ -379,7 +383,11 @@ namespace Shakutori
                 Vector2 p = new Vector2(x, zz);
                 if (NearDew(p, 1.5f) || !IsFree(p, 0.6f)) continue;
                 float top = stone != null ? stone.bounds.max.y * scale : 0.5f;
-                PutSolid("RiverStone_C", assets.prop, new Vector3(x, wl + 0.28f - top, zz), Quaternion.Euler(0f, XR(-25f, 25f) + 90f, 0f), scale, 0.9f);
+                // 岸の土の中にうまってしまう、はしの石は置かない
+                if (RiverLayout.Height(x, zz) > wl + 0.2f) continue;
+                Vector3 sp = new Vector3(x, wl + 0.28f - top, zz);
+                PutSolid("RiverStone_C", assets.prop, sp, Quaternion.Euler(0f, XR(-25f, 25f) + 90f, 0f), scale, 0.9f);
+                StoneFooting(sp, "RiverStone_C", scale);   // 川底までとどく石
                 Mark(kind, new Vector3(x, wl + 0.28f, zz));
             }
         }

@@ -196,6 +196,43 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
+        public IEnumerator Ferry_WaitsForTheWorm_ThenLeavesOnceAboard()
+        {
+            // 岸から歩いて乗れる。近づいてくる間は待ち、頭もしっぽも乗ったら、少しして出る
+            var f = GM.world.Ferry;
+            float iz = RiverLayout.IslandZ;
+            float bank = WorldGenerator.RiverBankEdgeX(iz, 1f);
+            f.SetClock(f.waitTime - 1.5f);
+            Worm.Spawn(RiverLayout.Ground(bank + 4.5f, iz), Vector3.left);
+            yield return FaceCamera(Vector3.left);
+            yield return Seconds(2.5f);
+            Assert.IsTrue(f.AtA, "岸に近づいてくる間は、出ないで待つ");
+            GameInput.VirtualMove = Vector2.up;
+            yield return WaitUntil(() => Worm.FullyOn(f.transform), 20f, "岸から、舟へ歩いて乗る");
+            ResetInput();
+            Assert.IsTrue(f.AtA);
+            yield return WaitUntil(() => !f.AtA, RiverFerry.BoardWait + 1.5f, "乗ったら、少しして出る");
+            yield return WaitUntil(() => f.AtB, f.travelTime + 2f, "中州に着く");
+            Assert.IsTrue(Worm.OnMovingPlatform, "乗ったまま着く");
+            yield return Seconds(3f);
+            Assert.IsTrue(f.AtB, "乗ったまま着いたら、降りるまで待つ");
+        }
+
+        [UnityTest]
+        public IEnumerator Ferry_ComesToFetchTheWormFromTheIsland()
+        {
+            var f = GM.world.Ferry;
+            f.SetClock(1f);
+            Assert.IsTrue(f.AtA);
+            Vector2 c = RiverLayout.IslandCenter;
+            Worm.Spawn(RiverLayout.Ground(c.x, c.y), Vector3.right);
+            yield return WaitUntil(() => !f.AtA, RiverFerry.CallWait + 1.5f, "中州で待っていると、むかえに来る");
+            yield return WaitUntil(() => f.AtB, f.travelTime + 2f, "中州に着く");
+            yield return Seconds(f.waitTime + 1f);
+            Assert.IsTrue(f.AtB, "中州にいる間は、待っている");
+        }
+
+        [UnityTest]
         public IEnumerator SteppingStones_CanBeCrossedOnFoot()
         {
             var stones = GM.world.StepStones;

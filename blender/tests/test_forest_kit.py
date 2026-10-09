@@ -139,6 +139,12 @@ class KitTests(unittest.TestCase):
         (_, _), (_, _), (z0, z1) = bounds(red)
         self.assertAlmostEqual(z1 - z0, 6.8, delta=0.6, msg="赤キノコは体長の約7倍")
 
+    def test_red_mushroom_stem_has_no_ring(self):
+        red = kit.make_mushroom_red()
+        # 柄の途中（かさの下）に、つば（小さなかさ）が張り出していない
+        ring = [v for v in red.data.vertices if 2.5 < v.co.z < 4.5 and math.hypot(v.co.x, v.co.y) > 0.6]
+        self.assertEqual(len(ring), 0, "柄の途中に、つばがない")
+
     def test_hollow_log_is_hollow(self):
         log = kit.make_hollow_log()
         me = log.data

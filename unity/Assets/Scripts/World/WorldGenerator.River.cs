@@ -73,8 +73,12 @@ namespace Shakutori
                 Vector2 p = new Vector2(x, fz - 1.5f + R(-1f, 1f));
                 if (p.magnitude > 64f) continue;
                 float s = R(1.6f, 3.4f);
-                Place(Pick(Rocks), prop, RiverLayout.Ground(p.x, p.y) + Vector3.down * 0.3f * s, Quaternion.Euler(R(-10, 10), R(0, 360), R(-10, 10)), s, true, true, 250f);
+                string rock = Pick(Rocks);
+                Quaternion rot = Quaternion.Euler(R(-10, 10), R(0, 360), R(-10, 10));
                 Occupy(p, 1.3f * s);
+                // 台地へ上る小道の上には置かない（乱数の使い方は変えない）
+                if (RiverLayout.TrailMask(p.x, p.y) > 0.3f) continue;
+                Place(rock, prop, RiverLayout.Ground(p.x, p.y) + Vector3.down * 0.3f * s, rot, s, true, true, 250f);
             }
 
             // 倒れ枝の橋
@@ -111,6 +115,7 @@ namespace Shakutori
                     float top = stone != null ? stone.bounds.max.y * sc : 0.5f;
                     var pos = new Vector3(x, wl + 0.3f - top, z);
                     Place("RiverStone_C", prop, pos, Quaternion.Euler(0f, R(-25f, 25f) + 90f, 0f), sc, true, true, 200f);
+                    StoneFooting(pos, "RiverStone_C", sc);   // 川底までとどく石（水の中で宙にうかない）
                     _stepStones.Add(new Vector3(x, wl + 0.3f, z));
                 }
                 Occupy(new Vector2(x0, sz), 3f);
@@ -156,8 +161,8 @@ namespace Shakutori
             float bankX = RiverBankEdgeX(iz, 1f);
             float islX = IslandEdgeX(1f);
             const float sc = 1.55f;
-            // 反りを浅くして、乗り降りしやすい舟にする
-            Vector3 scale = new Vector3(sc, sc * 0.55f, sc);
+            // 反りを浅くして、乗り降りしやすい舟にする（まん中の葉脈が水にしずんで、2 つに割れて見えないように）
+            Vector3 scale = new Vector3(sc, sc * 0.32f, sc);
             Quaternion rot = Quaternion.Euler(0f, 90f, 0f);
             float halfLen = leaf.bounds.extents.z * sc;
             Vector3 centerOffset = rot * Vector3.Scale(leaf.bounds.center, scale);
@@ -169,7 +174,8 @@ namespace Shakutori
                 bankCenter = m + 1.25f;
                 islCenter = m - 1.25f;
             }
-            float y = wl + 0.1f;
+            // いちばん低い所（葉脈）も、水の上に出す（乗ってしずんでも、葉の上はぬれない）
+            float y = wl + 0.08f + leaf.bounds.extents.y * scale.y;
             var go = new GameObject("LeafFerry");
             go.transform.SetParent(_solidRoot, false);
             go.layer = ShakuConst.SurfaceLayer;
@@ -183,6 +189,9 @@ namespace Shakutori
             ferry.baseRotation = rot;
             ferry.dockA = new Vector3(bankCenter, y, iz) - centerOffset;
             ferry.dockB = new Vector3(islCenter, y, iz) - centerOffset;
+            // しゃくとりむしが乗り場の岸か、中州にいるか（近づいてくる間は待ち、向こうで待っていたら、むかえに行く）
+            ferry.NearA = p => Mathf.Abs(p.z - iz) < 7f && p.x > bankX - 2f && p.x < bankX + 8f;
+            ferry.NearB = p => RiverLayout.IslandRadius01(p.x, p.z) < 1.3f;
             ferry.SetClock(0f);
             Ferry = ferry;
             Occupy(new Vector2(bankX + 2f, iz), 3f);
@@ -253,8 +262,12 @@ namespace Shakutori
                 Vector2 p = RandomInRing(40f, 62f);
                 if (!IsFree(p, 1.5f) || !IsLand(p, 0.5f)) continue;
                 float s = R(0.5f, 1.0f);
-                Place(R01() < 0.6f ? "Mushroom_Cluster" : "Mushroom_Brown", prop, RiverLayout.Ground(p.x, p.y), GroundRotation(p, R(0, 360), 0.4f, 6f), s, true);
+                string mesh = R01() < 0.6f ? "Mushroom_Cluster" : "Mushroom_Brown";
+                Quaternion rot = GroundRotation(p, R(0, 360), 0.4f, 6f);
                 Occupy(p, 1.1f * s);
+                // 小道の上には生やさない（乱数の使い方は変えない）
+                if (RiverLayout.TrailMask(p.x, p.y) > 0.3f) continue;
+                Place(mesh, prop, RiverLayout.Ground(p.x, p.y), rot, s, true);
             }
             // アリの行列（森へもどるトンネルの近く）
             AddAntLine(new Vector2(-47f, -19f), new Vector2(-40f, -9f), 9);

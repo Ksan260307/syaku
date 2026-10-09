@@ -55,6 +55,7 @@ namespace Shakutori
 
         // ---- 公園 ----
         float _swingCreak, _dripPhase;
+        Transform _hanging;   // じゃぐちの先でふくらむしずく
         bool _sliding;
         public int SeesawBumps { get; private set; }
 
@@ -81,6 +82,13 @@ namespace Shakutori
                 _ferryAtB = world.Ferry.AtB;
             }
             if (world.Seesaw != null) world.Seesaw.Bumped += OnSeesawBump;
+            _hanging = null;
+            if (_area.Id == "park" && world.assets.Get("Dewdrop") != null && world.assets.dewdrop != null)
+            {
+                var mr = MakeMesh("SpoutDrop", world.assets.Get("Dewdrop"), world.assets.dewdrop, 0.1f);
+                _hanging = mr.transform;
+                _hanging.position = SpoutTip;
+            }
         }
 
         MeshRenderer MakeMesh(string name, Mesh mesh, Material mat, float scale)
@@ -396,14 +404,31 @@ namespace Shakutori
                 _sliding = slide.Sliding;
                 if (_sliding && Random.value < dt * 30f) _fx?.SlideSparkle(slide.transform.position + Vector3.up * 0.2f, -slide.transform.forward);
             }
-            // 水飲み場のじゃぐちのしずく：水たまりの波紋（ToonRiver の _Drip）と同じリズムで「ぽちゃ」
+            // 水飲み場のじゃぐちのしずく：じゃぐちの先でふくらんで落ち、水たまりにとどいた時に波紋（ToonRiver の _Drip）と「ぽちゃ」
             float before = _dripPhase;
             _dripPhase = Mathf.Repeat(Time.timeSinceLevelLoad * DripRate, 1f);
-            if (_dripPhase < before)
+            Vector3 drip = ParkDripPoint, tip = SpoutTip;
+            float fall = Mathf.Sqrt(2f * Mathf.Max(0.1f, tip.y - drip.y) / ShakuPhysics.Gravity);   // 落ちる時間
+            float release = 1f - Mathf.Clamp01(fall * DripRate);   // 水面にとどく時刻から、落ちる時間だけ前
+            if (before < release && _dripPhase >= release) _fx?.TapDrip(tip, fall);
+            if (_dripPhase < before) AreaSounds.Instance?.PlayAt("plink", drip, 0.3f, R(0.95f, 1.1f));
+            if (_hanging != null)
             {
-                Vector3 drip = ParkDripPoint;
-                AreaSounds.Instance?.PlayAt("plink", drip, 0.3f, R(0.95f, 1.1f));
-                _fx?.TapDrip(drip);
+                // じゃぐちの先で、しずくが少しずつふくらむ（落ちたら、また小さくから）
+                float grow = Mathf.Repeat(_dripPhase - release, 1f);
+                float sc = Mathf.Lerp(0.05f, 0.2f, grow);
+                _hanging.localScale = new Vector3(sc, sc * 1.15f, sc);
+                _hanging.position = tip + Vector3.down * (0.42f * sc * 1.15f);
+            }
+        }
+
+        /// <summary>じゃぐちの先（しずくがふくらむ所）。</summary>
+        public static Vector3 SpoutTip
+        {
+            get
+            {
+                Vector2 t = ParkLayout.FountainDrip;
+                return new Vector3(t.x, ParkLayout.Height(ParkLayout.Fountain.x, ParkLayout.Fountain.y) + ParkLayout.SpoutHeight, t.y);
             }
         }
 
@@ -415,8 +440,7 @@ namespace Shakutori
         {
             get
             {
-                Vector2 c = ParkLayout.Puddle;
-                Vector2 d = c + (ParkLayout.Fountain - c).normalized * (ParkLayout.PuddleRadius - 1.6f);
+                Vector2 d = ParkLayout.FountainDrip;
                 return new Vector3(d.x, ParkLayout.WaterLevel, d.y);
             }
         }

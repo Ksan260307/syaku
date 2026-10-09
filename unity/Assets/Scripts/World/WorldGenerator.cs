@@ -184,6 +184,7 @@ namespace Shakutori
             }
             BuildExtras();   // エリアの改善：小物・道・遠景（しずくの場所は変えない）
             PinLeavesUnderDew();
+            TidyPlacements();   // 置き方の仕上げ：つきぬけ・重なり・うき（草花と苔だけ）
             BuildMap();
             instanced.Build();
             ComputeSpawn();
@@ -193,6 +194,8 @@ namespace Shakutori
 
         public void Clear()
         {
+            TidyCounts.Clear();
+            TidyLog.Clear();
             IsGenerated = false;
             if (Root != null)
             {
@@ -476,6 +479,18 @@ namespace Shakutori
             if (m == null || mat == null || loose == null) return;
             // 落ち葉のほかは、いちばん下が地面にふれるように置く（うまっていると、体を持ったときにはじき出されて転がる）
             if (shape != LooseProps.Shape.Leaf && shape != LooseProps.Shape.BigLeaf) pos = LooseProps.RestOnGround(m, pos, rot, scale, Area);
+            // ほかの石や物の中に、めりこんで置かない（同じ所に 2 つ重なった石など）
+            if (shape != LooseProps.Shape.Leaf && shape != LooseProps.Shape.BigLeaf)
+            {
+                float half = Mathf.Max(0.05f, m.bounds.extents.magnitude * scale);
+                Physics.SyncTransforms();
+                foreach (var c in Physics.OverlapSphere(pos + Vector3.up * half * 0.4f, half * 0.45f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
+                    if (!c.name.StartsWith("Terrain_") && c.attachedRigidbody == null)
+                    {
+                        Count("looseOverlap", meshName + "|" + c.name, pos);
+                        return;
+                    }
+            }
             // しゃくとりむしには重すぎる小石は、動かない石として置く（よじのぼって越える）
             if (shape == LooseProps.Shape.Pebble && LooseProps.MassOf(m, shape, scale) > LooseBody.WormPushLimit)
             {
@@ -515,6 +530,13 @@ namespace Shakutori
             else
             {
                 instanced.Add(m, mat, mtx, castShadows, maxDistance);
+            }
+            if (collider && loose != null && loose.Count > 0)
+            {
+                // あとから置いた動かない物の下に、うまってしまう小石や木の実は、まわりへよける
+                float r = Mathf.Max(m.bounds.extents.x, m.bounds.extents.z) * scale;
+                if (r < 6f)
+                    for (int k = loose.PushOut(pos + rot * (m.bounds.center * scale), r, m.bounds.extents.magnitude * scale); k > 0; k--) Count("pushedOut", "Pebble|" + meshName, pos);
             }
             if (collider)
             {

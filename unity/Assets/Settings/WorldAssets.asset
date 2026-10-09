@@ -383,8 +383,6 @@ MonoBehaviour:
     mesh: {fileID: 5641355530469298447, guid: afb988ea6e2bfc547b99c1bb95a4b736, type: 3}
   - name: Spider_Leg4_Sneaker
     mesh: {fileID: 161529501228987093, guid: ffcdab020b3c53a47bd62daf6d19d712, type: 3}
-  - name: SpiderWeb
-    mesh: {fileID: 3146329105656146092, guid: b74f5f11b6ea1bb42b6e540d3baf2cf3, type: 3}
   - name: Sprout
     mesh: {fileID: 8952576610483757627, guid: 19b582b5bc67de6449a00c8cdfaf6099, type: 3}
   - name: Strawberry

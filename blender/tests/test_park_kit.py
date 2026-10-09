@@ -3,6 +3,7 @@
   blender -b --factory-startup --python blender/tests/test_park_kit.py
 失敗すると終了コード 1 を返す。
 """
+import math
 import os
 import re
 import sys
@@ -91,6 +92,37 @@ class ParkKitTests(unittest.TestCase):
         exit_verts = [v.co for v in ramp.data.vertices if v.co.y > park.SLIDE_RAMP_LOW.y - 0.5]
         self.assertLess(min(p.z for p in exit_verts), 0.02, "出口の下は地面にとどく")
         self.assertLess(park.SLIDE_RAMP_END.z, 0.5, "出口は地面のすぐ上")
+
+    def test_slide_ends_are_open(self):
+        ramp = park.make_slide_ramp()
+        w = park.SLIDE_WIDTH * 0.5
+        for end in (park.SLIDE_RAMP_TOP, park.SLIDE_RAMP_END):
+            # 入り口・出口の溝の中（底より上・壁のあいだ）に、ふさぐ面の頂点がない
+            inside = [v.co for v in ramp.data.vertices
+                      if abs(v.co.y - end.y) < 0.3 and abs(v.co.x) < w - 0.3 and v.co.z > end.z + 0.15 and v.co.z < end.z + 0.9]
+            self.assertEqual(len(inside), 0, f"溝の口がふさがっていない {end}")
+
+    def test_fountain_has_a_spout_over_the_puddle(self):
+        f = park.make_fountain()
+        # じゃぐちの先（しずくが落ちる所）は、台からはなれて、下を向いている
+        tip = [v.co for v in f.data.vertices if abs(v.co.x - park.SPOUT_REACH) < 0.25 and abs(v.co.z - park.SPOUT_HEIGHT) < 0.2]
+        self.assertGreater(len(tip), 4, "じゃぐちの先")
+        below = [v.co for v in f.data.vertices if v.co.x > 1.8 and v.co.z < park.SPOUT_HEIGHT - 0.1]
+        self.assertEqual(len(below), 0, "じゃぐちの下は、あいている（しずくが落ちる）")
+        with open(os.path.join(REPO, "unity", "Assets", "Scripts", "World", "ParkLayout.cs"), encoding="utf-8") as fh:
+            src = fh.read()
+        self.assertIn(f"SpoutReach = {park.SPOUT_REACH:.1f}f", src, "Unity の長さと同じ")
+        self.assertIn(f"SpoutHeight = {park.SPOUT_HEIGHT:.1f}f", src, "Unity の高さと同じ")
+
+    def test_fountain_bubbler_top_matches_the_dewdrop(self):
+        # まん中の飲み口の丸い頭のてっぺんに、しずくがのる（しずくの場所は前と同じ。Unity の BubblerTop と同じ高さ）
+        f = park.make_fountain()
+        center = [v.co for v in f.data.vertices if math.hypot(v.co.x, v.co.y) < 0.3]
+        top = max(c.z for c in center)
+        self.assertAlmostEqual(top, park.BUBBLER_TOP, delta=0.02)
+        self.assertEqual(max(v.co.z for v in f.data.vertices), top, "いちばん上は、飲み口の頭")
+        with open(os.path.join(REPO, "unity", "Assets", "Scripts", "World", "ParkLayout.cs"), encoding="utf-8") as fh:
+            self.assertIn(f"BubblerTop = {park.BUBBLER_TOP:.1f}f", fh.read())
 
     def test_slide_ramp_matches_the_game(self):
         """Unity の SlideRide の坂の場所は、Blender の形と同じ（Blender (x, y, z) → Unity (-x, z, -y)）"""

@@ -686,11 +686,7 @@ def make_mushroom_red():
         c = scalec(c, 0.94 + 0.06 * math.sin(a * 9 + p.z * 3))
         return c
     lathe(mb, stem_prof, 28, stem_col, rfn=lambda t, a: 1.0 + 0.03 * math.sin(a * 5 + t * 7))
-    # つば（リング）
-    ring_prof = [(0.40, 4.25), (0.62, 4.05), (0.78, 3.82), (0.74, 3.74), (0.56, 3.93), (0.40, 4.05)]
-    lathe(mb, ring_prof, 28, lambda t, a, p: scalec(stem_white, 0.97 - 0.08 * t), closed=True,
-          rfn=lambda t, a: 1.0 + 0.06 * math.sin(a * 7) * sstep(0.2, 0.5, t))
-    # かさ
+    # かさ（柄の途中には、つばを付けない。柄はまっすぐ、かさの裏へつながる）
     cap_prof = [(0.0, 4.85), (0.45, 4.8), (1.2, 4.74), (2.2, 4.66), (2.85, 4.62), (3.1, 4.72),
                 (3.12, 4.88), (2.95, 5.2), (2.55, 5.65), (1.9, 6.08), (1.0, 6.38), (0.0, 6.48)]
     red = hexc("#e2402f")
@@ -1795,34 +1791,6 @@ def make_shelf_fungus(name="ShelfFungus", R=2.2, D=1.7):
     return build(mb, name, smooth=True)
 
 
-def make_spider_web(name="SpiderWeb", R=2.3, spokes=10, seed=3):
-    """朝つゆのついたクモの巣（Blender の XZ 面 = Unity のたての面）。糸は細い管、つゆは小さな玉"""
-    rnd = random.Random(seed)
-    mb = MB()
-    thread = hexc("#eef4fa")
-    angs = [TAU * k / spokes + rnd.uniform(-0.12, 0.12) for k in range(spokes)]
-    lens = [R * rnd.uniform(0.82, 1.0) for _ in range(spokes)]
-
-    def at(k, r):
-        a = angs[k % spokes]
-        return Vector((math.cos(a) * r, 0.0, math.sin(a) * r))
-    cf = (lambda t, a, p, d: with_alpha(thread, 0.35))
-    for k in range(spokes):
-        tube(mb, [Vector((0, 0, 0)), at(k, lens[k])], [0.022, 0.018], 4, cf)
-    # うずまき（スポークの間は、まっすぐな糸）
-    r = 0.25
-    k = 0
-    while r < R * 0.8:
-        a, b = at(k, min(r, lens[k % spokes] * 0.95)), at(k + 1, min(r + 0.06, lens[(k + 1) % spokes] * 0.95))
-        tube(mb, [a, b], [0.014, 0.014], 4, cf)
-        if rnd.random() < 0.35:
-            uv_sphere(mb, a.lerp(b, rnd.uniform(0.2, 0.8)), rnd.uniform(0.045, 0.07),
-                      lambda n: with_alpha(hexc("#dff4ff"), 0.35), seg=8, rings=5)
-        r += 0.032
-        k += 1
-    return build(mb, name)
-
-
 def make_puffball(name="Mushroom_Puffball"):
     """ホコリタケ（ころんと丸いキノコ。てっぺんに胞子の出る穴）"""
     mb = MB()
@@ -1997,7 +1965,6 @@ def main():
         lambda: make_reed("Reed", 1),
         make_dewdrop,
         make_shelf_fungus,
-        make_spider_web,
         make_puffball,
         make_drift_log,
         make_sasa_bune,

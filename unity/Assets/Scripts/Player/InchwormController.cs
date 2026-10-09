@@ -82,6 +82,8 @@ namespace Shakutori
         public bool OnMovingPlatform => _tail.platform != null || _head.platform != null;
         /// <summary>乗っている足場（いきもの・舟）。なければ null。</summary>
         public Transform PlatformUnder => State == Mode.Hang || State == Mode.Fall ? null : (_tail.platform != null ? _tail.platform : _head.platform);
+        /// <summary>頭もしっぽも、その足場の上にのっているか（半分だけ乗っているときは false）。</summary>
+        public bool FullyOn(Transform t) => t != null && State != Mode.Hang && State != Mode.Fall && _tail.platform == t && _head.platform == t;
 
         public event Action<Vector3, bool> Stepped;   // 位置, 頭か
         public event Action SilkStarted;

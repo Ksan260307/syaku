@@ -107,6 +107,43 @@ namespace Shakutori
             InstanceCount = 0;
         }
 
+        /// <summary>
+        /// まだセルに振り分けていない物を、置いた順に 1 つずつ見なおす（置き方の仕上げ）。
+        /// 新しい行列を返すと置きなおし、null を返すと取りのぞく。取りのぞいた数を返す。
+        /// </summary>
+        public int Edit(System.Func<Mesh, Material, Matrix4x4, Matrix4x4?> f)
+        {
+            int removed = 0;
+            var kept = new List<Matrix4x4>();
+            foreach (var b in _list)
+            {
+                kept.Clear();
+                foreach (var m in b.pending)
+                {
+                    var r = f(b.mesh, b.material, m);
+                    if (r.HasValue) kept.Add(r.Value);
+                    else removed++;
+                }
+                b.pending.Clear();
+                b.pending.AddRange(kept);
+            }
+            InstanceCount -= removed;
+            _dirty = true;
+            return removed;
+        }
+
+        /// <summary>置いた物を 1 つずつ（テストや、置き方の点検用）。</summary>
+        public IEnumerable<(Mesh mesh, Material material, Matrix4x4 matrix)> Instances()
+        {
+            foreach (var b in _list)
+            {
+                foreach (var m in b.pending) yield return (b.mesh, b.material, m);
+                if (b.cells == null) continue;
+                foreach (var c in b.cells)
+                    foreach (var m in c.matrices) yield return (b.mesh, b.material, m);
+            }
+        }
+
         public void Add(Mesh mesh, Material material, Matrix4x4 matrix, bool castShadows, float maxDistance)
         {
             if (mesh == null || material == null) return;

@@ -42,18 +42,28 @@ namespace Shakutori
                 }
             }
 
-            // 34. 草むらの小枝のあいだのクモの巣・35. 丸太のトンネルの入り口のクモの巣
-            for (int i = 0; i < _twigs.Count && i < 7; i++)
+            // 34. クモの巣（小枝・赤キノコの柄・切り株・大樹の根・岩と地面のすきま）・35. 丸太のトンネルの入り口のわき
+            // どれも、まん中から面にそって糸をのばして、とどいた所を支えにして張る（宙にうかない）
             {
-                Vector3 tw = _twigs[i];
-                Vector2 p = new Vector2(tw.x, tw.z) + new Vector2(XR(-1.5f, 1.5f), XR(-1.5f, 1.5f));
-                if (!ExtraOk(p, 0.5f, false)) continue;
-                Web(Area.Ground(p.x, p.y) + Vector3.up * 1.3f, XR(0f, 360f), XR(0.5f, 0.65f));
-            }
-            for (int end = -1; end <= 1; end += 2)
-            {
-                Vector2 c = ForestLayout.LogCenter + ForestLayout.LogDir * (end * 25.5f) + perp * 4.6f;
-                Web(ForestLayout.Ground(c.x, c.y) + Vector3.up * 2.4f, Mathf.Atan2(ForestLayout.LogDir.x, ForestLayout.LogDir.y) * Mathf.Rad2Deg, 0.8f);
+                var wr = new System.Random(3407);
+                Vector2 la = ForestLayout.LogCenter - ForestLayout.LogDir * (ForestLayout.LogLength * 0.5f);
+                Vector2 lb = ForestLayout.LogCenter + ForestLayout.LogDir * (ForestLayout.LogLength * 0.5f);
+                Vector3 axis = new Vector3(ForestLayout.LogDir.x, 0f, ForestLayout.LogDir.y);
+                // 丸太のふくらみの下（地面とのすきま）。入り口のわきで、口の面にそって
+                StringWebNear(wr, la + ForestLayout.LogDir * 3.5f + perp * 4.4f, 0.8f, 0.35f, 1.1f, 2.0f, axis, 20f, "logweb");
+                StringWebNear(wr, lb - ForestLayout.LogDir * 3.5f - perp * 4.4f, 0.8f, 0.35f, 1.1f, 2.0f, axis, 20f, "logweb");
+                // 赤キノコの森：柄と柄のあいだ・かさの下
+                StringWebNear(wr, ForestLayout.MushroomGrove + new Vector2(-3.5f, 2.5f), 2.5f, 0.6f, 2.2f, 2.6f, Vector3.zero, 0f, "groveweb");
+                StringWebNear(wr, ForestLayout.MushroomGrove + new Vector2(2f, -3.5f), 2.5f, 0.6f, 2.2f, 2.6f, Vector3.zero, 0f, "groveweb");
+                // 切り株の根元（北がわ。西は壁登り、東はサルノコシカケの階段）
+                StringWebNear(wr, ForestLayout.Stump + new Vector2(0f, 9.5f), 2.5f, 0.4f, 1.6f, 2.4f, Vector3.zero, 0f, "stumpweb");
+                // 大樹の根もと（根と根のあいだ・幹と地面のすみ）
+                StringWebNear(wr, ForestLayout.GreatTree + new Vector2(-6f, -9f), 6f, 0.6f, 2.2f, 2.6f, Vector3.zero, 0f, "rootweb");
+                // 光るキノコの洞の、アーチの根のわき
+                StringWebNear(wr, ForestLayout.ArchTarget + new Vector2(1.5f, 2.5f), 6f, 0.5f, 2f, 2.6f, Vector3.zero, 0f, "hollowweb");
+                // 草むらの岩と地面のすきま（小道のわきの見わたせる岩・苔の丘）
+                StringWebNear(wr, new Vector2(5.5f, 17f), 3f, 0.4f, 1.4f, 2.2f, Vector3.zero, 0f, "rockweb");
+                StringWebNear(wr, ForestLayout.MossHill + new Vector2(4f, -6f), 7f, 0.4f, 1.4f, 2.2f, Vector3.zero, 0f, "rockweb");
             }
 
             // 36. ホコリタケ（苔の丘・赤キノコの森）。73. ふむと弾む（キノコの材質）
@@ -244,8 +254,15 @@ namespace Shakutori
                 Vector2 c = RandomXInRing(10f, 58f);
                 if (!IsLand(c, 0.2f) || !ExtraOk(c, 1.6f, false) || ForestLayout.TrailMask(c.x, c.y) > 0.3f) continue;
                 Vector3 g = ForestLayout.Ground(c.x, c.y);
+                // 交差して積み重なる：下の枝の上に、のせる（宙にうかない）。見た目だけなので、下の枝の高さは自分で数える
+                float top = g.y;
                 for (int k = 0; k < 4; k++)
-                    PutDeco(XPick("Twig_A", "Twig_B"), prop, g + Vector3.up * (0.12f * k), Quaternion.Euler(XR(-6f, 6f), XR(0f, 360f), XR(-6f, 6f)), XR(0.22f, 0.32f), true, 120f);
+                {
+                    float s = XR(0.22f, 0.32f);
+                    float y = k == 0 ? g.y - 0.02f : top - 0.1f * s;
+                    PutDeco(XPick("Twig_A", "Twig_B"), prop, new Vector3(g.x, y, g.z), Quaternion.Euler(XR(-6f, 6f), XR(0f, 360f), XR(-6f, 6f)), s, true, 120f);
+                    top = y + 0.42f * s;   // 小枝のまん中の、上の面
+                }
                 Mark("twigpile", g);
             }
 
@@ -269,7 +286,7 @@ namespace Shakutori
                     float a = i / 6f * Mathf.PI * 2f + XR(-0.2f, 0.2f);
                     Vector2 p = c + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * XR(7.5f, 9.5f);
                     if (!IsLand(p, 0.1f) || !ExtraOk(p, 0.6f, false)) continue;
-                    PutDeco("Twig_B", prop, ForestLayout.Ground(p.x, p.y) + Vector3.down * 0.08f, Quaternion.Euler(0f, -a * Mathf.Rad2Deg, XR(-4f, 4f)), XR(0.45f, 0.6f), true, 140f);
+                    LayTwig("Twig_B", prop, p, -a * Mathf.Rad2Deg, XR(-4f, 4f), XR(0.45f, 0.6f), 140f);
                 }
             }
 
@@ -339,7 +356,9 @@ namespace Shakutori
                     if (nearDew || !IsFree(p, 0.9f)) continue;
                     Mesh m = assets.Get("RiverStone_C");
                     float h = m != null ? m.bounds.max.y : 0.4f;
-                    PutSolid("RiverStone_C", prop, new Vector3(p.x, ForestLayout.WaterLevel + 0.22f - h, p.y), Quaternion.Euler(0f, XR(0f, 360f), 0f), 1f, 1f);
+                    Vector3 sp = new Vector3(p.x, ForestLayout.WaterLevel + 0.22f - h, p.y);
+                    PutSolid("RiverStone_C", prop, sp, Quaternion.Euler(0f, XR(0f, 360f), 0f), 1f, 1f);
+                    StoneFooting(sp, "RiverStone_C", 1f);   // 水たまりの底までとどく石
                     Mark("pondstone", new Vector3(p.x, ForestLayout.WaterLevel, p.y));
                 }
             }
@@ -405,7 +424,7 @@ namespace Shakutori
             // 85. 苔原のそばの、押して転がせるどんぐり
             {
                 // 景色の通り道（大樹を見上げる向き）をよけて、苔原の西がわ
-                if (FindSpot(ForestLayout.Spawn + new Vector2(-5.2f, 2.5f), 3f, 0.6f, true, out var p, q => IsLand(q, 0.1f)))
+                if (FindSpot(ForestLayout.Spawn + new Vector2(-5.2f, 2.5f), 3f, 0.6f, true, out var p, q => IsLand(q, 0.1f) && ForestLayout.TrailMask(q.x, q.y) < 0.3f))
                 {
                     Vector3 pos = ForestLayout.Ground(p.x, p.y) + Vector3.up * 0.48f;
                     var acorn = Place("Acorn", assets.propGlossy, pos, Quaternion.Euler(0f, 30f, 0f) * Quaternion.Euler(0f, 0f, 88f), 1.1f, true, true, 150f, true);
@@ -437,11 +456,199 @@ namespace Shakutori
             return new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * Mathf.Sqrt(Mathf.Lerp(r0 * r0, r1 * r1, XR01()));
         }
 
-        /// <summary>クモの巣（たての面。見た目だけで、引っかからない）。</summary>
-        void Web(Vector3 center, float yawDeg, float scale)
+        /// <summary>
+        /// クモの巣を張る：c のまわりをさがして、まん中から面にそって糸をのばし、とどいた所（地面・キノコの柄・岩・幹）を支えにする。
+        /// 地面と物、物と物のように支えが 2 つ以上あって、まわりをかこむように支えがあるときだけ張る。見た目だけで、引っかからない。
+        /// </summary>
+        bool StringWebNear(System.Random wr, Vector2 c, float spread, float h0, float h1, float maxR, Vector3 normal, float yawJitter, string kind)
         {
-            Place("SpiderWeb", assets.foliage, center, Quaternion.Euler(0f, yawDeg, XR(-8f, 8f)), scale, false, false, 70f);
-            Mark("web", center);
+            float Rnd(float a, float b) => a + (float)wr.NextDouble() * (b - a);
+            WebPlan best = null;
+            for (int t = 0; t < 120; t++)
+            {
+                float ang = Rnd(0f, Mathf.PI * 2f), d = Mathf.Sqrt(Rnd(0f, 1f)) * spread;
+                Vector2 p = c + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * d;
+                if (!WebSpotOk(p)) continue;
+                Vector3 n = normal.sqrMagnitude > 0.5f ? Quaternion.Euler(0f, Rnd(-yawJitter, yawJitter), 0f) * normal
+                    : Quaternion.Euler(0f, Rnd(0f, 180f), 0f) * Vector3.forward;
+                n = Quaternion.AngleAxis(Rnd(-8f, 8f), Vector3.Cross(n, Vector3.up)) * n;   // 少しだけ、前後へかたむく
+                Vector3 hub = Area.Ground(p.x, p.y) + Vector3.up * Rnd(h0, h1);
+                var plan = PlanWeb(hub, n, maxR);
+                if (plan != null && (best == null || plan.score > best.score)) best = plan;
+            }
+            if (best == null) return false;
+            BuildWeb(best, wr);
+            Mark("web", best.hub);
+            Mark(kind, best.hub);
+            return true;
+        }
+
+        bool WebSpotOk(Vector2 p)
+        {
+            if (p.magnitude > Area.PlayRadius - 2f) return false;
+            foreach (var d in DewdropPoints)
+                if ((new Vector2(d.x, d.z) - p).sqrMagnitude < 1.6f * 1.6f) return false;
+            if (Area.TrailMask(p.x, p.y) > 0.35f) return false;   // 小道の上には張らない（通ると、くぐりぬけてしまう）
+            foreach (var w in ExtraSpots("web"))
+                if ((new Vector2(w.x, w.z) - p).sqrMagnitude < 6f * 6f) return false;
+            return true;
+        }
+
+        class WebPlan
+        {
+            public Vector3 hub, u, r, n;
+            public readonly List<Vector2> frame = new List<Vector2>();   // 面の上の、支えにとどいた所（角度の順）
+            public readonly List<float> angles = new List<float>();
+            public float score;
+        }
+
+        /// <summary>まん中から 28 方向へ糸をのばして、支えをさがす。張れないときは null。</summary>
+        static WebPlan PlanWeb(Vector3 hub, Vector3 normal, float maxR)
+        {
+            if (Physics.CheckSphere(hub, 0.18f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)) return null;
+            Vector3 u = Vector3.ProjectOnPlane(Vector3.up, normal);
+            if (u.sqrMagnitude < 0.25f) return null;
+            u.Normalize();
+            Vector3 r = Vector3.Cross(normal, u).normalized;
+            var plan = new WebPlan { hub = hub, u = u, r = r, n = normal.normalized };
+            const int N = 28;
+            bool ground = false, other = false;
+            Collider first = null;
+            bool two = false;
+            for (int i = 0; i < N; i++)
+            {
+                float a = i * Mathf.PI * 2f / N;
+                Vector3 d = r * Mathf.Cos(a) + u * Mathf.Sin(a);
+                if (!Physics.Raycast(hub, d, out var hit, maxR, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)) continue;
+                if (hit.rigidbody != null) continue;   // ゆれる物・動く物には張らない
+                if (hit.collider.name.StartsWith("Terrain_")) ground = true; else other = true;
+                if (first == null) first = hit.collider;
+                else if (hit.collider != first) two = true;
+                plan.frame.Add(new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * Mathf.Max(0.05f, hit.distance - 0.015f));
+                plan.angles.Add(a);
+            }
+            int k = plan.frame.Count;
+            if (k < 8 || !other || !two) return null;
+            float maxGap = 0f;
+            for (int i = 0; i < k; i++)
+            {
+                float g = (i + 1 < k ? plan.angles[i + 1] : plan.angles[0] + Mathf.PI * 2f) - plan.angles[i];
+                maxGap = Mathf.Max(maxGap, g);
+            }
+            if (maxGap > 150f * Mathf.Deg2Rad) return null;
+            // まん中から枠の糸までの近さ（近すぎると、つぶれた形になる）
+            float margin = float.MaxValue, mean = 0f;
+            for (int i = 0; i < k; i++)
+            {
+                Vector2 a = plan.frame[i], b = plan.frame[(i + 1) % k];
+                margin = Mathf.Min(margin, SegmentDistance(Vector2.zero, a, b));
+                mean += a.magnitude / k;
+            }
+            if (margin < 0.3f || mean < 0.55f) return null;
+            // 細長い帯のような形は、張らない（たて・よこの広がりが近い形だけ）
+            Vector2 lo = new Vector2(float.MaxValue, float.MaxValue), hi = -lo;
+            foreach (var q in plan.frame) { lo = Vector2.Min(lo, q); hi = Vector2.Max(hi, q); }
+            Vector2 ext = hi - lo;
+            if (Mathf.Min(ext.x, ext.y) < 0.45f * Mathf.Max(ext.x, ext.y)) return null;
+            plan.score = margin + (ground ? 0.3f : 0f) - maxGap * 0.15f + Mathf.Min(mean, 1.6f) * 0.3f;
+            return plan;
+        }
+
+        static float SegmentDistance(Vector2 p, Vector2 a, Vector2 b)
+        {
+            Vector2 ab = b - a;
+            float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / Mathf.Max(ab.sqrMagnitude, 1e-6f));
+            return Vector2.Distance(p, a + ab * t);
+        }
+
+        /// <summary>枠の糸・まん中から放射状の糸・うずまきの横糸・つゆの玉を、細い糸のメッシュにする。</summary>
+        void BuildWeb(WebPlan w, System.Random wr)
+        {
+            var v = new List<Vector3>();
+            var nrm = new List<Vector3>();
+            var col = new List<Color>();
+            var tri = new List<int>();
+            Vector3 P(Vector2 q) => w.r * q.x + w.u * q.y;
+            Color Silk(float sway) => new Color(0.93f, 0.96f, 0.98f, sway);
+            void Thread(Vector2 a2, Vector2 b2, float width, float swayA, float swayB)
+            {
+                Vector3 a = P(a2), b = P(b2);
+                Vector3 t = b - a;
+                if (t.sqrMagnitude < 1e-6f) return;
+                t.Normalize();
+                Vector3 side = Vector3.Cross(t, w.n).normalized;
+                // 十字に組んだ 2 枚の細い帯（どこから見ても糸が見える）
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    Vector3 off = pass == 0 ? w.n * width : side * width;
+                    Vector3 nn = pass == 0 ? side : w.n;
+                    int i0 = v.Count;
+                    v.Add(a - off); v.Add(a + off); v.Add(b + off); v.Add(b - off);
+                    for (int j = 0; j < 4; j++) nrm.Add(nn);
+                    col.Add(Silk(swayA)); col.Add(Silk(swayA)); col.Add(Silk(swayB)); col.Add(Silk(swayB));
+                    tri.Add(i0); tri.Add(i0 + 1); tri.Add(i0 + 2); tri.Add(i0); tri.Add(i0 + 2); tri.Add(i0 + 3);
+                }
+            }
+            void Bead(Vector2 q, float size, float sway)
+            {
+                Vector3 c = P(q);
+                int i0 = v.Count;
+                Vector3[] dirs = { w.r, -w.r, w.u, -w.u, w.n, -w.n };
+                foreach (var d in dirs) { v.Add(c + d * size); nrm.Add(d); col.Add(new Color(0.86f, 0.95f, 1f, sway)); }
+                int[] f = { 0, 2, 4, 2, 1, 4, 1, 3, 4, 3, 0, 4, 2, 0, 5, 1, 2, 5, 3, 1, 5, 0, 3, 5 };
+                foreach (int x in f) tri.Add(i0 + x);
+                Mark("webdew", w.hub + c);
+            }
+            var fr = w.frame;
+            int k = fr.Count;
+            // 枠の糸（支えにとどいた所をつなぐ。支えにふれているので、ゆれない）
+            for (int i = 0; i < k; i++) Thread(fr[i], fr[(i + 1) % k], 0.0075f, 0f, 0f);
+            // 放射状の糸：まん中から枠の糸まで
+            const int spokes = 13;
+            float a0 = (float)wr.NextDouble() * Mathf.PI * 2f;
+            var ends = new List<Vector2>();
+            for (int s = 0; s < spokes; s++)
+            {
+                float a = a0 + s * Mathf.PI * 2f / spokes + ((float)wr.NextDouble() - 0.5f) * 0.12f;
+                Vector2 d = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+                float hitT = float.MaxValue;
+                for (int i = 0; i < k; i++)
+                {
+                    Vector2 p = fr[i], e = fr[(i + 1) % k] - p;
+                    float den = d.x * e.y - d.y * e.x;
+                    if (Mathf.Abs(den) < 1e-6f) continue;
+                    float tt = (p.x * e.y - p.y * e.x) / den;
+                    float uu = (p.x * d.y - p.y * d.x) / den;
+                    if (tt > 0f && uu >= -0.001f && uu <= 1.001f) hitT = Mathf.Min(hitT, tt);
+                }
+                if (hitT == float.MaxValue) continue;
+                ends.Add(d * hitT);
+                Thread(Vector2.zero, d * hitT, 0.0055f, 0.16f, 0f);
+            }
+            // うずまきの横糸（まん中のすぐまわりは、あけておく）
+            int m = ends.Count;
+            for (int ring = 0; ring < 9; ring++)
+            {
+                for (int s = 0; s < m; s++)
+                {
+                    float fa = 0.2f + (ring + (float)s / m) * 0.085f, fb = 0.2f + (ring + (float)(s + 1) / m) * 0.085f;
+                    if (fb > 0.97f) continue;
+                    Vector2 a = ends[s] * fa, b = ends[(s + 1) % m] * fb;
+                    Thread(a, b, 0.004f, 0.16f * (1f - fa), 0.16f * (1f - fb));
+                    if (wr.NextDouble() < 0.12)
+                        Bead(Vector2.Lerp(a, b, 0.3f + 0.4f * (float)wr.NextDouble()), 0.022f + 0.015f * (float)wr.NextDouble(), 0.16f * (1f - fa));
+                }
+            }
+            // まん中の小さな台
+            for (int s = 0; s < m; s++) Thread(ends[s] * 0.07f, ends[(s + 1) % m] * 0.07f, 0.005f, 0.16f, 0.16f);
+
+            var mesh = Own(new Mesh { name = "SpiderWeb" });
+            mesh.SetVertices(v);
+            mesh.SetNormals(nrm);
+            mesh.SetColors(col);
+            mesh.SetTriangles(tri, 0);
+            mesh.RecalculateBounds();
+            instanced.Add(mesh, assets.foliage, Matrix4x4.TRS(w.hub, Quaternion.identity, Vector3.one), false, 70f);
         }
 
         /// <summary>ホコリタケ（ふむと弾んで、胞子が出る）。</summary>

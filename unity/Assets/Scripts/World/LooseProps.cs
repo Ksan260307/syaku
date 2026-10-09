@@ -85,6 +85,15 @@ namespace Shakutori
         public int Count => _count;
         public int BodyCount => _awake.Count;
         public IReadOnlyList<BigLeaf> BigLeaves => _leaves;
+        /// <summary>置いた物を 1 つずつ（テストや、置き方の点検用）：形・いまの位置・置いた位置・向き・大きさ。</summary>
+        public IEnumerable<(Mesh mesh, Vector3 pos, Vector3 home, Quaternion rot, float scale)> Items()
+        {
+            for (int i = 0; i < _count; i++)
+            {
+                var it = _items[i];
+                yield return (_batches[it.batch].mesh, it.pos, it.home, it.rot, it.scale);
+            }
+        }
         /// <summary>直前に数えなおしたときに描いた数（テスト用）。</summary>
         public int DrawnCount { get; private set; }
 
@@ -180,6 +189,35 @@ namespace Shakutori
             if (_cells.TryGetValue(it.cell, out var old)) old.Remove(i);
             it.cell = c;
             AddToCell(i, it);
+        }
+
+        /// <summary>
+        /// 置いたあとに、そこへ動かない物（石など）を置いたとき、その中にうまる小石や木の実を、まわりへよける（置いたときだけ使う）。
+        /// </summary>
+        public int PushOut(Vector3 center, float radius, float halfHeight = float.MaxValue)
+        {
+            int moved = 0;
+            for (int i = 0; i < _count; i++)
+            {
+                ref var it = ref _items[i];
+                var b = _batches[it.batch];
+                if (it.body >= 0 || b.shape == Shape.Leaf || b.shape == Shape.BigLeaf) continue;
+                Vector2 d = new Vector2(it.pos.x - center.x, it.pos.z - center.z);
+                float keep = radius + it.half * 0.6f;
+                if (d.sqrMagnitude >= keep * keep) continue;
+                if (Mathf.Abs(it.pos.y - center.y) > halfHeight + it.half) continue;   // 高い所の物（幹のサルノコシカケなど）の下の地面の物は、そのまま
+                Vector2 dir = d.sqrMagnitude > 1e-6f ? d.normalized : new Vector2(Mathf.Cos(i * 2.39996f), Mathf.Sin(i * 2.39996f));
+                Vector3 p = new Vector3(center.x + dir.x * keep, 0f, center.z + dir.y * keep);
+                p.y = Area.Height(p.x, p.z);
+                p = RestOnGround(b.mesh, p, it.rot, it.scale, Area);
+                it.pos = it.home = p;
+                it.lift = p.y - Area.Height(p.x, p.z);
+                it.m = Matrix4x4.TRS(p, it.rot, Vector3.one * it.scale);
+                MoveToCell(i);
+                moved++;
+            }
+            if (moved > 0) _dirty = true;
+            return moved;
         }
 
         /// <summary>その場所に、いちばん近い物（テスト用）。メッシュ名で選べる。</summary>

@@ -49,7 +49,9 @@ namespace Shakutori.Tests
         {
             Assert.GreaterOrEqual(Spots("forest", "shelf_stump").Count, 4, "切り株のサルノコシカケの階段");
             Assert.GreaterOrEqual(Spots("forest", "shelf_tree").Count, 3, "大樹の幹のサルノコシカケ");
-            Assert.GreaterOrEqual(Spots("forest", "web").Count, 4, "クモの巣");
+            Assert.GreaterOrEqual(Spots("forest", "web").Count, 5, "クモの巣");
+            Assert.AreEqual(2, Spots("forest", "logweb").Count, "丸太のトンネルの入り口のわきのクモの巣");
+            Assert.Greater(Spots("forest", "webdew").Count, 5, "クモの巣のつゆの玉");
             Assert.GreaterOrEqual(Spots("forest", "puffball").Count, 8, "ホコリタケ " + Worlds["forest"].ExtraSummary());
             Assert.GreaterOrEqual(Spots("forest", "glowtrail").Count, 6, "光るキノコの道しるべ");
             Assert.GreaterOrEqual(Spots("forest", "cairn").Count, 2, "小道の分かれ道の目じるし");
@@ -62,6 +64,135 @@ namespace Shakutori.Tests
             // 切り株の西がわ（壁登りの場所）には、生やさない
             foreach (var p in stairs)
                 Assert.Less(Vector2.Dot(new Vector2(p.x, p.z) - ForestLayout.Stump, new Vector2(-1f, 0.2f).normalized), 3f, "西がわ（壁登りの場所）はあけておく");
+        }
+
+        [Test]
+        public void SpiderWebs_AreStrungBetweenRealSupports()
+        {
+            // クモの巣は宙にうかない：まん中のまわりに、地面や物があって、そこへ糸がとどいている
+            var g = Worlds["forest"];
+            g.Root.gameObject.SetActive(true);
+            try
+            {
+                Physics.SyncTransforms();
+                foreach (var w in Spots("forest", "web"))
+                {
+                    Assert.IsFalse(Physics.CheckSphere(w, 0.15f, ShakuConst.SurfaceMask), "巣のまん中が物の中");
+                    // まわりの方向のうち、近くに支え（地面・柄・幹・岩）がある方向がいくつもある
+                    int hits = 0;
+                    for (int i = 0; i < 12; i++)
+                        for (int j = -2; j <= 2; j++)
+                        {
+                            Vector3 d = Quaternion.Euler(j * 35f, i * 30f, 0f) * Vector3.forward;
+                            if (Physics.Raycast(w, d, 2.7f, ShakuConst.SurfaceMask)) hits++;
+                        }
+                    Assert.GreaterOrEqual(hits, 12, $"巣のまわりに支えがある {w}");
+                    Assert.IsTrue(Physics.Raycast(w, Vector3.down, out var down, 3f, ShakuConst.SurfaceMask), "地面から高すぎない");
+                    Assert.Less(down.distance, 2.4f);
+                    Assert.Less(ForestLayout.TrailMask(w.x, w.z), 0.36f, "小道の上には張らない");
+                }
+            }
+            finally { g.Root.gameObject.SetActive(false); }
+        }
+
+        /// <summary>そのエリアの当たり判定を有効にして、f を行う（エリアは同じ場所に重なっている）。</summary>
+        static void WithArea(string id, System.Action<WorldGenerator> f)
+        {
+            var g = Worlds[id];
+            var saved = Areas.Current;
+            // ほかのエリアの落ち葉や小石（作った物の外に持っている体）も、いったん消す
+            foreach (var o in Worlds.Values) if (o != g) o.gameObject.SetActive(false);
+            g.Root.gameObject.SetActive(true);
+            Areas.Current = Areas.All.First(a => a.Id == id);
+            try { Physics.SyncTransforms(); f(g); }
+            finally
+            {
+                g.Root.gameObject.SetActive(false);
+                foreach (var o in Worlds.Values) o.gameObject.SetActive(true);
+                Areas.Current = saved;
+            }
+        }
+
+        [Test]
+        public void Plants_DoNotGrowThroughRocks_Leaves_OrWater()
+        {
+            // 置き方の仕上げ：草花が岩・柵・落ち葉をつきぬけない。同じ所に 2 つ重ならない。陸の草花は水にしずまない。苔は急な坂にはりつかない
+            foreach (var area in Areas.All)
+                WithArea(area.Id, g =>
+                {
+                    Assert.Greater(g.TidyCounts.Values.Sum(), 0, $"{area.Id}：仕上げで直した物がある");
+                    var seen = new HashSet<(Mesh, Vector3Int)>();
+                    foreach (var (mesh, mat, m) in g.instanced.Instances())
+                    {
+                        if (mat != g.assets.foliage && mat != g.assets.flowers || mesh.name == "SpiderWeb") continue;
+                        if (mesh.name == "WaterLily" || mesh.name == "WaterGrass" || mesh.name == "SasaBune") continue;   // 水にうく物
+                        Vector3 pos = m.GetColumn(3);
+                        if (new Vector2(pos.x, pos.z).magnitude > area.PlayRadius + 8f) continue;
+                        Assert.IsTrue(seen.Add((mesh, Vector3Int.RoundToInt(pos * 3f))), $"{area.Id}：{mesh.name} が同じ所に 2 つ {pos}");
+                        float h = Mathf.Max(0.05f, mesh.bounds.max.y * m.lossyScale.x);
+                        float probe = Mathf.Min(h, 2.5f) + 0.05f;
+                        if (Physics.Raycast(pos + Vector3.up * probe, Vector3.down, out var cover, probe - 0.02f, ShakuConst.SurfaceMask) && !cover.collider.name.StartsWith("Terrain_"))
+                            Assert.LessOrEqual(cover.point.y - pos.y, 0.12f, $"{area.Id}：{mesh.name} が {cover.collider.name} をつきぬけている {pos}");
+                        if (mesh.name == "Moss" && Physics.Raycast(pos + Vector3.up * 0.6f, Vector3.down, out var below, 3f, ShakuConst.SurfaceMask))
+                            Assert.Greater(below.normal.y, 0.55f, $"{area.Id}：苔が急な坂にはりついている {pos}");
+                    }
+                });
+        }
+
+        [Test]
+        public void SteppingStones_StandOnTheBed_AndPebblesDoNotOverlap()
+        {
+            // 水の中の平たい石は、川底までとどく石の上にのっている（水の中で宙にうかない）
+            Assert.GreaterOrEqual(Spots("river", "footing").Count, 8, "川のとびいしの下の石");
+            Assert.GreaterOrEqual(Spots("forest", "footing").Count, 1, "水たまりの飛び石の下の石");
+            foreach (var f in Spots("river", "footing"))
+                Assert.Less(f.y, RiverLayout.WaterLevel(f.z), "川底");
+            // 押せる小石が、ほかの石や物の中にうまらない
+            foreach (var area in Areas.All)
+                WithArea(area.Id, g =>
+                {
+                    foreach (var (mesh, pos, home, rot, scale) in g.loose.Items())
+                    {
+                        if (mesh.name.StartsWith("Leaf")) continue;
+                        float half = Mathf.Max(0.05f, mesh.bounds.extents.magnitude * scale);
+                        foreach (var c in Physics.OverlapSphere(home + Vector3.up * half * 0.4f, half * 0.3f, ShakuConst.SurfaceMask))
+                            Assert.IsTrue(c.name.StartsWith("Terrain_") || c.attachedRigidbody != null, $"{area.Id}：{mesh.name} が {c.name} にめりこむ {home}");
+                    }
+                });
+        }
+
+        [Test]
+        public void Park_FenceStopsAtTheKunugi_AndPropsKeepOffTheFixtures()
+        {
+            WithArea("park", g =>
+            {
+                // さくがクヌギの幹をつきぬけない（幹の手前で止めて、幹へつなぐ）
+                Vector2 k = ParkLayout.Kunugi;
+                int fences = 0;
+                foreach (Transform t in g.Root.GetComponentsInChildren<Transform>())
+                {
+                    if (t.name != "Park_Fence") continue;
+                    fences++;
+                    // 幹にかかるさくは、幹の中で止まる（幹をつきぬけて、反対がわへ出ない）
+                    Vector3 c = t.position, half = t.right * 4.1f;
+                    Vector2 a2 = new Vector2(c.x - half.x, c.z - half.z), b2 = new Vector2(c.x + half.x, c.z + half.z);
+                    Vector2 ab = b2 - a2;
+                    float tt = Mathf.Clamp01(Vector2.Dot(k - a2, ab) / ab.sqrMagnitude);
+                    if (Vector2.Distance(k, a2 + ab * tt) < 3.3f)
+                        Assert.Less(Mathf.Min(Vector2.Distance(a2, k), Vector2.Distance(b2, k)), 3.3f, $"さくがクヌギの幹をつきぬけている {c}");
+                }
+                Assert.Greater(fences, 40);
+                // 水飲み場の台の中に、石がうまらない
+                foreach (var t in g.Root.GetComponentsInChildren<Collider>())
+                    if (t.name.StartsWith("Rock_"))
+                        Assert.Greater(Vector2.Distance(new Vector2(t.transform.position.x, t.transform.position.z), ParkLayout.Fountain), 1.8f, "水飲み場の台の中の石");
+                // 土管の口に、段の石がかからない
+                foreach (var s in Spots("park", "dokanstep"))
+                    Assert.Greater(Mathf.Abs(s.x - ParkLayout.Dokan.x), 6.2f, "土管の口から少しはなす");
+                // 小道のまん中に、石を積まない
+                foreach (var c in Spots("park", "cairn"))
+                    Assert.Less(ParkLayout.TrailMask(c.x, c.z), 0.3f, "小道の上の石積み");
+            });
         }
 
         [Test]
@@ -84,16 +215,22 @@ namespace Shakutori.Tests
         }
 
         [Test]
-        public void Park_HasACastle_Blocks_Marbles_Clover_AndPaperPlanes()
+        public void Park_HasACastle_Bucket_Steps_Marbles_Clover_AndPaperPlanes()
         {
             Assert.AreEqual(1, Spots("park", "castle").Count, "砂の城 " + Worlds["park"].ExtraSummary());
             Assert.That(ParkLayout.SandMask(Spots("park", "castle")[0].x, Spots("park", "castle")[0].z), Is.GreaterThan(0.5f), "砂場の中");
-            Assert.GreaterOrEqual(Spots("park", "blocks").Count, 5, "積み木");
-            Assert.GreaterOrEqual(Spots("park", "benchstep").Count, 1, "ベンチへの積み木の階段");
+            Assert.AreEqual(1, Spots("park", "bucket").Count, "砂場のバケツ");
+            Assert.AreEqual(0, Spots("park", "blocks").Count, "四角い積み木は置かない");
+            foreach (var k in new[] { "gymstep", "benchrest", "seesawstep", "tirestep", "tirerest" })
+                Assert.GreaterOrEqual(Spots("park", k).Count, 1, k + "：遊具のそばの平らな石");
             Assert.GreaterOrEqual(Spots("park", "marble").Count, 5, "ビー玉");
             Assert.GreaterOrEqual(Spots("park", "clover").Count, 3, "シロツメクサ");
             Assert.GreaterOrEqual(Spots("park", "plane").Count, 2, "紙ひこうき");
             Assert.GreaterOrEqual(Spots("park", "puddlestone").Count, 2, "水たまりの飛び石");
+            // 水飲み場のまん中の飲み口の頭に、しずく（前と同じ場所）
+            Vector2 f = ParkLayout.Fountain;
+            Vector3 cap = new Vector3(f.x, ParkLayout.Ground(f.x, f.y).y + ParkLayout.BubblerTop, f.y);
+            Assert.IsTrue(Drops["park"].Any(d => Vector3.Distance(d, cap) < 0.01f), "飲み口の頭のしずく");
             Assert.IsTrue(Worlds["park"].FlowerPoints.Count > 0);
         }
 

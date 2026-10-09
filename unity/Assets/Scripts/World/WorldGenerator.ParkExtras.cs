@@ -62,22 +62,30 @@ namespace Shakutori
             Marbles(new Vector2(-14f, 28f), 10f, 1);
             Marbles(ParkLayout.Bench + new Vector2(-4.5f, -9.5f), 2f, 1);
 
-            // 34. ジャングルジムのそばの積み木の山（72. 登れる）・80. ジャングルジムの下の段へ登りやすい積み木
-            foreach (var off in new[] { new Vector2(-2f, 12.5f), new Vector2(12.5f, -2f), new Vector2(12f, 9f) })
-                if (BlockStack(ParkLayout.JungleGym + off, true)) break;
+            // 34. ジャングルジムのそばの、わすれもののバケツ（72. ふちに登って、中をのぞける）
+            if (FindSpot(ParkLayout.JungleGym + new Vector2(9.5f, 6f), 4f, 1.8f, true, out var bp, q => IsLand(q, 0.1f))
+                || FindSpot(ParkLayout.JungleGym + new Vector2(9.5f, 6f), 9f, 1.8f, true, out bp, q => IsLand(q, 0.1f), true)
+                || FindSpot(sb + new Vector2(-9f, 5f), 4f, 1.8f, true, out bp, q => ParkLayout.SandMask(q.x, q.y) > 0.6f, true))
             {
-                Vector2 dir = (-ParkLayout.JungleGym).normalized;
-                Block(ParkLayout.JungleGym + dir * 7.2f, 0.75f, "gymstep");
+                PutSolid("Park_Bucket", shiny, ParkLayout.Ground(bp.x, bp.y), Quaternion.Euler(0f, XR(0f, 360f), 0f), 0.9f, 2f);
+                Mark("bucket", ParkLayout.Ground(bp.x, bp.y));
             }
-            // 35. ベンチのそばの積み木・73. 積み木の階段でベンチの座面へ
-            Block(ParkLayout.Bench + new Vector2(-4.6f, 4.2f), 0.62f, "benchstep");
-            Block(ParkLayout.Bench + new Vector2(-3.2f, 4.2f), 1.0f, "benchstep");
-            // 53. シーソーのそばの積み木・81. シーソーの両はしのそばの、乗り降りしやすい積み木
-            Block(ParkLayout.Seesaw + new Vector2(0f, 5.2f), 0.8f, "block");
-            Block(ParkLayout.Seesaw + new Vector2(-9.5f, 3.6f), 0.6f, "seesawstep");
-            Block(ParkLayout.Seesaw + new Vector2(9.5f, 3.6f), 0.6f, "seesawstep");
-            // 68. タイヤのそばの積み木・74. 積み木の階段でタイヤの上へ
-            Block(ParkLayout.Tires + new Vector2(0f, -4.3f), 0.9f, "tirestep");
+            // 80. ジャングルジムの柱の根もとの平たい石（取りつきやすい）
+            ForcedFlatRock(ParkLayout.JungleGym + (-ParkLayout.JungleGym).normalized * 7.4f, 0.8f, "gymstep");
+            // 35. ベンチの座面の紙ひこうき・73. ベンチの下の日かげの、休める平たい石
+            if (_benchSeat != Vector3.zero && CastDown(_benchSeat + new Vector3(0f, 2f, 3.5f), 4f, out var seat))
+            {
+                Place("Park_PaperPlane", prop, seat.point + Vector3.up * 0.02f, Quaternion.Euler(0f, 160f, 0f), 0.7f, true, true, 160f);
+                Mark("plane", seat.point);
+            }
+            ForcedFlatRock(ParkLayout.Bench + new Vector2(0.3f, -5f), 0.9f, "benchrest");
+            // 53. シーソーのまわりのクローバー・81. シーソーの両はしの下の平たい石（乗り降りしやすい）
+            ScatterDeco(ParkLayout.Seesaw + new Vector2(0f, 6f), 5f, 14, 0.7f, 1.1f, fol, 0f, "Clover_A", "Clover_B");
+            ForcedFlatRock(ParkLayout.Seesaw + new Vector2(-10.2f, 2.4f), 0.75f, "seesawstep");
+            ForcedFlatRock(ParkLayout.Seesaw + new Vector2(10.2f, 2.4f), 0.75f, "seesawstep");
+            // 68. タイヤのそばの、ひと休みの平たい石・74. タイヤの前の平たい石の段（取りつきやすい）
+            ForcedFlatRock(ParkLayout.Tires + new Vector2(0f, -3.4f), 0.85f, "tirestep");
+            ForcedFlatRock(ParkLayout.Tires + new Vector2(-10.5f, -3f), 0.9f, "tirerest");
 
             // 36. 花だんのそばのじょうろ（76. 登れる）
             foreach (var off in new[] { new Vector2(13.5f, -3f), new Vector2(-13.5f, 2.5f), new Vector2(12f, 6.5f) })
@@ -133,7 +141,7 @@ namespace Shakutori
             for (int i = 0; i < 30 && acorns < 6; i++)
             {
                 Vector2 p = RandomXInCircle(k, 13f);
-                if (!IsLand(p, 0.1f) || !ExtraOk(p, 0.6f, true)) continue;
+                if (!IsLand(p, 0.1f) || !ExtraOk(p, 0.6f, true) || p.magnitude > ParkFenceRadius - 2.2f) continue;   // さくにめりこまない
                 float s = XR(0.9f, 1.2f);
                 Vector3 pos = ParkLayout.Ground(p.x, p.y) + Vector3.up * 0.42f * s;
                 var acorn = Place("Acorn", assets.propGlossy, pos, Quaternion.Euler(0f, XR(0f, 360f), 0f) * Quaternion.Euler(0f, 0f, 88f), s, true, true, 150f, true);
@@ -145,7 +153,8 @@ namespace Shakutori
             {
                 Vector2 p = RandomXInCircle(k, 15f);
                 if (!IsLand(p, 0.1f) || !ExtraOk(p, 1f, false)) continue;
-                PutDeco(XPick("Twig_A", "Twig_B"), prop, ParkLayout.Ground(p.x, p.y) + Vector3.down * 0.08f, GroundRotation(p, XR(0f, 360f), 0.8f, 2f), XR(0.3f, 0.5f), true, 120f);
+                string twig = XPick("Twig_A", "Twig_B");
+                LayTwig(twig, prop, p, XR(0f, 360f), 0f, XR(0.3f, 0.5f), 120f);
             }
 
             // 42. ベンチの下の落ち葉・60. 公園のすみの落ち葉の山・61. 土管の上の落ち葉
@@ -179,12 +188,12 @@ namespace Shakutori
             for (int i = 0; i < 14; i++)
             {
                 float a = XR(0f, Mathf.PI * 2f);
-                Vector2 p = ParkLayout.Fountain + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * XR(1.6f, 3.2f);
+                Vector2 p = ParkLayout.Fountain + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * XR(2.1f, 3.6f);   // 台の根もと（半径 1.6）の外
                 if (!IsLand(p, 0.02f) || NearDew(p, 0.6f)) continue;
                 PutDeco("Moss", fol, ParkLayout.Ground(p.x, p.y) + Vector3.down * 0.05f, GroundRotation(p, XR(0f, 360f), 1f, 3f), XR(0.4f, 0.8f), false, 70f);
             }
             // 44. 水飲み場のまわりの小石
-            ScatterLoose(ParkLayout.Fountain + new Vector2(0f, -1f), 4.5f, 14, 0.07f, 0.16f, LooseProps.Shape.Pebble, Rocks);
+            ScatterLooseRing(ParkLayout.Fountain, 2.0f, 4.8f, 14, 0.07f, 0.16f, LooseProps.Shape.Pebble, Rocks);   // 台の中にうまらないように、根もとの外がわだけ
             // 45. 水たまりのふちの水草
             for (int i = 0; i < 6; i++)
             {
@@ -223,17 +232,8 @@ namespace Shakutori
             DistantCanopy(10, 105f, 140f, p => false);
             MoreBackgroundTrunks(8, 88f, 118f, p => false);
 
-            // 52. 花だんのふちの外の、こぼれ種から咲いたチューリップ
-            for (int i = 0; i < 10; i++)
-            {
-                Vector2 bed = ParkLayout.FlowerBed;
-                float sx = XR01() < 0.5f ? -1f : 1f;
-                Vector2 p = bed + (XR01() < 0.5f
-                    ? new Vector2(sx * (ParkLayout.BedSize.x * 0.5f + XR(1.4f, 2.6f)), XR(-4f, 4f))
-                    : new Vector2(XR(-10f, 10f), sx * (ParkLayout.BedSize.y * 0.5f + XR(1.4f, 2.4f))));
-                if (!IsLand(p, 0.1f) || !ExtraOk(p, 0.3f, false)) continue;
-                PutDeco(Tulips[_xr.Next(Tulips.Length)], flw, ParkLayout.Ground(p.x, p.y) + Vector3.down * 0.05f, Quaternion.Euler(XR(-5f, 5f), XR(0f, 360f), XR(-5f, 5f)), XR(0.7f, 0.9f), true, 120f);
-            }
+            // 52. ベンチのまわりのタンポポ（チューリップは花だんの中だけ）
+            ScatterDeco(ParkLayout.Bench + new Vector2(-4f, 0f), 6f, 10, 0.6f, 0.9f, flw, 0.05f, "Dandelion", "DandelionPuff");
 
             // 54. ブランコの下の小石・85. ブランコの座板の下の平たい石・63. ジャングルジムの下の小石
             for (int s = -1; s <= 1; s += 2)
@@ -304,7 +304,7 @@ namespace Shakutori
 
             // 83. 土管の入り口の、平たい石の段
             for (int s = -1; s <= 1; s += 2)
-                ForcedFlatRock(ParkLayout.Dokan + new Vector2(s * 6.3f, 1.3f), 0.8f, "dokanstep");
+                ForcedFlatRock(ParkLayout.Dokan + new Vector2(s * 7.3f, 2.2f), 0.8f, "dokanstep");   // 土管の口（はし ±5）にめりこまない、口のななめ前
 
             // 84. クヌギの根もとの、根っこのような小枝（幹へ取りつきやすい）
             {
@@ -321,6 +321,19 @@ namespace Shakutori
             }
         }
 
+        /// <summary>公園の外まわりのさくの半径。</summary>
+        const float ParkFenceRadius = 61f;
+
+        /// <summary>砂場の木の枠のそば（枠の内がわ・外がわ margin 以内）。</summary>
+        static bool NearSandboxFrame(Vector2 p, float margin)
+        {
+            Vector2 d = p - ParkLayout.Sandbox;
+            Vector2 h = ParkLayout.SandboxSize * 0.5f;
+            bool insideOuter = Mathf.Abs(d.x) < h.x + margin && Mathf.Abs(d.y) < h.y + margin;
+            bool insideInner = Mathf.Abs(d.x) < h.x - margin && Mathf.Abs(d.y) < h.y - margin;
+            return insideOuter && !insideInner;
+        }
+
         /// <summary>ビー玉（押すと転がる）を、中心のまわりに置く。</summary>
         void Marbles(Vector2 center, float radius, int count)
         {
@@ -328,7 +341,7 @@ namespace Shakutori
             for (int i = 0; i < count * 14 && n < count; i++)
             {
                 Vector2 p = RandomXInCircle(center, radius);
-                if (!IsLand(p, 0.05f) || !ExtraOk(p, 0.6f, true)) continue;
+                if (!IsLand(p, 0.05f) || !ExtraOk(p, 0.6f, true) || NearSandboxFrame(p, 1.4f)) continue;   // 砂場の枠にめりこまない
                 var go = Place("Park_Marble", assets.propGlossy, ParkLayout.Ground(p.x, p.y) + Vector3.up * 0.9f, Quaternion.Euler(XR(0f, 360f), XR(0f, 360f), 0f), 1f, true, true, 140f, true);
                 if (go != null) RollingProp.Make(go, assets.Get("Park_Marble"), 1f, 0.9f, Area, 1.3f);   // ガラス（2.5 g/cm³）の玉は、箱の体積の半分ほど
                 Occupy(p, 1f);
@@ -337,39 +350,13 @@ namespace Shakutori
             }
         }
 
-        /// <summary>積み木（立方体）。scale 1 で、高さ 2.6。しずくのそばには置かない。</summary>
-        bool Block(Vector2 p, float scale, string kind)
-        {
-            if (NearDew(p, 2.2f + scale) || !IsLand(p, 0.1f)) return false;
-            PutSolid("Park_Block_Cube", assets.prop, ParkLayout.Ground(p.x, p.y) + Vector3.down * 0.05f, Quaternion.Euler(0f, XR(-12f, 12f), 0f), scale, 1.9f * scale);
-            Mark(kind, ParkLayout.Ground(p.x, p.y));
-            Mark("blocks", ParkLayout.Ground(p.x, p.y));
-            return true;
-        }
-
-        /// <summary>積み木の山（立方体 2 つと、上に三角の屋根）。</summary>
-        bool BlockStack(Vector2 p, bool roof)
-        {
-            if (!ExtraOk(p, 3f, true) || !IsLand(p, 0.1f)) return false;
-            Vector3 g = ParkLayout.Ground(p.x, p.y) + Vector3.down * 0.05f;
-            float yaw = XR(0f, 90f);
-            Quaternion r = Quaternion.Euler(0f, yaw, 0f);
-            Place("Park_Block_Cube", assets.prop, g, r, 1f, true);
-            Place("Park_Block_Cube", assets.prop, g + r * new Vector3(2.65f, 0f, 0f), r, 1f, true);
-            if (roof) Place("Park_Block_Roof", assets.prop, g + Vector3.up * 2.6f, r, 1f, true);
-            Occupy(p, 3.6f);
-            Mark("stack", g);
-            Mark("blocks", g);
-            return true;
-        }
-
         /// <summary>遊具のすぐそばの平たい石（遊具の場所にも置く。しずくのそばはさける）。</summary>
         bool ForcedFlatRock(Vector2 p, float scale, string kind)
         {
             if (NearDew(p, 2f + scale) || !IsLand(p, 0.05f)) return false;
             Mesh m = assets.Get("RiverStone_C");
             float h = m != null ? m.bounds.max.y * scale : 0.3f;
-            PutSolid("RiverStone_C", assets.prop, ParkLayout.Ground(p.x, p.y) + Vector3.up * (0.2f - h), Quaternion.Euler(0f, XR(0f, 360f), 0f), scale, 1f * scale);
+            PutSolid("RiverStone_C", assets.prop, ParkLayout.Ground(p.x, p.y) + Vector3.up * (0.3f - h), Quaternion.Euler(0f, XR(0f, 360f), 0f), scale, 1f * scale);   // 上の面が地面から少し出て、石に見える（穴に見えない）
             Mark(kind, ParkLayout.Ground(p.x, p.y));
             return true;
         }

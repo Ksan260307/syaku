@@ -167,17 +167,17 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
-        public IEnumerator SandCastle_And_Blocks_CanBeClimbed()
+        public IEnumerator SandCastle_And_Bucket_CanBeClimbed()
         {
             var castle = GM.world.ExtraSpots("castle");
             Assert.AreEqual(1, castle.Count);
             Vector3 c = castle[0];
             Assert.IsTrue(Physics.Raycast(c + Vector3.up * 20f, Vector3.down, out var hit, 30f, ShakuConst.SurfaceMask), "城に当たり判定");
             Assert.Greater(hit.point.y, c.y + 2f, "城の上に乗れる高さ");
-            var blocks = GM.world.ExtraSpots("benchstep");
-            Assert.Greater(blocks.Count, 0);
-            Assert.IsTrue(Physics.Raycast(blocks[0] + Vector3.up * 20f, Vector3.down, out var bh, 30f, ShakuConst.SurfaceMask), "積み木に当たり判定");
-            Assert.Greater(bh.point.y, blocks[0].y + 1f, "積み木の上は、ベンチへの段");
+            var bucket = GM.world.ExtraSpots("bucket");
+            Assert.AreEqual(1, bucket.Count);
+            Assert.IsTrue(Physics.Raycast(bucket[0] + Vector3.up * 20f, Vector3.down, out var bh, 30f, ShakuConst.SurfaceMask), "バケツに当たり判定");
+            Assert.Greater(bh.point.y, bucket[0].y + 0.5f, "バケツの上に乗れる");
             yield return null;
         }
     }

@@ -35,6 +35,16 @@ namespace Shakutori
         public static readonly Vector2 Lamp = new Vector2(-10f, 4f);
 
         public const float PuddleRadius = 5f;
+        /// <summary>水飲み場のよこのじゃぐちの、先までの長さと高さ（Blender の make_fountain と同じ）。</summary>
+        public const float SpoutReach = 3.0f, SpoutHeight = 3.7f;
+        /// <summary>水飲み場のまん中の飲み口の、丸い頭のてっぺん（台の根もとから）。しずくがのる。</summary>
+        public const float BubblerTop = 8.2f;
+
+        /// <summary>水飲み場から水たまりへの向き（じゃぐちは、水たまりの方を向いている）。</summary>
+        public static Vector2 SpoutDir => (Puddle - Fountain).normalized;
+
+        /// <summary>じゃぐちの先から、しずくが落ちる所（水たまりの中）。</summary>
+        public static Vector2 FountainDrip => Fountain + SpoutDir * SpoutReach;
         /// <summary>水たまりのいちばん深い所（しゃくとりむしが沈まない浅さ）。</summary>
         public const float PuddleDepth = 0.09f;
         public const float WaterLevel = -0.35f;

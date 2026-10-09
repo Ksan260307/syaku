@@ -14,6 +14,7 @@ namespace Shakutori
         public SeesawRide Seesaw { get; private set; }
         public readonly List<SwingRide> Swings = new List<SwingRide>();
         readonly List<Vector3> _parkTops = new List<Vector3>();   // しずくを置く、遊具の上
+        Vector3 _fountainTop;
         Vector3 _benchSeat, _sandTop, _bucketPos, _dokanCenter;
         static readonly string[] Tulips = { "Tulip_Red", "Tulip_Yellow", "Tulip_Pink" };
 
@@ -168,8 +169,11 @@ namespace Shakutori
             {
                 Vector2 f = ParkLayout.Fountain;
                 Vector3 g = ParkLayout.Ground(f.x, f.y);
-                Place("Park_Fountain", prop, g, Quaternion.Euler(0f, 210f, 0f), 1f, true, true, 250f, asRenderer: true);
-                _parkTops.Add(g + Vector3.up * 7.2f);
+                // よこのじゃぐち（メッシュの -X）を、水たまりへ向ける
+                Vector2 sd = ParkLayout.SpoutDir;
+                Place("Park_Fountain", prop, g, Quaternion.FromToRotation(Vector3.left, new Vector3(sd.x, 0f, sd.y)), 1f, true, true, 250f, asRenderer: true);
+                _fountainTop = g + Vector3.up * 7.2f;
+                _parkTops.Add(_fountainTop);
                 Occupy(f, 3f);
                 Occupy(ParkLayout.Puddle, ParkLayout.PuddleRadius + 1f);
             }
@@ -203,14 +207,40 @@ namespace Shakutori
             Occupy(ParkLayout.Lamp, 2f);
 
             // さく（公園のまわり。トンネルの所はあけておく）
+            // クヌギの幹にかかる所は、さくを幹の手前で止めて、両がわから幹へつなぐ（さくが幹をつきぬけない）
+            const float fenceHalf = 4.1f, trunkR = 3.6f;
+            int firstBlocked = -1, lastBlocked = -1;
             for (int i = 0; i < 48; i++)
             {
                 float a = i / 48f * Mathf.PI * 2f;
                 Vector2 p = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 61f;
                 if (Vector2.Distance(p, ParkLayout.Gate) < 10f) continue;
+                Vector2 t = new Vector2(-Mathf.Sin(a), Mathf.Cos(a));
+                if (ShakuMath.DistToSegment(ParkLayout.Kunugi, p - t * fenceHalf, p + t * fenceHalf) < trunkR)
+                {
+                    if (firstBlocked < 0) firstBlocked = i;
+                    lastBlocked = i;
+                    continue;
+                }
                 Vector3 g = ParkLayout.Ground(p.x, p.y);
                 Quaternion rot = Quaternion.LookRotation(new Vector3(-p.x, 0f, -p.y), Vector3.up);
                 Place("Park_Fence", prop, g + Vector3.down * 0.2f, rot, 1f, true, true, 200f);
+            }
+            if (firstBlocked >= 0)
+            {
+                for (int side = 0; side < 2; side++)
+                {
+                    int j = side == 0 ? firstBlocked - 1 : lastBlocked + 1;
+                    float a = j / 48f * Mathf.PI * 2f;
+                    Vector2 c = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 61f;
+                    Vector2 t = new Vector2(-Mathf.Sin(a), Mathf.Cos(a));
+                    Vector2 end = c + t * (side == 0 ? fenceHalf : -fenceHalf);   // 幹がわのはし
+                    Vector2 d = (ParkLayout.Kunugi - end).normalized;
+                    Vector2 mid = end + d * fenceHalf;   // 先は、幹の中にかくれる
+                    Vector3 f = new Vector3(-d.y, 0f, d.x);
+                    if (Vector3.Dot(f, new Vector3(-mid.x, 0f, -mid.y)) < 0f) f = -f;
+                    Place("Park_Fence", prop, ParkLayout.Ground(mid.x, mid.y) + Vector3.down * 0.2f, Quaternion.LookRotation(f, Vector3.up), 1f, true, true, 200f);
+                }
             }
 
             // ボール（押すと転がる）
@@ -248,9 +278,10 @@ namespace Shakutori
                 bool lying = R01() < 0.6f;
                 Quaternion rot = lying ? Quaternion.Euler(0f, R(0, 360), 0f) * Quaternion.Euler(0f, 0f, 88f) : GroundRotation(p, R(0, 360), 0.5f, 8f);
                 Vector3 pos = ParkLayout.Ground(p.x, p.y) + (lying ? Vector3.up * 0.42f * s : Vector3.down * 0.03f);
+                Occupy(p, 0.7f * s);
+                if (p.magnitude > ParkFenceRadius - 2.2f) continue;   // さくにめりこむ所には置かない（乱数の使い方は変えない）
                 var acorn = Place("Acorn", assets.propGlossy, pos, rot, s, true, true, 150f, true);
                 if (acorn != null) RollingProp.Make(acorn, assets.Get("Acorn"), s, 0.47f * s, Area);
-                Occupy(p, 0.7f * s);
             }
             for (int i = 0; i < 5; i++)
             {
@@ -314,8 +345,8 @@ namespace Shakutori
             var mr = go.AddComponent<MeshRenderer>();
             mr.sharedMaterial = assets.pond != null ? assets.pond : assets.water;
             mr.shadowCastingMode = ShadowCastingMode.Off;
-            // 水飲み場のじゃぐちから、ぽたぽた落ちる所に、波紋が広がる
-            Vector2 drip = c + (ParkLayout.Fountain - c).normalized * (ParkLayout.PuddleRadius - 1.6f);
+            // 水飲み場のじゃぐちの先から、ぽたぽた落ちる所に、波紋が広がる
+            Vector2 drip = ParkLayout.FountainDrip;
             var mpb = new MaterialPropertyBlock();
             mpb.SetVector("_Drip", new Vector4(drip.x, drip.y, 2.6f, 0.8f));
             mpb.SetFloat("_FoamDepth", 0.012f);   // とても浅い水たまり：岸ぎわの泡は、ふちだけ（全部が白くならない）
@@ -394,7 +425,12 @@ namespace Shakutori
                 Vector2 p = RandomInRing(56f, 76f);
                 if (!IsLand(p, 0.3f) || InsideOccupied(p)) continue;
                 if (Vector2.Distance(p, ParkLayout.Gate) < 7f) continue;
-                Place(R01() < 0.5f ? "Fern_A" : "Fern_B", flw, ParkLayout.Ground(p.x, p.y) + Vector3.down * 0.3f, GroundRotation(p, R(0, 360), 0.3f, 6f), R(0.7f, 1.2f), false, true, 200f);
+                string fern = R01() < 0.5f ? "Fern_A" : "Fern_B";
+                Quaternion frot = GroundRotation(p, R(0, 360), 0.3f, 6f);
+                float fs = R(0.7f, 1.2f);
+                // さくの板のそば：葉がさくをつきぬけてしまうので、植えない（乱数の使い方は変えない）
+                if (Mathf.Abs(p.magnitude - ParkFenceRadius) < 2.6f * fs) { Count("fenceFern", fern + "|Park_Fence", ParkLayout.Ground(p.x, p.y)); continue; }
+                Place(fern, flw, ParkLayout.Ground(p.x, p.y) + Vector3.down * 0.3f, frot, fs, false, true, 200f);
             }
             // 落ち葉と小石（押すと動く）
             int litter = Mathf.RoundToInt(500 * dens);
@@ -402,7 +438,12 @@ namespace Shakutori
             {
                 Vector2 p = R01() < 0.5f ? RandomInCircle(ParkLayout.Kunugi, 18f) : RandomInRing(4f, 64f);
                 if (!IsLand(p, 0.2f) || InsideOccupied(p)) continue;   // 遊具の下には置かない（棒に引っかかる）
-                PlaceLoose(Pick(BigLeaves), assets.prop, ParkLayout.Ground(p.x, p.y) + Vector3.up * 0.01f, GroundRotation(p, R(0, 360), 1f, 6f), R(0.07f, 0.14f), LooseProps.Shape.Leaf, false, 40f);
+                string leaf = Pick(BigLeaves);
+                Quaternion lrot = GroundRotation(p, R(0, 360), 1f, 6f);
+                float ls = R(0.07f, 0.14f);
+                // さくの下にはさまる所には置かない（乱数の使い方は変えない）
+                if (Mathf.Abs(p.magnitude - ParkFenceRadius) < 0.9f) { Count("fenceLeaf", leaf + "|Park_Fence", ParkLayout.Ground(p.x, p.y)); continue; }
+                PlaceLoose(leaf, assets.prop, ParkLayout.Ground(p.x, p.y) + Vector3.up * 0.01f, lrot, ls, LooseProps.Shape.Leaf, false, 40f);
             }
             int pebbles = Mathf.RoundToInt(400 * dens);
             for (int i = 0; i < pebbles; i++)
@@ -423,7 +464,12 @@ namespace Shakutori
             Vector2 s = ParkLayout.Spawn;
             AddDewFromAbove(s + new Vector2(-3.5f, 2.5f));
             AddDewFromAbove(s + new Vector2(-6f, -3f));
-            foreach (var t in _parkTops) AddDewFromAbove(new Vector2(t.x, t.z), t.y + 1f);
+            foreach (var t in _parkTops)
+            {
+                // 水飲み場は、まん中の飲み口の丸い頭のてっぺん（前と同じ場所。上からの光線は、頭のてっぺんから始まってしまうので、じかに置く）
+                if (t == _fountainTop) AddDew(new Vector3(t.x, t.y - 7.2f + ParkLayout.BubblerTop, t.z));
+                else AddDewFromAbove(new Vector2(t.x, t.z), t.y + 1f);
+            }
             if (_benchSeat != Vector3.zero) AddDewFromAbove(new Vector2(_benchSeat.x, _benchSeat.z));
             if (_sandTop != Vector3.zero) AddDewFromAbove(new Vector2(_sandTop.x, _sandTop.z));
             if (_dokanCenter != Vector3.zero)
@@ -535,9 +581,9 @@ namespace Shakutori
                 float a = Mathf.Lerp(-0.8f, 0.8f, i / 4f);
                 MapDot(px, size, new Vector3(ParkLayout.Tires.x + Mathf.Sin(a) * 9f, 0f, ParkLayout.Tires.y - Mathf.Cos(a) * 9f), 2f, i % 3 == 0 ? new Color32(226, 72, 58, 255) : i % 3 == 1 ? new Color32(242, 194, 50, 255) : new Color32(58, 127, 208, 255));
             }
-            // 88. 砂の城・89. 積み木・90. シロツメクサの群れ
+            // 88. 砂の城・89. ビー玉・90. シロツメクサの群れ
             foreach (var p in ExtraSpots("castle")) MapDot(px, size, p, 2.4f, new Color32(226, 205, 150, 255));
-            foreach (var p in ExtraSpots("blocks")) MapDot(px, size, p, 1.4f, new Color32(226, 72, 58, 255));
+            foreach (var p in ExtraSpots("marble")) MapDot(px, size, p, 1.2f, new Color32(80, 160, 230, 255));
             foreach (var p in ExtraSpots("clover")) MapDot(px, size, p, 2.6f, new Color32(236, 240, 228, 255));
             // すべり台（台と坂）
             Vector2 s = ParkLayout.Slide;

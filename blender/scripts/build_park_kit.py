@@ -180,11 +180,16 @@ def make_slide_ramp():
         for j in range(m):
             k = (j + 1) % m
             mb.f(A[j], A[k], B[k], B[j])
-    # 両はしのふた
-    for row in (rows[0], rows[-1]):
-        cen = mb.v(sum((mb.V[i] for i in row), Vector()) / m, PAINT_ORANGE)
-        for j in range(m):
-            mb.f(cen, row[(j + 1) % m], row[j]) if row is rows[0] else mb.f(cen, row[j], row[(j + 1) % m])
+    # 両はしのふた：U 字の断面（左の壁・底の板・右の壁）だけをふさぐ。溝の中はあけておく
+    # （入り口と出口に、溝をふさぐ壁ができて、入れなくならないように）
+    parts = ((0, 1, 2, 3), (0, 3, 6, 9), (6, 7, 8, 9))
+    for row, first in ((rows[0], True), (rows[-1], False)):
+        for quad in parts:
+            ids = [row[j] for j in quad]
+            if first:
+                mb.f(ids[0], ids[3], ids[2], ids[1])
+            else:
+                mb.f(*ids)
     # 出口の下の土台（コンクリート）：出口が地面にのっている
     y0, y1 = SLIDE_RAMP_LOW.y - 0.9, SLIDE_RAMP_END.y
     box(mb, (0, (y0 + y1) * 0.5, 0.0), (SLIDE_WIDTH + 0.8, y1 - y0, 0.3), hexc("#b9b4aa"))
@@ -419,13 +424,42 @@ def make_bench():
 # ---------------------------------------------------------------------------
 # 水飲み場（コンクリートの柱と、上の受け皿・じゃぐち）
 # ---------------------------------------------------------------------------
+# 水飲み場のよこのじゃぐち：先までの長さと高さ（Unity の ParkLayout.SpoutReach・SpoutHeight と同じ）。+X がじゃぐちの向き
+BUBBLER_TOP = 8.2
+SPOUT_REACH = 3.0
+SPOUT_HEIGHT = 3.7
+
+
 def make_fountain():
+    """水飲み場：コンクリートの台と、水をためた皿。上に飲み口、よこに水たまりへ向いたじゃぐち（先からしずくが落ちる）"""
     mb = MB()
-    prof = [(0.0, 0.0), (1.8, 0.0), (1.5, 6.4), (2.6, 6.6), (2.6, 7.4), (2.2, 7.4), (2.1, 7.0), (0.0, 7.0)]
-    lathe(mb, prof, 32, lambda t, a, p: mixc(CONCRETE, CONCRETE_DARK, 0.25 + 0.15 * math.sin(a * 3 + p.z)))
-    rod(mb, (0, 0, 7.0), (0, 0, 8.2), 0.22, STEEL, seg=10)
-    rod(mb, (0, 0, 8.2), (0, 1.0, 8.4), 0.18, STEEL, seg=10)
-    uv_sphere(mb, Vector((0, 0, 8.3)), 0.32, lambda n: STEEL, seg=10, rings=6)
+    prof = [(0.0, 0.0), (1.6, 0.0), (1.55, 0.35), (1.1, 0.6), (0.95, 1.0), (0.9, 5.2), (1.3, 5.6), (2.25, 5.9), (2.4, 6.45),
+            (2.38, 6.7), (2.08, 6.72), (1.95, 6.35), (1.6, 6.2), (0.0, 6.18)]
+
+    def concrete(t, a, p):
+        c = mixc(CONCRETE, CONCRETE_DARK, 0.25 + 0.15 * math.sin(a * 3 + p.z))
+        return scalec(c, 0.88) if p.z > 6.1 and math.hypot(p.x, p.y) < 2.0 else c   # 皿の内がわは少し暗く
+    lathe(mb, prof, 36, concrete)
+    # 皿にたまった水（白くならない、深い水色）
+    water = MB()
+    polar_sheet(water, lambda th: 1.98, lambda rho, th, p: mixc(hexc("#3f7f9c"), hexc("#5f9fba"), 0.5 + 0.4 * rho), n_ang=36, n_rad=3)
+    mb.add(water, Matrix.Translation(Vector((0, 0, 6.42))))
+    # まん中の飲み口：皿の水から立つ管と、水の出る丸い頭（てっぺんに、しずくがひとつのる。BUBBLER_TOP は Unity の ParkLayout.BubblerTop と同じ）
+    rod(mb, (0, 0, 6.2), (0, 0, BUBBLER_TOP - 0.3), 0.19, STEEL, seg=12)
+    uv_sphere(mb, Vector((0, 0, BUBBLER_TOP - 0.24)), 0.24, lambda n: STEEL, seg=12, rings=7)
+    # よこのじゃぐち：台から水たまりへのびて、先は下を向く
+    top = SPOUT_HEIGHT + 0.6
+    pipe = [Vector((0.7, 0, top)), Vector((SPOUT_REACH - 0.45, 0, top)), Vector((SPOUT_REACH - 0.1, 0, top - 0.12)),
+            Vector((SPOUT_REACH, 0, top - 0.4)), Vector((SPOUT_REACH, 0, SPOUT_HEIGHT + 0.02))]
+    tube(mb, pipe, [0.2, 0.18, 0.17, 0.16, 0.15], 12, lambda t, a, p, d: mixc(STEEL, hexc("#eef3f6"), 0.4 + 0.4 * math.sin(a * 2)))
+    lathe(mb, [(0.0, SPOUT_HEIGHT - 0.04), (0.19, SPOUT_HEIGHT - 0.02), (0.18, SPOUT_HEIGHT + 0.12), (0.0, SPOUT_HEIGHT + 0.12)], 12,
+          lambda t, a, p: STEEL_DARK, center=Vector((SPOUT_REACH, 0, 0)))
+    # じゃぐちのハンドル（十字）
+    hx = 1.55
+    rod(mb, (hx, 0, top), (hx, 0, top + 0.5), 0.1, STEEL, seg=8)
+    rod(mb, (hx, -0.45, top + 0.5), (hx, 0.45, top + 0.5), 0.09, PAINT_BLUE, seg=8)
+    rod(mb, (hx - 0.45, 0, top + 0.5), (hx + 0.45, 0, top + 0.5), 0.09, PAINT_BLUE, seg=8)
+    uv_sphere(mb, Vector((hx, 0, top + 0.55)), 0.13, lambda n: PAINT_RED, seg=8, rings=5)
     return build(mb, "Park_Fountain", smooth=True, sharp_deg=50)
 
 

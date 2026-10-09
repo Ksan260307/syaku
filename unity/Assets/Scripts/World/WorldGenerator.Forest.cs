@@ -308,7 +308,10 @@ namespace Shakutori
             {
                 Vector2 p = pc + new Vector2(R(-9f, 9f), R(-9f, 9f));
                 float s = R(0.7f, 1.1f);
-                Place(Pick(Rocks), prop, new Vector3(p.x, ForestLayout.WaterLevel - 0.3f, p.y), Quaternion.Euler(0, R(0, 360), 0), s, true);
+                string rock = Pick(Rocks);
+                Vector3 pos = new Vector3(p.x, ForestLayout.WaterLevel - 0.3f, p.y);
+                Place(rock, prop, pos, Quaternion.Euler(0, R(0, 360), 0), s, true);
+                StoneFooting(pos, rock, s);   // 水たまりの底までとどく石（水の中で宙にうかない）
             }
         }
 

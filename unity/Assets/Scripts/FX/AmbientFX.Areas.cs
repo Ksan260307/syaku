@@ -184,12 +184,12 @@ namespace Shakutori
             EmitAt(_slideSparks, p + Random.insideUnitSphere * 0.6f, back * Random.Range(1f, 2.5f) + Vector3.up * 0.3f, 1, 0.2f);
         }
 
-        /// <summary>水飲み場のじゃぐちから落ちるしずく。</summary>
-        public void TapDrip(Vector3 waterPoint)
+        /// <summary>水飲み場のじゃぐちの先から落ちるしずく（fall 秒で水面にとどいて消える）。</summary>
+        public void TapDrip(Vector3 tip, float fall)
         {
             EnsureEmitters();
-            // 落ちて水面にとどくまで 0.4 秒（高さ 0.8 から）
-            EmitAt(_tapDrips, waterPoint + Vector3.up * 0.8f, Vector3.zero, 1, 0f);
+            var ep = new ParticleSystem.EmitParams { applyShapeToPosition = false, position = tip, velocity = Vector3.zero, startLifetime = fall };
+            _tapDrips.Emit(ep, 1);
         }
 
         /// <summary>しずくを取った・名所を見つけたときのきらめき（エリアの色をまぜる）。</summary>
@@ -502,8 +502,8 @@ namespace Shakutori
                 if (t > _rockGlintNext)
                 {
                     _rockGlintNext = t + FR(0.6f, 1.4f);
-                    var webs = _world.ExtraSpots("web");
-                    if (webs.Count > 0) Glint(webs[_fxr.Next(webs.Count)] + Random.insideUnitSphere * 0.8f);
+                    var dew = _world.ExtraSpots("webdew");   // クモの巣の糸についた、つゆの玉
+                    if (dew.Count > 0) Glint(dew[_fxr.Next(dew.Count)]);
                 }
                 if (t > _lilyHopNext)
                 {
