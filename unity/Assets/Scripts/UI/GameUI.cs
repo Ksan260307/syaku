@@ -26,6 +26,8 @@ namespace Shakutori
         public event Action<string> SkinSelected;
         public event Action<int> FastTravelRequested;    // 地図から名所へ
         public event Action<int> LandmarkTravelRequested;   // 図鑑から、すみかのそばの名所へ（ほかのエリアでも）
+        /// <summary>エリアの地図の絵（地図の下のボタンで、ほかのエリアの地図に切りかえるときに使う）。</summary>
+        public Func<AreaLayout, Texture2D> MapProvider;
         public event Action RescueRequested;             // 動けなくなったら
         public event Action SaveRequested;               // いますぐセーブ
         public event Action PhotoRequested;              // 写真モードの切りかえ
@@ -44,13 +46,16 @@ namespace Shakutori
         Label _mapTitle, _mapSummary, _confirmText, _completeTitle, _completeText;
         Label _creatureCardName, _creatureCardDesc, _zukanCount, _zukanName, _zukanArea, _zukanDesc;
         VisualElement _zukanHabitat, _zukanGo;
+        Label _zukanHabitatTitle;
+        ScrollView _zukanDetail;
         Texture2D _mapTexture;
         ScrollView _legend, _zukanGrid;
         Button _continue, _qLow, _qHigh, _tNormal, _tLarge;
         Slider _sens, _music, _sfx, _ambience, _fov;
         Toggle _invert, _invertX, _autoCam, _minimapRot, _autosave, _motion, _vibrate;
         VisualElement _reticle, _saveIndicator, _minimapNorth;
-        Label _reticleText, _creatureCardSub, _silkLabel;
+        Label _reticleText, _creatureCardSub, _silkLabel, _silkTop;
+        VisualElement _silkButton;
         float _saveShowUntil;
         Action _confirmAction;
         VisualElement _creditsOverlay, _photoHint, _bigmapHere;
@@ -270,6 +275,8 @@ namespace Shakutori
             _zukanArea = Q<Label>("zukan-area");
             _zukanGo = Q<VisualElement>("zukan-go");
             _zukanHabitat = Q<VisualElement>("zukan-habitat");
+            _zukanHabitatTitle = Q<Label>("zukan-habitat-title");
+            _zukanDetail = Q<ScrollView>("zukan-detail");
             _zukanDesc = Q<Label>("zukan-desc");
             _skinGrid = Q<VisualElement>("skin-grid");
             _recordList = Q<VisualElement>("record-list");
@@ -298,6 +305,8 @@ namespace Shakutori
             _saveIndicator = Q<VisualElement>("save-indicator");
             _creatureCardSub = Q<Label>("creature-card-sub");
             _silkLabel = Q<Label>("btn-silk-label");
+            _silkTop = Q<Label>("btn-silk-top");
+            _silkButton = Q<VisualElement>("btn-silk");
             _minimapNorth = _root.Q<Label>(className: "minimap-north");
             _creditsOverlay = Q<VisualElement>("credits-overlay");
             _photoHint = Q<VisualElement>("photo-hint");
@@ -668,6 +677,9 @@ namespace Shakutori
             _mapOverlay.EnableInClassList("hidden", !show);
             if (show)
             {
+                // 開いたときは、いまいるエリアの地図から
+                _viewArea = null;
+                _bigmap.style.backgroundImage = new StyleBackground(_mapTexture);
                 RefreshBigMap();
                 Q<Button>("map-close").Focus();
             }
@@ -1032,8 +1044,8 @@ namespace Shakutori
                     ("右側をすばやく2回タップ", "カメラを後ろへもどす"),
                     ("はやく", "はやく這う（切り替え）"),
                     ("背伸び", "背伸びして見わたす"),
-                    ("糸", "糸でぶら下がる / 長押しでのぼる / 壁ではなれる"),
-                    ("ねらう", "画面のまん中に糸を発射してたぐる"),
+                    ("糸", "ボタンの字が、いま押すとできることに変わります。がけのふちで「糸でぶら下がる」・ぶら下がり中は「長押しでのぼる」・落ちている間は「糸でつかまる」・壁では「はなれる」（平らな所では、うすくなって使えません）"),
+                    ("糸でねらう", "画面のまん中に糸を発射してたぐる"),
                     ("地図ボタン", "地図・エリア移動"),
                     ("本のボタン", "いきもの図鑑・きせかえ"),
                 };
@@ -1198,18 +1210,35 @@ namespace Shakutori
         /// <summary>図鑑のすみかの地図に出ている印の数（テスト用）。</summary>
         public int HabitatDotCount => _zukanHabitat != null ? _zukanHabitat.Query(className: "zukan-habitat-dot").ToList().Count : 0;
         public string ZukanHabitatText => _zukanArea != null ? _zukanArea.text : "";
+        /// <summary>図鑑のすみかの地図に出しているエリアの名前（地図を出していなければ空。テスト用）。</summary>
+        public string ZukanHabitatArea => _zukanHabitat != null && _zukanHabitat.style.display != DisplayStyle.None && _zukanHabitatTitle != null ? _zukanHabitatTitle.text : "";
 
-        /// <summary>いまいるエリアの地図に、すみかの場所の印をつける（このエリアにいないいきものは、地図を出さない）。</summary>
+        /// <summary>
+        /// すみかの地図：いまいるエリアにすんでいれば、このエリアの地図。いなければ、すんでいるエリアの地図
+        /// （行ったことのあるエリアの、すみかの記録から）に、すみかの場所の印をつける。
+        /// </summary>
         void ShowHabitatMap(string id, bool known)
         {
             if (_zukanHabitat == null) return;
             _zukanHabitat.Clear();
-            var area = _collect != null ? _collect.Area : Areas.Current;
-            var spots = known ? Habitats.Of(id).FindAll(h => h.area == area.Id) : new System.Collections.Generic.List<HabitatSpot>();
-            bool show = spots.Count > 0 && _mapTexture != null;
+            var here = _collect != null ? _collect.Area : Areas.Current;
+            var all = known ? Habitats.Of(id) : new System.Collections.Generic.List<HabitatSpot>();
+            AreaLayout area = null;
+            if (all.Exists(h => h.area == here.Id)) area = here;
+            else
+                foreach (var a in Areas.All)
+                    if (all.Exists(h => h.area == a.Id)) { area = a; break; }
+            var spots = area != null ? all.FindAll(h => h.area == area.Id) : new System.Collections.Generic.List<HabitatSpot>();
+            Texture2D tex = area == here ? _mapTexture : area != null ? MapProvider?.Invoke(area) : null;
+            bool show = spots.Count > 0 && tex != null;
             _zukanHabitat.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_zukanHabitatTitle != null)
+            {
+                _zukanHabitatTitle.text = show ? area.DisplayName + "の地図" : "";
+                _zukanHabitatTitle.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            }
             if (!show) return;
-            _zukanHabitat.style.backgroundImage = new StyleBackground(_mapTexture);
+            _zukanHabitat.style.backgroundImage = new StyleBackground(tex);
             const float size = 150f;
             float w = _zukanHabitat.resolvedStyle.width > 1f && !float.IsNaN(_zukanHabitat.resolvedStyle.width) ? _zukanHabitat.resolvedStyle.width : size;
             foreach (var h in spots)
@@ -1223,17 +1252,17 @@ namespace Shakutori
                 dot.style.marginTop = -7f;
                 _zukanHabitat.Add(dot);
             }
-            // いまいる場所
-            if (_worm != null)
+            // いまいる場所（このエリアの地図のときだけ）
+            if (_worm != null && area == here)
             {
                 Vector2 me = WorldToMap(_worm.CenterPosition);
-                var here = new VisualElement { pickingMode = PickingMode.Ignore };
-                here.AddToClassList("zukan-habitat-here");
-                here.style.left = new Length(me.x * 100f, LengthUnit.Percent);
-                here.style.top = new Length(me.y * 100f, LengthUnit.Percent);
-                here.style.marginLeft = -5f;
-                here.style.marginTop = -5f;
-                _zukanHabitat.Add(here);
+                var mark = new VisualElement { pickingMode = PickingMode.Ignore };
+                mark.AddToClassList("zukan-habitat-here");
+                mark.style.left = new Length(me.x * 100f, LengthUnit.Percent);
+                mark.style.top = new Length(me.y * 100f, LengthUnit.Percent);
+                mark.style.marginLeft = -5f;
+                mark.style.marginTop = -5f;
+                _zukanHabitat.Add(mark);
             }
         }
 
@@ -1261,6 +1290,7 @@ namespace Shakutori
             _zukanDesc.text = known ? sp.description : "ヒント：" + sp.hint;
             ShowHabitatMap(id, known);
             ShowHabitatTravel(id, known);
+            if (_zukanDetail != null) _zukanDetail.scrollOffset = Vector2.zero;   // ほかのいきものをえらんだら、上から
         }
 
         /// <summary>図鑑の「すみかのそばの名所へ」ボタンの数（テスト用）。</summary>
@@ -1434,6 +1464,36 @@ namespace Shakutori
         // ------------------------------------------------------------------
         AreaLayout MapArea => _collect != null ? _collect.Area : Areas.Current;
 
+        AreaLayout _viewArea;   // 大きな地図に出しているエリア（null なら、いまいるエリア）
+        AreaLayout ViewArea => _viewArea ?? MapArea;
+
+        /// <summary>大きな地図に出しているエリアの ID。</summary>
+        public string MapShowing => ViewArea.Id;
+
+        /// <summary>名所を見つけたか（ほかのエリアの名所は、保存データで見る）。</summary>
+        bool PlaceKnown(LandmarkDef lm) => (_collect != null && _collect.IsDiscovered(lm.id)) || SaveSystem.Data.places.Contains(lm.id);
+
+        /// <summary>
+        /// 地図の下のエリアのボタン：そのエリアの地図に切りかえる（移動はしない）。まだ行ったことがないエリアは見られない。
+        /// ほかのエリアの地図では、見つけた名所をタップすると、そのエリアのその名所へ移動する。
+        /// </summary>
+        public bool ShowAreaMap(string areaId)
+        {
+            var area = Areas.Get(areaId);
+            if (area == null || area.Id != areaId) return false;
+            bool here = area == MapArea;
+            if (!here && !SaveSystem.Data.visited.Contains(areaId))
+            {
+                Toast("まだ行ったことがない場所。木の根のトンネルを探そう", "icon-lock");
+                return false;
+            }
+            _viewArea = here ? null : area;
+            Texture2D tex = here ? _mapTexture : MapProvider?.Invoke(area);
+            if (tex != null) _bigmap.style.backgroundImage = new StyleBackground(tex);
+            RefreshBigMap();
+            return true;
+        }
+
         void BuildMarkers()
         {
             foreach (var m in _miniMarkers.Values) m.RemoveFromHierarchy();
@@ -1593,11 +1653,12 @@ namespace Shakutori
         {
             foreach (var it in _bigItems) it.el.RemoveFromHierarchy();
             _bigItems.Clear();
-            var area = MapArea;
+            var area = ViewArea;
+            bool here = area == MapArea;
             _mapTitle.text = area.DisplayName + "の地図";
             foreach (var lm in area.Landmarks)
             {
-                bool known = _collect != null && _collect.IsDiscovered(lm.id);
+                bool known = PlaceKnown(lm);
                 Vector2 uv = WorldToMap(new Vector3(lm.position.x, 0f, lm.position.y));
                 var mk = new VisualElement { pickingMode = PickingMode.Ignore };
                 mk.AddToClassList("map-marker");
@@ -1623,8 +1684,8 @@ namespace Shakutori
                 lbl.AddToClassList("bigmap-label");
                 AddBigItem(lbl, uv, new Vector2(-100f, 17f));
             }
-            // のこりが少ないときは、だいたいの場所を丸で教える（ぴったりではなく、少しずらす）
-            if (_collect != null)
+            // のこりが少ないときは、だいたいの場所を丸で教える（ぴったりではなく、少しずらす。いまいるエリアだけ）
+            if (_collect != null && here)
             {
                 var left = _collect.RemainingDrops().ToList();
                 if (left.Count > 0 && left.Count <= 5)
@@ -1650,12 +1711,15 @@ namespace Shakutori
             }
             _bigmapHere.BringToFront();
             _bigmapPlayer.BringToFront();
+            // ほかのエリアの地図には、しゃくとりむし（いまここ）は出さない
+            _bigmapHere.style.display = here ? DisplayStyle.Flex : DisplayStyle.None;
+            _bigmapPlayer.style.display = here ? DisplayStyle.Flex : DisplayStyle.None;
             LayoutBigMap();
 
             _legend.Clear();
             foreach (var lm in area.Landmarks)
             {
-                bool known = _collect != null && _collect.IsDiscovered(lm.id);
+                bool known = PlaceKnown(lm);
                 var row = new VisualElement();
                 row.AddToClassList("legend-row");
                 var icon = new VisualElement();
@@ -1684,17 +1748,23 @@ namespace Shakutori
                     {
                         AudioManager.Instance?.Click();
                         ShowMap(false);
-                        FastTravelRequested?.Invoke(lmId);
+                        if (here) FastTravelRequested?.Invoke(lmId);
+                        else LandmarkTravelRequested?.Invoke(lmId);   // ほかのエリアの名所へ
                     };
                     row.Add(go);
                 }
                 _legend.Add(row);
             }
-            if (_collect != null)
+            if (_collect != null && here)
             {
                 int rest = _collect.TotalDrops - _collect.CollectedDrops;
                 _mapSummary.text = $"{area.DropName} {_collect.CollectedDrops} / {_collect.TotalDrops}　　名所 {_collect.DiscoveredPlaces} / {_collect.TotalPlaces}" +
                                    (rest > 0 && rest <= 5 ? $"\nのこり {rest} 個：青い丸のあたりをさがしてみよう" : "\n見つけた名所やトンネルをタップすると、すぐに移動できます");
+            }
+            else if (!here)
+            {
+                _mapSummary.text = $"{area.DropName} {Collectibles.CollectedIn(area)} / {area.DropCount}　　名所 {Collectibles.DiscoveredIn(area)} / {area.Landmarks.Count}" +
+                                   "\n見つけた名所をタップすると、そこへ移動できます";
             }
             BuildAreaChips();
         }
@@ -1707,7 +1777,7 @@ namespace Shakutori
                 it.el.style.left = it.uv.x * size + it.offset.x;
                 it.el.style.top = it.uv.y * size + it.offset.y;
             }
-            if (_worm != null)
+            if (_worm != null && ViewArea == MapArea)
             {
                 Vector2 uv = WorldToMap(_worm.CenterPosition);
                 _bigmapPlayer.style.left = uv.x * size - 18f;
@@ -1726,12 +1796,14 @@ namespace Shakutori
         public const float MapTapReach = 40f;
 
         /// <summary>
-        /// 地図のタップ（uv は地図の左上が 0、右下が 1）：見つけた名所の近くなら、そこへすぐ移動する。
-        /// 木の根のトンネルの近くなら、その先のエリアへ（行ったことがあれば）。移動したら true。
+        /// 地図のタップ（uv は地図の左上が 0、右下が 1）：見つけた名所の近くなら、そこへすぐ移動する（ほかのエリアの地図なら、そのエリアへ）。
+        /// 木の根のトンネルの近くなら、その先のエリアへ（行ったことがあれば。ほかのエリアの地図では、その先のエリアの地図に切りかえる）。
+        /// 移動したり、地図を切りかえたりしたら true。
         /// </summary>
         public bool TapBigMap(Vector2 uv)
         {
-            var area = MapArea;
+            var area = ViewArea;
+            bool here = area == MapArea;
             float size = Size(_bigmap, 614f);
             float best = MapTapReach;
             LandmarkDef place = null, unknown = null;
@@ -1741,7 +1813,7 @@ namespace Shakutori
                 float d = (WorldToMap(new Vector3(lm.position.x, 0f, lm.position.y)) - uv).magnitude * size;
                 if (d >= best) continue;
                 best = d;
-                bool known = _collect != null && _collect.IsDiscovered(lm.id);
+                bool known = PlaceKnown(lm);
                 place = known ? lm : null;
                 unknown = known ? null : lm;
             }
@@ -1756,24 +1828,29 @@ namespace Shakutori
             if (gate != null)
             {
                 AudioManager.Instance?.Click();
-                return RequestTravel(gate.targetArea);
+                return here ? RequestTravel(gate.targetArea) : ShowAreaMap(gate.targetArea);
             }
             if (place != null)
             {
                 AudioManager.Instance?.Click();
                 ShowMap(false);
-                FastTravelRequested?.Invoke(place.id);
+                if (here) FastTravelRequested?.Invoke(place.id);
+                else LandmarkTravelRequested?.Invoke(place.id);
                 return true;
             }
             if (unknown != null) Toast("まだ見つけていない場所。まずは歩いて行ってみよう", "icon-lock");
             return false;
         }
 
-        /// <summary>地図の下の「エリアへ移動」ボタン。一度行ったエリアへはすぐ移動できる。</summary>
+        /// <summary>
+        /// 地図の下の「エリアの地図」ボタン。押すと、そのエリアの地図に切りかわる（移動はしない）。
+        /// 一度行ったエリアの地図だけ見られる。いまいるエリアには「いまここ」、出している地図のボタンは色がかわる。
+        /// </summary>
         void BuildAreaChips()
         {
             _mapAreas.Clear();
             var here = MapArea;
+            var shown = ViewArea;
             foreach (var area in Areas.All)
             {
                 bool isHere = area == here;
@@ -1781,16 +1858,48 @@ namespace Shakutori
                 var chip = new Button { text = visited ? area.DisplayName : "？？？" };
                 chip.AddToClassList("area-chip");
                 chip.EnableInClassList("area-chip--here", isHere);
+                chip.EnableInClassList("area-chip--shown", area == shown);
                 chip.EnableInClassList("area-chip--locked", !visited);
                 if (isHere) chip.text = area.DisplayName + "（いまここ）";
                 string id = area.Id;
                 chip.clicked += () =>
                 {
                     AudioManager.Instance?.Click();
-                    RequestTravel(id);
+                    ShowAreaMap(id);
                 };
                 _mapAreas.Add(chip);
             }
+        }
+
+        /// <summary>
+        /// タッチの「糸」ボタンに出す字（上の小さな字・大きな字）と、ようす（0 = いまは使えない、1 = 使える、2 = いまが使いどき）。
+        /// 糸ボタンは場面で役目がかわるので、押すとどうなるかを、そのまま字で見せる。
+        /// </summary>
+        public static (string top, string main, int state) SilkButton(bool reeling, bool hanging, bool falling, bool canCatch, bool canDrop, bool steep)
+        {
+            if (reeling) return ("糸を", "はなす", 1);              // ねらった糸をたぐっている途中：やめて落ちる
+            if (hanging) return ("長押しで", "のぼる", 1);          // ぶら下がり中：長押しで糸をのぼる
+            if (falling) return canCatch ? ("糸で", "つかまる", 2) : ("", "糸", 0);
+            if (canDrop) return ("糸で", "ぶら下がる", 2);          // がけのふち
+            if (steep) return ("壁から", "はなれる", 1);            // 壁や裏側：はなれて落ちる
+            return ("がけのふちで", "糸", 0);                        // 平らな所では使えない（がけのふちで使う）
+        }
+
+        /// <summary>タッチの「糸」ボタンの字（テスト用）。</summary>
+        public string SilkButtonText => _silkLabel != null ? (_silkTop != null && _silkTop.style.display != DisplayStyle.None ? _silkTop.text : "") + _silkLabel.text : "";
+        public bool SilkButtonIdle => _silkButton != null && _silkButton.ClassListContains("touch-button--idle");
+        public bool SilkButtonReady => _silkButton != null && _silkButton.ClassListContains("touch-button--ready");
+
+        /// <summary>地図の下のエリアのボタンを押す（テスト用。index は 森・川辺・公園 の順）。</summary>
+        public bool PressAreaChip(int index)
+        {
+            if (_mapAreas == null || index < 0 || index >= _mapAreas.childCount || !(_mapAreas[index] is Button b)) return false;
+            using (var e = NavigationSubmitEvent.GetPooled())
+            {
+                e.target = b;
+                b.SendEvent(e);
+            }
+            return true;
         }
 
         /// <summary>地図からエリア移動を頼む。まだ行ったことのないエリアにはトンネルを通って行く必要がある。</summary>
@@ -2156,11 +2265,23 @@ namespace Shakutori
             }
             // オートセーブの表示
             _saveIndicator.EnableInClassList("save-indicator--show", Time.unscaledTime < _saveShowUntil);
-            // タッチの「糸」ボタンは、壁にいるときは「はなす」
+            // タッチの「糸」ボタンには、いま押すとどうなるかを出す（使えないときは、うすく。使いどきは、目立たせる）
             if (_silkLabel != null && _worm != null)
             {
-                string t = _worm.OnSteepSurface && !_worm.CanDropSilk ? "はなす" : (_worm.IsReeling ? "はなす" : "糸");
-                if (_silkLabel.text != t) _silkLabel.text = t;
+                var (top, main, st) = SilkButton(_worm.IsReeling, _worm.State == InchwormController.Mode.Hang, _worm.IsFalling,
+                    _worm.CanCatchWithSilk, _worm.CanDropSilk, _worm.OnSteepSurface);
+                if (_silkLabel.text != main)
+                {
+                    _silkLabel.text = main;
+                    _silkLabel.EnableInClassList("touch-label-word", main.Length > 1);
+                }
+                if (_silkTop != null && _silkTop.text != top)
+                {
+                    _silkTop.text = top;
+                    _silkTop.style.display = string.IsNullOrEmpty(top) ? DisplayStyle.None : DisplayStyle.Flex;
+                }
+                _silkButton?.EnableInClassList("touch-button--idle", st == 0);
+                _silkButton?.EnableInClassList("touch-button--ready", st == 2);
             }
 
             // 今いる場所の名前

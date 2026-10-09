@@ -131,6 +131,8 @@ namespace Shakutori
         public string AimProblem { get; private set; } = "";
         public bool IsReeling => State == Mode.Hang && _reeling;
         public bool IsFalling => State == Mode.Fall;
+        /// <summary>落ちている途中で、いま糸を出せば、つかまれる（落ちはじめた所から、糸がとどく）。</summary>
+        public bool CanCatchWithSilk => State == Mode.Fall && _sinkTimer <= 0f && Vector3.Distance(_fallFrom.point, _fallPos) < silkRange;
         /// <summary>壁や裏側にいる（はなれて落ちられる）。</summary>
         public bool OnSteepSurface => State != Mode.Hang && State != Mode.Fall && ((_tail.normal + _head.normal).normalized.y < 0.55f);
 

@@ -95,12 +95,10 @@ namespace Shakutori
 
             // --- 赤キノコの森 ---
             Vector2 g = ForestLayout.MushroomGrove;
-            Vector2[] bigReds = { new Vector2(0, 0), new Vector2(-7, 5), new Vector2(6, 6), new Vector2(4, -7), new Vector2(-6, -6) };
-            float[] bigScales = { 1.6f, 1.2f, 1.0f, 1.35f, 0.9f };
-            for (int i = 0; i < bigReds.Length; i++)
+            for (int i = 0; i < BigReds.Length; i++)
             {
-                Vector2 p = g + bigReds[i];
-                float s = bigScales[i];
+                Vector2 p = g + BigReds[i];
+                float s = BigRedScales[i];
                 Vector3 pos = ForestLayout.Ground(p.x, p.y) + Vector3.down * 0.2f;
                 Place("Mushroom_Red", prop, pos, GroundRotation(p, R(0, 360), 0.2f, 4f), s, true);
                 Occupy(p, 1.2f * s);
@@ -665,6 +663,10 @@ namespace Shakutori
             }
         }
 
+        /// <summary>赤キノコの森の、大きな赤キノコ（林のまん中からの場所と大きさ）。</summary>
+        static readonly Vector2[] BigReds = { new Vector2(0, 0), new Vector2(-7, 5), new Vector2(6, 6), new Vector2(4, -7), new Vector2(-6, -6) };
+        static readonly float[] BigRedScales = { 1.6f, 1.2f, 1.0f, 1.35f, 0.9f };
+
         static readonly Vector2[] ForestShaftSpots =
         {
             new Vector2(2f, 3f), ForestLayout.Meadow, ForestLayout.Meadow + new Vector2(-8f, 6f), ForestLayout.Pond + new Vector2(2f, 2f),
@@ -672,7 +674,7 @@ namespace Shakutori
             new Vector2(-20f, -8f), new Vector2(18f, 22f), ForestLayout.Gate + new Vector2(-4f, 1f),
         };
 
-        void DrawForestMap(Color32[] px, int size)
+        void DrawForestMap(Color32[] px, int size, bool generated)
         {
             ColorUtility.TryParseHtmlString("#6b4a32", out var bark);
             ColorUtility.TryParseHtmlString("#c9a46a", out var wood);
@@ -688,7 +690,14 @@ namespace Shakutori
                 if (ShakuMath.DistToSegment(p, la, lb) < 5f) c = bark * 1.15f;
                 px[j * size + i] = c;
             }
-            foreach (var (pos, s) in _redCaps) MapDot(px, size, pos, Mathf.Max(2f, 2.5f * s), new Color32(230, 70, 60, 255));
+            if (generated)
+                foreach (var (pos, s) in _redCaps) MapDot(px, size, pos, Mathf.Max(2f, 2.5f * s), new Color32(230, 70, 60, 255));
+            else
+                for (int i = 0; i < BigReds.Length; i++)
+                {
+                    Vector2 p = ForestLayout.MushroomGrove + BigReds[i];
+                    MapDot(px, size, new Vector3(p.x, 0f, p.y), Mathf.Max(2f, 2.5f * BigRedScales[i]), new Color32(230, 70, 60, 255));
+                }
         }
     }
 }

@@ -455,6 +455,31 @@
     font-size: 40px;
 }
 
+/* ボタンの上の小さな字（「糸で」「長押しで」など、いまできることの説明） */
+.touch-label-top {
+    font-size: 15px;
+    color: rgb(255, 240, 200);
+    -unity-font-style: bold;
+    margin-bottom: -2px;
+}
+
+/* 「ぶら下がる」「のぼる」など、ことばのときは少し小さく */
+.touch-label-word {
+    font-size: 27px;
+}
+
+/* 糸ボタン：いま使えないときは、うすく */
+.touch-button--idle {
+    opacity: 0.5;
+}
+
+/* 糸ボタン：いまが使いどき（がけのふち・落ちている途中） */
+.touch-button--ready {
+    background-color: rgba(70, 150, 90, 0.75);
+    border-color: rgb(200, 255, 170);
+    border-width: 5px;
+}
+
 /* ---- ウィンドウ共通 ---- */
 .overlay {
     position: absolute;
@@ -1000,6 +1025,12 @@
     color: rgb(170, 155, 135);
 }
 
+/* 地図に出しているエリア */
+.area-chip--shown {
+    border-color: rgb(232, 150, 60);
+    border-width: 4px;
+}
+
 /* ---- コレクション ---- */
 .collection-window {
     width: 1180px;
@@ -1100,10 +1131,20 @@
     width: 330px;
     flex-shrink: 0;
     margin-left: 14px;
-    padding: 14px;
+    padding: 14px 6px 14px 14px;
     border-radius: 18px;
     background-color: rgba(220, 200, 160, 0.25);
+}
+
+/* くわしい説明が長いときは、枠の中でスクロールする（下のボタンに重ならない） */
+.zukan-detail .unity-scroll-view__content-container {
     align-items: center;
+    padding-right: 8px;
+}
+
+.zukan-text {
+    align-items: center;
+    align-self: stretch;
 }
 
 .zukan-img {
@@ -1152,10 +1193,19 @@
     -unity-text-align: upper-center;
 }
 
-/* 図鑑：すみかの地図（いまいるエリアの地図に、すみかの場所の印） */
+/* 図鑑：すみかの地図（すんでいるエリアの地図に、すみかの場所の印） */
+.zukan-habitat-title {
+    font-size: 15px;
+    color: rgb(140, 120, 90);
+    margin-top: 10px;
+    margin-bottom: 4px;
+    -unity-font-style: bold;
+}
+
 .zukan-habitat {
-    width: 150px;
-    height: 150px;
+    width: 180px;
+    height: 180px;
+    flex-shrink: 0;
     margin-bottom: 8px;
     border-radius: 12px;
     border-width: 2px;
@@ -1185,8 +1235,8 @@
 }
 
 .short .zukan-habitat {
-    width: 96px;
-    height: 96px;
+    width: 140px;
+    height: 140px;
 }
 
 .zukan-desc {
@@ -1249,21 +1299,53 @@
     white-space: normal;
 }
 
+/* きろく：ウィンドウの中でスクロールし、2 列にならべる（行がウィンドウの背景からはみ出さない） */
+.record-list {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
+.record-list .unity-scroll-view__content-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+
 .record-row {
+    width: 49.4%;
     flex-direction: row;
     justify-content: space-between;
+    align-items: center;
     padding: 12px 16px;
     margin-bottom: 6px;
     border-radius: 14px;
     background-color: rgba(220, 200, 160, 0.22);
 }
 
+.portrait .record-row {
+    width: 100%;
+}
+
+.short .record-row {
+    padding: 8px 12px;
+    margin-bottom: 4px;
+}
+
+.short .record-label,
+.short .record-value {
+    font-size: 18px;
+}
+
 .record-label {
     font-size: 21px;
     color: rgb(80, 64, 48);
+    flex-shrink: 1;
+    white-space: normal;
 }
 
 .record-value {
+    flex-shrink: 0;
+    margin-left: 10px;
     font-size: 21px;
     -unity-font-style: bold;
     color: rgb(110, 82, 50);
@@ -1643,8 +1725,12 @@
 
 .portrait .zukan-detail {
     width: auto;
+    max-height: 45%;
     margin-left: 0;
     margin-top: 8px;
+}
+
+.portrait .zukan-detail .unity-scroll-view__content-container {
     flex-direction: row;
     align-items: flex-start;
 }

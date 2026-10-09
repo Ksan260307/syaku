@@ -127,6 +127,7 @@ namespace Shakutori
             }
             ui.FastTravelRequested += id => FastTravel(id);
             ui.LandmarkTravelRequested += id => TravelToLandmark(id);
+            ui.MapProvider = a => world.MapFor(a);   // 地図の下のボタンで、ほかのエリアの地図も見られる
             ui.RescueRequested += Rescue;
             ui.SaveRequested += () =>
             {

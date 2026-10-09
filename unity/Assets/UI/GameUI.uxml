@@ -98,12 +98,14 @@
                         <ui:Label text="はやく" class="touch-label" picking-mode="Ignore" />
                     </ui:VisualElement>
                     <ui:VisualElement name="btn-aim" class="touch-button">
+                        <ui:Label text="糸で" class="touch-label-top" picking-mode="Ignore" />
                         <ui:Label text="ねらう" class="touch-label" picking-mode="Ignore" />
                     </ui:VisualElement>
                     <ui:VisualElement name="btn-stand" class="touch-button">
                         <ui:Label text="背伸び" class="touch-label" picking-mode="Ignore" />
                     </ui:VisualElement>
                     <ui:VisualElement name="btn-silk" class="touch-button touch-button-big">
+                        <ui:Label name="btn-silk-top" text="がけのふちで" class="touch-label-top" picking-mode="Ignore" />
                         <ui:Label name="btn-silk-label" text="糸" class="touch-label touch-label-big" picking-mode="Ignore" />
                     </ui:VisualElement>
                 </ui:VisualElement>
@@ -140,7 +142,7 @@
                     <ui:VisualElement class="map-side" picking-mode="Ignore">
                         <ui:Label name="map-summary" text="" class="map-summary" picking-mode="Ignore" />
                         <ui:ScrollView name="map-legend" class="map-legend" />
-                        <ui:Label text="エリアへ移動" class="map-areas-title" picking-mode="Ignore" />
+                        <ui:Label text="エリアの地図" class="map-areas-title" picking-mode="Ignore" />
                         <ui:VisualElement name="map-areas" class="map-areas" picking-mode="Ignore" />
                     </ui:VisualElement>
                 </ui:VisualElement>
@@ -212,16 +214,17 @@
                     <ui:Label name="zukan-count" text="" class="page-sub" picking-mode="Ignore" />
                     <ui:VisualElement class="zukan-body">
                         <ui:ScrollView name="zukan-grid" class="zukan-grid" />
-                        <ui:VisualElement name="zukan-detail" class="zukan-detail" picking-mode="Ignore">
+                        <ui:ScrollView name="zukan-detail" class="zukan-detail" mode="Vertical" horizontal-scroller-visibility="Hidden">
                             <ui:VisualElement name="zukan-img" class="zukan-img" picking-mode="Ignore" />
                             <ui:VisualElement class="zukan-text" picking-mode="Ignore">
                                 <ui:Label name="zukan-name" text="" class="zukan-name" picking-mode="Ignore" />
                                 <ui:Label name="zukan-area" text="" class="zukan-area" picking-mode="Ignore" />
                                 <ui:VisualElement name="zukan-go" class="zukan-go" />
-                                <ui:VisualElement name="zukan-habitat" class="zukan-habitat" picking-mode="Ignore" />
                                 <ui:Label name="zukan-desc" text="" class="zukan-desc" picking-mode="Ignore" />
+                                <ui:Label name="zukan-habitat-title" text="" class="zukan-habitat-title" picking-mode="Ignore" />
+                                <ui:VisualElement name="zukan-habitat" class="zukan-habitat" picking-mode="Ignore" />
                             </ui:VisualElement>
-                        </ui:VisualElement>
+                        </ui:ScrollView>
                     </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:VisualElement name="page-skin" class="page hidden">
@@ -229,7 +232,7 @@
                     <ui:VisualElement name="skin-grid" class="skin-grid" />
                 </ui:VisualElement>
                 <ui:VisualElement name="page-record" class="page hidden">
-                    <ui:VisualElement name="record-list" class="record-list" picking-mode="Ignore" />
+                    <ui:ScrollView name="record-list" class="record-list" mode="Vertical" horizontal-scroller-visibility="Hidden" />
                 </ui:VisualElement>
                 <ui:Button name="collection-close" text="とじる" class="btn btn-primary" />
             </ui:VisualElement>

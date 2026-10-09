@@ -903,10 +903,34 @@ namespace Shakutori
             }
         }
 
+        /// <summary>ほかのエリアの地図（地形と、動かない目印だけで描く。一度描いたら覚えておく）。</summary>
+        static readonly Dictionary<string, Texture2D> s_otherMaps = new Dictionary<string, Texture2D>();
+
+        /// <summary>
+        /// そのエリアの地図。いまのエリアは、作ったときの地図（小物の場所もふくむ）。
+        /// ほかのエリアは、地形と動かない目印（大樹・川・遊具など）だけで描く（そのエリアを作らなくても描ける）。
+        /// </summary>
+        public Texture2D MapFor(AreaLayout area)
+        {
+            if (area == null) return MapTexture;
+            if (area == Area && MapTexture != null) return MapTexture;
+            if (s_otherMaps.TryGetValue(area.Id, out var t) && t != null) return t;
+            t = RenderMap(area, false);
+            t.name = "AreaMap_" + area.Id;
+            s_otherMaps[area.Id] = t;
+            return t;
+        }
+
         void BuildMap()
         {
+            MapTexture = Own(RenderMap(Area, true));
+        }
+
+        /// <summary>地図の絵を描く。generated = true なら、いま作ったエリアの小物（赤キノコなど）の場所も描く。</summary>
+        Texture2D RenderMap(AreaLayout area, bool generated)
+        {
             const int size = 256;
-            var tex = Own(new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, name = "AreaMap" });
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, name = "AreaMap" };
             var px = new Color32[size * size];
             Vector3 light = new Vector3(-0.5f, 0.75f, 0.45f).normalized;
             ColorUtility.TryParseHtmlString("#5aa9d6", out var water);
@@ -914,24 +938,24 @@ namespace Shakutori
             for (int i = 0; i < size; i++)
             {
                 Vector2 p = MapToWorld(i, j, size);
-                float h = Area.Height(p.x, p.y);
-                Vector3 n = Area.Normal(p.x, p.y);
-                Color c = Area.GroundColor(p.x, p.y, h, n);
+                float h = area.Height(p.x, p.y);
+                Vector3 n = area.Normal(p.x, p.y);
+                Color c = area.GroundColor(p.x, p.y, h, n);
                 float shade = Mathf.Clamp01(Vector3.Dot(n, light)) * 0.35f + 0.75f;
                 c *= shade;
-                float wl = Area.WaterLevelAt(p.x, p.y);
+                float wl = area.WaterLevelAt(p.x, p.y);
                 if (h < wl) c = Color.Lerp(water, water * 0.7f, Mathf.Clamp01((wl - h) / 2f));
                 float r = p.magnitude;
-                if (r > Area.PlayRadius) c = Color.Lerp(c, c * 0.45f, ShakuMath.SmoothStep(Area.PlayRadius, Area.PlayRadius + 4f, r));
+                if (r > area.PlayRadius) c = Color.Lerp(c, c * 0.45f, ShakuMath.SmoothStep(area.PlayRadius, area.PlayRadius + 4f, r));
                 c.a = 1f;
                 px[j * size + i] = c;
             }
-            if (Area.Id == "forest") DrawForestMap(px, size);
-            else if (Area.Id == "park") DrawParkMap(px, size);
-            else DrawRiverMap(px, size);
+            if (area.Id == "forest") DrawForestMap(px, size, generated);
+            else if (area.Id == "park") DrawParkMap(px, size);
+            else DrawRiverMap(px, size, generated);
             tex.SetPixels32(px);
             tex.Apply(false, true);
-            MapTexture = tex;
+            return tex;
         }
     }
 }

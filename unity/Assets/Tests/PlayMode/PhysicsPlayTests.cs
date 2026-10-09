@@ -148,6 +148,34 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
+        public IEnumerator Pillbug_BallRollsOnTopOfTheGroundWithoutSinking()
+        {
+            var slope = Box("TestSlope", Sky + new Vector3(0f, 0f, 4f), new Vector3(4f, 0.3f, 6f), Quaternion.Euler(25f, 0f, 0f));
+            Vector3 up = slope.transform.up;
+            Vector3 downhill = Vector3.ProjectOnPlane(Vector3.down, up).normalized;
+            Vector3 start = Top(slope) - downhill * 1.5f;
+            var C = GM.creatures;
+            C.SetPosition("pillbug", 0, start);
+            Worm.Spawn(start + new Vector3(-1.5f, 0.3f, 0f), Vector3.right);
+            yield return WaitUntil(() => C.Info("pillbug", 0).curled && C.Info("pillbug", 0).curlK > 0.99f, 2f, "まるくなる");
+            Vector3 c = GM.world.assets.Get("PillBug_Ball").bounds.center;
+            float lowest = 9f, spin0 = C.Info("pillbug", 0).spin;
+            for (float t = 0f; t < 1.2f; t += Time.deltaTime)
+            {
+                yield return null;
+                var info = C.Info("pillbug", 0);
+                if (!info.curled) break;
+                Matrix4x4 body = C.BodyMatrixOf("pillbug", 0);
+                Vector3 center = body.MultiplyPoint3x4(c);
+                float r = c.y * body.lossyScale.y;
+                // 玉のまん中は、いつも地面（ふれている点）から玉の半径ぶん上にある（回っても地面にうまらない）
+                lowest = Mathf.Min(lowest, Vector3.Dot(center - info.pos, info.up) / r);
+            }
+            Assert.Greater(C.Info("pillbug", 0).spin, spin0 + 1f, "ころがって回る");
+            Assert.Greater(lowest, 0.85f, "回っても、玉は地面の上（まん中が半径ぶん上）");
+        }
+
+        [UnityTest]
         public IEnumerator Silk_HoldsTheWormWithTension()
         {
             var shelf = Box("TestBox", Sky, new Vector3(2f, 0.3f, 2f));

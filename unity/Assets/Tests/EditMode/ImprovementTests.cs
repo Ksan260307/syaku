@@ -14,6 +14,20 @@ namespace Shakutori.Tests
         public void TearDown() => SaveSystem.ForgetLoadedForTests();
 
         [Test]
+        public void SilkButton_SaysWhatItDoesNow()
+        {
+            // 平らな所では使えない（うすく）。がけのふちでは「糸で ぶら下がる」（目立たせる）
+            Assert.AreEqual(("がけのふちで", "糸", 0), GameUI.SilkButton(false, false, false, false, false, false));
+            Assert.AreEqual(("糸で", "ぶら下がる", 2), GameUI.SilkButton(false, false, false, false, true, false));
+            Assert.AreEqual(("長押しで", "のぼる", 1), GameUI.SilkButton(false, true, false, false, false, false), "ぶら下がり中");
+            Assert.AreEqual(("糸を", "はなす", 1), GameUI.SilkButton(true, true, false, false, false, false), "ねらった糸をたぐっている途中");
+            Assert.AreEqual(("糸で", "つかまる", 2), GameUI.SilkButton(false, false, true, true, false, false), "落ちている途中で、糸がとどく");
+            Assert.AreEqual(0, GameUI.SilkButton(false, false, true, false, false, false).state, "糸がとどかないほど落ちたら、使えない");
+            Assert.AreEqual(("壁から", "はなれる", 1), GameUI.SilkButton(false, false, false, false, false, true));
+            Assert.AreEqual("ぶら下がる", GameUI.SilkButton(false, false, false, false, true, true).main, "がけのふちでは、ぶら下がるが先");
+        }
+
+        [Test]
         public void Joystick_HasADeadZoneAndReachesFullSpeed()
         {
             Assert.AreEqual(Vector2.zero, GameUI.JoystickValue(new Vector2(0.08f, 0.05f)), "中心付近のぶれでは動かない");

@@ -1875,7 +1875,9 @@ namespace Shakutori
                 return;
             }
             m.pos = next;
-            m.spin += speed * dt / r;
+            // 転がった分だけ回る（v = rω）。回る半径は、見えている玉の半径（まん中の高さ）
+            float rr = ballMesh != null ? ballMesh.bounds.center.y * m.scale : r;
+            m.spin += speed * dt / Mathf.Max(0.02f, rr);
             m.rock = 1f;   // ころがって止まると、ゆらゆら
             SnapToSurface(m, 0.5f, 1.5f, true);
         }
@@ -3547,7 +3549,15 @@ namespace Shakutori
                 scale3.y *= 1f + 0.25f * m.curlK;
             }
             else if (m.bid == "pillbug" && m.curled > 0f) scale3.z *= Mathf.Lerp(1f, 0.6f, m.curled / 0.35f);   // ゆっくり体をのばす
-            body = Matrix4x4.TRS(drawAt, rot, scale3);
+            if (ball)
+            {
+                // 玉のメッシュは、地面にふれる点が原点（まん中は、その上）。原点のまわりに回すと地面にうまるので、
+                // 玉のまん中を軸に回し、まん中の高さは玉の大きさのまま（地面にふれたまま、ころがる）
+                Mesh bm = M(m.sp.body + "_Ball");
+                Vector3 c = bm != null ? bm.bounds.center : Vector3.zero;
+                body = Matrix4x4.TRS(drawAt + m.up * (c.y * scale3.y), rot, scale3) * Matrix4x4.Translate(-c);
+            }
+            else body = Matrix4x4.TRS(drawAt, rot, scale3);
         }
 
         /// <summary>

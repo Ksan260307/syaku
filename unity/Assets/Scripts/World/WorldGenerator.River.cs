@@ -604,17 +604,59 @@ namespace Shakutori
             };
         }
 
-        void DrawRiverMap(Color32[] px, int size)
+        /// <summary>とびいしの場所（川の形から決まる）。</summary>
+        static List<Vector3> StepStonePlan()
         {
-            foreach (var s in _stepStones) MapDot(px, size, s, 2.2f, new Color32(200, 196, 186, 255));
+            var list = new List<Vector3>();
+            float sz = RiverLayout.StonesZ;
+            float x0 = RiverBankEdgeX(sz, -1f) - 0.6f;
+            float x1 = RiverBankEdgeX(sz, 1f) + 0.6f;
+            int n = Mathf.CeilToInt((x1 - x0) / 2.5f) + 1;
+            for (int i = 0; i < n; i++)
+                list.Add(new Vector3(Mathf.Lerp(x0, x1, i / (float)(n - 1)), RiverLayout.WaterLevel(sz) + 0.3f, sz + Mathf.Sin(i * 1.7f) * 0.6f));
+            return list;
+        }
+
+        /// <summary>倒れ枝の橋の両はし（川の形から決まる）。</summary>
+        static void BridgePlan(out Vector3 a, out Vector3 b)
+        {
+            float bz = RiverLayout.BridgeZ;
+            a = RiverLayout.Ground(RiverBankEdgeX(bz, -1f) - 4f, bz + 0.6f) + Vector3.up * 0.2f;
+            b = RiverLayout.Ground(RiverBankEdgeX(bz, 1f) + 4f, bz - 0.6f) + Vector3.up * 0.2f;
+        }
+
+        /// <summary>睡蓮のよどみの、岸から続く葉っぱの道（川の形から決まる）。</summary>
+        static List<Vector3> PoolPadPlan()
+        {
+            var list = new List<Vector3>();
+            float pz = RiverLayout.PoolZ;
+            float x = RiverBankEdgeX(pz, -1f) + 2.2f;
+            float cx = RiverLayout.CenterX(pz);
+            for (int i = 0; x < cx + 4f && i < 8; i++, x += 5.2f)
+                list.Add(new Vector3(x, RiverLayout.WaterLevel(pz), pz + (i % 2 == 0 ? 1.8f : -1.8f)));
+            return list;
+        }
+
+        void DrawRiverMap(Color32[] px, int size, bool generated)
+        {
+            var stones = generated ? (IList<Vector3>)_stepStones : StepStonePlan();
+            Vector3 ba = _bridgeA, bb = _bridgeB;
+            if (!generated) BridgePlan(out ba, out bb);
+            var pads = generated ? (IList<Vector3>)_poolPads : PoolPadPlan();
+            foreach (var s in stones) MapDot(px, size, s, 2.2f, new Color32(200, 196, 186, 255));
             for (int i = 0; i <= 20; i++)
-                MapDot(px, size, Vector3.Lerp(_bridgeA, _bridgeB, i / 20f), 1.6f, new Color32(120, 84, 52, 255));
+                MapDot(px, size, Vector3.Lerp(ba, bb, i / 20f), 1.6f, new Color32(120, 84, 52, 255));
             float fz = RiverLayout.FallZ;
             float cx = RiverLayout.CenterX(fz);
             float w = RiverLayout.HalfWidth(fz);
             for (float x = -w; x <= w; x += 0.6f) MapDot(px, size, new Vector3(cx + x, 0f, fz - 1f), 1.2f, new Color32(240, 250, 255, 255));
-            foreach (var p in _poolPads) MapDot(px, size, p, 3f, new Color32(84, 160, 80, 255));
-            if (Ferry != null) MapDot(px, size, (Ferry.dockA + Ferry.dockB) * 0.5f, 2.5f, new Color32(120, 190, 80, 255));
+            foreach (var p in pads) MapDot(px, size, p, 3f, new Color32(84, 160, 80, 255));
+            if (generated && Ferry != null) MapDot(px, size, (Ferry.dockA + Ferry.dockB) * 0.5f, 2.5f, new Color32(120, 190, 80, 255));
+            else if (!generated)
+            {
+                float iz = RiverLayout.IslandZ;
+                MapDot(px, size, new Vector3((RiverBankEdgeX(iz, 1f) + IslandEdgeX(1f)) * 0.5f, 0f, iz), 2.5f, new Color32(120, 190, 80, 255));
+            }
         }
     }
 }
