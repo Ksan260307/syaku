@@ -226,6 +226,7 @@ namespace Shakutori
             }
             if (_area.Id == "forest") ForestFX(world);
             else if (_area.Id == "river") RiverFX(world);
+            else if (_area.Id == "mountain") MountainFX(world);
             else ParkFX(world);
         }
 
@@ -405,6 +406,31 @@ namespace Shakutori
             AreaEffects.Add("Rainbow");
         }
 
+        ParticleSystem _ridgeMist;
+
+        void MountainFX(WorldGenerator world)
+        {
+            ShaftMotes(new List<Vector2> { MountainLayout.Meadow, MountainLayout.Spawn + new Vector2(-2f, 4f) });
+            // 花畑の花粉と、チングルマの綿毛
+            Vector3 md = MountainLayout.Ground(MountainLayout.Meadow.x, MountainLayout.Meadow.y);
+            Motes("MeadowPollen", md + Vector3.up * 1.6f, new Vector3(26f, 2f, 26f), 50, 7f, new Color(1f, 0.95f, 0.6f, 0.7f),
+                new Vector2(0.02f, 0.04f), new Vector2(4f, 7f), new Vector2(0.02f, 0.07f), -0.004f, 0.18f, 1f);
+            Motes("MeadowSeeds", md + Vector3.up * 1.2f, new Vector3(30f, 2f, 30f), 30, 1.6f, new Color(1f, 1f, 1f, 0.85f),
+                new Vector2(0.07f, 0.12f), new Vector2(9f, 13f), new Vector2(0.05f, 0.2f), -0.01f, 0.35f, 1.6f);
+            // 尾根をこえて流れる、うすい雲（低いカメラから見ても、景色が白くかすまないよう、うすく）
+            Vector3 rg = MountainLayout.Ground(MountainLayout.Ridge.x, MountainLayout.Ridge.y);
+            _ridgeMist = Motes("RidgeMist", rg + Vector3.up * 6f, new Vector3(40f, 4f, 20f), 24, 1.5f, new Color(1f, 1f, 1f, 0.16f),
+                new Vector2(4f, 7f), new Vector2(8f, 12f), new Vector2(0.2f, 0.5f), 0f, 0.3f, 2.5f);
+            // 雪渓のつめたい空気（地面すれすれを、ゆっくり流れる白いもや）
+            Vector3 sn = MountainLayout.Ground(MountainLayout.SnowPatch.x, MountainLayout.SnowPatch.y);
+            Motes("SnowChill", sn + Vector3.up * 0.4f, new Vector3(14f, 0.4f, 14f), 18, 1.2f, new Color(0.95f, 0.98f, 1f, 0.12f),
+                new Vector2(1.5f, 2.5f), new Vector2(5f, 8f), new Vector2(0.1f, 0.25f), 0f, 0.2f, 1.2f);
+            // 湧き水の泉の水面のきらめき
+            Vector3 sp = new Vector3(MountainLayout.Spring.x, MountainLayout.SpringLevel + 0.03f, MountainLayout.Spring.y);
+            Motes("SpringGlints", sp, new Vector3(MountainLayout.SpringRadius * 1.5f, 0.02f, MountainLayout.SpringRadius * 1.5f), 18, 4f, new Color(1f, 1f, 0.92f, 0.9f),
+                new Vector2(0.05f, 0.09f), new Vector2(0.2f, 0.45f), Vector2.zero, 0f, 0f, 0f);
+        }
+
         void ParkFX(WorldGenerator world)
         {
             var spots = new List<Vector2> { ParkLayout.FlowerBed, ParkLayout.Sandbox };
@@ -547,6 +573,29 @@ namespace Shakutori
                         Vector3 side = Vector3.Cross(Vector3.up, back) * FR(-1f, 1f);
                         EmitAt(_wake, new Vector3(p.x, RiverLayout.WaterLevel(p.z) + 0.03f, p.z) + back * 2.4f + side, back * 0.3f + side * 0.4f, 1, 0.05f);
                     }
+                }
+            }
+            else if (_area.Id == "mountain")
+            {
+                // 雪渓の雪が、ときどききらっと光る・かけいの水が、泉に落ちて小さくはねる
+                if (t > _rockGlintNext)
+                {
+                    _rockGlintNext = t + FR(0.4f, 1.1f);
+                    Vector2 p = MountainLayout.SnowPatch + Random.insideUnitCircle * 7f;
+                    Glint(MountainLayout.Ground(p.x, p.y) + Vector3.up * FR(0.2f, 1.2f));
+                }
+                if (t > _lilyHopNext && _world.SpringSpout != Vector3.zero)
+                {
+                    _lilyHopNext = t + FR(0.25f, 0.6f);
+                    Vector3 sp = _world.SpringSpout;
+                    Vector3 dir = new Vector3(MountainLayout.Spring.x - sp.x, 0f, MountainLayout.Spring.y - sp.z).normalized;
+                    Splashlet(new Vector3(sp.x, MountainLayout.SpringLevel, sp.z) + dir * 0.5f);
+                }
+                // 尾根の雲が、風が強いと速く流れる
+                if (_ridgeMist != null)
+                {
+                    var em = _ridgeMist.emission;
+                    em.rateOverTime = 1.2f + 2.5f * gust;
                 }
             }
             else

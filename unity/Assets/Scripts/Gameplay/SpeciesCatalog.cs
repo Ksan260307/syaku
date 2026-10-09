@@ -57,13 +57,17 @@ namespace Shakutori
         public float legLift = 16f;
         public float birdSize;     // 鳥の羽の姿勢を Blender の作りから求めるときの大きさ
         public float birdShoulder = 0.38f;   // 鳥の羽の付け根の高さ（birdSize に対する割合。フラミンゴは脚が長いので高い）
+        /// <summary>動き方をまねるいきもの（null なら自分の動き方）。山のいきものは、似たくらしのなかまの動きを使う。</summary>
+        public string behavesLike;
         // レア
         public string rareOf;      // 元になるいきもの（その個体がまれにレアになる）
         public float rareChance;
         public bool IsRare => rareOf != null;
+        /// <summary>動き方を決める種（レアは元のいきもの、まねる種があればその種）。</summary>
+        public string BehaviorId => IsRare ? rareOf : behavesLike ?? id;
     }
 
-    /// <summary>いきもの図鑑にのる 30 しゅと、めったに会えないレア 6 しゅ。</summary>
+    /// <summary>いきもの図鑑にのる 40 しゅと、めったに会えないレア 6 しゅ。</summary>
     public static class SpeciesCatalog
     {
         static List<SpeciesDef> _all;
@@ -122,16 +126,16 @@ namespace Shakutori
         {
             _all = new List<SpeciesDef>
             {
-                new SpeciesDef { id = "ant", name = "アリ", areaLabel = "森・川辺・公園", kind = MobKind.Marcher, body = "Ant", speed = 0.9f, discoverRadius = 2.6f,
+                new SpeciesDef { id = "ant", name = "アリ", areaLabel = "森・川辺・公園・山", kind = MobKind.Marcher, body = "Ant", speed = 0.9f, discoverRadius = 2.6f,
                     climbs = true, rig = "Ant", stride = 0.11f, legSwing = 26f, legLift = 18f,
                     parts = new[] { new PartMount { mesh = "Crumb", offset = new Vector3(0f, 0.105f, -0.19f), pair = false, onlyCarrying = true } },
                     description = "いつも列をつくって、せっせと食べものを運んでいる。においの道をたどって、迷わず巣へ帰る。",
                     hint = "はじまりの苔原やどんぐり広場で、行列を見かけるかも。" },
-                new SpeciesDef { id = "snail", name = "かたつむり", areaLabel = "森", kind = MobKind.Crawler, body = "Snail", scale = 1.2f, speed = 0.12f, discoverRadius = 2.6f,
+                new SpeciesDef { id = "snail", name = "かたつむり", areaLabel = "森・山", kind = MobKind.Crawler, body = "Snail", scale = 1.2f, speed = 0.12f, discoverRadius = 2.6f,
                     climbs = true, rideable = true, gait = GaitKind.None,
                     description = "ゆっくり、ゆっくり。通ったあとには、きらきら光る道がのこる。",
                     hint = "しめった場所が好き。赤キノコの根もとをさがしてみよう。" },
-                new SpeciesDef { id = "butterfly", name = "ちょうちょ", areaLabel = "森・川辺・公園", kind = MobKind.Flutter, body = "Butterfly_Body", speed = 1.4f, discoverRadius = 5.5f,
+                new SpeciesDef { id = "butterfly", name = "ちょうちょ", areaLabel = "森・川辺・公園・山", kind = MobKind.Flutter, body = "Butterfly_Body", speed = 1.4f, discoverRadius = 5.5f,
                     parts = new[] { new PartMount { mesh = "Butterfly_Wing", restRoll = 25f, flapAmp = 65f, flapHz = 7f } },
                     description = "空色の小さなチョウ、ルリシジミ。花から花へ、ひらひら舞う。",
                     hint = "花の草原や、川辺の花のまわり。" },
@@ -139,7 +143,7 @@ namespace Shakutori
                     climbs = true, rig = "Otoshibumi", stride = 0.09f,
                     description = "葉っぱをくるくる巻いて「ゆりかご」を作り、中に卵を産む。落ちている巻物は、まるで手紙のよう。",
                     hint = "葉っぱの巻物がころがっている場所の近く。" },
-                new SpeciesDef { id = "grasshopper", name = "バッタ", areaLabel = "森・川辺・公園", kind = MobKind.Hopper, body = "Grasshopper", speed = 0.3f, discoverRadius = 4f,
+                new SpeciesDef { id = "grasshopper", name = "バッタ", areaLabel = "森・川辺・公園・山", kind = MobKind.Hopper, body = "Grasshopper", speed = 0.3f, discoverRadius = 4f,
                     rig = "Grasshopper", stride = 0.2f, legSwing = 14f,
                     parts = new[] { new PartMount { mesh = "Grasshopper_Hind", offset = CreatureRig.GrasshopperHip } },
                     description = "大きな後ろ足で、体の何十倍も遠くまでジャンプする。",
@@ -153,12 +157,12 @@ namespace Shakutori
                     parts = new[] { new PartMount { mesh = "Sparrow_Wing", flapAmp = 60f, flapHz = 9f } },
                     description = "人の近くでくらす、おなじみの小鳥。ちょんちょん跳ねて、地面の草の実をついばむ。",
                     hint = "ひらけた明るい場所に下りてくる。近づきすぎると飛んでいってしまう。" },
-                new SpeciesDef { id = "crow", name = "カラス", areaLabel = "森・川辺・公園", kind = MobKind.Bird, body = "Crow_Body", speed = 2.5f, discoverRadius = 16f, fleeRadius = 8f,
+                new SpeciesDef { id = "crow", name = "カラス", areaLabel = "森・川辺・公園・山", kind = MobKind.Bird, body = "Crow_Body", speed = 2.5f, discoverRadius = 16f, fleeRadius = 8f,
                     birdSize = 18f, gait = GaitKind.None,
                     parts = new[] { new PartMount { mesh = "Crow_Wing", flapAmp = 50f, flapHz = 3.2f } },
                     description = "とても頭のいい大きな鳥。しゃくとりむしから見ると、まるで黒い山のよう。",
                     hint = "高い場所に下りて、あたりを見張っている。" },
-                new SpeciesDef { id = "ladybug", name = "てんとうむし", areaLabel = "森・川辺・公園", kind = MobKind.Crawler, body = "Ladybug", speed = 0.35f, discoverRadius = 2.6f,
+                new SpeciesDef { id = "ladybug", name = "てんとうむし", areaLabel = "森・川辺・公園・山", kind = MobKind.Crawler, body = "Ladybug", speed = 0.35f, discoverRadius = 2.6f,
                     climbs = true, rig = "Ladybug", stride = 0.12f, legSwing = 20f,
                     description = "七つの黒い星のナナホシテントウ。アブラムシを食べてくれる、植物の味方。",
                     hint = "葉っぱや花のまわりを歩いている。" },
@@ -174,7 +178,7 @@ namespace Shakutori
                     rig = "WaterStrider", gait = GaitKind.Row, stride = 0.6f, legSwing = 18f, legLift = 4f,
                     description = "細い足の毛で水をはじき、水面をすいすい歩く。",
                     hint = "流れのゆるやかな水面。" },
-                new SpeciesDef { id = "dragonfly", name = "アキアカネ", areaLabel = "森・川辺・公園", kind = MobKind.Hover, body = "Dragonfly_Body", speed = 3f, discoverRadius = 5.5f,
+                new SpeciesDef { id = "dragonfly", name = "アキアカネ", areaLabel = "森・川辺・公園・山", kind = MobKind.Hover, body = "Dragonfly_Body", speed = 3f, discoverRadius = 5.5f,
                     gait = GaitKind.None,
                     parts = new[]
                     {
@@ -196,7 +200,7 @@ namespace Shakutori
                     parts = new[] { new PartMount { mesh = "Firefly_Glow", pair = false, glow = true } },
                     description = "おしりの光でおしゃべりする。ホタルがいるのは、きれいな川のしるし。",
                     hint = "水辺の草のかげで、ぽうっと光っている。" },
-                new SpeciesDef { id = "spider", name = "ハエトリグモ", areaLabel = "森・川辺・公園", kind = MobKind.Pouncer, body = "Spider", speed = 0.5f, discoverRadius = 2.8f,
+                new SpeciesDef { id = "spider", name = "ハエトリグモ", areaLabel = "森・川辺・公園・山", kind = MobKind.Pouncer, body = "Spider", speed = 0.5f, discoverRadius = 2.8f,
                     climbs = true, rig = "Spider", stride = 0.14f, legSwing = 20f, legLift = 22f,
                     description = "大きな前の目でえものをねらい、ぴょんと跳びかかる小さなクモ。巣は張らずに歩きまわる。",
                     hint = "切り株の上や丸太のまわり、川辺の石の上をうろうろしている。" },
@@ -255,6 +259,55 @@ namespace Shakutori
                     parts = new[] { new PartMount { mesh = "Hato_Wing", flapAmp = 55f, flapHz = 6f } },
                     description = "首を前後にふりながら歩く、公園でおなじみの鳥。首は見る向きで、緑や紫に光る。",
                     hint = "公園のひろば。みんなで地面をつついている。" },
+                // ---- 山 ----
+                new SpeciesDef { id = "raichou", name = "ライチョウ", areaLabel = "山", kind = MobKind.Bird, body = "Raichou_Body", speed = 1.1f, discoverRadius = 12f, fleeRadius = 2.6f,
+                    birdSize = 15f, gait = GaitKind.None, behavesLike = "hato",
+                    parts = new[] { new PartMount { mesh = "Raichou_Wing", flapAmp = 55f, flapHz = 7f } },
+                    description = "高い山にだけすむ鳥。夏は茶色と黒のまだら、冬はまっ白に衣がえする。人をあまりこわがらず、のんびり歩く。",
+                    hint = "山小屋のまわりや、はい松のしげみのそば。" },
+                new SpeciesDef { id = "risu", name = "ニホンリス", areaLabel = "山", kind = MobKind.Crawler, body = "Risu", speed = 2f, discoverRadius = 7f, fleeRadius = 6f,
+                    climbs = true, rideable = true, rig = "Risu", stride = 0.55f, legSwing = 30f, legLift = 14f, behavesLike = "tokage",
+                    description = "ふさふさのしっぽの、木の上でくらすリス。松ぼっくりを両手で持って、くるくる回しながら食べる。",
+                    hint = "大きな松の木の根もと。松ぼっくりが落ちている所。" },
+                new SpeciesDef { id = "okojo", name = "オコジョ", areaLabel = "山", kind = MobKind.Crawler, body = "Okojo", speed = 0f, discoverRadius = 5.5f,
+                    behavesLike = "mogura",
+                    description = "岩場にすむ、小さなイタチのなかま。夏は茶色、冬はまっ白。岩のすきまから、ひょっこり顔を出す。",
+                    hint = "石が積み重なった岩のすみか。はなれて、じっと待ってみよう。" },
+                new SpeciesDef { id = "nakiusagi", name = "エゾナキウサギ", areaLabel = "山", kind = MobKind.Hopper, body = "Nakiusagi", speed = 0.25f, discoverRadius = 4.5f,
+                    rideable = true, gait = GaitKind.None,
+                    description = "岩のすきまでくらす、耳のまるい小さなウサギのなかま。「ピチッ」と高い声で鳴く。夏のあいだに草を集めて、冬にそなえる。",
+                    hint = "雪渓のそばの、岩がごろごろした所。高い声をたよりにさがそう。" },
+                new SpeciesDef { id = "sanshouuo", name = "ハコネサンショウウオ", areaLabel = "山", kind = MobKind.Crawler, body = "Sanshouuo", speed = 0.18f, discoverRadius = 3.2f,
+                    climbs = true, rig = "Sanshouuo", stride = 0.3f, legSwing = 24f, legLift = 10f,
+                    description = "つめたい谷川の、きれいな水でくらすサンショウウオ。肺がなく、ぬれた皮ふで息をする。",
+                    hint = "湧き水の泉のほとり。しめった石の上。" },
+                new SpeciesDef { id = "asagimadara", name = "アサギマダラ", areaLabel = "山", kind = MobKind.Flutter, body = "Asagimadara_Body", speed = 1.1f, discoverRadius = 6f,
+                    behavesLike = "butterfly",
+                    parts = new[] { new PartMount { mesh = "Asagimadara_Wing", restRoll = 25f, flapAmp = 50f, flapHz = 4f } },
+                    description = "海をこえて、何千キロも旅をするチョウ。すきとおった浅葱色（うすい青緑）の羽で、ふわりふわりと高く舞う。",
+                    hint = "高山の花畑。ゆっくり、ふわりと飛んでいる。" },
+                new SpeciesDef { id = "maruhanabachi", name = "マルハナバチ", areaLabel = "山", kind = MobKind.Flutter, body = "Maruhanabachi", speed = 1.3f, discoverRadius = 4f,
+                    behavesLike = "butterfly",
+                    parts = new[] { new PartMount { mesh = "Maruhanabachi_Wing", offset = new Vector3(0f, 0.55f, -0.15f), restYaw = -35f, restRoll = 10f, flapAmp = 35f, flapHz = 30f } },
+                    description = "まるくて、ふわふわの毛につつまれたハチ。花から花へ、ブーンと低い羽音で飛びまわる。おとなしくて、めったにささない。",
+                    hint = "高山の花畑の、コマクサやチングルマの花。" },
+                new SpeciesDef { id = "oniyanma", name = "オニヤンマ", areaLabel = "山", kind = MobKind.Hover, body = "Oniyanma_Body", speed = 3.4f, discoverRadius = 7f,
+                    gait = GaitKind.None, behavesLike = "dragonfly",
+                    parts = new[]
+                    {
+                        new PartMount { mesh = "Oniyanma_Wing", offset = new Vector3(0.1f, 0.2f, -0.4f), restYaw = 8f, flapAmp = 16f, flapHz = 18f },
+                        new PartMount { mesh = "Oniyanma_Wing", offset = new Vector3(0.1f, 0.2f, -0.1f), restYaw = -14f, flapAmp = 16f, flapHz = 18f },
+                    },
+                    description = "日本でいちばん大きなトンボ。黒と黄色のしまもようと、エメラルド色の大きな目。山道の上を、まっすぐ行ったり来たりする。",
+                    hint = "湧き水の泉のまわりや、山道の上。" },
+                new SpeciesDef { id = "higurashi", name = "ヒグラシ", areaLabel = "山", kind = MobKind.Crawler, body = "Higurashi", speed = 0.12f, discoverRadius = 4f,
+                    climbs = true, rig = "Higurashi", stride = 0.12f, legSwing = 18f, legLift = 12f, behavesLike = "kamikiri",
+                    description = "夏の夕ぐれ、「カナカナカナ…」とすずしい声で鳴くセミ。すきとおった羽に、緑と茶色のもようの体。",
+                    hint = "大きな松の幹。夕方になると、声が聞こえてくる。" },
+                new SpeciesDef { id = "maimaikaburi", name = "マイマイカブリ", areaLabel = "山", kind = MobKind.Crawler, body = "Maimaikaburi", scale = 1.2f, speed = 0.45f, discoverRadius = 3f,
+                    climbs = true, rig = "Maimaikaburi", stride = 0.2f, legSwing = 24f, legLift = 14f, behavesLike = "otoshibumi",
+                    description = "かたつむりが大好物の、細長い首のオサムシのなかま。首を殻の中へさしこんで食べる。おどろくと、くさい液を出す。",
+                    hint = "しめった落ち葉や、石のまわり。山小屋のうらの日かげ。" },
                 // ---- レア ----
                 new SpeciesDef { id = "ant_helmet", name = "ヘルメットアリ", areaLabel = "？？？（とてもめずらしい）", kind = MobKind.Marcher, body = "Ant", speed = 0.9f, discoverRadius = 2.8f,
                     climbs = true, rig = "Ant", stride = 0.11f, legSwing = 26f, legLift = 18f, rareOf = "ant", rareChance = 0.05f,

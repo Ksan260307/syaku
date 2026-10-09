@@ -8,6 +8,8 @@
  - ambience_forest.wav: 風・葉ずれ・小鳥のさえずり（つなぎ目のないループ）
  - ambience_river.wav : せせらぎ・遠くの滝・カエル（川辺）
  - 効果音: 足音、しずく、発見、クリック、糸、着地、クリア、いきもの発見、エリア移動、きせかえ解放、カラス
+ - music_mountain.wav  : 66BPM・ト長調の、ひろびろとしたループ曲（角笛のメロディ + ハープ + 高いチェレスタ）
+ - ambience_mountain.wav: 高い所の風・遠くのウグイス・ナキウサギ。山の湧き水・尾根の風のループ、ヒグラシ・ナキウサギの声
  - エリアの音: 公園の環境音、滝・浅瀬・カエルの合唱・ほら穴のしずく・森の葉ずれ（場所で聞こえるループ）、
    キツツキ・どんぐり・ホコリタケ・ブランコ・シーソー・水飲み場・自転車のベル・魚・金属・砂の音
 """
@@ -891,6 +893,141 @@ def make_area_sounds():
     write("sand_step.wav", fade_tail(sand))
 
 
+# ---------------------------------------------------------------------------
+# 山：曲・環境音・湧き水・ヒグラシ・ナキウサギ
+# ---------------------------------------------------------------------------
+def alphorn(freq, dur):
+    """やわらかい角笛（山にひびく、息の多い低めの管の音）"""
+    t = t_axis(dur)
+    s = np.zeros_like(t)
+    for k, g in ((1, 1.0), (2, 0.45), (3, 0.22), (4, 0.1)):
+        s += g * np.sin(2 * np.pi * freq * k * t * (1 + 0.003 * np.sin(2 * np.pi * 4.5 * t)))
+    breath = shaped_noise(len(t), 0.5, 300, 3000) * 0.04
+    e = env_adsr(len(t), 0.12, 0.2, 0.8, min(0.5, dur * 0.4))
+    return (s + breath) * e * 0.25
+
+
+def make_music_mountain():
+    """山：ひろびろとした、ゆったりの曲（66BPM・ト長調）。角笛のメロディ・ハープ・高いチェレスタの星"""
+    r = np.random.default_rng(66)
+    bpm = 66
+    beat = 60 / bpm
+    bar = beat * 4
+    prog = ["G", "D", "Em", "C", "G", "C", "D", "D",
+            "Em", "C", "G", "D", "C", "G", "Am", "D"]
+    total = bar * len(prog)
+    buf = np.zeros((int(total * SR), 2))
+    pent = [0, 2, 4, 7, 9]   # ト長調ペンタトニック
+    key = 67
+    mel_prev = 74
+    for i, ch in enumerate(prog):
+        root, tones = chord_notes(ch)
+        start = int(i * bar * SR)
+        add(buf, start, pad([midi(48 + t + 12) for t in tones] + [midi(36 + root)], bar + 1.2), gain=0.32)
+        add(buf, start, bass(midi(36 + root), bar * 0.9), gain=0.35)
+        # ハープ：ゆっくり上がっていくアルペジオ
+        arp = [tones[0], tones[1], tones[2], tones[0] + 12, tones[1] + 12, tones[2] + 12]
+        for j, note in enumerate(arp):
+            add(buf, start + int(j * beat * 0.66 * SR), harp(midi(55 + note), 2.6), pan=-0.35 + 0.12 * j, gain=0.22)
+        # 角笛のメロディ（2 小節に 1 つのフレーズ）
+        if i % 2 == 0 and i >= 2:
+            cands = [key + p + o for p in pent for o in (-12, 0) if 60 <= key + p + o <= 79]
+            for b_ in (0, 1.5, 2.5):
+                note = pick_melody(cands, mel_prev, tones, root, r)
+                mel_prev = note
+                add(buf, start + int(b_ * beat * SR), alphorn(midi(note), beat * (1.4 if b_ else 1.6)), pan=0.15, gain=0.5)
+        # 高いチェレスタ：雲の上の星のように、ぽつりぽつり
+        for b_ in (1, 3):
+            if r.random() < 0.55:
+                note = 84 + pent[int(r.integers(0, 5))] + 7
+                add(buf, start + int(b_ * beat * SR), celesta(midi(note), 2.4), pan=r.uniform(-0.6, 0.6), gain=0.16)
+    buf = circular_reverb(buf, seconds=3.8, mix=0.42)
+    write("music_mountain.wav", buf)
+
+
+def higurashi_call(dur=3.2):
+    """ヒグラシの「カナカナカナ…」：高い声が、ふるえながら、だんだん小さく低くなる"""
+    t = t_axis(dur)
+    pulse = 0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 7.5 * t))   # カ・ナ・カ・ナ
+    pulse = np.convolve(pulse, np.ones(400) / 400, mode="same")
+    f = 4400 * (1 - 0.06 * t / dur)
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    tone = np.sin(ph) + 0.4 * np.sin(2 * ph) + 0.25 * np.sin(ph * 1.5)
+    buzz = 0.5 + 0.5 * np.sin(2 * np.pi * 180 * t)
+    env = np.minimum(t / 0.15, 1.0) * np.exp(-t * 0.55)
+    return tone * buzz * pulse * env * 0.5
+
+
+def pika_call():
+    """ナキウサギの「ピチッ」：とても短い、高い声"""
+    t = t_axis(0.12)
+    f = 5200 - 2400 * (t / 0.12)
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    return (np.sin(ph) + 0.2 * np.sin(2 * ph)) * np.sin(np.pi * t / 0.12) ** 1.5
+
+
+def make_mountain_sounds():
+    make_music_mountain()
+    # 山の環境音：高い所の風（ひゅうひゅう）・遠くのウグイスとホシガラス・遠くのナキウサギ
+    total = 44.0
+    n = int(total * SR)
+    t = np.arange(n) / SR
+    buf = np.zeros((n, 2))
+    for ch in range(2):
+        w = shaped_noise(n, 1.8, 50, 900)
+        lfo = 0.5 + 0.3 * np.sin(2 * np.pi * t * (4 / total) + ch * 1.4) + 0.2 * np.sin(2 * np.pi * t * (9 / total) + ch)
+        buf[:, ch] += w * lfo * 0.55
+        whoosh = shaped_noise(n, 0.8, 500, 2400)
+        buf[:, ch] += whoosh * np.clip(np.sin(2 * np.pi * t * (5 / total) + ch), 0, 1) ** 3 * 0.12
+    birds = np.zeros((n, 2))
+    time = 1.0
+    while time < total - 2.0:
+        if rng.random() < 0.5:
+            # ウグイス「ホー…ホケキョ」
+            song = np.concatenate([bird_chirp(1250, 1300, 0.7, harm=0.05), np.zeros(int(0.12 * SR)),
+                                   bird_chirp(2200, 2600, 0.12), bird_chirp(2400, 1800, 0.18), bird_chirp(2000, 2100, 0.25)])
+            add(birds, int(time * SR), song, pan=rng.uniform(-0.8, 0.8), gain=rng.uniform(0.18, 0.32))
+        else:
+            add(birds, int(time * SR), pika_call(), pan=rng.uniform(-0.8, 0.8), gain=rng.uniform(0.06, 0.12))
+        time += rng.uniform(3.0, 7.0)
+    buf += circular_reverb(birds, seconds=2.4, mix=0.45) * 0.7
+    write("ambience_mountain.wav", buf)
+
+    # 湧き水（こぽこぽ、ちょろちょろ）
+    total = 10.0
+    n = int(total * SR)
+    buf = np.zeros((n, 2))
+    for _ in range(int(total * 35)):
+        add(buf, int(rng.uniform(0, total) * SR), bubble(rng.uniform(380, 1300), rng.uniform(0.015, 0.05)), pan=rng.uniform(-0.6, 0.6), gain=rng.uniform(0.08, 0.3))
+    trickle = shaped_noise(n, 0.4, 1500, 8000)
+    buf[:, 0] += trickle * 0.12
+    buf[:, 1] += np.roll(trickle, 700) * 0.12
+    write("loop_spring.wav", circular_reverb(buf, seconds=0.8, mix=0.25))
+
+    # 尾根の風（高い所ほど大きく鳴らす）
+    total = 14.0
+    n = int(total * SR)
+    t = np.arange(n) / SR
+    buf = np.zeros((n, 2))
+    for ch in range(2):
+        w = shaped_noise(n, 1.2, 120, 2500)
+        buf[:, ch] += w * (0.6 + 0.4 * np.sin(2 * np.pi * t * (3 / total) + ch * 2.1))
+    write("loop_ridge_wind.wav", buf)
+
+    # ヒグラシ・ナキウサギ
+    buf = np.zeros((int(3.6 * SR), 2))
+    add(buf, 0, higurashi_call(3.4), pan=0.0, gain=0.8, wrap=False)
+    buf = circular_reverb(buf, seconds=1.2, mix=0.3)
+    buf[-int(0.2 * SR):] *= np.linspace(1, 0, int(0.2 * SR))[:, None]
+    write("higurashi.wav", buf)
+    buf = np.zeros((int(0.5 * SR), 2))
+    add(buf, 0, pika_call(), pan=0.0, gain=0.8, wrap=False)
+    add(buf, int(0.2 * SR), pika_call() * 0.5, pan=0.0, gain=0.8, wrap=False)
+    buf = circular_reverb(buf, seconds=0.4, mix=0.25)
+    buf[-int(0.05 * SR):] *= np.linspace(1, 0, int(0.05 * SR))[:, None]
+    write("pika.wav", buf)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     make_sfx()
@@ -903,3 +1040,4 @@ if __name__ == "__main__":
     make_music_river()
     make_music_park()
     make_area_sounds()
+    make_mountain_sounds()

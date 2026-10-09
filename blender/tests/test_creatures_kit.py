@@ -66,6 +66,21 @@ MAKERS = {
     "Tokage": cr.make_tokage,
     "Monshiro_Body": cr.make_monshiro_body,
     "Monshiro_Wing": cr.make_monshiro_wing,
+    "Raichou_Body": lambda: cr.make_bird_body("Raichou_Body", 15.0, "raichou"),
+    "Raichou_Wing": lambda: cr.make_bird_wing("Raichou_Wing", 15.0, "raichou"),
+    "Risu": cr.make_risu,
+    "Okojo": cr.make_okojo,
+    "Okojo_Rocks": cr.make_okojo_rocks,
+    "Nakiusagi": cr.make_nakiusagi,
+    "Sanshouuo": cr.make_sanshouuo,
+    "Asagimadara_Body": cr.make_asagimadara_body,
+    "Asagimadara_Wing": cr.make_asagimadara_wing,
+    "Maruhanabachi": cr.make_maruhanabachi,
+    "Maruhanabachi_Wing": cr.make_maruhanabachi_wing,
+    "Oniyanma_Body": cr.make_oniyanma_body,
+    "Oniyanma_Wing": cr.make_oniyanma_wing,
+    "Higurashi": cr.make_higurashi,
+    "Maimaikaburi": cr.make_maimaikaburi,
 }
 
 
@@ -84,10 +99,13 @@ class CreatureKitTests(unittest.TestCase):
             self.assertEqual(len(col.data), len(ob.data.loops), name)
 
     def test_portrait_list_covers_all_species(self):
-        # ふつうの 30 種と、レアの 6 種
+        # ふつうの 40 種と、レアの 6 種
         ids = [c[0] for c in cr.CREATURES]
-        self.assertEqual(len(ids), 36)
-        self.assertEqual(len(set(ids)), 36)
+        self.assertEqual(len(ids), 46)
+        self.assertEqual(len(set(ids)), 46)
+        for need in ("raichou", "risu", "okojo", "nakiusagi", "sanshouuo", "asagimadara", "maruhanabachi", "oniyanma",
+                     "higurashi", "maimaikaburi"):
+            self.assertIn(need, ids)
         for need in ("koumori", "mogura", "okera", "nanafushi", "gengorou", "hanakamakiri", "hato",
                      "kameleon", "herakuresu", "flamingo", "harinezumi"):
             self.assertIn(need, ids)
@@ -122,10 +140,35 @@ class CreatureKitTests(unittest.TestCase):
         self.assertGreater(zmin(helmet), eye_top + 0.001, "ヘルメットのいちばん下が、目より上")
 
     def test_wings_are_thin(self):
-        for name in ("Butterfly_Wing", "Dragonfly_Wing", "Sparrow_Wing", "Crow_Wing"):
+        for name in ("Butterfly_Wing", "Dragonfly_Wing", "Sparrow_Wing", "Crow_Wing", "Asagimadara_Wing", "Oniyanma_Wing", "Maruhanabachi_Wing"):
             ob = MAKERS[name]()
             s = sorted(size(ob))
             self.assertLess(s[0], s[2] * 0.35, f"{name} が厚すぎる")
+
+    def test_mountain_creatures_have_real_sizes(self):
+        # 1 単位 = 2.5cm：リスは 20cm くらい（しっぽまで 35cm）、マルハナバチは 2cm、オニヤンマは 10cm
+        risu = size(cr.make_risu())
+        self.assertTrue(7.0 < risu[1] < 11.0, risu)
+        bee = max(size(cr.make_maruhanabachi()))
+        self.assertLess(bee, 1.6)
+        yanma = size(cr.make_oniyanma_body())
+        self.assertTrue(3.2 < yanma[1] < 5.0, yanma)
+        raichou = max(size(cr.make_bird_body("Raichou_Body", 15.0, "raichou")))
+        self.assertGreater(raichou, max(size(cr.make_bird_body("Sparrow_Body", 5.5, False))) * 2.0, "ライチョウはスズメよりずっと大きい")
+
+    def test_okojo_rises_from_its_den(self):
+        # オコジョは立ち上がった形（上へ長い）。すみかの石は、まん中に穴があいている
+        ok = size(cr.make_okojo())
+        self.assertGreater(ok[2], ok[0] * 2.0, "体はたてに長い")
+        den = cr.make_okojo_rocks()
+        center = [v for v in den.data.vertices if (v.co.x ** 2 + v.co.y ** 2) ** 0.5 < 1.0 and v.co.z > 0.2]
+        self.assertEqual(len(center), 0, "穴の上には石がない（顔を出せる）")
+
+    def test_mountain_walkers_have_leg_rigs(self):
+        for name in ("Risu", "Sanshouuo", "Higurashi", "Maimaikaburi"):
+            parts = cr.split_legs(MAKERS[name], name)
+            self.assertGreaterEqual(len(parts) - 1, 2, f"{name} の右の脚")
+            self.assertIn(name, cr.RIG)
 
     def test_river_stone_is_flat_and_root_arch_is_open(self):
         st = MAKERS["RiverStone_A"]()

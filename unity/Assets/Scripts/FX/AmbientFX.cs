@@ -225,6 +225,7 @@ namespace Shakutori
             _areaRoot.SetParent(transform, false);
             if (_area.Id == "forest") BuildForest();
             else if (_area.Id == "park") BuildPark();
+            else if (_area.Id == "mountain") BuildMountain();
             else BuildRiver();
             foreach (var g in world.Gates) GateMotes(g);
             BuildAreaExtras(world);   // エリアの改善：ただよう物
@@ -300,6 +301,14 @@ namespace Shakutori
             Fireflies(_areaRoot, new Vector3(ParkLayout.Puddle.x, 0f, ParkLayout.Puddle.y), 9f, 18, new Color(0.85f, 1f, 0.45f));
         }
 
+        void BuildMountain()
+        {
+            // 大きな松から、ときどき落ちる松葉
+            Vector2 pn = MountainLayout.Pine;
+            FallingLeaves(new Vector3(pn.x, MountainLayout.Height(pn.x, pn.y) + 26f, pn.y), new Vector3(20f, 2f, 20f), 0.5f,
+                new Color(0.42f, 0.55f, 0.32f), new Color(0.7f, 0.55f, 0.3f));
+        }
+
         void BuildRiver()
         {
             float pz = RiverLayout.PoolZ;
@@ -355,7 +364,8 @@ namespace Shakutori
         void GateMotes(GateInstance g)
         {
             var ps = Create("GateMotes", _areaRoot, 50, g.def.targetArea == "river" ? new Color(0.6f, 0.95f, 1f, 1f)
-                : g.def.targetArea == "park" ? new Color(1f, 0.9f, 0.55f, 1f) : new Color(0.8f, 1f, 0.6f, 1f));
+                : g.def.targetArea == "park" ? new Color(1f, 0.9f, 0.55f, 1f)
+                : g.def.targetArea == "mountain" ? new Color(0.92f, 0.9f, 1f, 1f) : new Color(0.8f, 1f, 0.6f, 1f));
             ps.transform.position = g.position + Vector3.up * 0.4f;
             var main = ps.main;
             main.startLifetime = new ParticleSystem.MinMaxCurve(2.5f, 4.5f);

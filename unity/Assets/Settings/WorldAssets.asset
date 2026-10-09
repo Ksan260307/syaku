@@ -29,6 +29,10 @@ MonoBehaviour:
     mesh: {fileID: -4774112481210596205, guid: 6dc61a0cd71c1564889836ba276110d5, type: 3}
   - name: AntHill
     mesh: {fileID: 2500244732374666971, guid: 903732463444f844f839c9c6018ee4e3, type: 3}
+  - name: Asagimadara_Body
+    mesh: {fileID: -9182631814845345992, guid: 159a8c1c75a28f84586bbd8101cffada, type: 3}
+  - name: Asagimadara_Wing
+    mesh: {fileID: -8806402009668696155, guid: 2b0a4814b77efec44ab9c7517aa4e13f, type: 3}
   - name: Beetle
     mesh: {fileID: -7711841939779332968, guid: 36147d2b4fb8ecf4ba09db4c64286155, type: 3}
   - name: Beetle_Leg1
@@ -145,6 +149,14 @@ MonoBehaviour:
     mesh: {fileID: -8242428885496396791, guid: 624274a595e63e44a9d53af69979a5a7, type: 3}
   - name: Herakuresu_Leg3
     mesh: {fileID: 3088439776348100068, guid: 37495e5e2654f784996986ef45dc299e, type: 3}
+  - name: Higurashi
+    mesh: {fileID: 7877786104708117933, guid: 9cb9bec01e8adac45ad1a2d8c8baca2a, type: 3}
+  - name: Higurashi_Leg1
+    mesh: {fileID: 2296330768675602243, guid: a0f8977a13c076c4093f66d76a1ae718, type: 3}
+  - name: Higurashi_Leg2
+    mesh: {fileID: 5219151397807064102, guid: 48dbed6ccec802e49b17a0ba797f5e09, type: 3}
+  - name: Higurashi_Leg3
+    mesh: {fileID: -7133127067989338866, guid: 2a53ab92259483246af926e8f7e8309e, type: 3}
   - name: HollowLog
     mesh: {fileID: 4769565808284150128, guid: d5cab0f74d390b94b93661531ead7a0f, type: 3}
   - name: Horsetail
@@ -209,6 +221,14 @@ MonoBehaviour:
     mesh: {fileID: -4913708079383263833, guid: b9162904febb5464b92892bb92d355b7, type: 3}
   - name: LilyPad_Col
     mesh: {fileID: -2343970843402244847, guid: 7e1cd68ffd62dbb4b8e7bdc6f1409e94, type: 3}
+  - name: Maimaikaburi
+    mesh: {fileID: 2400821061967865406, guid: 7a51325f93e4879438e2a348ce8bbe46, type: 3}
+  - name: Maimaikaburi_Leg1
+    mesh: {fileID: -7821408772864496077, guid: ce7985724839bb648946332ce5380356, type: 3}
+  - name: Maimaikaburi_Leg2
+    mesh: {fileID: 7639062826793558362, guid: 90dd03bc76ae8e643a07c6136a4542ef, type: 3}
+  - name: Maimaikaburi_Leg3
+    mesh: {fileID: -6489325596821747430, guid: d375c557a1c51544c9e72ba5f3b37864, type: 3}
   - name: Mantis
     mesh: {fileID: -5002742827640740714, guid: cebd2517248f41e48b3ecdf7ca638af8, type: 3}
   - name: Mantis_Arm
@@ -217,6 +237,10 @@ MonoBehaviour:
     mesh: {fileID: -4315404616630372145, guid: b64ce18c83bd35c44b59adce37fbdaf6, type: 3}
   - name: Mantis_Leg2
     mesh: {fileID: 2883093166547410592, guid: 9f1299e6cbbd20f46a64623de58569f7, type: 3}
+  - name: Maruhanabachi
+    mesh: {fileID: 4250107434057931982, guid: 3602d609f75832b4fbb85347890df188, type: 3}
+  - name: Maruhanabachi_Wing
+    mesh: {fileID: 6878454873717897579, guid: 29ef5f88844745b429b39792953032f4, type: 3}
   - name: Mogura
     mesh: {fileID: -8190951346876191355, guid: a30a3bb706386224ba9f8e5191f6db15, type: 3}
   - name: Mogura_Hill
@@ -227,6 +251,42 @@ MonoBehaviour:
     mesh: {fileID: 450940268330877283, guid: e5fc43d851044c04889a76e95e6afad2, type: 3}
   - name: Moss
     mesh: {fileID: 1917060837040722765, guid: 3d9d17b1c21e4a64d8f2b848fa27170b, type: 3}
+  - name: Mtn_Benchmark
+    mesh: {fileID: -74094065778895829, guid: 2110111e9972a744d9874d428d76e81d, type: 3}
+  - name: Mtn_Chinguruma
+    mesh: {fileID: 2854439525877805455, guid: 7bfe81f1182700142b4eee0f7ce5b7ae, type: 3}
+  - name: Mtn_ChingurumaSeed
+    mesh: {fileID: 309046450203333870, guid: 3263ea215f222d241a322c031650b4d3, type: 3}
+  - name: Mtn_CloudPuff
+    mesh: {fileID: -7149814754344477355, guid: f7f4512013d0ea448a1321c1e23b42d6, type: 3}
+  - name: Mtn_Haimatsu
+    mesh: {fileID: 4490374784259951943, guid: 3e8b96fa9ec1e5a4db2639d77f125155, type: 3}
+  - name: Mtn_Hut
+    mesh: {fileID: -9108850890420713784, guid: c9d9f20d1f05fd04e841f6c2a69bc0b5, type: 3}
+  - name: Mtn_Komakusa
+    mesh: {fileID: 8310831527465158941, guid: 622c66c8121d3784596847cfa1ae7d48, type: 3}
+  - name: Mtn_Kurumayuri
+    mesh: {fileID: -3822638877370316761, guid: f3c5e7e350585a842951d6c3dce73c2c, type: 3}
+  - name: Mtn_Pine
+    mesh: {fileID: 769740346116845560, guid: d8187b2078d4ba64b9a632b808412880, type: 3}
+  - name: Mtn_RockArch
+    mesh: {fileID: 2208115056668489284, guid: 77ae799e741cb3d4d9e448ea29839fdc, type: 3}
+  - name: Mtn_Sign
+    mesh: {fileID: 1168287114552527150, guid: b38f5ced760f6bb4fa17c8027147c607, type: 3}
+  - name: Mtn_Slab_A
+    mesh: {fileID: 6449705428256074909, guid: 107ad85091e1c0347974389dfdb1d57a, type: 3}
+  - name: Mtn_Slab_B
+    mesh: {fileID: -9189128052044304176, guid: 1edcc96765197ed439fb61a39b5901c5, type: 3}
+  - name: Mtn_Slab_C
+    mesh: {fileID: -2995055951701722770, guid: 1fb7873d986b37b4fa6a8aefba62f88a, type: 3}
+  - name: Mtn_SnowMound_A
+    mesh: {fileID: -5665059260341817924, guid: 9275b88505096254eb6ad0b216f6771b, type: 3}
+  - name: Mtn_SnowMound_B
+    mesh: {fileID: 7478911809569354056, guid: 2df92149ec6dcfe4eabbc30c61534baf, type: 3}
+  - name: Mtn_Spout
+    mesh: {fileID: -4566346059369971368, guid: cce5593598678d541b0c619b7fc0cd66, type: 3}
+  - name: Mtn_SummitPost
+    mesh: {fileID: -189120202551634824, guid: 88ed544ba65ecdd459445187b743ca8c, type: 3}
   - name: Mushroom_Brown
     mesh: {fileID: -6464232304797740508, guid: 38fc1a4a0aa80654dac6ce46f501f443, type: 3}
   - name: Mushroom_Brown_Col
@@ -243,6 +303,8 @@ MonoBehaviour:
     mesh: {fileID: 8732430369344902774, guid: e1d904f8394f2b24a9f4285366b673c1, type: 3}
   - name: Mushroom_Red_Col
     mesh: {fileID: 6383029536907081715, guid: d23f0f883e7d42247aff6f9da1dc03c0, type: 3}
+  - name: Nakiusagi
+    mesh: {fileID: 4080010152843949004, guid: 6a898cb13eb101547b8fd00300da1009, type: 3}
   - name: Nanafushi
     mesh: {fileID: 8087753221134345138, guid: 02597062b322d4447abda63decf2041e, type: 3}
   - name: Nanafushi_Leg1
@@ -257,6 +319,14 @@ MonoBehaviour:
     mesh: {fileID: -5743684658391964776, guid: 50ba16b31c27aad4db07853104bce4cb, type: 3}
   - name: Okera_Leg2
     mesh: {fileID: -8955744753228023923, guid: be817cdad9443df4f9d2471e12d95926, type: 3}
+  - name: Okojo
+    mesh: {fileID: -7395437505884649833, guid: b7167e1cbb774eb48bf8171574eda5f3, type: 3}
+  - name: Okojo_Rocks
+    mesh: {fileID: 1788806164719109160, guid: 42469d8bc9e8d4c49bdf73278e58c6e0, type: 3}
+  - name: Oniyanma_Body
+    mesh: {fileID: -5726975787734135736, guid: 8c87af1c74ffe8641b782f7e06f570f8, type: 3}
+  - name: Oniyanma_Wing
+    mesh: {fileID: 4591798427941915510, guid: 4d79e941231098a4f84acb3ba8398f8f, type: 3}
   - name: Otoshibumi
     mesh: {fileID: 2481780481965206165, guid: 32912da873407944fb24652dfe65f4e2, type: 3}
   - name: Otoshibumi_Leg1
@@ -331,8 +401,20 @@ MonoBehaviour:
     mesh: {fileID: -7599705468601128079, guid: bdd595ca267f20941aabe763a5680b99, type: 3}
   - name: Pinecone
     mesh: {fileID: 2804762351221276474, guid: 4b67eebb6bd4ebe4b83be139d69c54b7, type: 3}
+  - name: Raichou_Body
+    mesh: {fileID: 2667944223883780502, guid: e1d64fdef2cb35e4a852354b97f3c975, type: 3}
+  - name: Raichou_Wing
+    mesh: {fileID: 2860994939497847481, guid: 0140d9979140def40aa3b513770abca6, type: 3}
+  - name: Raichou_WingFolded
+    mesh: {fileID: 6643975109843328844, guid: 2b9b4f4f5b39008469d32eaa5f29efaf, type: 3}
   - name: Reed
     mesh: {fileID: -3890688692072204658, guid: d2031b7f5c7d72f46b73012333597776, type: 3}
+  - name: Risu
+    mesh: {fileID: 6348844576190597359, guid: e4392d23cc480b34cbabd2151abb6fff, type: 3}
+  - name: Risu_Leg1
+    mesh: {fileID: 128372533593353838, guid: a0dcb906d82b8974aa2e23cf867344e5, type: 3}
+  - name: Risu_Leg2
+    mesh: {fileID: 8119549431207442286, guid: e509edc31499c9c48b6100ffcb0e07db, type: 3}
   - name: RiverSnail
     mesh: {fileID: -9040684250955034890, guid: 5cece7af51bd6e04ca5c12de29faa8ff, type: 3}
   - name: RiverStone_A
@@ -351,6 +433,12 @@ MonoBehaviour:
     mesh: {fileID: 7998580582834682927, guid: 2e4c10c25482a524cb93aa352779cdd3, type: 3}
   - name: RootArch
     mesh: {fileID: -4083301915040451429, guid: 158127f0f84bb9b449a15fcafd5164c4, type: 3}
+  - name: Sanshouuo
+    mesh: {fileID: -2519169234887615627, guid: 596ef56dc5632c145983d742725acda7, type: 3}
+  - name: Sanshouuo_Leg1
+    mesh: {fileID: 4350311099151818852, guid: a87269a2765d15d4881bb18ff7fb5a67, type: 3}
+  - name: Sanshouuo_Leg2
+    mesh: {fileID: 7233832982450858402, guid: b0ab4b95b356b6748bfe0076bd49e5af, type: 3}
   - name: SasaBune
     mesh: {fileID: 546792125584462195, guid: 71863a1242346e24a910bcb5b0dbd470, type: 3}
   - name: ShelfFungus
@@ -420,6 +508,8 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 2a57c240507214542a9abb159f93b8e2, type: 3}
   - name: ant_helmet
     texture: {fileID: 2800000, guid: 6c309b0c98d17044ebcdb8e26a0a2a54, type: 3}
+  - name: asagimadara
+    texture: {fileID: 2800000, guid: a90b0d91919c4c2438c9ae50bb9bf524, type: 3}
   - name: beetle
     texture: {fileID: 2800000, guid: 781c31494f9f4a44599969b7fbd85fa1, type: 3}
   - name: butterfly
@@ -448,6 +538,8 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: d3d1d452e51db91429f6e843a1daf8c4, type: 3}
   - name: herakuresu
     texture: {fileID: 2800000, guid: 0b83f4e273a444d43951f0c1145f22b5, type: 3}
+  - name: higurashi
+    texture: {fileID: 2800000, guid: f58e2e5430b41b44eac294d19f58a7e2, type: 3}
   - name: kameleon
     texture: {fileID: 2800000, guid: 00487fd5793d4e1438b182c1e122f1c6, type: 3}
   - name: kamemushi
@@ -460,22 +552,38 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: efbd2d94ae430fe45b3bc9f9e6dc15a1, type: 3}
   - name: ladybug
     texture: {fileID: 2800000, guid: 6ab90112b8809e243855985771340812, type: 3}
+  - name: maimaikaburi
+    texture: {fileID: 2800000, guid: cb1095c53df82cd479bf8d14f3f81589, type: 3}
   - name: mantis
     texture: {fileID: 2800000, guid: e7315fd762c90314d880531e8ad377ca, type: 3}
+  - name: maruhanabachi
+    texture: {fileID: 2800000, guid: eb13bf87727e7924b819ef8938e25016, type: 3}
   - name: mogura
     texture: {fileID: 2800000, guid: 59e46efa95108b54caae8af0b7848249, type: 3}
   - name: monshiro
     texture: {fileID: 2800000, guid: 0c6dce403431aeb4984b91b0bd98aa94, type: 3}
+  - name: nakiusagi
+    texture: {fileID: 2800000, guid: 9751787dd8532ea4c9cc50a446290d8a, type: 3}
   - name: nanafushi
     texture: {fileID: 2800000, guid: b6b7f8693c7655c4ba5f7a75dfaae200, type: 3}
   - name: okera
     texture: {fileID: 2800000, guid: e2229fa82ca041640a5e1b465c2cbc0a, type: 3}
+  - name: okojo
+    texture: {fileID: 2800000, guid: 1c961ce4af41d1346a3f727b62b23d10, type: 3}
+  - name: oniyanma
+    texture: {fileID: 2800000, guid: 7ef526367c05e564597e0faef0f0621e, type: 3}
   - name: otoshibumi
     texture: {fileID: 2800000, guid: 4be4f69b9ae56504ab4f118c0cffc10b, type: 3}
   - name: pillbug
     texture: {fileID: 2800000, guid: acf7880d888187d47ad92b1e18c83508, type: 3}
+  - name: raichou
+    texture: {fileID: 2800000, guid: 12aee8a4bc2d1f541a3b2f7bc8d4295f, type: 3}
+  - name: risu
+    texture: {fileID: 2800000, guid: 5e794fef5d875934db904be5b2a663f4, type: 3}
   - name: riversnail
     texture: {fileID: 2800000, guid: f1f06a4d47074084da33da2f4f8f5f3a, type: 3}
+  - name: sanshouuo
+    texture: {fileID: 2800000, guid: 51c26a14a3042b04e864ad303356c712, type: 3}
   - name: snail
     texture: {fileID: 2800000, guid: a76a29a25746df0438034d7ed04e213c, type: 3}
   - name: sparrow

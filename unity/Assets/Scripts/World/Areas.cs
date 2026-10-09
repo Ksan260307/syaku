@@ -12,6 +12,11 @@ namespace Shakutori
         public float radius = 1.7f;
         /// <summary>このトンネルから出てきたときに見せる景色（なければ、エリアのまん中を向く）。</summary>
         public ArrivalView arrival;
+        /// <summary>
+        /// あとから足したトンネル：エリアのしずく・いきものを置いたあとに作る（しずくの場所と数を変えないように）。
+        /// 景色の通り道も作らない（草や小物の置き方が変わってしまうので）。
+        /// </summary>
+        public bool late;
     }
 
     /// <summary>
@@ -129,6 +134,8 @@ namespace Shakutori
         {
             new GateDef { position = RiverLayout.Gate, targetArea = "forest", label = "森へ",
                 arrival = new ArrivalView(RiverLayout.Gate + new Vector2(12f, 2f), new Vector3(RiverLayout.CenterX(-2f), RiverLayout.LowerStart + 0.5f, -2f), 6f, 4.4f, clear: 34f) },   // 川辺に出ると、小道の先に川が見える
+            new GateDef { position = RiverLayout.MountainGate, targetArea = "mountain", label = "山へ", late = true,
+                arrival = new ArrivalView(RiverLayout.MountainGate + new Vector2(-4f, -6f), new Vector3(RiverLayout.CenterX(RiverLayout.FallZ + 4f), RiverLayout.UpperLevel + 0.5f, RiverLayout.FallZ + 4f), 6f, 4.4f) },   // 山からもどると、滝の上の流れが見える
         };
 
         public override string Id => "river";
@@ -185,13 +192,45 @@ namespace Shakutori
         public override bool InPlayArea(Vector3 p) => ParkLayout.InPlayArea(p);
     }
 
+    public class MountainArea : AreaLayout
+    {
+        readonly List<GateDef> _gates = new List<GateDef>
+        {
+            new GateDef { position = MountainLayout.Gate, targetArea = "river", label = "川辺へ",
+                arrival = new ArrivalView(MountainLayout.Spawn, new Vector3(MountainLayout.Summit.x, 30f, MountainLayout.Summit.y), -2f, 4.6f, clear: 40f) },   // 山に出ると、雲のむこうの山頂を見上げる
+        };
+
+        public override string Id => "mountain";
+        public override string DisplayName => "山";
+        public override string Subtitle => "雲の見える山";
+        public override string Tagline => "岩と花と雪の、すずしい風のふく山";
+        public override string DropName => "山のしずく";
+        public override float PlayRadius => MountainLayout.PlayRadius;
+        public override float TerrainHalf => MountainLayout.TerrainHalf;
+        public override float MaxClimbHeight => MountainLayout.MaxClimbHeight;
+        public override int DropIdOffset => 3000;
+        public override int DropCount => 40;
+        public override Vector2 Spawn => MountainLayout.Spawn;
+        public override Vector3 SpawnForward => Vector3.forward;
+        public override List<LandmarkDef> Landmarks => MountainLayout.Landmarks;
+        public override List<GateDef> Gates => _gates;
+        public override float Height(float x, float z) => MountainLayout.Height(x, z);
+        public override Vector3 Normal(float x, float z) => MountainLayout.Normal(x, z);
+        public override Color GroundColor(float x, float z, float h, Vector3 n) => MountainLayout.GroundColor(x, z, h, n);
+        public override float TrailMask(float x, float z) => MountainLayout.TrailMask(x, z);
+        public override float WaterLevelAt(float x, float z) => MountainLayout.WaterLevelAt(x, z);
+        public override bool IsUnderwater(Vector3 p) => MountainLayout.IsUnderwater(p);
+        public override bool InPlayArea(Vector3 p) => MountainLayout.InPlayArea(p);
+    }
+
     /// <summary>エリアの一覧と、いまいるエリア。</summary>
     public static class Areas
     {
         public static readonly ForestArea Forest = new ForestArea();
         public static readonly RiverArea River = new RiverArea();
         public static readonly ParkArea Park = new ParkArea();
-        public static readonly AreaLayout[] All = { Forest, River, Park };
+        public static readonly MountainArea Mountain = new MountainArea();
+        public static readonly AreaLayout[] All = { Forest, River, Park, Mountain };
 
         public static AreaLayout Current { get; set; } = Forest;
 

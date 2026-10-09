@@ -119,6 +119,13 @@ namespace Shakutori
                 "水飲み場のじゃぐちから、ぽたぽたしずくが落ちて、水たまりに波紋が広がります。",
                 "砂場の砂の城は、てっぺんの旗のそばまで登れます。",
             },
+            ["mountain"] = new[]
+            {
+                "岩の階段は、平たい岩を一段ずつ登っていきます。いちばん上からは、ふもとが見わたせます。",
+                "大きな松の枝の先の、葉のかたまりの上にも乗れます。",
+                "岩のすみかの近くで、じっと待っていると、オコジョが顔を出します。",
+                "山頂まで登ると、まわりの山なみと雲の海が見えます。",
+            },
         };
 
         /// <summary>読み込み画面の行き先のエリア（そのエリアのヒントを出す）。</summary>
@@ -1179,7 +1186,7 @@ namespace Shakutori
             // すみかでしぼりこむ
             var filters = new VisualElement();
             filters.AddToClassList("zukan-filters");
-            foreach (var (label, key) in new[] { ("すべて", ""), ("森", "森"), ("川辺", "川辺"), ("公園", "公園") })
+            foreach (var (label, key) in new[] { ("すべて", ""), ("森", "森"), ("川辺", "川辺"), ("公園", "公園"), ("山", "山") })
             {
                 var chip = new Button { text = label };
                 chip.AddToClassList("chip");
@@ -2001,7 +2008,7 @@ namespace Shakutori
         public bool SilkButtonIdle => _silkButton != null && _silkButton.ClassListContains("touch-button--idle");
         public bool SilkButtonReady => _silkButton != null && _silkButton.ClassListContains("touch-button--ready");
 
-        /// <summary>地図の下のエリアのボタンを押す（テスト用。index は 森・川辺・公園 の順）。</summary>
+        /// <summary>地図の下のエリアのボタンを押す（テスト用。index は 森・川辺・公園・山 の順）。</summary>
         public bool PressAreaChip(int index)
         {
             if (_mapAreas == null || index < 0 || index >= _mapAreas.childCount || !(_mapAreas[index] is Button b)) return false;

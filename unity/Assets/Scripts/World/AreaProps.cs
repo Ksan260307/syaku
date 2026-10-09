@@ -124,11 +124,18 @@ namespace Shakutori
             return false;
         }
 
-        /// <summary>地面の足音の種類を、場所でくわしくする（公園の砂・森の苔）。</summary>
+        /// <summary>地面の足音の種類を、場所でくわしくする（公園の砂・森の苔・山の雪と岩）。</summary>
         public static AudioManager.Surface Refine(AudioManager.Surface s, Vector3 p)
         {
             if (s != AudioManager.Surface.Ground) return s;
             if (Areas.Current == Areas.Park && ParkLayout.SandMask(p.x, p.z) > 0.5f && p.y - ParkLayout.Height(p.x, p.z) < 0.4f) return AudioManager.Surface.Sand;
+            if (Areas.Current == Areas.Mountain && p.y - MountainLayout.Height(p.x, p.z) < 0.4f)
+            {
+                // 山：雪渓の雪はさくさく（砂の音）、岩はだは石の音
+                if (MountainLayout.SnowMask(p.x, p.z) > 0.5f) return AudioManager.Surface.Sand;
+                float h = MountainLayout.Height(p.x, p.z);
+                if (MountainLayout.RockMask(p.x, p.z, h, MountainLayout.Normal(p.x, p.z)) > 0.6f) return AudioManager.Surface.Stone;
+            }
             if (SoftGround(p) > 0.5f) return AudioManager.Surface.Moss;
             return s;
         }

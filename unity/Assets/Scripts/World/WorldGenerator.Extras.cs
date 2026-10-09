@@ -41,6 +41,7 @@ namespace Shakutori
             Physics.SyncTransforms();
             if (Area.Id == "forest") BuildForestExtras();
             else if (Area.Id == "park") BuildParkExtras();
+            else if (Area.Id == "mountain") BuildMountainExtras();
             else BuildRiverExtras();
             Physics.SyncTransforms();
         }
@@ -68,7 +69,7 @@ namespace Shakutori
                 if (!Grounded(m)) continue;   // 飛ぶもの・水の上のものは、じゃまにならない
                 float dx = m.center.x - p.x, dz = m.center.z - p.y;
                 float keep = Mathf.Min(m.radius, 3f) + r + 1f;   // すみかのまん中だけ、あけておく
-                if (m.species == "mogura" || m.species == "okera") keep = Mathf.Max(keep, 3.4f + r);   // モグラ塚・ケラの穴の土の山（半径 2.6）に重ねない
+                if (m.species == "mogura" || m.species == "okera" || m.species == "okojo") keep = Mathf.Max(keep, 3.4f + r);   // モグラ塚・ケラの穴の土の山（半径 2.6）に重ねない
                 if (dx * dx + dz * dz < keep * keep) return false;
             }
             if (InViewLane(p, r)) return false;

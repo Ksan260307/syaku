@@ -29,6 +29,8 @@ namespace Shakutori
         public AudioClip chirp;
         public AudioClip croak;
         public AudioClip parkAmbience;   // 公園の環境音
+        public AudioClip musicMountain;      // 山の BGM
+        public AudioClip mountainAmbience;   // 山の環境音（高い所の風・遠くの鳥）
         /// <summary>エリアの音（場所で聞こえるループと、できごとの音）。名前でさがす。</summary>
         public AudioClip[] areaClips = new AudioClip[0];
 
@@ -48,12 +50,13 @@ namespace Shakutori
         float _waterNear = 1f;
         float _duckUntil;
 
-        AudioSource _music, _amb, _amb2, _amb3;
+        AudioSource _music, _amb, _amb2, _amb3, _amb4;
         AudioSource _musicOut;        // 前のエリアの曲（ゆっくり小さくなって止まる）
         string _area = "forest";
         float _ambMix;   // 0 = 森, 1 = 川
         float _ambMixTarget;
         float _parkMix, _parkMixTarget;   // 1 = 公園
+        float _mtnMix, _mtnMixTarget;     // 1 = 山
         AudioSource[] _sfx;
         int _next;
         float _musicTarget, _ambTarget;
@@ -82,6 +85,10 @@ namespace Shakutori
             _amb3.loop = true;
             _amb3.playOnAwake = false;
             _amb3.volume = 0f;
+            _amb4 = gameObject.AddComponent<AudioSource>();
+            _amb4.loop = true;
+            _amb4.playOnAwake = false;
+            _amb4.volume = 0f;
             _sfx = new AudioSource[8];
             for (int i = 0; i < _sfx.Length; i++)
             {
@@ -100,12 +107,13 @@ namespace Shakutori
             if (ambience != null) { _amb.clip = ambience; _amb.Play(); }
             if (riverAmbience != null) { _amb2.clip = riverAmbience; _amb2.Play(); }
             if (parkAmbience != null) { _amb3.clip = parkAmbience; _amb3.Play(); }
+            if (mountainAmbience != null) { _amb4.clip = mountainAmbience; _amb4.Play(); }
         }
 
         /// <summary>エリアの BGM（なければ森の曲）。</summary>
         public AudioClip MusicFor(string areaId)
         {
-            AudioClip c = areaId == "river" ? musicRiver : areaId == "park" ? musicPark : null;
+            AudioClip c = areaId == "river" ? musicRiver : areaId == "park" ? musicPark : areaId == "mountain" ? musicMountain : null;
             return c != null ? c : music;
         }
 
@@ -118,6 +126,7 @@ namespace Shakutori
             _area = areaId;
             _ambMixTarget = areaId == "river" ? 1f : 0f;
             _parkMixTarget = areaId == "park" ? 1f : 0f;
+            _mtnMixTarget = areaId == "mountain" ? 1f : 0f;
             var clip = MusicFor(areaId);
             if (_music == null || clip == null || _music.clip == clip) return;
             if (!_started)
@@ -148,7 +157,9 @@ namespace Shakutori
             }
             _ambMix = Mathf.MoveTowards(_ambMix, _ambMixTarget, Time.unscaledDeltaTime * 0.5f);
             _parkMix = Mathf.MoveTowards(_parkMix, _parkMixTarget, Time.unscaledDeltaTime * 0.5f);
-            _amb.volume = Mathf.Lerp(_amb.volume, _started ? _ambTarget * (1f - _ambMix) * (1f - _parkMix) : 0f, k);
+            _mtnMix = Mathf.MoveTowards(_mtnMix, _mtnMixTarget, Time.unscaledDeltaTime * 0.5f);
+            _amb.volume = Mathf.Lerp(_amb.volume, _started ? _ambTarget * (1f - _ambMix) * (1f - _parkMix) * (1f - _mtnMix) : 0f, k);
+            _amb4.volume = Mathf.Lerp(_amb4.volume, _started ? _ambTarget * 1.05f * _mtnMix : 0f, k);
             _amb3.volume = Mathf.Lerp(_amb3.volume, _started ? _ambTarget * 1.05f * _parkMix : 0f, k);
             _amb2.volume = Mathf.Lerp(_amb2.volume, _started ? _ambTarget * 1.1f * _ambMix * Mathf.Lerp(0.5f, 1.25f, _waterNear) : 0f, k);
         }
@@ -234,6 +245,10 @@ namespace Shakutori
 
         public void Chirp(float volume) => Play(chirp, volume, Random.Range(0.92f, 1.12f));
         public void Croak(float volume) => Play(croak, volume, Random.Range(0.9f, 1.08f));
+        /// <summary>ナキウサギの「ピチッ」。</summary>
+        public void Pika(float volume) => Play(AreaClip("pika"), volume, Random.Range(0.95f, 1.08f));
+        /// <summary>ヒグラシの「カナカナカナ…」。</summary>
+        public void Higurashi(float volume) => Play(AreaClip("higurashi"), volume, Random.Range(0.96f, 1.04f));
 
         public void Collect(int count) => Play(collect, 0.8f, 1f + Mathf.Min(count % 8, 7) * 0.025f);
         public void Discover() => Play(discover, 0.9f);

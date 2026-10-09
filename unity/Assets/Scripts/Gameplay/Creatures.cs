@@ -518,7 +518,7 @@ namespace Shakutori
                     var m = new Mob
                     {
                         sp = sp,
-                        bid = sp.IsRare ? sp.rareOf : sp.id,
+                        bid = sp.BehaviorId,
                         group = g,
                         home = g.center,
                         radius = g.radius,
@@ -887,6 +887,16 @@ namespace Shakutori
                         AudioManager.Instance?.Croak(0.4f * vol);
                         m.callUntil = m.anim + 0.6f;   // 鳴くときは、のどを大きくふくらませる
                     }
+                    else if (m.bid == "nakiusagi" && !m.airborne && R(0f, 1f) < sdt * 0.05f)
+                    {
+                        AudioManager.Instance?.Pika(0.45f * vol);
+                        m.callUntil = m.anim + 0.5f;   // 「ピチッ」と鳴くときは、口をあけて体をふくらませる
+                    }
+                    else if (m.sp.id == "higurashi" && m.curSpeed < 0.02f && m.anim > m.callUntil + 6f && R(0f, 1f) < sdt * 0.05f)
+                    {
+                        AudioManager.Instance?.Higurashi(0.5f * vol);
+                        m.callUntil = m.anim + 3.2f;   // 「カナカナカナ…」と鳴くあいだ、おなかをふるわせる
+                    }
                 }
 
                 // 回る速さ（脚の動きと、飛ぶもののかたむきに使う）
@@ -982,7 +992,7 @@ namespace Shakutori
                 var m = _mobs[_gDisturb[k]];
                 if (m.carryingWorm) continue;
                 // 水辺のいきもの（カエル・カニ・カワニナ・アメンボ）は、物音により強くおどろく
-                bool waterside = m.bid == "frog" || m.bid == "crab" || m.bid == "riversnail" || m.sp.kind == MobKind.Skater;
+                bool waterside = m.bid == "frog" || m.bid == "crab" || m.bid == "riversnail" || m.bid == "sanshouuo" || m.sp.kind == MobKind.Skater;
                 float r = radius * (waterside ? 1.5f : 1f);
                 if ((m.pos - p).sqrMagnitude > r * r) continue;
                 DisturbOne(m);
@@ -1039,6 +1049,12 @@ namespace Shakutori
                         m.speedMul = 1.6f;
                         m.timer = R(1f, 1.6f);
                         m.wantFwd = Quaternion.AngleAxis(R(120f, 240f), m.up) * m.fwd;
+                    }
+                    else if (m.bid == "sanshouuo")
+                    {
+                        // サンショウウオ：その場で、じっとかたまる
+                        m.pauseUntil = m.anim + R(1.5f, 2.5f);
+                        m.curSpeed = 0f;
                     }
                     else if (m.bid == "tokage")
                     {
@@ -1366,7 +1382,11 @@ namespace Shakutori
                 case "crab": return r < 0.6f ? ActGroom : 0;
                 case "waterstrider": return r < 0.6f ? ActSpecial : 0;
                 case "dragonfly": return m.perched && r < 0.7f ? ActSpecial : 0;
-                case "tokage": return m.sp.id == "tokage" && r < 0.5f ? ActSpecial : 0;
+                case "tokage":
+                    if (m.sp.id == "risu") return r < 0.5f ? ActGroom : r < 0.8f ? ActLook : 0;   // リス：前足で顔を洗う・立ち上がって見まわす
+                    return m.sp.id == "tokage" && r < 0.5f ? ActSpecial : 0;
+                case "nakiusagi": return r < 0.35f ? ActLook : r < 0.65f ? ActGroom : 0;   // ナキウサギ：耳をたてて見まわす・顔をこする
+                case "sanshouuo": return r < 0.4f ? ActLook : r < 0.7f ? ActStretch : 0;   // サンショウウオ：首をもたげる・体をのばす
                 case "spider": return m.sp.IsRare && m.raise < 0.05f && r < 0.6f ? ActSpecial : 0;
                 default: return 0;
             }
@@ -1451,6 +1471,7 @@ namespace Shakutori
                 case "crab": return 160f;
                 case "ladybug": return 140f;
                 case "otoshibumi": return 90f;
+                case "sanshouuo": return 50f;
                 default: return 120f;
             }
         }
@@ -1464,6 +1485,7 @@ namespace Shakutori
                 case "beetle": case "kuwagata": return 0.3f;
                 case "tokage": return 9f;   // トカゲは、すぐに走りだし、ぴたりと止まる
                 case "crab": return 4f;
+                case "sanshouuo": return 0.6f;
                 default: return 1.5f;
             }
         }
@@ -1548,7 +1570,8 @@ namespace Shakutori
             if (id == "tokage" && !m.carryingWorm && m.speedMul < 1.4f)
             {
                 Vector3 away = Vector3.ProjectOnPlane(m.pos - _head, m.up);
-                if (away.sqrMagnitude < 3.2f * 3.2f && away.sqrMagnitude > 1e-4f)
+                float flee = (m.sp.fleeRadius > 0f ? m.sp.fleeRadius : 3.2f) * FearScale(m);   // 大きなリスは、遠くから気づく。なかよしは、近くまで来させてくれる
+                if (away.sqrMagnitude < flee * flee && away.sqrMagnitude > 1e-4f)
                 {
                     m.wantFwd = away.normalized;
                     m.speedMul = 1.5f;
@@ -1572,7 +1595,7 @@ namespace Shakutori
                 }
             }
             // カワニナ：水ぎわが好き。水から遠いと、下り（水の方）へ
-            if (id == "riversnail" && !OnWater(m.pos))
+            if ((id == "riversnail" || id == "sanshouuo") && !OnWater(m.pos))
             {
                 float above = m.pos.y - Mathf.Max(_area.WaterLevelAt(m.pos.x, m.pos.z), -50f);
                 if (above > 0.25f) m.wantFwd = Vector3.Slerp(m.wantFwd, Downhill(m.pos), 0.5f).normalized;
@@ -3558,7 +3581,15 @@ namespace Shakutori
                 rot = Quaternion.AngleAxis(Mathf.Sin(m.anim * 1.7f + m.phase) * (5f + 5f * Wind.Gust(Time.time)), f) * rot;
                 if (m.moveSpeed > 0.005f) bob += f * (Mathf.Sin(m.anim * 3f) * 0.03f * s);
             }
-            if (m.bid == "mogura")
+            if (m.bid == "mogura" && m.sp.id == "okojo")
+            {
+                // オコジョ：岩のすみかの穴から、うしろ足で立ち上がって顔を出し、きょろきょろ見まわす（もぐると、穴の中へ）
+                float dv = m.digDown ? m.dig : Mathf.Clamp01(m.dig + 0.1f * Mathf.Sin(m.dig * Mathf.PI * 2f));
+                rot = Quaternion.AngleAxis(Mathf.Sin(m.anim * 0.7f + m.phase) * 50f * (1f - dv), Vector3.up) * rot;
+                Vector3 hole = new Vector3(m.home.x, _area.Height(m.home.x, m.home.z), m.home.z);
+                bob = hole + Vector3.up * (Mathf.Lerp(-6.4f, 0f, 1f - dv) * s) - m.drawPos;
+            }
+            else if (m.bid == "mogura")
             {
                 // モグラ塚の穴から、鼻を上へ向けて顔を出す（もぐると、地面の下へ）
                 // 出てくるときは、ためらうように、少し出ては止まりながら
@@ -3857,6 +3888,23 @@ namespace Shakutori
                     break;
                 }
                 case "tokage":
+                    if (m.sp.id == "risu")
+                    {
+                        // リス：止まると、しっぽを立てて体を起こす。顔を洗うときは、うしろ足で立ち上がる
+                        float still = 1f - Mathf.Clamp01(moving * 3f);
+                        rot = Quaternion.AngleAxis(-6f * still, right) * rot;
+                        float wash = ActEnvelope(m, ActGroom, out float wk);
+                        if (wash > 0f)
+                        {
+                            rot = Quaternion.AngleAxis(-28f * wash, right) * rot;
+                            bob += m.up * (0.25f * s * wash) + f * (Mathf.Sin(wk * Mathf.PI * 8f) * 0.04f * s * wash);
+                        }
+                        float look = ActEnvelope(m, ActLook, out _);
+                        if (look > 0f) rot = Quaternion.AngleAxis(Mathf.Sin(m.anim * 3f) * 25f * look, m.up) * Quaternion.AngleAxis(-18f * look, right) * rot;
+                        // 走るときは、ぴょんぴょん、はねるように
+                        if (moving > 0.2f) bob += m.up * (Mathf.Abs(Mathf.Sin(m.gait)) * 0.12f * s * moving);
+                        break;
+                    }
                     if (m.sp.id == "kameleon")
                     {
                         // カメレオンは、前後にゆれながら歩く
@@ -3871,6 +3919,14 @@ namespace Shakutori
                     break;
                 case "kamikiri":
                 {
+                    if (m.sp.id == "higurashi")
+                    {
+                        // ヒグラシ：鳴くあいだ、おなかをふるわせる。おどろくと、ジジッとあばれる
+                        if (m.anim < m.callUntil) scale3.z *= 1f + 0.025f * Mathf.Sin(m.anim * 70f);
+                        float buzz = ActEnvelope(m, ActAlarm, out _);
+                        if (buzz > 0f) rot = Quaternion.AngleAxis(Mathf.Sin(m.anim * 45f) * 7f * buzz, f) * rot;
+                        break;
+                    }
                     // 歩くとき、頭を左右にふって、長い触角でさぐる
                     if (moving > 0.05f) rot = Quaternion.AngleAxis(Mathf.Sin(m.anim * 4f + m.phase) * 5f * moving, m.up) * rot;
                     // おどろくと、頭を上下にふってキイキイ鳴く
@@ -3892,6 +3948,32 @@ namespace Shakutori
                         else rot = Quaternion.AngleAxis(-25f * m.dig, right) * rot;
                     }
                     break;
+                case "nakiusagi":
+                {
+                    if (m.airborne) break;
+                    // 鳴くときは、体をふくらませて、口もとを上げる
+                    if (m.anim < m.callUntil)
+                    {
+                        float c = Mathf.Sin(Mathf.PI * Mathf.Clamp01((m.callUntil - m.anim) / 0.5f));
+                        scale3 *= 1f + 0.06f * c;
+                        rot = Quaternion.AngleAxis(-8f * c, right) * rot;
+                    }
+                    float look = ActEnvelope(m, ActLook, out _);
+                    if (look > 0f) rot = Quaternion.AngleAxis(Mathf.Sin(m.anim * 2.5f) * 30f * look, m.up) * Quaternion.AngleAxis(-10f * look, right) * rot;
+                    float rub = ActEnvelope(m, ActGroom, out float rk);
+                    if (rub > 0f) rot = Quaternion.AngleAxis(10f * rub + Mathf.Sin(rk * Mathf.PI * 10f) * 4f * rub, right) * rot;
+                    break;
+                }
+                case "sanshouuo":
+                {
+                    // 歩くとき、体を左右にくねらせる。止まると、ときどき首をもたげる
+                    rot = Quaternion.AngleAxis(Mathf.Sin(m.gait) * 12f * moving, m.up) * rot;
+                    float look = ActEnvelope(m, ActLook, out _);
+                    if (look > 0f) rot = Quaternion.AngleAxis(-9f * look, right) * rot;
+                    float st = ActEnvelope(m, ActStretch, out _);
+                    if (st > 0f) scale3.z *= 1f + 0.06f * st;
+                    break;
+                }
                 case "mogura":
                     // 顔を出しているとき、鼻をくんくん左右にふる
                     if (m.dig < 0.3f) rot = Quaternion.AngleAxis(Mathf.Sin(m.anim * 7f) * 6f * (1f - m.dig / 0.3f), m.up) * rot;
@@ -3919,8 +4001,8 @@ namespace Shakutori
                 _drawShadow = _drawDist - _drawRadius <= shadowReach;
 
                 string bodyMesh = ball ? m.sp.body + "_Ball" : m.sp.body;
-                // モグラ塚は、モグラがもぐっていても見える
-                if (m.bid == "mogura")
+                // モグラ塚は、モグラがもぐっていても見える（オコジョの岩のすみかは、地形といっしょに置いてある）
+                if (m.bid == "mogura" && m.sp.id != "okojo")
                 {
                     // もぐったり出たりするたびに、モグラ塚の土が少しもり上がる
                     float bulge = 1f + 0.2f * Mathf.Sin(Mathf.PI * m.dig);

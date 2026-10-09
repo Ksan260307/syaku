@@ -26,7 +26,7 @@ namespace Shakutori
 
             // 31. 岸の流木・33. 滝つぼの岸の流木（73. 登れる）
             int drifts = 0;
-            for (int i = 0; i < 40 && drifts < 4; i++)
+            for (int i = 0; i < 160 && drifts < 4; i++)   // 山へのトンネルの景色の通り道にはかからないよう、多めにさがす
             {
                 // 4 本目は、滝つぼの岸
                 float z = drifts == 3 ? XR(fz - 10f, fz - 5f) : XR(-50f, 50f);

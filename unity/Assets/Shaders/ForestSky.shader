@@ -41,6 +41,8 @@ Shader "Shakutori/ForestSky"
                 half _CanopyStart;
                 half _HazeStrength;
             CBUFFER_END
+            // 0 = 樹冠の葉の隙間から見る空（森・川辺・公園）、1 = ひらけた空と雲（山）。エリアごとに AreaAtmosphere が全体へ設定する
+            float _SkyOpen;
 
             struct Attributes { float4 positionOS : POSITION; };
             struct Varyings { float4 positionCS : SV_POSITION; float3 dir : TEXCOORD0; };
@@ -121,11 +123,21 @@ Shader "Shakutori/ForestSky"
                     float cov = lerp(_CanopyCoverage - 0.25, _CanopyCoverage + 0.18, smoothstep(_CanopyStart, 0.9, h));
                     float m = smoothstep(1.0 - cov - 0.03, 1.0 - cov + 0.03, density);
                     m *= smoothstep(_CanopyStart - 0.05, _CanopyStart + 0.15, h);
+                    m *= 1.0 - _SkyOpen;
                     float rim = smoothstep(1.0 - cov - 0.03, 1.0 - cov + 0.12, density);
                     half3 leafCol = lerp(_CanopyLightColor.rgb, _CanopyColor.rgb, saturate(rim * 1.2 - 0.1));
                     leafCol += _CanopyLightColor.rgb * pow(saturate(sd), 6.0) * 0.6 * (1.0 - rim);
                     leafCol *= 0.85 + small * 0.3;
                     col = lerp(col, leafCol, m);
+                    // ひらけた空：ゆっくり流れる、白い雲
+                    if (_SkyOpen > 0.001)
+                    {
+                        float2 q = d.xz / (h + 0.25) * 0.9 + float2(_Time.y * 0.004, _Time.y * 0.0025);
+                        float cl = fbm(q);
+                        float cm = smoothstep(0.5, 0.7, cl) * smoothstep(0.02, 0.22, h);
+                        half3 cloudCol = lerp(half3(0.84, 0.88, 0.95), half3(1.0, 1.0, 1.0), saturate((cl - 0.5) * 3.0));
+                        col = lerp(col, cloudCol, cm * _SkyOpen * 0.85);
+                    }
                 }
                 // 地平線のもや（フォグ色へなじませる）
                 half haze = saturate(1.0 - h * 3.5) * _HazeStrength;

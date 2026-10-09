@@ -19,6 +19,7 @@ namespace Shakutori
         int _next;
         Transform _root;
         Loop _canopy;
+        Loop _ridge;
         string _area = "forest";
         float _woodNext;
         readonly System.Random _rng = new System.Random(77);
@@ -71,6 +72,7 @@ namespace Shakutori
             _root.SetParent(transform, false);
             _loops.Clear();
             _canopy = null;
+            _ridge = null;
             _woodNext = Time.time + R(15f, 30f);
             if (_area == "forest")
             {
@@ -86,6 +88,12 @@ namespace Shakutori
                 AddLoop("loop_shallows", new Vector3(RiverLayout.CenterX(RiverLayout.StonesZ), RiverLayout.WaterLevel(RiverLayout.StonesZ), RiverLayout.StonesZ), 2f, 18f, 0.6f);   // とびいしの瀬
                 float pz = RiverLayout.PoolZ;
                 AddLoop("loop_frogs", new Vector3(RiverLayout.CenterX(pz), RiverLayout.WaterLevel(pz), pz), 6f, 32f, 0.55f);   // よどみのカエル
+            }
+            else if (_area == "mountain")
+            {
+                Vector2 sp = MountainLayout.Spring;
+                AddLoop("loop_spring", new Vector3(sp.x, MountainLayout.SpringLevel + 1f, sp.y + MountainLayout.SpringRadius * 0.6f), 2f, 22f, 0.7f);   // 湧き水
+                _ridge = AddLoop("loop_ridge_wind", Vector3.zero, 0f, 0f, 0.4f, global: true);                                                  // 尾根の風（高い所ほど大きい）
             }
         }
 
@@ -139,6 +147,13 @@ namespace Shakutori
                 if (started && !l.src.isPlaying) l.src.Play();
                 float target = started ? amb * l.vol : 0f;
                 if (l == _canopy) target *= 0.15f + 0.85f * gust * gust;   // 風が強いほど、葉ずれが大きい
+                if (l == _ridge)
+                {
+                    // 山の尾根の風：高い所ほど、風が強いほど大きい
+                    var w = InchwormController.Instance;
+                    float high = w != null ? ShakuMath.SmoothStep(6f, 26f, w.CenterPosition.y) : 0f;
+                    target *= (0.1f + 0.9f * high) * (0.5f + 0.5f * gust);
+                }
                 l.src.volume = Mathf.Lerp(l.src.volume, target, k);
             }
             // 森：遠くで、ときどきキツツキが木をたたく

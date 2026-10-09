@@ -687,11 +687,14 @@ namespace Shakutori.EditorTools
             audio.chirp = Clip("chirp");
             audio.croak = Clip("croak");
             audio.parkAmbience = Clip("ambience_park");
+            audio.musicMountain = Clip("music_mountain");
+            audio.mountainAmbience = Clip("ambience_mountain");
             audio.areaClips = new[]
             {
                 Clip("loop_waterfall"), Clip("loop_shallows"), Clip("loop_frogs"), Clip("loop_cave_drip"), Clip("loop_canopy"),
                 Clip("woodpecker"), Clip("knock_acorn"), Clip("puff"), Clip("creak"), Clip("clunk"), Clip("plink"), Clip("bell"),
                 Clip("fish_jump"), Clip("ting"), Clip("sand_step"), Clip("fall"),
+                Clip("loop_spring"), Clip("loop_ridge_wind"), Clip("higurashi"), Clip("pika"),
             };
             var creatures = game.AddComponent<Creatures>();
             creatures.assets = assets;

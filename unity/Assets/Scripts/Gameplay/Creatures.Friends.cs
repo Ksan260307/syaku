@@ -44,12 +44,20 @@ namespace Shakutori
 
         static bool IsFlyer(Mob m) => m.sp.kind == MobKind.Flutter || m.sp.kind == MobKind.Hover;
 
-        /// <summary>なかよしになった鳥は、近づいても、すぐには逃げない（逃げる距離にかける数）。</summary>
+        /// <summary>なかよしになった鳥やリス・トカゲは、近づいても、すぐには逃げない（逃げる距離にかける数）。</summary>
         static float FearScale(Mob m)
         {
-            if (m.sp.kind != MobKind.Bird) return 1f;
             int lv = Friends.Level(m.sp.id);
             return lv >= 4 ? 0.35f : lv >= 2 ? 0.6f : 1f;
+        }
+
+        /// <summary>体のまん中から、はしまでの長さ（横から見た、体の大きさ）。</summary>
+        float BodyReach(Mob m)
+        {
+            var mesh = M(m.sp.body);
+            if (mesh == null) return 0.5f * m.scale;
+            Vector3 e = mesh.bounds.extents;
+            return Mathf.Max(e.x, e.z) * m.scale;
         }
 
         /// <summary>いま、そのしぐさをしているか。</summary>
@@ -188,6 +196,9 @@ namespace Shakutori
             if (m.anim < m.friendNext || worm.IsFalling || _headVel.sqrMagnitude > 2.2f * 2.2f) return;
             if (m.carryingWorm || m.curled > 0f || m.retreat > 0f || m.dig > 0.3f || m.anim < m.deadUntil || m.anim < m.watchUntil) return;
             float r = IsFlyer(m) ? FlyerGreetRadius : GreetRadius + 0.5f * Mathf.Max(0f, m.scale - 1f);
+            // 体の大きないきもの（リスなど）は、体のはしから少しの所で、あいさつしてくれる
+            float reach = BodyReach(m);
+            if (reach > 2f) r = Mathf.Max(r, GreetRadius + reach - 1f);
             if (m.sp.kind == MobKind.Bird)
             {
                 if (m.airborne) return;

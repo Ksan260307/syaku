@@ -197,6 +197,7 @@ namespace Shakutori
         public int PushOut(Vector3 center, float radius, float halfHeight = float.MaxValue)
         {
             int moved = 0;
+            bool synced = false;
             for (int i = 0; i < _count; i++)
             {
                 ref var it = ref _items[i];
@@ -207,9 +208,25 @@ namespace Shakutori
                 if (d.sqrMagnitude >= keep * keep) continue;
                 if (Mathf.Abs(it.pos.y - center.y) > halfHeight + it.half) continue;   // 高い所の物（幹のサルノコシカケなど）の下の地面の物は、そのまま
                 Vector2 dir = d.sqrMagnitude > 1e-6f ? d.normalized : new Vector2(Mathf.Cos(i * 2.39996f), Mathf.Sin(i * 2.39996f));
-                Vector3 p = new Vector3(center.x + dir.x * keep, 0f, center.z + dir.y * keep);
-                p.y = Area.Height(p.x, p.z);
-                p = RestOnGround(b.mesh, p, it.rot, it.scale, Area);
+                if (!synced) { Physics.SyncTransforms(); synced = true; }
+                // よけた先が、となりの石の中にならないように：まっすぐ外へ、だめなら少し向きと距離を変えてさがす
+                float half = Mathf.Max(0.05f, b.mesh.bounds.extents.magnitude * it.scale);
+                Vector3 p = default;
+                bool found = false;
+                for (int ring = 0; ring < 3 && !found; ring++)
+                    for (int k = 0; k < 13 && !found; k++)
+                    {
+                        float turn = (k + 1) / 2 * 30f * (k % 2 == 0 ? 1f : -1f);
+                        Vector2 dd = Quaternion.Euler(0f, 0f, turn) * dir;
+                        float r = keep + ring * 0.35f;
+                        Vector3 q = new Vector3(center.x + dd.x * r, 0f, center.z + dd.y * r);
+                        q.y = Area.Height(q.x, q.z);
+                        q = RestOnGround(b.mesh, q, it.rot, it.scale, Area);
+                        if (ring == 0 && k == 0) p = q;
+                        if (Blocked(q, half)) continue;
+                        p = q;
+                        found = true;
+                    }
                 it.pos = it.home = p;
                 it.lift = p.y - Area.Height(p.x, p.z);
                 it.m = Matrix4x4.TRS(p, it.rot, Vector3.one * it.scale);
@@ -218,6 +235,14 @@ namespace Shakutori
             }
             if (moved > 0) _dirty = true;
             return moved;
+        }
+
+        /// <summary>そこに置くと、ほかの動かない物（石など）にめりこむか。</summary>
+        static bool Blocked(Vector3 p, float half)
+        {
+            foreach (var c in Physics.OverlapSphere(p + Vector3.up * half * 0.4f, half * 0.45f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
+                if (!c.name.StartsWith("Terrain_") && c.attachedRigidbody == null) return true;
+            return false;
         }
 
         /// <summary>その場所に、いちばん近い物（テスト用）。メッシュ名で選べる。</summary>
