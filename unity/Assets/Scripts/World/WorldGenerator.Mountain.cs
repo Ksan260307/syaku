@@ -32,6 +32,7 @@ namespace Shakutori
             _stairTops.Clear();
             _hutStep = _springSpout = _snowTop = _archTop = Vector3.zero;
             _hutYaw = 0f;
+            MountainFixes.Clear();
         }
 
         static Vector3 MG(Vector2 p) => MountainLayout.Ground(p.x, p.y);
@@ -259,7 +260,7 @@ namespace Shakutori
             {
                 Vector2 p = RandomInRing(6f, 62f);
                 float s = R(0.4f, 2.2f);
-                if (!IsFree(p, 1.4f * s) || !IsLand(p, 0.1f) || MountainLayout.TrailMask(p.x, p.y) > 0.15f) continue;
+                if (!IsFree(p, 1.4f * s) || !IsLand(p, 0.1f) || MountainLayout.GenTrailMask(p.x, p.y) > 0.15f) continue;
                 if (MountainLayout.SnowMask(p.x, p.y) > 0.3f || MountainLayout.InSpring(p.x, p.y, 2f)) continue;
                 float h = MountainLayout.Height(p.x, p.y);
                 float rocky = MountainLayout.RockMask(p.x, p.y, h, MountainLayout.Normal(p.x, p.y));
@@ -415,8 +416,13 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // 草花
         // ------------------------------------------------------------------
+        /// <summary>草花を植えない所（歩く小道・雪渓・泉）。しずくを置いたあとの小物に使う。</summary>
         bool MountainBare(Vector2 p) =>
             MountainLayout.TrailMask(p.x, p.y) > 0.35f || MountainLayout.SnowMask(p.x, p.y) > 0.25f || MountainLayout.InSpring(p.x, p.y, 0.5f);
+
+        /// <summary>しずくを置く前の草花の置き方（はじめの道すじ。乱数の使い方を変えないため）。</summary>
+        bool MountainBareGen(Vector2 p) =>
+            MountainLayout.GenTrailMask(p.x, p.y) > 0.35f || MountainLayout.SnowMask(p.x, p.y) > 0.25f || MountainLayout.InSpring(p.x, p.y, 0.5f);
 
         void BuildMountainFoliage()
         {
@@ -428,7 +434,7 @@ namespace Shakutori
             for (int i = 0; i < grass; i++)
             {
                 Vector2 p = R01() < 0.3f ? RandomInCircle(MountainLayout.Meadow, 16f) : RandomInRing(2f, 74f);
-                if (!IsLand(p, 0.12f) || InsideOccupied(p) || MountainBare(p)) continue;
+                if (!IsLand(p, 0.12f) || InsideOccupied(p) || MountainBareGen(p)) continue;
                 if (Vector2.Distance(p, MountainLayout.Spawn) < 2.5f) continue;
                 float h = MountainLayout.Height(p.x, p.y);
                 float rocky = MountainLayout.RockMask(p.x, p.y, h, MountainLayout.Normal(p.x, p.y));
@@ -442,7 +448,7 @@ namespace Shakutori
             for (int i = 0; i < moss; i++)
             {
                 Vector2 p = R01() < 0.5f ? RandomInCircle(MountainLayout.Spring, MountainLayout.SpringRadius + 7f) : RandomInRing(4f, 64f);
-                if (!IsLand(p, 0.08f) || MountainBare(p)) continue;
+                if (!IsLand(p, 0.08f) || MountainBareGen(p)) continue;
                 if (Vector2.Distance(p, MountainLayout.Spring) > MountainLayout.SpringRadius + 8f && Mathf.PerlinNoise(p.x * 0.08f + 7f, p.y * 0.08f) < 0.6f) continue;
                 Place("Moss", fol, MG(p) + Vector3.down * 0.05f, GroundRotation(p, R(0, 360), 1f, 3f), R(0.5f, 1.2f), false, false, 60f);
             }
@@ -450,7 +456,7 @@ namespace Shakutori
             for (int i = 0; i < 70; i++)
             {
                 Vector2 p = R01() < 0.5f ? RandomInCircle(MountainLayout.Ridge, 18f) : RandomInRing(20f, 66f);
-                if (!IsLand(p, 0.2f) || InsideOccupied(p) || MountainBare(p)) continue;
+                if (!IsLand(p, 0.2f) || InsideOccupied(p) || MountainBareGen(p)) continue;
                 if (MountainLayout.Height(p.x, p.y) < 8f) continue;
                 Place("Mtn_Haimatsu", fol, MG(p) + Vector3.down * 0.25f, GroundRotation(p, R(0, 360), 0.6f, 4f), R(0.8f, 1.4f), false, true, 140f);
             }
@@ -460,7 +466,7 @@ namespace Shakutori
                 for (int i = 0; i < count; i++)
                 {
                     Vector2 p = RandomInCircle(center, radius);
-                    if (!IsLand(p, 0.2f) || InsideOccupied(p) || MountainBare(p)) continue;
+                    if (!IsLand(p, 0.2f) || InsideOccupied(p) || MountainBareGen(p)) continue;
                     if (Vector2.Distance(p, MountainLayout.Spawn) < 3f) continue;
                     Place(name, flw, MG(p) + Vector3.down * 0.05f, GroundRotation(p, R(0, 360), 0.3f, 5f), R(smin, smax), false, true, 120f);
                 }
@@ -479,7 +485,7 @@ namespace Shakutori
             for (int i = 0; i < 40; i++)
             {
                 Vector2 p = R01() < 0.6f ? RandomInRing(40f, 72f) : RandomInCircle(MountainLayout.Spring, 14f);
-                if (!IsLand(p, 0.3f) || InsideOccupied(p) || MountainBare(p)) continue;
+                if (!IsLand(p, 0.3f) || InsideOccupied(p) || MountainBareGen(p)) continue;
                 if (MountainLayout.Height(p.x, p.y) > 14f) continue;
                 if (Vector2.Distance(p, MountainLayout.Spawn) < 10f) continue;
                 Place(R01() < 0.5f ? "Fern_A" : "Fern_B", flw, MG(p) + Vector3.down * 0.3f, GroundRotation(p, R(0, 360), 0.3f, 6f), R(0.6f, 1.1f), false, true, 200f);
@@ -491,7 +497,7 @@ namespace Shakutori
                 Vector2 p = RandomInRing(1f, 66f);
                 float h = MountainLayout.Height(p.x, p.y);
                 float rocky = MountainLayout.RockMask(p.x, p.y, h, MountainLayout.Normal(p.x, p.y));
-                if (MountainLayout.TrailMask(p.x, p.y) < 0.4f && rocky < 0.3f) continue;
+                if (MountainLayout.GenTrailMask(p.x, p.y) < 0.4f && rocky < 0.3f) continue;
                 if (!IsLand(p, 0.0f) || InsideOccupied(p)) continue;
                 PlaceLoose(Pick(Rocks), assets.prop, MG(p), Quaternion.Euler(R(-12f, 12f), R(0, 360), R(-12f, 12f)), R(0.05f, 0.16f), LooseProps.Shape.Pebble, false, 40f);
             }
@@ -559,24 +565,36 @@ namespace Shakutori
             Vector2 md = MountainLayout.Meadow;
             Vector2 pn = MountainLayout.Pine;
             Vector2 hut = MountainLayout.Hut;
-            // ライチョウ：山小屋のまわりと、はい松の尾根を、のんびり歩く
+            // 地面を歩くいきものは、小道・泉・着いたときの景色の通り道からはなれた所にいる（道をふさがない・景色の前に立たない）
+            Vector3 Calm(Vector2 want, float keep = 3.5f) => MG(CalmSpot(want, keep));
+            // ライチョウ：山小屋のまわりと、はい松の尾根を、のんびり歩く（降りる場所も、小道のわき）
             {
-                var g = AddMob("raichou", MG(hut + new Vector2(-10f, -9f)), 1, 3f);
-                Vector2[] spots = { hut + new Vector2(-10f, -9f), MountainLayout.Ridge + new Vector2(4f, -4f), MountainLayout.SnowPatch + new Vector2(8f, 4f), md + new Vector2(6f, 8f) };
-                foreach (var p in spots) g.path.Add(MG(p));
+                var g = AddMob("raichou", Calm(hut + new Vector2(4f, -12f), 4f), 1, 3f);
+                Vector2[] spots = { hut + new Vector2(4f, -12f), MountainLayout.Ridge + new Vector2(4f, -6f), MountainLayout.SnowPatch + new Vector2(12f, 6f), md + new Vector2(10f, 4f) };
+                foreach (var p in spots) g.path.Add(Calm(p, 4f));
             }
-            // ニホンリス：大きな松の根もとと、山小屋のうら
-            AddMob("risu", MG(pn + new Vector2(6f, -4f)), 1, 7f);
-            AddMob("risu", MG(hut + new Vector2(8f, 6f)), 1, 6f);
+            // ニホンリス：大きな松の北（松の景色の通り道の外）と、山小屋のうら
+            AddMob("risu", Calm(pn + new Vector2(6f, 6f), 4f), 1, 7f);
+            AddMob("risu", Calm(hut + new Vector2(-2f, 14f), 4f), 1, 6f);   // 山小屋の北（うらのふみ板からはなれた所）
             // オコジョ：岩のすみか
             foreach (var d in _okojoDens) AddMob("okojo", MG(d), 1, 0.3f);
             // ナキウサギ：雪渓のそばの岩場と、山頂の岩
-            AddMob("nakiusagi", MG(MountainLayout.SnowPatch + new Vector2(10f, -8f)), 2, 5f);
-            AddMob("nakiusagi", MG(MountainLayout.Summit + new Vector2(-8f, -6f)), 1, 4f);
-            // ハコネサンショウウオ：泉のほとり
+            AddMob("nakiusagi", Calm(MountainLayout.SnowPatch + new Vector2(12f, -10f)), 2, 5f);
+            AddMob("nakiusagi", Calm(MountainLayout.Summit + new Vector2(-8f, -6f)), 1, 4f);
+            // ハコネサンショウウオ：泉のほとり（小道の終わりの、上がり口はあけておく）
             Vector2 sp = MountainLayout.Spring;
-            AddMob("sanshouuo", MG(sp + new Vector2(MountainLayout.SpringRadius + 1.4f, 2f)), 1, 2.5f);
-            AddMob("sanshouuo", MG(sp + new Vector2(-MountainLayout.SpringRadius - 1.2f, -3f)), 1, 2.5f);
+            foreach (var want in new[] { sp + new Vector2(7.5f, -6.5f), sp + new Vector2(-MountainLayout.SpringRadius - 1.2f, -3f) })
+            {
+                Vector2 at = want;
+                for (int i = 0; i < 24; i++)
+                {
+                    float a = i * 0.26f;
+                    Vector2 q = sp + (want - sp).normalized * (MountainLayout.SpringRadius + 1.6f + (i % 3) * 0.6f);
+                    q = sp + (Vector2)(Quaternion.Euler(0f, 0f, a * Mathf.Rad2Deg * ((i % 2) * 2 - 1)) * (q - sp));
+                    if (MountainLayout.DistToTrail(q) > 2.8f && IsLand(q, 0.1f)) { at = q; break; }
+                }
+                AddMob("sanshouuo", MG(at), 1, 2.5f);
+            }
             // 花畑のチョウとハチ
             AddMob("asagimadara", MG(md), 2, 11f, 3.8f);
             AddMob("asagimadara", MG(MountainLayout.Ridge), 1, 9f, 4.2f);
@@ -587,21 +605,22 @@ namespace Shakutori
             AddMob("oniyanma", new Vector3(sp.x, MountainLayout.SpringLevel, sp.y), 1, 10f, 2.8f);
             AddMob("oniyanma", MG(new Vector2(14f, -2f)), 1, 12f, 2.6f);
             AddMob("dragonfly", MG(md + new Vector2(-8f, -6f)), 2, 10f, 3.2f);
-            // ヒグラシ：松の幹と、小屋のかべ
+            // ヒグラシ：松の幹（小道と反対の、北がわ）
             AddMob("higurashi", MG(pn + new Vector2(1.8f, 0.5f)), 1, 1.5f);
-            AddMob("higurashi", MG(pn + new Vector2(-1.5f, 1.5f)), 1, 1.5f);
+            AddMob("higurashi", MG(pn + new Vector2(0.5f, 2.2f)), 1, 1.5f);
             // マイマイカブリ：小屋のうらの日かげと、松の根もと（かたつむりもいる）
-            AddMob("maimaikaburi", MG(hut + new Vector2(5f, 11f)), 1, 4f);
-            AddMob("maimaikaburi", MG(pn + new Vector2(-6f, 4f)), 1, 4f);
-            AddMob("snail", MG(hut + new Vector2(9f, 8f)), 1, 2f);
+            AddMob("maimaikaburi", Calm(hut + new Vector2(11f, 1f)), 1, 4f);   // 小屋の東の日かげ（うらのふみ板からはなす）
+            AddMob("maimaikaburi", Calm(pn + new Vector2(-6f, -4f)), 1, 4f);
+            AddMob("snail", Calm(hut + new Vector2(9f, 8f), 2.5f), 1, 2f);
             // そのほか（山にもいる、なじみのいきもの）
-            AddMob("grasshopper", MG(md + new Vector2(8f, -8f)), 2, 8f);
-            AddMob("ladybug", MG(md + new Vector2(-2f, -3f)), 1, 3f);
-            AddMob("spider", MG(MountainLayout.RockArch + new Vector2(-6f, 3f)), 1, 3f);
+            AddMob("grasshopper", Calm(md + new Vector2(4f, 8f)), 2, 8f);
+            AddMob("ladybug", Calm(md + new Vector2(-2f, -3f), 2.5f), 1, 3f);
+            AddMob("spider", Calm(MountainLayout.RockArch + new Vector2(-6f, 8f)), 1, 3f);
             {
-                var g = AddMob("crow", MG(new Vector2(-30f, -30f)), 1, 2f);
-                Vector2[] spots = { new Vector2(-30f, -30f), MountainLayout.Summit + new Vector2(3f, -2f) };
-                foreach (var p in spots) g.path.Add(MG(p));
+                // カラス：ふもとの草地と、尾根の岩（山頂のまん中には下りない。名所と景色をふさがない）
+                var g = AddMob("crow", Calm(new Vector2(-30f, -30f), 4f), 1, 2f);
+                Vector2[] spots = { new Vector2(-30f, -30f), MountainLayout.Ridge + new Vector2(-6f, 4f) };
+                foreach (var p in spots) g.path.Add(Calm(p, 4f));
             }
         }
 
@@ -656,6 +675,13 @@ namespace Shakutori
             if (!generated) return;
             foreach (var t in _stairTops) MapDot(px, size, t, 1.8f, new Color32(168, 166, 160, 255));
             foreach (var d in _okojoDens) MapDot(px, size, new Vector3(d.x, 0f, d.y), 2f, new Color32(120, 116, 112, 255));
+            // 道しるべ・泉のとびいし・ふみ板と倒れた木（登れる所）
+            var wood = new Color32(176, 138, 90, 255);
+            foreach (var p in ExtraSpots("fix_sign")) MapDot(px, size, p, 1.3f, wood);
+            foreach (var p in ExtraSpots("fix_springstone")) MapDot(px, size, p, 0.9f, new Color32(186, 182, 172, 255));
+            foreach (var p in ExtraSpots("fix_sidestairs")) MapDot(px, size, p, 0.9f, new Color32(196, 190, 176, 255));
+            foreach (var kind in new[] { "fix_hutplank", "fix_archlog", "fix_pinelog" })
+                foreach (var p in ExtraSpots(kind)) MapDot(px, size, p, 1.2f, wood);
         }
     }
 }

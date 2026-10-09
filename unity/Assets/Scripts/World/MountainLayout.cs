@@ -84,8 +84,8 @@ namespace Shakutori
             Vector2 p = new Vector2(x, z);
             float r = p.magnitude;
             float h = BaseHeight(x, z);
-            // 小道は、すこし平らに
-            h -= TrailMask(x, z) * 0.12f;
+            // 小道は、すこし平らに（地形の形は、はじめの道すじのまま。しずくの場所を変えないため）
+            h -= GenTrailMask(x, z) * 0.12f;
             // 山小屋の平らな所
             h = Mathf.Lerp(h, HutLevel, SmoothStep(11f, 7f, Vector2.Distance(p, Hut)));
             // 雪渓のくぼみ（日かげの谷）
@@ -139,16 +139,21 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // 小道
         // ------------------------------------------------------------------
-        static List<Vector2[]> _trails;
+        static List<Vector2[]> _trails, _genTrails;
+        static Vector2 Fork => new Vector2(4f, -6f);
 
-        public static List<Vector2[]> Trails
+        /// <summary>
+        /// はじめの道すじ。地形の形と、しずくを置く前の物の置き方（乱数の使い方）は、この道で決まる
+        /// （しずくの場所を変えないよう、あとから道を付けかえても、こちらは変えない）。
+        /// </summary>
+        public static List<Vector2[]> GenTrails
         {
             get
             {
-                if (_trails == null)
+                if (_genTrails == null)
                 {
-                    Vector2 fork = new Vector2(4f, -6f);
-                    _trails = new List<Vector2[]>
+                    Vector2 fork = Fork;
+                    _genTrails = new List<Vector2[]>
                     {
                         new[] { new Vector2(0f, -54f), Trailhead, new Vector2(3f, -34f), RockStairs + new Vector2(-1f, -4f), RockStairs + new Vector2(1f, 5f), fork },
                         new[] { fork, new Vector2(-12f, -9f), Spring + new Vector2(9.5f, 1f) },
@@ -161,19 +166,67 @@ namespace Shakutori
                         new[] { Meadow + new Vector2(6f, -6f), new Vector2(38f, -8f), RockArch + new Vector2(-4f, 2f) },
                     };
                 }
+                return _genTrails;
+            }
+        }
+
+        /// <summary>
+        /// 歩く小道（見える道）。遊びやすいように付けかえた道：岩の階段の西を通って階段へは短い道でよる・山小屋のかべをよけて西をまわる・
+        /// 岩のトンネルをくぐりぬけて東へ出る。
+        /// </summary>
+        public static List<Vector2[]> Trails
+        {
+            get
+            {
+                if (_trails == null)
+                {
+                    Vector2 fork = Fork;
+                    _trails = new List<Vector2[]>
+                    {
+                        new[] { new Vector2(0f, -54f), Trailhead, new Vector2(2f, -34f), new Vector2(1.5f, -27f), new Vector2(2.8f, -19f), fork },
+                        new[] { fork, new Vector2(-12f, -9f), Spring + new Vector2(9.5f, 1f) },
+                        new[] { fork, new Vector2(14f, -2f), Meadow + new Vector2(-6f, -1f) },
+                        new[] { Meadow + new Vector2(-6f, -1f), new Vector2(30f, 14f), Hut + new Vector2(-6f, -5f) },
+                        new[] { Hut + new Vector2(-6f, -5f), new Vector2(21f, 26f), new Vector2(18.5f, 32f), new Vector2(21f, 38.5f), Summit + new Vector2(4f, -3f) },
+                        new[] { fork, new Vector2(-4f, 6f), Pine + new Vector2(3f, -4f) },
+                        new[] { Pine + new Vector2(3f, -4f), new Vector2(-11f, 5.5f), new Vector2(-18f, 9f), new Vector2(-19.5f, 16f), new Vector2(-18f, 22f), SnowPatch + new Vector2(8f, -2f) },   // 松の幹と根をよけて、南西をまわる
+                        new[] { SnowPatch + new Vector2(8f, -2f), new Vector2(-22f, 40f), Ridge + new Vector2(2f, -2f), Summit + new Vector2(-4f, -1f) },
+                        new[] { Meadow + new Vector2(-6f, -1f), new Vector2(26f, -1f), Meadow + new Vector2(6f, -6f), new Vector2(38f, -8f), RockArch + new Vector2(-4f, 1f), RockArch, RockArch + new Vector2(7f, -1f) },
+                        new[] { new Vector2(2f, -34f), StairsFoot },   // 岩の階段へよる、短い道
+                    };
+                }
                 return _trails;
             }
         }
 
-        public static float TrailMask(float x, float z)
+        /// <summary>岩の階段のいちばん下の段の前（短い道の先）。</summary>
+        public static Vector2 StairsFoot => new Vector2(7.1f, -35.1f);
+
+        static float MaskOf(List<Vector2[]> trails, float x, float z)
         {
             Vector2 p = new Vector2(x, z);
             float best = 99f;
-            foreach (var t in Trails)
+            foreach (var t in trails)
                 for (int i = 0; i < t.Length - 1; i++)
                     best = Mathf.Min(best, ShakuMath.DistToSegment(p, t[i], t[i + 1]));
             float wob = (Mathf.PerlinNoise(x * 0.3f + 40f, z * 0.3f + 7f) - 0.5f) * 0.6f;
             return SmoothStep(2.2f, 1.2f, best + wob);
+        }
+
+        /// <summary>歩く小道（見える道）の上か。</summary>
+        public static float TrailMask(float x, float z) => MaskOf(Trails, x, z);
+
+        /// <summary>はじめの道すじの上か（地形と、しずくを置く前の物の置き方だけに使う）。</summary>
+        public static float GenTrailMask(float x, float z) => MaskOf(GenTrails, x, z);
+
+        /// <summary>歩く小道のまん中の線までの距離。</summary>
+        public static float DistToTrail(Vector2 p)
+        {
+            float best = 99f;
+            foreach (var t in Trails)
+                for (int i = 0; i < t.Length - 1; i++)
+                    best = Mathf.Min(best, ShakuMath.DistToSegment(p, t[i], t[i + 1]));
+            return best;
         }
 
         // ------------------------------------------------------------------

@@ -547,6 +547,109 @@ def make_kurumayuri(name, seed):
     return build(mb, name)
 
 
+# ---------------------------------------------------------------------------
+# 遊びやすさのための物：立てかけたふみ板・倒れた木・道しるべ（柱と、1 まいずつの矢印の板）
+# Unity の +Z（前）は Blender の -Y。Unity の +X は Blender の -X
+# ---------------------------------------------------------------------------
+PLANK_LEN = 11.0
+LOG_LEN = 14.0
+SIGN_POST_H = 6.0
+
+
+def make_plank(name="Mtn_Plank", length=PLANK_LEN, width=3.0):
+    """立てかけたふみ板：はばの広い板に、横のすじ（下が原点、Unity の +Z へのびる）"""
+    mb = MB()
+    wood = hexc("#b58a58")
+    box(mb, (0, -length / 2, 0), (width, length, 0.22), lambda n: scalec(wood, 0.85 + 0.15 * n.z))
+    # 足がかりの横木は、しゃくとりむしには、じゃまな段になるので、板にぬった横のすじにする（平ら）
+    rungs = max(3, int(length / 1.2))
+    for k in range(rungs):
+        y = -0.8 - k * (length - 1.4) / (rungs - 1)
+        box(mb, (0, y, 0.112), (width * 0.98, 0.16, 0.006), lambda n: hexc("#8a6038"))
+    # 板の木目
+    for k in range(3):
+        x = -width * 0.28 + k * width * 0.28
+        box(mb, (x, -length / 2, 0.115), (0.03, length * 0.96, 0.01), lambda n: hexc("#9a7448"))
+    return build(mb, name, smooth=False)
+
+
+STEP_PILLAR_H = 9.0
+
+
+def make_step_pillar():
+    """岩の階段のわきの石段：上が平らで、横はまっすぐ（ひさしにならない）。上の面が原点、下へ長くのびて地面にうまる"""
+    rnd = random.Random(77)
+    mb = MB()
+    seg = 10
+    rings = []
+    prof = [(0.0, 0.0), (0.95, 0.0), (1.0, -0.08), (1.0, -STEP_PILLAR_H)]
+    off = Vector((rnd.uniform(-9, 9), rnd.uniform(-9, 9), 0))
+
+    def col(t, a, p):
+        c = mixc(GRANITE_A, GRANITE_B, 0.5 + 0.5 * noise.noise(p * 0.8 + off))
+        if p.z > -0.05:
+            c = mixc(c, LICHEN, 0.3)
+        return scalec(c, 0.8 + 0.25 * sstep(-2.0, 0.0, p.z))
+    rings = lathe(mb, prof + [(0.0, -STEP_PILLAR_H)], seg, col,
+                  rfn=lambda t, a: 1.0 + 0.1 * noise.noise(Vector((math.cos(a) * 2, math.sin(a) * 2, 0.5)) + off))
+    # 上の面は lathe の向きで下向きになるので、裏返す（上が外）
+    mb.F = [tuple(reversed(f)) for f in mb.F]
+    mb.V = [Vector((p.x * 0.85, p.y * 0.75, p.z)) for p in mb.V]
+    return build(mb, "Mtn_StepPillar", smooth=False)
+
+
+def make_log():
+    """倒れた木の幹：皮のはげた所と、折れた枝のあと（下のはしが原点、Unity の +Z へのびる）"""
+    rnd = random.Random(12)
+    mb = MB()
+    n = 16
+    pts = [Vector((0.15 * math.sin(i * 0.9), -LOG_LEN * i / (n - 1), 0.0)) for i in range(n)]
+    radii = [lerp(0.75, 0.5, i / (n - 1)) for i in range(n)]
+
+    def col(t, a, p, d):
+        c = bark_color(p * 0.6, a, 0.4 * sstep(0.7, 1.0, abs(math.sin(a * 6 + p.y))), 3.0, 0.35, 0.3)
+        if noise.noise(p * 0.7) > 0.35:
+            c = mixc(c, hexc("#c8b08a"), 0.7)   # 皮がはげて、白っぽい所
+        return c
+    tube(mb, pts, radii, 14, col)
+    lathe(mb, [(0.0, 0.0), (0.75, 0.0)], 14, lambda t, a, p: hexc("#d8b886"))   # 切り口
+    for k in range(4):
+        y = -LOG_LEN * rnd.uniform(0.25, 0.85)
+        a = rnd.uniform(0, TAU)
+        base = Vector((math.cos(a) * 0.5, y, math.sin(a) * 0.5))
+        tube(mb, [base, base + Vector((math.cos(a) * 0.9, -0.4, math.sin(a) * 0.9))], [0.18, 0.08], 6,
+             lambda t, ang, p, d: hexc("#6a4a32"))
+    return build(mb, "Mtn_Log", smooth=True)
+
+
+def make_sign_post():
+    """道しるべの柱（矢印の板は、べつに 1 まいずつ付ける）"""
+    mb = MB()
+    wood = hexc("#b08a5a")
+    box(mb, (0, 0, SIGN_POST_H / 2 - 0.2), (0.7, 0.7, SIGN_POST_H + 0.4), lambda n: scalec(wood, 0.9 + 0.1 * n.x))
+    box(mb, (0, 0, SIGN_POST_H + 0.05), (0.95, 0.95, 0.3), lambda n: hexc("#7a5a36"))
+    return build(mb, "Mtn_SignPost", smooth=False)
+
+
+def make_sign_arrow():
+    """道しるべの矢印の板 1 まい：柱のまん中（原点）から、Unity の +X（Blender の -X）の向きを指す"""
+    mb = MB()
+    cream = hexc("#efe4c8")
+    box(mb, (-2.1, 0, 0), (3.4, 0.2, 0.8), lambda n: mixc(cream, hexc("#b08a5a"), 0.15 if abs(n.y) < 0.5 else 0.0))
+    for sy in (-1, 1):
+        a = mb.v((-3.8, sy * 0.1, 0.55), cream)
+        b = mb.v((-3.8, sy * 0.1, -0.55), cream)
+        c = mb.v((-4.7, sy * 0.1, 0.0), cream)
+        if sy < 0:
+            mb.f(a, c, b)
+        else:
+            mb.f(a, b, c)
+    for k in range(3):
+        for sy in (-1, 1):
+            box(mb, (-1.0 - k * 0.9, sy * 0.11, 0), (0.5, 0.02, 0.12), lambda n: hexc("#3a2a1e"))
+    return build(mb, "Mtn_SignArrow", smooth=False)
+
+
 def main():
     fbx_dir, blend_out = parse_args()
     os.makedirs(fbx_dir, exist_ok=True)
@@ -564,6 +667,7 @@ def main():
         lambda: make_chinguruma("Mtn_Chinguruma", 62),
         lambda: make_chinguruma_seed("Mtn_ChingurumaSeed", 63),
         lambda: make_kurumayuri("Mtn_Kurumayuri", 64),
+        make_plank, lambda: make_plank("Mtn_PlankShort", 6.5, 3.0), make_log, make_sign_post, make_sign_arrow, make_step_pillar,
     ]
     objs = []
     for mk in makers:

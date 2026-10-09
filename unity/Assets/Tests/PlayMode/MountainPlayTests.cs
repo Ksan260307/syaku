@@ -133,6 +133,112 @@ namespace Shakutori.Tests
             }
         }
 
+        /// <summary>点から点へ、向きを直しながら歩きつづける（プレイヤーが向きを直しながら進むのと同じ）。ついた点の数を返す。</summary>
+        IEnumerator Route(Vector2[] pts, float perLeg, float reach, int[] reachedOut)
+        {
+            Worm.Spawn(MountainLayout.Ground(pts[0].x, pts[0].y), Vector3.forward);
+            yield return Frames(2);
+            int ok = 0;
+            for (int i = 1; i < pts.Length; i++)
+            {
+                float t = 0f;
+                GameInput.VirtualMove = Vector2.up;
+                while (t < perLeg && Vector2.Distance(new Vector2(Worm.HeadPosition.x, Worm.HeadPosition.z), pts[i]) > reach)
+                {
+                    Vector3 to = new Vector3(pts[i].x - Worm.CenterPosition.x, 0f, pts[i].y - Worm.CenterPosition.z).normalized;
+                    Cam.yaw = Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg;
+                    Cam.pitch = 20f;
+                    yield return null;
+                    t += Time.deltaTime;
+                }
+                GameInput.VirtualMove = Vector2.zero;
+                if (Vector2.Distance(new Vector2(Worm.HeadPosition.x, Worm.HeadPosition.z), pts[i]) > reach) break;
+                ok++;
+            }
+            reachedOut[0] = ok;
+        }
+
+        static string Under()
+        {
+            Vector3 up = Worm.SurfaceUp;
+            return Physics.Raycast(Worm.CenterPosition + up * 0.3f, -up, out var h, 1.2f, ShakuConst.SurfaceMask) ? h.collider.name : "-";
+        }
+
+        static Vector2 X(Vector3 v) => new Vector2(v.x, v.z);
+
+        [UnityTest, Timeout(600000)]
+        public IEnumerator HutRoof_IsReachedUpThePlank()
+        {
+            yield return GoTo(Areas.Mountain);
+            var plank = Object.FindObjectsByType<Collider>(FindObjectsSortMode.None).First(c => c.name.StartsWith("Mtn_Plank"));
+            var hut = Object.FindObjectsByType<Collider>(FindObjectsSortMode.None).First(c => c.name == "Mtn_Hut").transform;
+            var t = plank.transform;
+            Vector3 f = new Vector3(t.forward.x, 0f, t.forward.z).normalized, b0 = t.position, top = b0 + t.forward * plank.bounds.size.magnitude * 0.6f;
+            var r = new int[1];
+            float best = 0f;
+            yield return Route(new[] { X(b0 - f * 2.5f), X(b0 + f * 0.8f), X(Vector3.Lerp(b0, top, 0.5f)), X(top), X(hut.position) }, 40f, 1.2f, r);
+            best = Worm.HeadPosition.y;
+            Assert.AreEqual("Mtn_Hut", Under(), "屋根の上");
+            Assert.Greater(best, hut.position.y + 10.5f, "ふみ板から屋根へ上がって、むねまで登れる");
+            ResetInput();
+        }
+
+        [UnityTest, Timeout(600000)]
+        public IEnumerator SpringStones_LeadToTheDewdropStones()
+        {
+            yield return GoTo(Areas.Mountain);
+            Vector2 c = MountainLayout.Spring;
+            var stones = GM.world.MountainFixes["fix_springstone"].Select(p => X(p)).ToList();
+            var chain = new System.Collections.Generic.List<Vector2> { c + new Vector2(10.5f, 0.8f) };
+            Vector2[] dews = { c + new Vector2(6f, 1f), c + new Vector2(4.5f, -4f), c + new Vector2(-3f, -5f), c + new Vector2(-5.5f, -2f) };
+            Vector2 cur = chain[0];
+            foreach (var d in dews)
+            {
+                foreach (var st in stones.Where(st => Vector2.Distance(st, cur) + Vector2.Distance(st, d) < Vector2.Distance(cur, d) + 0.6f).OrderBy(st => Vector2.Distance(st, cur)))
+                    chain.Add(st);
+                chain.Add(d);
+                cur = d;
+            }
+            var r = new int[1];
+            yield return Route(chain.ToArray(), 25f, 0.8f, r);
+            Assert.AreEqual(chain.Count - 1, r[0], "岸から、とびいしをつたって、泉のしずくの石を 4 つとも回れる");
+            Assert.IsFalse(MountainLayout.IsUnderwater(Worm.CenterPosition), "水に落ちない");
+            ResetInput();
+        }
+
+        [UnityTest, Timeout(600000)]
+        public IEnumerator SideStairs_ReachTheTopOfTheRockStairs()
+        {
+            yield return GoTo(Areas.Mountain);
+            var w = GM.world;
+            var pts = new System.Collections.Generic.List<Vector2> { MountainLayout.StairsFoot + new Vector2(-1.5f, -1f) };
+            foreach (var t in w.ExtraSpots("fix_sidestairs")) pts.Add(X(t));
+            var top = w.StairTops[w.StairTops.Count - 1];
+            pts.Add(X(top));
+            var r = new int[1];
+            yield return Route(pts.ToArray(), 30f, 1.2f, r);
+            Assert.AreEqual(pts.Count - 1, r[0], "石段を、いちばん上の岩まで登れる");
+            Assert.Greater(Worm.HeadPosition.y - MountainLayout.Height(Worm.HeadPosition.x, Worm.HeadPosition.z), 3f, "名所の高さ");
+            yield return WaitUntil(() => SaveSystem.Data.places.Contains(31), 3f, "岩の階段を見つける");
+            ResetInput();
+        }
+
+        [UnityTest, Timeout(600000)]
+        public IEnumerator ArchTop_IsReachedAlongTheFallenTrunk()
+        {
+            yield return GoTo(Areas.Mountain);
+            Vector3 arch = MountainLayout.Ground(MountainLayout.RockArch.x, MountainLayout.RockArch.y);
+            var log = Object.FindObjectsByType<Collider>(FindObjectsSortMode.None).Where(c => c.name == "Mtn_Log").OrderBy(c => Vector3.Distance(c.bounds.center, arch)).First();
+            var t = log.transform;
+            Vector3 f = new Vector3(t.forward.x, 0f, t.forward.z).normalized, b0 = t.position, top = b0 + t.forward * 13.5f;
+            var r = new int[1];
+            yield return Route(new[] { X(b0 - f * 2.5f), X(b0 + f * 0.8f), X(Vector3.Lerp(b0, top, 0.5f)), X(top), MountainLayout.RockArch }, 25f, 0.9f, r);
+            Assert.AreEqual(4, r[0], "倒れた木をつたって、アーチの上まで");
+            Assert.AreEqual("Mtn_RockArch", Under());
+            Assert.Greater(Worm.HeadPosition.y, arch.y + 8f);
+            ResetInput();
+        }
+
         [UnityTest]
         public IEnumerator MountainCreatures_ComeAlive()
         {

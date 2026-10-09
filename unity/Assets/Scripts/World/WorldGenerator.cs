@@ -185,6 +185,7 @@ namespace Shakutori
             else if (mountain)
             {
                 PlaceMountainDewdrops();
+                FixMountainForPlay();       // 遊びやすさの直し（しずくを置いたあと。しずくの場所は変えない）
                 PlaceMountainCreatures();   // 山はひらけた空なので、木もれ日の光の筋はない
             }
             else
