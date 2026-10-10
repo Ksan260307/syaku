@@ -114,58 +114,6 @@ namespace Shakutori
             Physics.SyncTransforms();
         }
 
-        /// <summary>
-        /// 木の根を地面にそわせる。根の形は平らな地面に合わせて作ってあるので、坂では下手の根が宙にうき、上手の根はうまる。
-        /// 幹より外の根を、その場所の地面と、幹の根もとの地面との高さの差だけ上げ下げする（幹と枝はそのまま）。
-        /// 根の上下で、下にうまった小物は根の上へのせる。しずくを置いたあとに使う。
-        /// </summary>
-        void ConformRoots(GameObject go, float trunkRadius, float rootTop)
-        {
-            var mf = go.GetComponent<MeshFilter>();
-            if (mf == null || mf.sharedMesh == null || !mf.sharedMesh.isReadable) return;
-            Transform t = go.transform;
-            Vector3 o = t.position;
-            float g0 = Area.Height(o.x, o.z);
-            Mesh Deform(Mesh src)
-            {
-                var m = Own(Instantiate(src));
-                m.name = src.name;
-                var v = m.vertices;
-                for (int i = 0; i < v.Length; i++)
-                {
-                    Vector3 w = t.TransformPoint(v[i]);
-                    float d = new Vector2(w.x - o.x, w.z - o.z).magnitude;
-                    float k = ShakuMath.SmoothStep(trunkRadius, trunkRadius + 1.6f, d) * ShakuMath.SmoothStep(rootTop, rootTop - 1f, w.y - o.y);
-                    if (k <= 0f) continue;
-                    w.y += (Area.Height(w.x, w.z) - g0) * k;
-                    v[i] = t.InverseTransformPoint(w);
-                }
-                m.vertices = v;
-                m.RecalculateBounds();
-                return m;
-            }
-            Mesh before = mf.sharedMesh;
-            mf.sharedMesh = Deform(before);
-            var mc = go.GetComponent<MeshCollider>();
-            if (mc != null && mc.sharedMesh != null && mc.sharedMesh.isReadable)
-            {
-                Mesh col = mc.sharedMesh == before ? mf.sharedMesh : Deform(mc.sharedMesh);
-                mc.sharedMesh = null;
-                mc.sharedMesh = col;
-            }
-            Physics.SyncTransforms();
-            // 下りてきた根の下にうまった小物（松ぼっくり・落ち葉・小石）は、根の上へ
-            float reach = trunkRadius + 12f;
-            if (loose != null)
-                loose.Lift(p =>
-                {
-                    if (new Vector2(p.x - o.x, p.z - o.z).sqrMagnitude > reach * reach) return 0f;
-                    if (!Physics.Raycast(p + Vector3.up * 2f, Vector3.down, out var hit, 2f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)) return 0f;
-                    return hit.collider == mc && hit.point.y > p.y + 0.02f ? hit.point.y - p.y : 0f;
-                });
-            Count("roots", go.name, o);
-        }
-
         // ------------------------------------------------------------------
         // 坂で宙にういた岩を、地面になじませる（しずくを置いたあと。しずくをのせた岩は動かさない）
         // ------------------------------------------------------------------

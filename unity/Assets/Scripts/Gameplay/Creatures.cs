@@ -263,7 +263,7 @@ namespace Shakutori
                 if (!seen.Add(m.sp)) continue;
                 var sp = m.sp;
                 Put(M(sp.body), assets.creature);
-                Put(M(sp.body + "_Ball"), assets.creature);
+                Put(assets.TryGet(sp.body + "_Ball"), assets.creature);   // 玉の形は、ある種だけ（ないときは何も言わない）
                 if (sp.rig != null)
                     foreach (var leg in CreatureRig.Legs(sp.rig))
                         Put(M(leg.mesh + sp.legSuffix) ?? M(leg.mesh), assets.creature);
@@ -273,7 +273,7 @@ namespace Shakutori
                         Put(M(part.mesh), assets.creature);
                         Put(M(part.mesh), assets.creatureWing);
                         Put(M(part.mesh), assets.creatureGlow);
-                        Put(M(part.mesh + "Folded"), assets.creatureWing);
+                        Put(assets.TryGet(part.mesh + "Folded"), assets.creatureWing);
                     }
                 if (m.bid == "mogura" && sp.id != "okojo") Put(M("Mogura_Hill"), assets.creature);
             }

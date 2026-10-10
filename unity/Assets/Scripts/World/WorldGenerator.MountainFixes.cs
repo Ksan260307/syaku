@@ -35,7 +35,7 @@ namespace Shakutori
         {
             MountainFixes.Clear();
             Physics.SyncTransforms();
-            PineRoots();
+            PineRootsToGround();
             MoveStairsDen();
             SettleDens();
             ClearWalkingTrails();
@@ -151,17 +151,6 @@ namespace Shakutori
                 Physics.SyncTransforms();
                 Fixed("fix_densoil", c);
             }
-        }
-
-        /// <summary>大きな松の根を、坂の地面にそわせる（下手の根が宙にうかない）。</summary>
-        void PineRoots()
-        {
-            foreach (Transform t in _solidRoot)
-                if (t.name == "Mtn_Pine")
-                {
-                    ConformRoots(t.gameObject, 3.4f, 3.2f);
-                    Fixed("pineRoots", t.position);
-                }
         }
 
         // ------------------------------------------------------------------
@@ -810,6 +799,62 @@ namespace Shakutori
                 }
                 return m;
             });
+        }
+
+        // ------------------------------------------------------------------
+        // 13. 大きな松の根：坂の下がわで、根が地面から浮いていた
+        // ------------------------------------------------------------------
+        /// <summary>
+        /// 松の根は、平らな地面に合わせた形なので、坂の下がわ（南から北西）では根の先が地面から浮いていた。
+        /// 根もとの頂点だけを、その場所の地面の低さに合わせて下げる（坂にそって根がはう）。幹の上・枝・葉のかたまりは動かさない。
+        /// 当たり判定も同じ形にする。しずくを置いたあとに行うので、しずくの場所は変わらない。
+        /// </summary>
+        void PineRootsToGround()
+        {
+            if (_pine == null) return;
+            var t = _pine.transform;
+            float centerGround = Area.Height(t.position.x, t.position.z);
+            var mf = _pine.GetComponent<MeshFilter>();
+            var mc = _pine.GetComponent<MeshCollider>();
+            if (mf == null || mf.sharedMesh == null || !mf.sharedMesh.isReadable) return;
+            Mesh src = mf.sharedMesh;
+            Mesh bent = RootsToGround(src, t, centerGround, out float deepest);
+            mf.sharedMesh = bent;
+            if (mc != null && mc.sharedMesh != null && mc.sharedMesh.isReadable)
+                mc.sharedMesh = mc.sharedMesh == src ? bent : RootsToGround(mc.sharedMesh, t, centerGround, out _);
+            PineRootDrop = deepest;
+            Fixed("fix_pineroots", t.position);
+        }
+
+        /// <summary>地面が低くなったぶんの、どれだけ根を下げるか。</summary>
+        const float RootFollow = 0.7f;
+
+        /// <summary>松の根を下げた、いちばん大きな量（テストと MOUNTAIN_FIXES.md の点検用）。</summary>
+        public float PineRootDrop { get; private set; }
+
+        /// <summary>根もと（幹の中心から 1.6 より外・高さ 4.5 より下）の頂点を、地面が低い所だけ、その低さぶん下げたメッシュ。</summary>
+        Mesh RootsToGround(Mesh src, Transform t, float centerGround, out float deepest)
+        {
+            var m = Own(Object.Instantiate(src));
+            m.name = src.name;
+            var v = m.vertices;
+            deepest = 0f;
+            for (int i = 0; i < v.Length; i++)
+            {
+                Vector3 p = v[i];
+                float w = ShakuMath.SmoothStep(1.6f, 3.6f, new Vector2(p.x, p.z).magnitude) * (1f - ShakuMath.SmoothStep(2.2f, 4.5f, p.y));
+                if (w <= 0f) continue;
+                Vector3 wp = t.TransformPoint(p);
+                // 地面が低くなったぶんの 6 わり下げる（根の下がわは、もとの形で地面より 1.1 以上深いので、これで浮かない。
+                // ぜんぶ下げると、根が土にうまって見えなくなる）。地面の三角形は高さの式より少し低い所があるので、少し余分に下げる
+                float drop = Mathf.Min(0f, (Area.Height(wp.x, wp.z) - centerGround) * RootFollow - 0.1f) * w;
+                if (drop >= 0f) continue;
+                v[i] = p + t.InverseTransformVector(Vector3.up * drop);
+                deepest = Mathf.Min(deepest, drop);
+            }
+            m.vertices = v;
+            m.RecalculateBounds();
+            return m;
         }
 
         /// <summary>小道・泉・景色の通り道からはなれた、いきものの居場所（want のそば）。</summary>

@@ -15,6 +15,7 @@ namespace Shakutori
         readonly List<Vector3> _stairTops = new List<Vector3>();    // 岩の階段の段の上
         Vector3 _hutStep, _springSpout, _snowTop, _archTop;
         float _hutYaw;
+        GameObject _pine;                                           // 大きな松（根を地面にそわせる）
 
         /// <summary>湧き水のかけいの先（水が落ちはじめる所）。</summary>
         public Vector3 SpringSpout => _springSpout;
@@ -32,6 +33,7 @@ namespace Shakutori
             _stairTops.Clear();
             _hutStep = _springSpout = _snowTop = _archTop = Vector3.zero;
             _hutYaw = 0f;
+            _pine = null;
             MountainFixes.Clear();
         }
 
@@ -47,7 +49,7 @@ namespace Shakutori
 
             // 大きな松
             Vector2 pn = MountainLayout.Pine;
-            Place("Mtn_Pine", assets.bark, MG(pn) + Vector3.down * 0.9f, Quaternion.Euler(0f, 200f, 0f), 1f, true, true, 400f, asRenderer: true);
+            _pine = Place("Mtn_Pine", assets.bark, MG(pn) + Vector3.down * 0.9f, Quaternion.Euler(0f, 200f, 0f), 1f, true, true, 400f, asRenderer: true);
             Occupy(pn, 9f);
 
             // 山小屋：とびらは、小道の来る方（南西）を向く
@@ -606,8 +608,8 @@ namespace Shakutori
             AddMob("oniyanma", MG(new Vector2(14f, -2f)), 1, 12f, 2.6f);
             AddMob("dragonfly", MG(md + new Vector2(-8f, -6f)), 2, 10f, 3.2f);
             // ヒグラシ：松の幹（小道と反対の、北がわ）
-            AddMob("higurashi", MG(pn + new Vector2(1.8f, 0.5f)), 1, 1.5f);
-            AddMob("higurashi", MG(pn + new Vector2(0.5f, 2.2f)), 1, 1.5f);
+            AddMob("higurashi", MG(pn + new Vector2(1.8f, 0.5f)), 1, 1.5f).showcase = true;   // 松の幹（幹の中なら、いきものの直しで根もとの外へ）
+            AddMob("higurashi", MG(pn + new Vector2(0.5f, 2.2f)), 1, 1.5f).showcase = true;
             // マイマイカブリ：小屋のうらの日かげと、松の根もと（かたつむりもいる）
             AddMob("maimaikaburi", Calm(hut + new Vector2(11f, 1f)), 1, 4f);   // 小屋の東の日かげ（うらのふみ板からはなす）
             AddMob("maimaikaburi", Calm(pn + new Vector2(-6f, -4f)), 1, 4f);

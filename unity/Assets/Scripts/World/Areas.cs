@@ -60,6 +60,18 @@ namespace Shakutori
         public abstract Vector3 Normal(float x, float z);
         public abstract Color GroundColor(float x, float z, float h, Vector3 n);
         public abstract float TrailMask(float x, float z);
+        /// <summary>歩く小道のまん中の線（地図や、いきものの居場所を決めるのに使う）。</summary>
+        public abstract List<Vector2[]> TrailLines { get; }
+
+        /// <summary>歩く小道のまん中の線までの距離。</summary>
+        public float DistToTrail(Vector2 p)
+        {
+            float best = 99f;
+            foreach (var t in TrailLines)
+                for (int i = 0; i < t.Length - 1; i++)
+                    best = Mathf.Min(best, ShakuMath.DistToSegment(p, t[i], t[i + 1]));
+            return best;
+        }
         public abstract float WaterLevelAt(float x, float z);
         public abstract bool IsUnderwater(Vector3 p);
 
@@ -132,6 +144,7 @@ namespace Shakutori
         public override Vector3 Normal(float x, float z) => ForestLayout.Normal(x, z);
         public override Color GroundColor(float x, float z, float h, Vector3 n) => ForestLayout.GroundColor(x, z, h, n);
         public override float TrailMask(float x, float z) => ForestLayout.TrailMask(x, z);
+        public override List<Vector2[]> TrailLines => ForestLayout.Trails;
         public override float WaterLevelAt(float x, float z) => ForestLayout.WaterLevelAt(x, z);
         public override bool IsUnderwater(Vector3 p) => ForestLayout.IsUnderwater(p);
         public override bool InPlayArea(Vector3 p) => ForestLayout.InPlayArea(p);
@@ -165,6 +178,7 @@ namespace Shakutori
         public override Vector3 Normal(float x, float z) => RiverLayout.Normal(x, z);
         public override Color GroundColor(float x, float z, float h, Vector3 n) => RiverLayout.GroundColor(x, z, h, n);
         public override float TrailMask(float x, float z) => RiverLayout.TrailMask(x, z);
+        public override List<Vector2[]> TrailLines => RiverLayout.Trails;
         public override float WaterLevelAt(float x, float z) => RiverLayout.WaterLevelAt(x, z);
         public override bool IsUnderwater(Vector3 p) => RiverLayout.IsUnderwater(p);
         public override bool InPlayArea(Vector3 p) => RiverLayout.InPlayArea(p);
@@ -196,6 +210,7 @@ namespace Shakutori
         public override Vector3 Normal(float x, float z) => ParkLayout.Normal(x, z);
         public override Color GroundColor(float x, float z, float h, Vector3 n) => ParkLayout.GroundColor(x, z, h, n);
         public override float TrailMask(float x, float z) => ParkLayout.TrailMask(x, z);
+        public override List<Vector2[]> TrailLines => ParkLayout.Trails;
         public override float WaterLevelAt(float x, float z) => ParkLayout.WaterLevelAt(x, z);
         public override bool IsUnderwater(Vector3 p) => ParkLayout.IsUnderwater(p);
         public override bool InPlayArea(Vector3 p) => ParkLayout.InPlayArea(p);
@@ -228,6 +243,7 @@ namespace Shakutori
         public override Vector3 Normal(float x, float z) => MountainLayout.Normal(x, z);
         public override Color GroundColor(float x, float z, float h, Vector3 n) => MountainLayout.GroundColor(x, z, h, n);
         public override float TrailMask(float x, float z) => MountainLayout.TrailMask(x, z);
+        public override List<Vector2[]> TrailLines => MountainLayout.Trails;
         public override float WaterLevelAt(float x, float z) => MountainLayout.WaterLevelAt(x, z);
         public override bool IsUnderwater(Vector3 p) => MountainLayout.IsUnderwater(p);
         public override bool InPlayArea(Vector3 p) => MountainLayout.InPlayArea(p);

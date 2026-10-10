@@ -54,7 +54,8 @@ namespace Shakutori.Tests
             int greets = 0, ups = 0;
             C.Greeted += (sp, pos, lv, up) => { if (sp.id == "snail") { greets++; if (up) ups++; } };
             C.ResetGreetForTests("snail");
-            yield return NextTo("snail", 1.6f);
+            // しゃくとりむしの頭は体の前へのびるので、そばに置きすぎると、かたつむりは殻にこもる（こもっている間は、あいさつしない）
+            yield return NextTo("snail", 2.4f);
             yield return WaitUntil(() => greets > 0, 4f, "見つけたかたつむりが、あいさつしてくれる");
             Assert.AreEqual(1, Friends.Level("snail"), "なかよし ★1");
             Assert.AreEqual(1, ups);

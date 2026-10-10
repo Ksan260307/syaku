@@ -594,6 +594,7 @@ namespace Shakutori
                 Vector2 c = ForestLayout.MushroomGrove;
                 var g = AddMob("snail", ForestLayout.Ground(c.x, c.y), 1, 2.2f);
                 g.path.Add(ForestLayout.Ground(c.x, c.y));
+                g.showcase = true;
                 AddMob("snail", ForestLayout.Ground(moss.x - 4f, moss.y + 3f), 1, 3f);
                 Vector2 lg = ForestLayout.LogCenter + ForestLayout.LogDir * 27f + new Vector2(3f, 0f);
                 AddMob("snail", ForestLayout.Ground(lg.x, lg.y), 1, 2.5f);
@@ -617,7 +618,7 @@ namespace Shakutori
             {
                 Vector2 c = ForestLayout.LogCenter - ForestLayout.LogDir * 17f;
                 Vector3 inside = ForestLayout.Ground(c.x, c.y) + Vector3.up * 3.4f;
-                if (CastDown(inside, 6f, out var hit)) AddMob("pillbug", hit.point, 1, 1.5f);
+                if (CastDown(inside, 6f, out var hit)) AddMob("pillbug", hit.point, 1, 1.5f).showcase = true;
                 AddMob("pillbug", ForestLayout.Ground(ForestLayout.AcornPlaza.x + 3f, ForestLayout.AcornPlaza.y + 3f), 2, 4f);
             }
             // カブトムシ：大樹の根の上

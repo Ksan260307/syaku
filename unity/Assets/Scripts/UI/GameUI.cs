@@ -44,7 +44,7 @@ namespace Shakutori
         Label _dropCount, _placeCount, _creatureCount, _dropLabel, _areaTitle, _areaName, _loadingText;
         Label _bannerSub, _bannerTitle, _bannerDesc, _promptKey, _promptText, _helpHint, _rotateHint;
         Label _mapTitle, _mapSummary, _confirmText, _completeTitle, _completeText;
-        Label _creatureCardName, _creatureCardDesc, _zukanCount, _zukanName, _zukanArea, _zukanDesc;
+        Label _creatureCardName, _creatureCardDesc, _zukanName, _zukanArea, _zukanDesc;
         VisualElement _zukanHabitat, _zukanGo, _zukanFriend;
         Label _zukanHabitatTitle;
         ScrollView _zukanDetail;
@@ -314,7 +314,6 @@ namespace Shakutori
             _mapSummary = Q<Label>("map-summary");
             _mapAreas = Q<VisualElement>("map-areas");
             _legend = Q<ScrollView>("map-legend");
-            _zukanCount = Q<Label>("zukan-count");
             _zukanGrid = Q<ScrollView>("zukan-grid");
             _zukanImg = Q<VisualElement>("zukan-img");
             _zukanName = Q<Label>("zukan-name");
@@ -1182,7 +1181,6 @@ namespace Shakutori
         {
             _zukanGrid.Clear();
             _zukanCards.Clear();
-            int found = Creatures.DiscoveredCount;
             // すみかでしぼりこむ
             var filters = new VisualElement();
             filters.AddToClassList("zukan-filters");
@@ -1249,7 +1247,6 @@ namespace Shakutori
             head.AddToClassList("zukan-section");
             _zukanGrid.Add(head);
             foreach (var sp in SpeciesCatalog.Rares) AddCard(sp);
-            _zukanCount.text = $"見つけたいきもの {found} / {SpeciesCatalog.Count}　　近づくと図鑑に登録されます";
             if (_selectedSpecies == null || SpeciesCatalog.Get(_selectedSpecies) == null || !_zukanCards.ContainsKey(_selectedSpecies))
             {
                 var first = SpeciesCatalog.All.FirstOrDefault(s => _zukanCards.ContainsKey(s.id) && Creatures.IsDiscovered(s.id))
