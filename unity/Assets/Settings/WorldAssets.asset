@@ -69,6 +69,12 @@ MonoBehaviour:
     mesh: {fileID: -7061774764952219584, guid: d020c45ccfee5bb4982039e2e4744b20, type: 3}
   - name: Crow_Body
     mesh: {fileID: -6359236477956113890, guid: 99ff6d618f3105a4f972ea3aeab5f081, type: 3}
+  - name: Crow_Body_Limb1F
+    mesh: {fileID: 4421905078442894322, guid: 57e58ad043594f946ab576de7d5f9328, type: 3}
+  - name: Crow_Body_Limb1L
+    mesh: {fileID: -3367470166818525341, guid: 80767bb10e2cac04084a0a0bfcee5deb, type: 3}
+  - name: Crow_Body_Limb1U
+    mesh: {fileID: 2068449542018076084, guid: 4d35dcf5cde5d3148a01893a7e031041, type: 3}
   - name: Crow_Wing
     mesh: {fileID: 3900200146045287825, guid: 969e53c01f2e77a4692ec5629aa09cb9, type: 3}
   - name: Crow_WingFolded
@@ -99,14 +105,38 @@ MonoBehaviour:
     mesh: {fileID: -6662472806075925294, guid: 7f0d849b8f18c6c499ac49a57be38a4c, type: 3}
   - name: Flamingo_Body
     mesh: {fileID: 641043434919947428, guid: 752d2a4b47b33724581767cd36724f53, type: 3}
+  - name: Flamingo_Body_Limb1F
+    mesh: {fileID: 292332812665800717, guid: 76af22e8ca492584eac829cdc08b8477, type: 3}
+  - name: Flamingo_Body_Limb1L
+    mesh: {fileID: -8218103229440839248, guid: 64f3334a22b3cc6428f75dd9e9e7b6a4, type: 3}
+  - name: Flamingo_Body_Limb1U
+    mesh: {fileID: 1968431010952217729, guid: 2d36c079e61229746bf1cd07a100f3d0, type: 3}
   - name: Flamingo_Wing
     mesh: {fileID: 7736328057773118247, guid: 46897fd91e84a8943b95d36352b747e3, type: 3}
   - name: Flamingo_WingFolded
     mesh: {fileID: 5735524263155750965, guid: 04ea5c26863f6174e9152d25868a26ff, type: 3}
   - name: Frog
     mesh: {fileID: -4454997591212173726, guid: 482545432cd2b8b498468bae68b7667f, type: 3}
+  - name: Frog_Limb1F
+    mesh: {fileID: 8171606423928857099, guid: 6684e31c59c55114782183f3398e41ac, type: 3}
+  - name: Frog_Limb1L
+    mesh: {fileID: 4032563431708952657, guid: 49df391ed0c71b040a5aa2050a8eb894, type: 3}
+  - name: Frog_Limb1U
+    mesh: {fileID: -2699878507047457786, guid: afeb25d05a8628d43aed06decbec1e23, type: 3}
+  - name: Frog_Limb2F
+    mesh: {fileID: -8671417564424627845, guid: 95c593d06c270204e875b9e7eb907313, type: 3}
+  - name: Frog_Limb2L
+    mesh: {fileID: -4778640171728460850, guid: acec384fe848ba54aa51fd5d0b966501, type: 3}
+  - name: Frog_Limb2U
+    mesh: {fileID: -5883960418941743906, guid: ae27e76f33e840b4188893b6184a8dab, type: 3}
   - name: Gengorou
     mesh: {fileID: -249514128375062826, guid: 1089d032da64f464a8e4a19218c5bdc4, type: 3}
+  - name: Gengorou_Leg1
+    mesh: {fileID: 1026821067253723763, guid: cd172f9c3ca4f914ebc0393cb77204c6, type: 3}
+  - name: Gengorou_Leg2
+    mesh: {fileID: 1598559434694447582, guid: 2e98ad9896837f547859557a9304d6f3, type: 3}
+  - name: Gengorou_Leg3
+    mesh: {fileID: -1520969317003231472, guid: 74f91021cd9b8354eaee24b56a1ecc73, type: 3}
   - name: Grass_A
     mesh: {fileID: -4099415766749746972, guid: b1c32dd35866ace469307a28b7dc439a, type: 3}
   - name: Grass_B
@@ -135,8 +165,26 @@ MonoBehaviour:
     mesh: {fileID: 5472030327047187636, guid: fe628c7f60fc18c45ac943bb2fbec498, type: 3}
   - name: Harinezumi_Ball
     mesh: {fileID: 4906029180750668283, guid: e7a4bfba0c0f785429d87f7aad14ed32, type: 3}
+  - name: Harinezumi_Limb1F
+    mesh: {fileID: -6815919209463906335, guid: 726098ac208501d4691e3d9dee745e47, type: 3}
+  - name: Harinezumi_Limb1L
+    mesh: {fileID: 6148813934156447132, guid: a174af67d082ddf4f9415d6c84201ffb, type: 3}
+  - name: Harinezumi_Limb1U
+    mesh: {fileID: -5128549929120873814, guid: cd9c3a5bbcd518b4786ccd93b7ef6b08, type: 3}
+  - name: Harinezumi_Limb2F
+    mesh: {fileID: -7847023179452811488, guid: b6726024f2e897046a43d98ae502db79, type: 3}
+  - name: Harinezumi_Limb2L
+    mesh: {fileID: -7041762935277723263, guid: d416e1a530ddafd45bb449b165c25049, type: 3}
+  - name: Harinezumi_Limb2U
+    mesh: {fileID: 6976058451990018781, guid: a4b3e65a4e17a23449ad976cec18e188, type: 3}
   - name: Hato_Body
     mesh: {fileID: 7575967685096627474, guid: a740933ce4b710443820d84fb8167303, type: 3}
+  - name: Hato_Body_Limb1F
+    mesh: {fileID: -3015321836647497627, guid: 0907faa81565dfa45ab03cf73275ef8b, type: 3}
+  - name: Hato_Body_Limb1L
+    mesh: {fileID: 7882360314472260179, guid: 6b7091f061badba4ca3f6964652d27a1, type: 3}
+  - name: Hato_Body_Limb1U
+    mesh: {fileID: 527956308530140649, guid: 99745c35f8ba9024689fe5a19e68fbb4, type: 3}
   - name: Hato_Wing
     mesh: {fileID: -3428305673049604716, guid: 6dd6cc32b3e3a3f46a54bbe7fd318163, type: 3}
   - name: Hato_WingFolded
@@ -167,10 +215,18 @@ MonoBehaviour:
     mesh: {fileID: -3322546712403220151, guid: 7eebc446dcf1ce545bd5542313574479, type: 3}
   - name: Kameleon
     mesh: {fileID: -8619692211896270374, guid: 98215171a63fa054f9ac19d24aeedbc3, type: 3}
-  - name: Kameleon_Leg1
-    mesh: {fileID: 5450370730756371009, guid: e9b4741aaaa28e241949c77c56b70938, type: 3}
-  - name: Kameleon_Leg2
-    mesh: {fileID: 146139452318556673, guid: 4c2f0463dc151254eaa4ab0cfc4c7154, type: 3}
+  - name: Kameleon_Limb1F
+    mesh: {fileID: 1166066388062345907, guid: 2099c12da68537f429abfe2151ca530e, type: 3}
+  - name: Kameleon_Limb1L
+    mesh: {fileID: -3027041630571311157, guid: 68d7d2fb55229ac41a654adc629c1759, type: 3}
+  - name: Kameleon_Limb1U
+    mesh: {fileID: 4203247418037803985, guid: 9e14730d8858e3446af473e6fd71377c, type: 3}
+  - name: Kameleon_Limb2F
+    mesh: {fileID: 2082705109928121419, guid: e5fb031810a204a48b7d26f4d86fc084, type: 3}
+  - name: Kameleon_Limb2L
+    mesh: {fileID: -7981770821963490910, guid: 33e991d47da14a04db13afa076eaccd0, type: 3}
+  - name: Kameleon_Limb2U
+    mesh: {fileID: 8421369648394808146, guid: 889a95018c50234448fb8f3a4573045b, type: 3}
   - name: Kamemushi
     mesh: {fileID: -3615443358523095356, guid: 61db7e853c745b6429d27c164d73708e, type: 3}
   - name: Kamemushi_Leg1
@@ -245,6 +301,8 @@ MonoBehaviour:
     mesh: {fileID: -8190951346876191355, guid: a30a3bb706386224ba9f8e5191f6db15, type: 3}
   - name: Mogura_Hill
     mesh: {fileID: 4026278327754073304, guid: a5fd262fcddf29e48b5a766ea726b5ad, type: 3}
+  - name: Mogura_Leg1
+    mesh: {fileID: 7634797290203871062, guid: ff22c365848a6d5429aa7b107708258d, type: 3}
   - name: Monshiro_Body
     mesh: {fileID: -5615471362497707985, guid: ce0fd70b9bdbf7745b015cf845dd65ec, type: 3}
   - name: Monshiro_Wing
@@ -317,6 +375,18 @@ MonoBehaviour:
     mesh: {fileID: 6383029536907081715, guid: d23f0f883e7d42247aff6f9da1dc03c0, type: 3}
   - name: Nakiusagi
     mesh: {fileID: 4080010152843949004, guid: 6a898cb13eb101547b8fd00300da1009, type: 3}
+  - name: Nakiusagi_Limb1F
+    mesh: {fileID: 9216410461204447393, guid: 5ab4223512870a149aacd7d870693da5, type: 3}
+  - name: Nakiusagi_Limb1L
+    mesh: {fileID: -1997811763145401140, guid: 6760fa31e847c394a87eb5b2ace36e0b, type: 3}
+  - name: Nakiusagi_Limb1U
+    mesh: {fileID: 5733023500391007377, guid: e89a7847d46772d40bda1ce1085b7256, type: 3}
+  - name: Nakiusagi_Limb2F
+    mesh: {fileID: 3656447097805355585, guid: 035e705775ac2954ca2cbcf2882db23b, type: 3}
+  - name: Nakiusagi_Limb2L
+    mesh: {fileID: -4560331121089752473, guid: 25319ba02be360740892dd4a57817088, type: 3}
+  - name: Nakiusagi_Limb2U
+    mesh: {fileID: -844910892516640469, guid: 444242f898311db4e826709c20a113f5, type: 3}
   - name: Nanafushi
     mesh: {fileID: 8087753221134345138, guid: 02597062b322d4447abda63decf2041e, type: 3}
   - name: Nanafushi_Leg1
@@ -333,6 +403,12 @@ MonoBehaviour:
     mesh: {fileID: -8955744753228023923, guid: be817cdad9443df4f9d2471e12d95926, type: 3}
   - name: Okojo
     mesh: {fileID: -7395437505884649833, guid: b7167e1cbb774eb48bf8171574eda5f3, type: 3}
+  - name: Okojo_Limb1F
+    mesh: {fileID: -2327299042731723436, guid: c578d86b5ca1c944cb185e5d2f1a6a44, type: 3}
+  - name: Okojo_Limb1L
+    mesh: {fileID: 4181543957112796318, guid: ef7ccffc919501a429b2e904c406f739, type: 3}
+  - name: Okojo_Limb1U
+    mesh: {fileID: 4390115385494385095, guid: 785d8bef2ed0cbc4595c5db5a6618a5d, type: 3}
   - name: Okojo_Rocks
     mesh: {fileID: 1788806164719109160, guid: 42469d8bc9e8d4c49bdf73278e58c6e0, type: 3}
   - name: Oniyanma_Body
@@ -411,10 +487,18 @@ MonoBehaviour:
     mesh: {fileID: 5023893518569675436, guid: 8a5c8f0766bd5d4408d0317f8c936605, type: 3}
   - name: PillBug_Ball
     mesh: {fileID: -7599705468601128079, guid: bdd595ca267f20941aabe763a5680b99, type: 3}
+  - name: PillBug_Leg1
+    mesh: {fileID: -449635051948091429, guid: bd16f7a75fa80be41a1f47a41adbb68b, type: 3}
   - name: Pinecone
     mesh: {fileID: 2804762351221276474, guid: 4b67eebb6bd4ebe4b83be139d69c54b7, type: 3}
   - name: Raichou_Body
     mesh: {fileID: 2667944223883780502, guid: e1d64fdef2cb35e4a852354b97f3c975, type: 3}
+  - name: Raichou_Body_Limb1F
+    mesh: {fileID: 8429927917933628264, guid: 4ab421495b4d71a4192abc17ca245a93, type: 3}
+  - name: Raichou_Body_Limb1L
+    mesh: {fileID: 5813633819791668269, guid: 00ac9aab6b8df4449b6edf5d3c05c464, type: 3}
+  - name: Raichou_Body_Limb1U
+    mesh: {fileID: 2558689803909176511, guid: c6f332ed58e51954cbd365f57059a0fd, type: 3}
   - name: Raichou_Wing
     mesh: {fileID: 2860994939497847481, guid: 0140d9979140def40aa3b513770abca6, type: 3}
   - name: Raichou_WingFolded
@@ -423,10 +507,18 @@ MonoBehaviour:
     mesh: {fileID: -3890688692072204658, guid: d2031b7f5c7d72f46b73012333597776, type: 3}
   - name: Risu
     mesh: {fileID: 6348844576190597359, guid: e4392d23cc480b34cbabd2151abb6fff, type: 3}
-  - name: Risu_Leg1
-    mesh: {fileID: 128372533593353838, guid: a0dcb906d82b8974aa2e23cf867344e5, type: 3}
-  - name: Risu_Leg2
-    mesh: {fileID: 8119549431207442286, guid: e509edc31499c9c48b6100ffcb0e07db, type: 3}
+  - name: Risu_Limb1F
+    mesh: {fileID: -5312323565636802258, guid: 2262b0f15401fd54eb4acd8273128d75, type: 3}
+  - name: Risu_Limb1L
+    mesh: {fileID: 4536592189153278196, guid: c4c1986b7fec29d459ab87a99a923602, type: 3}
+  - name: Risu_Limb1U
+    mesh: {fileID: -7324017393974789186, guid: 04c8264291057c64ab4012939d8655c5, type: 3}
+  - name: Risu_Limb2F
+    mesh: {fileID: -3339129852894113671, guid: 803aa9eb327bf074bbb045466d6d2fa6, type: 3}
+  - name: Risu_Limb2L
+    mesh: {fileID: -8058408558082316696, guid: cf3534a57fdd0de428248725d41b3300, type: 3}
+  - name: Risu_Limb2U
+    mesh: {fileID: 6628423772037325528, guid: 82dfb4352a5d39a4cab8af29a9692abf, type: 3}
   - name: RiverSnail
     mesh: {fileID: -9040684250955034890, guid: 5cece7af51bd6e04ca5c12de29faa8ff, type: 3}
   - name: RiverStone_A
@@ -459,6 +551,12 @@ MonoBehaviour:
     mesh: {fileID: 2833990666634714160, guid: 2f673947adb625540a5092c2408d0fb1, type: 3}
   - name: Sparrow_Body
     mesh: {fileID: -9054712840017786085, guid: 2149518db93b4bc4f9369cf8b8325170, type: 3}
+  - name: Sparrow_Body_Limb1F
+    mesh: {fileID: -8284972081320193953, guid: afacf9cb741c1584fa0d5e8452168c21, type: 3}
+  - name: Sparrow_Body_Limb1L
+    mesh: {fileID: -6283228867187207620, guid: 9bf039447e7dab749be7b97bb660a60c, type: 3}
+  - name: Sparrow_Body_Limb1U
+    mesh: {fileID: 870831569507814986, guid: 15329c368c3695e4db49a7cec3b9de94, type: 3}
   - name: Sparrow_Wing
     mesh: {fileID: 2847704281731873798, guid: 7b28842e9be474a4ba11be509f6f56ae, type: 3}
   - name: Sparrow_WingFolded

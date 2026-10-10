@@ -17,6 +17,32 @@ namespace Shakutori
         }
     }
 
+    /// <summary>
+    /// ひざ（ひじ）で曲がる手足 1 本の付け方（右側の手足。左側は鏡うつしにして使う）。座標はいきもののローカル（前は -Z）。
+    /// 上の骨（付け根→ひざ）・下の骨（ひざ→足首）・足先（足首から先）の 3 つのメッシュで、原点はそれぞれ付け根・ひざ・足首。
+    /// </summary>
+    public class LimbMount
+    {
+        public readonly string upper, lower, foot;   // foot は null のこともある
+        public readonly Vector3 hip, knee, ankle;     // 作ったときの付け根・ひざ・足首
+        public readonly float upperLen, lowerLen;     // 前後と上下の面（x を見ない）での骨の長さ
+
+        public LimbMount(string upper, string lower, string foot, Vector3 hip, Vector3 knee, Vector3 ankle)
+        {
+            this.upper = upper;
+            this.lower = lower;
+            this.foot = foot;
+            this.hip = hip;
+            this.knee = knee;
+            this.ankle = ankle;
+            upperLen = CreatureRig.YZ(knee - hip).magnitude;
+            lowerLen = CreatureRig.YZ(ankle - knee).magnitude;
+        }
+
+        /// <summary>のばしきったときの長さ。</summary>
+        public float Reach => upperLen + lowerLen;
+    }
+
     /// <summary>歩き方。</summary>
     public enum GaitKind
     {
@@ -37,7 +63,71 @@ namespace Shakutori
             return body != null && Generated.TryGetValue(body, out var legs) ? legs : None;
         }
 
-        public static bool HasLegs(string body) => body != null && Generated.ContainsKey(body);
+        static readonly LimbMount[] NoLimbs = new LimbMount[0];
+
+        /// <summary>ひざで曲がる手足（前から順に、右側だけ）。</summary>
+        public static LimbMount[] Limbs(string body)
+        {
+            return body != null && GeneratedLimbs.TryGetValue(body, out var limbs) ? limbs : NoLimbs;
+        }
+
+        /// <summary>体と別に動く脚か手足がある。</summary>
+        public static bool HasLegs(string body) => body != null && (Generated.ContainsKey(body) || GeneratedLimbs.ContainsKey(body));
+
+        /// <summary>前後と上下の面（x を見ない）での位置。手足は、この面の中で曲がる。</summary>
+        public static Vector2 YZ(Vector3 v) => new Vector2(v.z, v.y);
+
+        static float Cross(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;
+
+        static float SignedAngle(Vector2 a, Vector2 b) => Mathf.Atan2(Cross(a, b), Vector2.Dot(a, b));
+
+        static Vector2 Rotate(Vector2 v, float rad)
+        {
+            float c = Mathf.Cos(rad), s = Mathf.Sin(rad);
+            return new Vector2(v.x * c - v.y * s, v.x * s + v.y * c);
+        }
+
+        /// <summary>
+        /// 手足 1 本を、足首が target（体のローカル。右側の座標で、x は見ない）に来るように、ひざを曲げる（2 本の骨の IK）。
+        /// 曲げるのは前後と上下の面の中（x 軸まわり）だけで、ひざの曲がる向きは作ったときと同じ（鳥のかかとはうしろ、けもののひざは前）。
+        /// 届かないときは、のばしきって target の方を向く。footPitch は足先の角度（度。0 で作ったとき＝地面と平ら、+ で指先が下がる）。
+        /// 行列は、それぞれのメッシュ（上の骨・下の骨・足先）を体のローカルに置くもの。mirror=true で左側。
+        /// </summary>
+        public static void SolveLimb(LimbMount l, Vector3 target, float footPitch, bool mirror, out Matrix4x4 upper, out Matrix4x4 lower, out Matrix4x4 foot)
+        {
+            Vector2 H = YZ(l.hip), K = YZ(l.knee), A = YZ(l.ankle), T = YZ(target);
+            float a = Mathf.Max(1e-4f, l.upperLen), b = Mathf.Max(1e-4f, l.lowerLen);
+            Vector2 D = T - H;
+            float d = D.magnitude;
+            Vector2 dir = d > 1e-6f ? D / d : (A - H).normalized;
+            d = Mathf.Clamp(d, Mathf.Abs(a - b) + 1e-4f, (a + b) * 0.9995f);
+            // ひざは、作ったときと同じ側へ曲げる
+            float bend = Cross(A - H, K - H) >= 0f ? 1f : -1f;
+            float cosA = Mathf.Clamp((a * a + d * d - b * b) / (2f * a * d), -1f, 1f);
+            Vector2 K2 = H + Rotate(dir, Mathf.Acos(cosA) * bend) * a;
+            Vector2 T2 = H + dir * d;
+            // 2 次元の (z, y) で左回り β は、Unity の x 軸まわり -β
+            Quaternion r1 = Quaternion.AngleAxis(-SignedAngle(K - H, K2 - H) * Mathf.Rad2Deg, Vector3.right);
+            Quaternion r2 = Quaternion.AngleAxis(-SignedAngle(A - K, T2 - K2) * Mathf.Rad2Deg, Vector3.right);
+            Vector3 knee3 = l.hip + r1 * (l.knee - l.hip);
+            Vector3 ankle3 = knee3 + r2 * (l.ankle - l.knee);
+            Matrix4x4 S = mirror ? Matrix4x4.Scale(new Vector3(-1f, 1f, 1f)) : Matrix4x4.identity;
+            upper = S * Matrix4x4.TRS(l.hip, r1, Vector3.one);
+            lower = S * Matrix4x4.TRS(knee3, r2, Vector3.one);
+            foot = S * Matrix4x4.TRS(ankle3, Quaternion.AngleAxis(-footPitch, Vector3.right), Vector3.one);
+        }
+
+        /// <summary>
+        /// 歩くときの足首の行き先：地面についている間は、足を後ろへ送り（体が前へ進む分だけ）、持ち上げて前へもどす。
+        /// phase は脚の位相（ラジアン。cos &gt; 0 のとき足が上がって前へ）、stride はひと足で進む長さ（体のローカル）、lift は上げる高さ。
+        /// toes は、足を上げたときに指先がたれる角度。
+        /// </summary>
+        public static Vector3 StepTarget(LimbMount l, float phase, float stride, float lift, float toes, out float pitch)
+        {
+            float up = Mathf.Max(0f, Mathf.Cos(phase));
+            pitch = toes * up;
+            return l.ankle + new Vector3(0f, lift * up, -0.5f * stride * Mathf.Sin(phase));
+        }
 
         /// <summary>
         /// 脚 1 本の行列（体のローカル）。mirror=true で左側。gait は歩く位相（ラジアン）、

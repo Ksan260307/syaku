@@ -162,7 +162,7 @@ namespace Shakutori.Tests
                 Assert.IsFalse(sp.IsRare, id);
                 Assert.IsNotNull(_gen.assets.TryGet(sp.body), $"{id} の体のメッシュ");
                 Assert.IsNotNull(_gen.assets.Portrait(id), $"{id} の図鑑の絵");
-                if (sp.rig != null) Assert.Greater(CreatureRig.Legs(sp.rig).Length, 0, $"{id} の脚");
+                if (sp.rig != null) Assert.IsTrue(CreatureRig.HasLegs(sp.rig), $"{id} の脚");
                 foreach (var part in sp.parts) Assert.IsNotNull(_gen.assets.TryGet(part.mesh), $"{id} の {part.mesh}");
             }
             // オコジョは、岩のすみかのまん中にいる

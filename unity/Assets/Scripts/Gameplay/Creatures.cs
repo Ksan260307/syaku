@@ -265,8 +265,16 @@ namespace Shakutori
                 Put(M(sp.body), assets.creature);
                 Put(assets.TryGet(sp.body + "_Ball"), assets.creature);   // 玉の形は、ある種だけ（ないときは何も言わない）
                 if (sp.rig != null)
+                {
                     foreach (var leg in CreatureRig.Legs(sp.rig))
                         Put(M(leg.mesh + sp.legSuffix) ?? M(leg.mesh), assets.creature);
+                    foreach (var limb in CreatureRig.Limbs(sp.rig))
+                    {
+                        Put(M(limb.upper), assets.creature);
+                        Put(M(limb.lower), assets.creature);
+                        if (limb.foot != null) Put(M(limb.foot), assets.creature);
+                    }
+                }
                 if (sp.parts != null)
                     foreach (var part in sp.parts)
                     {
@@ -1409,7 +1417,7 @@ namespace Shakutori
                 case "ant": return m.sp.IsRare && r < 0.5f ? ActSpecial : ActGroom;
                 case "snail": case "riversnail": return r < 0.6f ? ActStretch : 0;
                 case "grasshopper": return r < 0.6f ? ActGroom : 0;
-                case "frog": return dw2 < 4f * 4f ? ActSpecial : r < 0.6f ? ActStretch : 0;
+                case "frog": return dw2 < 4f * 4f ? ActSpecial : r < 0.4f ? ActStretch : r < 0.7f ? ActGroom : 0;   // カエル：前足で目をぬぐう
                 case "sparrow": return r < 0.2f ? ActSpecial : r < 0.35f ? ActShake : r < 0.55f ? ActStretch : r < 0.75f ? ActGroom : ActLook;
                 case "crow":
                     if (m.sp.id == "flamingo") return r < 0.3f ? ActShake : r < 0.6f ? ActGroom : r < 0.8f ? ActStretch : ActLook;
@@ -1422,10 +1430,14 @@ namespace Shakutori
                 case "dragonfly": return m.perched && r < 0.7f ? ActSpecial : 0;
                 case "tokage":
                     if (m.sp.id == "risu") return r < 0.5f ? ActGroom : r < 0.8f ? ActLook : 0;   // リス：前足で顔を洗う・立ち上がって見まわす
+                    if (m.sp.id == "kameleon") return r < 0.6f ? ActSpecial : 0;                   // カメレオン：前足を上げたまま、ゆらゆら迷う
                     return m.sp.id == "tokage" && r < 0.5f ? ActSpecial : 0;
                 case "nakiusagi": return r < 0.35f ? ActLook : r < 0.65f ? ActGroom : 0;   // ナキウサギ：耳をたてて見まわす・顔をこする
                 case "sanshouuo": return r < 0.4f ? ActLook : r < 0.7f ? ActStretch : 0;   // サンショウウオ：首をもたげる・体をのばす
                 case "spider": return m.sp.IsRare && m.raise < 0.05f && r < 0.6f ? ActSpecial : 0;
+                case "pillbug":
+                    if (m.sp.id == "harinezumi") return r < 0.4f ? ActGroom : r < 0.7f ? ActLook : 0;   // ハリネズミ：うしろ足で体をかく・鼻を上げてにおいをかぐ
+                    return r < 0.5f ? ActGroom : 0;                                                     // だんごむし：前脚で触角の手入れ
                 default: return 0;
             }
         }
@@ -3570,28 +3582,32 @@ namespace Shakutori
             }
             if (m.sp.kind == MobKind.Bird && !m.airborne && !m.resting)
             {
+                // 2 本の足で 1 歩ずつ歩く：足が体の真下を通るとき（片足で立つとき）に、体がいちばん高くなる（1 歩に 1 回）。
+                // 足どり（m.gait）は、進んだ道のりで進むので、足が地面の上ですべらない
+                float stepUp = Mathf.Abs(Mathf.Cos(m.gait));
                 if (m.sp.id == "flamingo")
                 {
                     // フラミンゴは、ゆったり大きな歩幅で、体を前後にゆらして歩く
-                    bob = m.up * (Mathf.Abs(Mathf.Sin(m.anim * 3f)) * 0.05f * s * moving);
-                    rot = Quaternion.AngleAxis(Mathf.Sin(m.anim * 3f) * 4f * moving, right) * rot;
+                    bob = m.up * (stepUp * 0.05f * s * moving);
+                    rot = Quaternion.AngleAxis(Mathf.Sin(m.gait * 2f) * 4f * moving, right) * rot;
                 }
                 else if (m.bid == "crow")
                 {
-                    // カラスは、頭をふりながら、のしのし歩く
-                    bob = m.up * (Mathf.Abs(Mathf.Sin(m.anim * 6f)) * 0.04f * s);
-                    rot = Quaternion.AngleAxis(Mathf.Sin(m.anim * 6f) * 5f * moving, right) * rot;
+                    // カラスは、頭をふりながら、のしのし歩く（ふみ出す足の方へ、体が少し左右にゆれる）
+                    bob = m.up * (stepUp * 0.04f * s * moving);
+                    rot = Quaternion.AngleAxis(Mathf.Sin(m.gait * 2f) * 5f * moving, right) * rot;
+                    rot = Quaternion.AngleAxis(Mathf.Sin(m.gait) * 4f * moving, f) * rot;
                 }
                 else if (m.bid == "hato")
                 {
                     // ハトは、ひと足ごとに首を前へつき出しては引く（体ごと前後にかたむける）。首をふるリズムは、足どりに合わせる
-                    float step = m.gait * 0.18f;
-                    bob = m.up * (Mathf.Abs(Mathf.Sin(step)) * 0.025f * s * moving);
-                    rot = Quaternion.AngleAxis(Mathf.Sin(step) * 8f * moving, right) * rot;
+                    bob = m.up * (stepUp * 0.025f * s * moving);
+                    rot = Quaternion.AngleAxis(Mathf.Sin(m.gait * 2f) * 8f * moving, right) * rot;
+                    rot = Quaternion.AngleAxis(Mathf.Sin(m.gait) * 3f * moving, f) * rot;
                 }
-                else bob = m.up * (Mathf.Abs(Mathf.Sin(m.anim * 9f)) * 0.12f * s);   // スズメは両足でちょんちょん
+                else bob = m.up * (SparrowHop(m, moving) * 0.12f * s);   // スズメは両足でちょんちょん（足はたたんでから、のばして着地）
             }
-            else if (m.sp.rig != null && m.moveSpeed > 0.02f)
+            else if (m.sp.rig != null && m.moveSpeed > 0.02f && !m.airborne && m.sp.kind != MobKind.Bird && m.sp.kind != MobKind.Hopper)
             {
                 bob = m.up * (Mathf.Abs(Mathf.Sin(m.gait)) * 0.012f * s);   // 歩くと体が少し上下する
                 // 歩くと体が左右にもゆれる（カブトムシは大きく）
@@ -3668,6 +3684,225 @@ namespace Shakutori
             }
             else body = Matrix4x4.TRS(drawAt, rot, scale3);
         }
+
+        /// <summary>
+        /// ひざで曲がる手足 1 本の、足首の行き先（体のローカル。右側の座標）と、足先の角度（度。+ で指先が下がる）。
+        /// 歩く（足を地面につけたまま体の進む分だけ後ろへ送り、持ち上げて前へもどす）・跳ぶ（うしろ足をのばす）・
+        /// 飛ぶ（足をたたむ）・手入れ（前足で顔を洗う）など。手足の長さは、作ったときの形から決まる。
+        /// </summary>
+        Vector3 LimbGoal(Mob m, LimbMount[] limbs, int li, bool mirror, float moving, out float pitch)
+        {
+            var l = limbs[li];
+            Vector3 rest = l.ankle;
+            float reach = l.Reach;
+            bool front = limbs.Length > 1 && li == 0, hind = limbs.Length > 1 && li == limbs.Length - 1;
+            float walk = Mathf.Clamp01(moving * 2f);
+            float side = mirror ? 1f : 0f;
+            string id = m.sp.id;
+            Vector3 goal = rest;
+            pitch = 0f;
+
+            // 段から落ちている間は、手足をばたばた
+            if (m.fallVel > 0.05f && !m.airborne)
+                return CreatureRig.StepTarget(l, m.anim * 20f + li + side * 2f, 0.4f * reach, 0.3f * reach, 40f, out pitch);
+
+            // 歩く：左右（4 本足は、ななめの組）がかわりばんこ
+            float phase = m.gait + ((li + (mirror ? 1 : 0)) % 2) * Mathf.PI;
+            float lift = 0.25f * reach, toes = 30f;
+            if (id == "risu")
+            {
+                // リスは、速く走るときは、前足どうし・うしろ足どうしをそろえて、ぴょんぴょん跳ねる
+                float bound = Mathf.Clamp01((m.moveSpeed / Mathf.Max(0.1f, m.sp.speed) - 0.35f) * 3f);
+                phase = m.gait + Mathf.Lerp(((li + (mirror ? 1 : 0)) % 2) * Mathf.PI, (hind ? Mathf.PI : 0f) + side * 0.35f, bound);
+                lift = 0.3f * reach;
+            }
+            else if (m.bid == "nakiusagi")
+            {
+                phase = m.gait + (hind ? Mathf.PI * 0.7f : 0f) + side * 0.3f;   // 岩の上を、ちょこちょこ跳ねるように
+                lift = 0.3f * reach;
+            }
+            else if (id == "kameleon") { lift = 0.4f * reach; toes = 45f; }    // 一歩ずつ、足を高く上げて、ゆっくり枝をつかむ
+            else if (m.sp.kind == MobKind.Bird) { phase = m.gait + side * Mathf.PI; lift = 0.22f * reach; toes = 40f; }
+            if (walk > 0f && !m.airborne)
+            {
+                goal = Vector3.Lerp(rest, CreatureRig.StepTarget(l, phase, m.sp.stride, lift, toes, out float wp), walk);
+                pitch = wp * walk;
+            }
+
+            if (m.sp.kind == MobKind.Bird)
+            {
+                if (m.airborne)
+                {
+                    // 飛ぶときは、足をおなかの下へたたむ（フラミンゴは、うしろへまっすぐのばす）。
+                    // 飛び立つときは、地面をけってから、たたむ。下りる前は、足を前へ出して着地にそなえる
+                    bool flam = id == "flamingo";
+                    Vector3 tuck = flam ? l.hip + new Vector3(0f, -0.12f, 1f).normalized * reach : l.hip + new Vector3(0f, -0.3f, 0.45f) * reach;
+                    float fold = ShakuMath.Smooth01(Mathf.Clamp01(m.t / 0.08f)) * (1f - m.flare);
+                    goal = Vector3.Lerp(rest + new Vector3(0f, 0f, -0.15f * reach) * m.flare, tuck, fold);
+                    pitch = Mathf.Lerp(-10f * m.flare, flam ? 150f : 70f, fold);
+                    return goal;
+                }
+                // スズメは、両足をそろえて、ちょんちょん跳ねる（跳ぶと足をたたみ、のばして着地）
+                float hop = 0f;
+                if (m.bid == "sparrow") hop = Mathf.Max(SparrowHop(m, moving), Mathf.Sin(Mathf.PI * m.turnHop));
+                // カラスの横っとびも、両足で
+                if (m.bid == "crow" && m.anim < m.hopNext) hop = Mathf.Abs(Mathf.Sin((m.hopNext - m.anim) / 0.6f * Mathf.PI * 2f));
+                if (hop > 0f || m.bid == "sparrow")
+                {
+                    goal = rest + new Vector3(0f, 0.32f * reach, -0.12f * reach) * hop;
+                    pitch = 30f * hop;
+                }
+                // フラミンゴは、止まっていると、ときどき片足で立つ（右足をおなかの下へ上げる）
+                if (id == "flamingo" && !mirror)
+                {
+                    float one = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.2f, 0.6f, Mathf.Sin(m.anim * 0.11f + m.phase))) * (1f - walk);
+                    goal = Vector3.Lerp(goal, l.hip + new Vector3(0f, -0.42f, 0.06f) * reach, one);
+                    pitch = Mathf.Lerp(pitch, 80f, one);
+                }
+                // のび：片方の羽を下へのばすとき、同じ側の足も、うしろへのばす
+                float st = ActEnvelope(m, ActStretch, out _);
+                if (st > 0f && !mirror)
+                {
+                    goal = Vector3.Lerp(goal, rest + new Vector3(0f, 0.12f * reach, 0.4f * reach), st);
+                    pitch += 40f * st;
+                }
+                return goal;
+            }
+
+            switch (m.bid)
+            {
+                case "frog":
+                {
+                    if (m.airborne)
+                    {
+                        // 跳ぶ：うしろ足を、うしろへまっすぐのばしてけり出し、空中でまたたたむ。
+                        // 前足は、はじめは体にそわせてうしろへ、着地の前に前へのばす
+                        float p = Mathf.Clamp01(m.t / Mathf.Max(0.05f, m.dur));
+                        if (hind)
+                        {
+                            float ext = p < 0.12f ? p / 0.12f : p < 0.5f ? 1f : Mathf.Lerp(1f, 0.2f, (p - 0.5f) / 0.5f);
+                            goal = Vector3.Lerp(rest, l.hip + new Vector3(0f, -0.3f, 1f).normalized * reach, ext);
+                            pitch = 150f * ext;
+                        }
+                        else
+                        {
+                            float sweep = Mathf.SmoothStep(0f, 1f, p / 0.2f) * (1f - Mathf.SmoothStep(0f, 1f, (p - 0.45f) / 0.3f));
+                            float reachOut = Mathf.SmoothStep(0f, 1f, (p - 0.55f) / 0.3f);
+                            goal = Vector3.Lerp(rest, l.hip + new Vector3(0f, -0.35f, 0.8f).normalized * (reach * 0.9f), sweep);
+                            goal = Vector3.Lerp(goal, rest + new Vector3(0f, 0.02f, -0.3f) * reach, reachOut);
+                            pitch = 60f * sweep - 15f * reachOut;
+                        }
+                        return goal;
+                    }
+                    // のび：右のうしろ足を、うしろへぐーっとのばす
+                    float arch = ActEnvelope(m, ActStretch, out _);
+                    if (hind && !mirror && arch > 0f)
+                    {
+                        goal = Vector3.Lerp(rest, l.hip + new Vector3(0f, -0.2f, 1f).normalized * reach, 0.85f * arch);
+                        pitch = 120f * arch;
+                    }
+                    // 前足で目をぬぐう（右の前足を目の上まで上げて、こする）
+                    float wipe = ActEnvelope(m, ActGroom, out float wk);
+                    if (front && !mirror && wipe > 0f)
+                    {
+                        goal = Vector3.Lerp(rest, l.hip + new Vector3(0f, 0.55f + 0.12f * Mathf.Sin(wk * Mathf.PI * 6f), -0.35f) * reach, wipe);
+                        pitch = -40f * wipe;
+                    }
+                    // 着地したばかりは、前足をふんばる
+                    if (front && m.crouch > 0f && m.launchAt < 0f) goal += new Vector3(0f, 0f, -0.12f * reach * m.crouch);
+                    return goal;
+                }
+                case "nakiusagi":
+                {
+                    if (m.airborne)
+                    {
+                        // 跳ぶ：うしろ足でけって、前足を前へのばして着地する
+                        float p = Mathf.Clamp01(m.t / Mathf.Max(0.05f, m.dur));
+                        if (hind)
+                        {
+                            float ext = p < 0.5f ? 1f : 1f - (p - 0.5f) / 0.5f * 0.8f;
+                            goal = Vector3.Lerp(rest, l.hip + new Vector3(0f, -0.35f, 1f).normalized * reach, ext * 0.9f);
+                            pitch = 110f * ext;
+                        }
+                        else
+                        {
+                            float reachOut = Mathf.SmoothStep(0f, 1f, (p - 0.3f) / 0.5f);
+                            goal = rest + new Vector3(0f, 0.25f * (1f - reachOut) + 0.15f * reachOut, 0.15f * (1f - reachOut) - 0.45f * reachOut) * reach;
+                            pitch = -20f * reachOut;
+                        }
+                        return goal;
+                    }
+                    // 顔をこする：前足を顔の前まで上げて、かわりばんこに
+                    float rub = ActEnvelope(m, ActGroom, out _);
+                    if (front && rub > 0f)
+                    {
+                        goal = Vector3.Lerp(goal, l.hip + new Vector3(0f, 0.12f + 0.1f * Mathf.Sin(m.anim * 14f + side * 1.6f), -0.7f) * reach, rub);
+                        pitch = Mathf.Lerp(pitch, -50f, rub);
+                    }
+                    return goal;
+                }
+                case "tokage":
+                {
+                    if (id == "risu")
+                    {
+                        // リスの顔洗い：うしろ足で立って、前足で顔を、こしこし
+                        float wash = ActEnvelope(m, ActGroom, out _);
+                        if (front && wash > 0f)
+                        {
+                            goal = Vector3.Lerp(goal, l.hip + new Vector3(0f, 0.3f + 0.12f * Mathf.Sin(m.anim * 16f + side * 1.6f), -0.55f) * reach, wash);
+                            pitch = Mathf.Lerp(pitch, -60f, wash);
+                        }
+                        // 見まわすときは、前足を胸の前にそろえる
+                        float look = ActEnvelope(m, ActLook, out _);
+                        if (front && look > 0f) goal = Vector3.Lerp(goal, l.hip + new Vector3(0f, -0.3f, -0.45f) * reach, look * 0.7f);
+                    }
+                    else if (id == "kameleon")
+                    {
+                        // カメレオン：右の前足を上げたまま、前後にゆらゆら（ふみ出すか、迷っている）
+                        float hold = Mathf.Min(1f, ActEnvelope(m, ActSpecial, out _) * 2f);
+                        if (front && !mirror && hold > 0f)
+                        {
+                            goal = Vector3.Lerp(goal, rest + new Vector3(0f, 0.35f, -0.15f + 0.08f * Mathf.Sin(m.anim * 2.2f)) * reach, hold);
+                            pitch = Mathf.Lerp(pitch, 45f, hold);
+                        }
+                    }
+                    return goal;
+                }
+                case "pillbug":
+                {
+                    // ハリネズミ：まるくなるときは、足をおなかへたたむ
+                    float c = m.curled > 0f ? Mathf.Clamp01(Mathf.Max(m.curlK, m.curled / 0.35f)) : 0f;
+                    if (c > 0f) goal = Vector3.Lerp(goal, l.hip + new Vector3(0f, -0.35f * reach, 0f), c);
+                    // うしろ足で、わきばらをかく
+                    float scratch = ActEnvelope(m, ActGroom, out _);
+                    if (hind && !mirror && scratch > 0f)
+                    {
+                        goal = Vector3.Lerp(goal, l.hip + new Vector3(0f, -0.25f + 0.1f * Mathf.Sin(m.anim * 22f), -0.55f) * reach, scratch);
+                        pitch = Mathf.Lerp(pitch, -30f, scratch);
+                    }
+                    return goal;
+                }
+                case "mogura":
+                {
+                    // オコジョ：出てくるときは、前足で穴のふちをつかむ。ときどき、前足を胸の前でそろえて、背のびして見まわす。
+                    // 見まわすあいだも、前足は小さくゆれる
+                    float grip = !m.digDown && m.dig > 0.05f && m.dig < 0.75f ? Mathf.Sin(Mathf.PI * Mathf.InverseLerp(0.75f, 0.05f, m.dig)) : 0f;
+                    goal = rest + new Vector3(0f, 0.1f, -0.3f) * (reach * grip);
+                    float beg = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 0.8f, Mathf.Sin(m.anim * 0.5f + m.phase))) * (1f - m.dig);
+                    goal = Vector3.Lerp(goal, l.hip + new Vector3(0f, -0.25f, -0.72f) * reach, beg * 0.8f);
+                    goal.y += 0.03f * reach * Mathf.Sin(m.anim * 3f + side * 1.3f);
+                    pitch = -30f * beg;
+                    return goal;
+                }
+            }
+            return goal;
+        }
+
+        /// <summary>
+        /// スズメの、両足でちょんちょん跳ねる高さ（0〜1）。歩いているときだけ跳ねる（止まると、両足で立つ）。
+        /// 体の上下（BodyPose）と、足のたたみ方（LimbGoal）の両方で使う（ぴょんと跳ねて向きを変えるのは、MotionPose で別に）。
+        /// </summary>
+        static float SparrowHop(Mob m, float moving) => Mathf.Abs(Mathf.Sin(m.anim * 9f)) * Mathf.Clamp01(moving * 2f);
 
         // モグラのメッシュの大きさ（Blender の make_mogura）：鼻先の前の長さ・体のまん中の線の高さ。モグラ塚の穴のふちの高さ（make_mogura_hill）
         const float MoleNose = 2.95f, MoleAxisHeight = 0.8f, MoleHoleRim = 0.95f;
@@ -3844,8 +4079,14 @@ namespace Shakutori
                         // しゃくとりむしが近づくと、はりを立てて体をふくらませる
                         float near = 1f - Mathf.Clamp01(((_head - m.pos).magnitude - 1.3f) / 1.5f);
                         scale3 *= 1f + 0.08f * near;
-                        // ちょこちょこ小走り（体が速く上下する）
-                        if (m.moveSpeed > 0.02f) bob += m.up * (Mathf.Abs(Mathf.Sin(m.anim * 14f)) * 0.015f * s);
+                        // ちょこちょこ小走り（1 歩ごとに、体が小さく上下する）
+                        if (m.moveSpeed > 0.02f) bob += m.up * (Mathf.Abs(Mathf.Cos(m.gait)) * 0.03f * s * moving);
+                        // 鼻を上げて、くんくんにおいをかぐ
+                        float sniff = ActEnvelope(m, ActLook, out _);
+                        if (sniff > 0f) rot = Quaternion.AngleAxis((-12f + 2f * Mathf.Sin(m.anim * 12f)) * sniff, right) * rot;
+                        // うしろ足でわきばらをかくときは、体を反対へかたむける
+                        float scr = ActEnvelope(m, ActGroom, out _);
+                        if (scr > 0f) rot = Quaternion.AngleAxis(8f * scr + Mathf.Sin(m.anim * 22f) * 1.5f * scr, f) * rot;
                     }
                     else if (m.moveSpeed > 0.02f) rot = Quaternion.AngleAxis(Mathf.Sin(m.anim * 5f + m.phase) * 4f, m.up) * rot;   // 歩くとき、頭を左右にふって触角でさぐる
                     break;
@@ -3989,6 +4230,8 @@ namespace Shakutori
                 case "nakiusagi":
                 {
                     if (m.airborne) break;
+                    // 歩くときは、ちょこちょこ跳ねるように、体が上下する
+                    if (moving > 0.05f) bob += m.up * (Mathf.Abs(Mathf.Sin(m.gait)) * 0.08f * s * moving);
                     // 鳴くときは、体をふくらませて、口もとを上げる
                     if (m.anim < m.callUntil)
                     {
@@ -4083,9 +4326,23 @@ namespace Shakutori
                         if (Mathf.Sin(m.anim * 3.1f + m.phase) > 0.94f) { swing = 6f; lift = 28f; gait = m.anim * 30f; }
                     }
                     else if (m.deadUntil > 0f && m.anim - m.deadUntil < 0.6f) { swing = 14f; lift = 14f; gait = m.anim * 22f; }   // 起きるときは、脚をもぞもぞ動かしてから
+                    // だんごむしは、まるくなりかけると、脚をおなかにたたむ
+                    if (m.bid == "pillbug" && m.curled > 0f) { swing = 0f; lift = 40f * Mathf.Clamp01(Mathf.Max(m.curlK, m.curled / 0.35f)); gait = 0f; }
+                    if (m.bid == "mogura")
+                    {
+                        // モグラは、もぐるときも出てくるときも、シャベルの前足で左右かわりばんこに土をかく。
+                        // 顔を出しているときは、前足を穴のふちにかけて、ときどき土をかき寄せる
+                        bool digging = m.dig > 0.02f && m.dig < 0.98f;
+                        float scrape = Mathf.Max(0f, Mathf.Sin(m.anim * 0.9f + m.phase) - 0.6f) * 2.5f;
+                        swing = digging ? 38f : 6f + 26f * scrape;
+                        lift = digging ? 22f : 4f + 12f * scrape;
+                        gait = m.anim * (digging ? 11f : 6f);
+                    }
+                    // ゲンゴロウは、こいで体がぐいっと出るときに、うしろ足で水をうしろへかききる
+                    if (m.bid == "gengorou") { swing = m.sp.legSwing; lift = m.sp.legLift; gait = m.gait + Mathf.PI; }
                     var kind = m.sp.gait;
                     // 前脚で顔や触角の手入れ（アリ・てんとうむし）・ヘルメットをかぶりなおす（ヘルメットアリ）・脚をふみかえる（カブトムシ）
-                    bool frontGroom = (m.bid == "ant" || m.bid == "ladybug") && m.act == ActGroom;
+                    bool frontGroom = (m.bid == "ant" || m.bid == "ladybug" || m.bid == "pillbug") && m.act == ActGroom;
                     float groomK = frontGroom ? ActEnvelope(m, ActGroom, out _) : 0f;
                     float helmetK = m.bid == "ant" && m.sp.IsRare ? ActEnvelope(m, ActSpecial, out _) : 0f;
                     float shiftK = 0f, shiftT = 0f;
@@ -4120,6 +4377,7 @@ namespace Shakutori
                             {
                                 float legGait = gait, legSwing = swing, legLift = lift;
                                 if (m.bid == "crab") legGait -= li * 0.7f;   // カニの脚は、前から後ろへ波のように動く
+                                if (m.bid == "pillbug") legGait += li * 0.9f;   // だんごむしの 7 対の脚は、うしろから前へ波のように動く
                                 if (li == 0 && moving > 0.05f)
                                 {
                                     if (m.bid == "beetle" || m.bid == "kuwagata") legLift += 10f * moving;   // カブトムシは、前脚を高く上げて前をさぐる
@@ -4130,6 +4388,22 @@ namespace Shakutori
                                 legM = CreatureRig.LegMatrix(legs[li], li, mirror, legGait, legSwing, legLift, kind, legs.Length);
                             }
                             Add(lm, assets.creature, body * legM);
+                        }
+                    }
+                    // ひざで曲がる手足（鳥・カエル・けもの）
+                    var limbs = CreatureRig.Limbs(m.sp.rig);
+                    for (int li = 0; li < limbs.Length; li++)
+                    {
+                        var l = limbs[li];
+                        Mesh up = M(l.upper), lo = M(l.lower), ft = l.foot != null ? M(l.foot) : null;
+                        for (int side = 0; side < 2; side++)
+                        {
+                            bool mirror = side == 1;
+                            Vector3 goal = LimbGoal(m, limbs, li, mirror, moving, out float pitch);
+                            CreatureRig.SolveLimb(l, goal, pitch, mirror, out var mu, out var ml, out var mf);
+                            Add(up, assets.creature, body * mu);
+                            Add(lo, assets.creature, body * ml);
+                            if (ft != null) Add(ft, assets.creature, body * mf);
                         }
                     }
                 }

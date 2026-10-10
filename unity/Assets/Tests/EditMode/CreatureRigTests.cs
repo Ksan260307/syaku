@@ -93,6 +93,84 @@ namespace Shakutori.Tests
         }
 
         [Test]
+        public void Limbs_BendAtTheKneeToPutTheFootOnTheTarget([Values("Sparrow_Body", "Frog", "Nakiusagi", "Risu", "Harinezumi")] string body)
+        {
+            var assets = TestUtil.LoadWorldAssets();
+            var limbs = CreatureRig.Limbs(body);
+            Assert.Greater(limbs.Length, 0, body);
+            foreach (var l in limbs)
+            {
+                Assert.IsNotNull(assets.TryGet(l.upper), l.upper);
+                Assert.IsNotNull(assets.TryGet(l.lower), l.lower);
+                if (l.foot != null) Assert.IsNotNull(assets.TryGet(l.foot), l.foot);
+                Assert.Less(l.hip.x, 0f, "右の手足は Unity の -X 側");
+                // 作ったときの姿勢なら、そのまま（ひざも足首も動かない）
+                CreatureRig.SolveLimb(l, l.ankle, 0f, false, out var u0, out var lo0, out var f0);
+                TestUtil.AssertVector(l.hip, u0.MultiplyPoint3x4(Vector3.zero), 1e-4f);
+                TestUtil.AssertVector(l.knee, lo0.MultiplyPoint3x4(Vector3.zero), 1e-3f);
+                TestUtil.AssertVector(l.ankle, f0.MultiplyPoint3x4(Vector3.zero), 1e-3f);
+                // 足首を前へ出して少し上げても、届く所なら、足首はちょうどそこへ。骨の長さは変わらない
+                Vector3 target = l.ankle + new Vector3(0f, 0.08f * l.Reach, -0.15f * l.Reach);
+                CreatureRig.SolveLimb(l, target, 20f, false, out var u, out var lo, out var f);
+                Vector3 knee = lo.MultiplyPoint3x4(Vector3.zero), ankle = f.MultiplyPoint3x4(Vector3.zero);
+                Assert.AreEqual(target.y, ankle.y, 1e-3f, "足首の高さ");
+                Assert.AreEqual(target.z, ankle.z, 1e-3f, "足首の前後");
+                Assert.AreEqual((l.knee - l.hip).magnitude, (knee - l.hip).magnitude, 1e-3f, "上の骨の長さ");
+                Assert.AreEqual((l.ankle - l.knee).magnitude, (ankle - knee).magnitude, 1e-3f, "下の骨の長さ");
+                // 上の骨のメッシュのひざの所は、下の骨の付け根と同じ所にある（関節で、はなれない）
+                TestUtil.AssertVector(knee, u.MultiplyPoint3x4(l.knee - l.hip), 1e-3f);
+                // 届かない所へは、のばしきって、その方を向く
+                Vector3 far = l.hip + new Vector3(0f, -0.3f, 1f).normalized * (l.Reach * 3f);
+                CreatureRig.SolveLimb(l, far, 0f, false, out _, out _, out var ff);
+                Vector2 got = CreatureRig.YZ(ff.MultiplyPoint3x4(Vector3.zero) - l.hip);
+                Assert.AreEqual(l.Reach, got.magnitude, 0.01f * l.Reach, "のばしきる");
+                Assert.Greater(Vector2.Dot(got.normalized, CreatureRig.YZ(far - l.hip).normalized), 0.999f, "行きたい方を向く");
+                // 左は、右の鏡うつし
+                CreatureRig.SolveLimb(l, target, 20f, true, out var ul, out _, out var fl);
+                Vector3 la = fl.MultiplyPoint3x4(Vector3.zero);
+                TestUtil.AssertVector(new Vector3(-ankle.x, ankle.y, ankle.z), la, 1e-4f);
+            }
+        }
+
+        [Test]
+        public void Steps_KeepTheFootOnTheGroundWhileTheBodyMovesForward()
+        {
+            var l = CreatureRig.Limbs("Crow_Body")[0];
+            float stride = SpeciesCatalog.Get("crow").stride;
+            // 地面についている間（cos < 0）は、足首は地面の高さのまま、体の進む分（ひと足）だけ後ろへ動く
+            var start = CreatureRig.StepTarget(l, Mathf.PI / 2f, stride, 0.5f, 30f, out float p0);
+            var end = CreatureRig.StepTarget(l, Mathf.PI * 1.5f, stride, 0.5f, 30f, out _);
+            var mid = CreatureRig.StepTarget(l, Mathf.PI, stride, 0.5f, 30f, out float pm);
+            Assert.AreEqual(l.ankle.y, mid.y, 1e-5f, "地面についている");
+            Assert.AreEqual(stride, end.z - start.z, 1e-4f, "体が進む分だけ、足は後ろへ");
+            Assert.AreEqual(0f, pm, 1e-4f, "ついている足の指は、地面と平ら");
+            // 持ち上げて前へもどすとき（cos > 0）は、足が上がり、指先がたれる
+            var swing = CreatureRig.StepTarget(l, 0f, stride, 0.5f, 30f, out float ps);
+            Assert.Greater(swing.y, l.ankle.y + 0.4f);
+            Assert.Greater(ps, 20f);
+            // カラスの歩はばで、足は届く（ひざがのびきらない）
+            Assert.Less(CreatureRig.YZ(start - l.hip).magnitude, l.Reach * 0.98f, "前へ出した足が届く");
+            Assert.Less(CreatureRig.YZ(end - l.hip).magnitude, l.Reach * 0.98f, "後ろへ送った足が届く");
+        }
+
+        [Test]
+        public void EveryWalkingCreature_MovesItsLegs()
+        {
+            // 地面や水の上を動くいきものは、みんな体と別に動く脚（または手足）を持つ（体と一体の脚のまま、すべって動かない）。
+            // かたつむりは足がなく、空を飛ぶ虫は、飛んでいる間は脚を動かさない
+            var assets = TestUtil.LoadWorldAssets();
+            var noLegs = new[] { "snail", "riversnail" };
+            foreach (var sp in SpeciesCatalog.All)
+            {
+                if (sp.kind == MobKind.Flutter || sp.kind == MobKind.Hover || System.Array.IndexOf(noLegs, sp.id) >= 0) continue;
+                Assert.IsNotNull(sp.rig, $"{sp.id} の脚が体と一体");
+                Assert.IsTrue(CreatureRig.HasLegs(sp.rig), $"{sp.id} の脚の付け根がない");
+                foreach (var leg in CreatureRig.Legs(sp.rig)) Assert.IsNotNull(assets.TryGet(leg.mesh), leg.mesh);
+                foreach (var limb in CreatureRig.Limbs(sp.rig)) Assert.IsNotNull(assets.TryGet(limb.upper), limb.upper);
+            }
+        }
+
+        [Test]
         public void UprightUp_TiltsOnlyALittle()
         {
             Vector3 steep = new Vector3(0.9f, 0.3f, 0f).normalized;

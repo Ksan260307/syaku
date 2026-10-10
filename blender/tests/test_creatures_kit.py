@@ -55,6 +55,12 @@ MAKERS = {
     "Sparrow_Body": lambda: cr.make_bird_body("Sparrow_Body", 5.5, False),
     "Sparrow_Wing": lambda: cr.make_bird_wing("Sparrow_Wing", 5.5, False),
     "Crow_Body": lambda: cr.make_bird_body("Crow_Body", 18.0, True),
+    "Hato_Body": lambda: cr.make_bird_body("Hato_Body", 13.0, "pigeon"),
+    "Flamingo_Body": lambda: cr.make_bird_body("Flamingo_Body", 20.0, "flamingo"),
+    "Gengorou": cr.make_gengorou,
+    "Mogura": cr.make_mogura,
+    "Harinezumi": cr.make_harinezumi,
+    "Kameleon": cr.make_kameleon,
     "Crow_Wing": lambda: cr.make_bird_wing("Crow_Wing", 18.0, True),
     "RiverStone_A": lambda: cr.make_river_stone("RiverStone_A", 1, (1.6, 1.2, 0.55), (kit.hexc("#8d96a3"), kit.hexc("#b7b2a5"))),
     "Horsetail": cr.make_horsetail,
@@ -178,10 +184,73 @@ class CreatureKitTests(unittest.TestCase):
         self.assertLess(min(skirt), -0.4, "土の山のすそは、地面の下へ")
 
     def test_mountain_walkers_have_leg_rigs(self):
-        for name in ("Risu", "Sanshouuo", "Higurashi", "Maimaikaburi"):
+        for name in ("Risu", "Sanshouuo", "Higurashi", "Maimaikaburi", "Nakiusagi", "Okojo"):
             parts = cr.split_legs(MAKERS[name], name)
             self.assertGreaterEqual(len(parts) - 1, 2, f"{name} の右の脚")
-            self.assertIn(name, cr.RIG)
+            self.assertTrue(name in cr.RIG or name in cr.LIMBS, name)
+
+    def test_limbs_split_into_bones_at_the_joints(self):
+        # 手足が体と一体で動かないいきものがいない：鳥・カエル・けものは、ひざで曲がる手足（上の骨・下の骨・足先）に分かれる
+        for name, mk, n in (("Frog", cr.make_frog, 2), ("Sparrow_Body", MAKERS["Sparrow_Body"], 1), ("Nakiusagi", cr.make_nakiusagi, 2),
+                            ("Harinezumi", cr.make_harinezumi, 2), ("Risu", cr.make_risu, 2), ("Okojo", cr.make_okojo, 1)):
+            reset()
+            parts = {o.name: o for o in cr.split_legs(mk, name)}
+            self.assertEqual(len(cr.LIMBS[name]), n, f"{name} の右の手足の数")
+            for up, lo, ft, hip, knee, ankle in cr.LIMBS[name]:
+                for part in (up, lo, ft):
+                    self.assertIn(part, parts)
+                # どのメッシュも、関節（原点）をつつむ：関節のまわりに回しても、はなれない
+                for part in (up, lo, ft):
+                    vs = [v.co for v in parts[part].data.vertices]
+                    for ax in range(3):
+                        self.assertLess(min(v[ax] for v in vs), 0.02, f"{part} が関節からはなれている")
+                        self.assertGreater(max(v[ax] for v in vs), -0.02, f"{part} が関節からはなれている")
+                self.assertGreater(hip.z, ankle.z, f"{name} の足首は付け根より下")
+            body = parts[name]
+            # 体だけのメッシュには、手足が残っていない（鳥の体は、足の分だけ地面からはなれる）
+            if name == "Sparrow_Body":
+                self.assertGreater(zmin(body), 0.5, "スズメの体に足が残っている")
+
+    def test_closed_parts_face_outward(self):
+        # とじた部品（体・目・脚）の面は外向き。内向きだと、ゲームでは体が黒く見える（前は鳥の体が裏返っていた）
+        import bmesh
+        for name, mk in MAKERS.items():
+            reset()
+            ob = mk()
+            bm = bmesh.new()
+            bm.from_mesh(ob.data)
+            seen = set()
+            for f0 in bm.faces:
+                if f0.index in seen:
+                    continue
+                comp, stack = [], [f0]
+                seen.add(f0.index)
+                while stack:
+                    f = stack.pop()
+                    comp.append(f)
+                    for e in f.edges:
+                        for g in e.link_faces:
+                            if g.index not in seen:
+                                seen.add(g.index)
+                                stack.append(g)
+                if not all(len(e.link_faces) == 2 for f in comp for e in f.edges):
+                    continue   # 羽や帯のような、とじていない面は見ない
+                vol = 0.0
+                for f in comp:
+                    vs = [v.co for v in f.verts]
+                    for i in range(1, len(vs) - 1):
+                        vol += vs[0].dot(vs[i].cross(vs[i + 1])) / 6.0
+                self.assertGreaterEqual(vol, -1e-9, f"{name} に裏返った部品がある（面が {len(comp)} 枚）")
+            bm.free()
+
+    def test_pillbug_legs_share_one_mesh(self):
+        parts = cr.split_legs(cr.make_pillbug, "PillBug", share=True)
+        rig = cr.RIG["PillBug"]
+        self.assertEqual(len(rig), 7, "だんごむしの脚は、片側 7 本")
+        self.assertEqual(len({n for n, b, t in rig}), 1, "同じ形の脚は、1 つのメッシュを使いまわす")
+        self.assertEqual(len(parts), 2, "体と、脚 1 つ")
+        for n, b, t in rig:
+            self.assertLess(t.z, b.z, "足先は付け根より下")
 
     def test_river_stone_is_flat_and_root_arch_is_open(self):
         st = MAKERS["RiverStone_A"]()
