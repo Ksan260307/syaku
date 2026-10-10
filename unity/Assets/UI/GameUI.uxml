@@ -211,7 +211,6 @@
                     <ui:Button name="tab-record" text="きろく" class="tab" />
                 </ui:VisualElement>
                 <ui:VisualElement name="page-zukan" class="page">
-                    <ui:Label name="zukan-count" text="" class="page-sub" picking-mode="Ignore" />
                     <ui:VisualElement class="zukan-body">
                         <ui:ScrollView name="zukan-grid" class="zukan-grid" />
                         <ui:ScrollView name="zukan-detail" class="zukan-detail" mode="Vertical" horizontal-scroller-visibility="Hidden">

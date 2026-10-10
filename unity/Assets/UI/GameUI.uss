@@ -1039,6 +1039,7 @@
 
 .tabs {
     flex-direction: row;
+    flex-shrink: 0;
     margin-bottom: 12px;
 }
 

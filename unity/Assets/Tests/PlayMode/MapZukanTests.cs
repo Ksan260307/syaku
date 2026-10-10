@@ -107,6 +107,24 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
+        public IEnumerator Zukan_HasNoCountLine_AndFiltersSitBelowTheTabs()
+        {
+            UI.ShowCollection(true, "zukan");
+            yield return Frames(4);
+            var page = UI.Root.Q("page-zukan");
+            // 「見つけたいきもの ○/○ 近づくと図鑑に登録されます」の行は出さない
+            Assert.IsNull(page.Q("zukan-count"));
+            page.Query<Label>().ForEach(l => StringAssert.DoesNotContain("近づくと図鑑に登録", l.text));
+            // すみかのしぼりこみは、上のタブに重ならない
+            var tabs = UI.Root.Q(className: "tabs");
+            var filters = page.Q(className: "zukan-filters");
+            Assert.IsNotNull(filters);
+            Assert.GreaterOrEqual(filters.worldBound.yMin, tabs.worldBound.yMax - 0.5f, "しぼりこみはタブの下");
+            tabs.Query<Button>().ForEach(t => Assert.LessOrEqual(t.worldBound.yMax, filters.worldBound.yMin + 0.5f, "タブがしぼりこみにかぶらない: " + t.name));
+            UI.ShowCollection(false);
+        }
+
+        [UnityTest]
         public IEnumerator Records_StayInsideTheWindow()
         {
             UI.ShowCollection(true, "record");
