@@ -54,6 +54,8 @@ namespace Shakutori
         class Mob
         {
             public SpeciesDef sp;
+            /// <summary>大きないきものを 1 ぴきずつ描くときの番号（1 から）。</summary>
+            public int drawSlot;
             /// <summary>動き方を決める種類：レアないきものは、もとになるいきものと同じ動き方をする。</summary>
             public string bid;
             public MobGroup group;
@@ -221,7 +223,13 @@ namespace Shakutori
         readonly List<Vector3> _flowers = new List<Vector3>();
         // 描く物のまとまり：メッシュ・マテリアル・形の段（-1 = 段なし）・影を落とすか。範囲は中の物だけを包む
         sealed class DrawList { public readonly List<Matrix4x4> m = new List<Matrix4x4>(); public Bounds bounds; }
-        readonly Dictionary<(Mesh, Material, int, bool), DrawList> _draw = new Dictionary<(Mesh, Material, int, bool), DrawList>();
+        readonly Dictionary<(Mesh, Material, int, bool, int), DrawList> _draw = new Dictionary<(Mesh, Material, int, bool, int), DrawList>();
+        /// <summary>
+        /// 大きないきもの（体の半径がこれより大きい）は、1 ぴきずつ別に描く。
+        /// まとめて描くと、描く順番を決める範囲が広くなって、手前の大きな体より先に、うしろの地面の色を計算してしまう（むだが多い）。
+        /// </summary>
+        public const float BigBodyRadius = 1.2f;
+        int _drawSlot;
         // いま描いているいきものの、カメラからの距離・大きさ・影を落とすか（Add が使う）
         float _drawDist, _drawRadius;
         bool _drawShadow = true;
@@ -241,6 +249,35 @@ namespace Shakutori
         bool _wormStanding;
 
         public int MobCount => _mobs.Count;
+
+        /// <summary>
+        /// 読み込み中に先に用意しておく、いきものの形と材質（RenderWarmup 用）。
+        /// 体・玉の形・脚・羽（たたんだ羽も）を、使いそうな材質の組み合わせで。
+        /// </summary>
+        public void CollectWarmup(List<(Mesh mesh, Material material, bool instanced)> into)
+        {
+            var seen = new HashSet<SpeciesDef>();
+            void Put(Mesh m, Material mat) { if (m != null && mat != null) into.Add((m, mat, true)); }
+            foreach (var m in _mobs)
+            {
+                if (!seen.Add(m.sp)) continue;
+                var sp = m.sp;
+                Put(M(sp.body), assets.creature);
+                Put(M(sp.body + "_Ball"), assets.creature);
+                if (sp.rig != null)
+                    foreach (var leg in CreatureRig.Legs(sp.rig))
+                        Put(M(leg.mesh + sp.legSuffix) ?? M(leg.mesh), assets.creature);
+                if (sp.parts != null)
+                    foreach (var part in sp.parts)
+                    {
+                        Put(M(part.mesh), assets.creature);
+                        Put(M(part.mesh), assets.creatureWing);
+                        Put(M(part.mesh), assets.creatureGlow);
+                        Put(M(part.mesh + "Folded"), assets.creatureWing);
+                    }
+                if (m.bid == "mogura" && sp.id != "okojo") Put(M("Mogura_Hill"), assets.creature);
+            }
+        }
 
         float R(float a, float b) => a + (b - a) * (float)_rng.NextDouble();
         float Sign() => _rng.NextDouble() < 0.5 ? -1f : 1f;
@@ -557,6 +594,7 @@ namespace Shakutori
                     m.wantFwd = m.fwd;
                     m.prevFwd = m.fwd;
                     if (sp.rideable) MakeCollider(m);
+                    m.drawSlot = _mobs.Count + 1;
                     _mobs.Add(m);
                     members.Add(m);
                 }
@@ -3434,7 +3472,7 @@ namespace Shakutori
             if (mesh == null || mat == null) return;
             // 小さく見えるいきものは、三角形の少ない形で描く（画面での大きさで選ぶ）
             int lod = mesh.lodCount > 1 ? InstancedRenderer.LodFor(_drawDist, _drawRadius, mesh.lodCount) : -1;
-            var key = (mesh, mat, lod, _drawShadow);
+            var key = (mesh, mat, lod, _drawShadow, _drawSlot);
             if (!_draw.TryGetValue(key, out var list))
             {
                 list = new DrawList();
@@ -3998,6 +4036,7 @@ namespace Shakutori
                 var bodyM = M(m.sp.body);
                 _drawRadius = (bodyM != null ? bodyM.bounds.extents.magnitude : 0.5f) * m.scale;
                 _drawDist = Mathf.Sqrt(d2);
+                _drawSlot = _drawRadius > BigBodyRadius ? m.drawSlot : 0;
                 _drawShadow = _drawDist - _drawRadius <= shadowReach;
 
                 string bodyMesh = ball ? m.sp.body + "_Ball" : m.sp.body;

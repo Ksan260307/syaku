@@ -184,6 +184,20 @@ class ParkKitTests(unittest.TestCase):
         self.assertLess(min(b[0] for b in park.KUNUGI_BRANCHES), 12.0, "低い枝もある（登りやすい）")
         self.assertGreater(len(ob.data.polygons), 20000, "葉がたくさん")
 
+    def test_tires_and_chain_face_outward(self):
+        # ドーナツの形（タイヤ・ブランコのくさり）は、面が外を向く（うら返しだと、外から見えず、しゃくとりむしが中へ入りこむ）
+        def signed_volume(ob):
+            me = ob.data
+            me.calc_loop_triangles()
+            vol = 0.0
+            for tri in me.loop_triangles:
+                a, b, c = (me.vertices[i].co for i in tri.vertices)
+                vol += a.dot(b.cross(c)) / 6.0
+            return vol
+        for name in ("Park_Tire_Red", "Park_SwingChain"):
+            ob = MAKERS[name]() if name in MAKERS else park.make_swing_chain()
+            self.assertGreater(signed_volume(ob), 0.0, name)
+
     def test_dokan_is_hollow(self):
         ob = park.make_dokan()
         inner = [v.co for v in ob.data.vertices if (v.co.y ** 2 + v.co.z ** 2) ** 0.5 < park.DOKAN_R - 0.3]

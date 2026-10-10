@@ -83,6 +83,12 @@ namespace Shakutori
         AreaLayout Area => area ?? Areas.Current;
 
         public int Count => _count;
+
+        /// <summary>読み込み中に先に用意しておく、描く物の形と材質（RenderWarmup 用）。</summary>
+        public void CollectWarmup(List<(Mesh mesh, Material material, bool instanced)> into)
+        {
+            foreach (var b in _batches) into.Add((b.mesh, b.material, true));
+        }
         public int BodyCount => _awake.Count;
         public IReadOnlyList<BigLeaf> BigLeaves => _leaves;
         /// <summary>置いた物を 1 つずつ（テストや、置き方の点検用）：形・いまの位置・置いた位置・向き・大きさ。</summary>
@@ -230,6 +236,29 @@ namespace Shakutori
                 it.pos = it.home = p;
                 it.lift = p.y - Area.Height(p.x, p.z);
                 it.m = Matrix4x4.TRS(p, it.rot, Vector3.one * it.scale);
+                MoveToCell(i);
+                moved++;
+            }
+            if (moved > 0) _dirty = true;
+            return moved;
+        }
+
+        /// <summary>あとから地面を盛った所の小物を、盛った高さだけ持ち上げる（置いたときだけ使う）。</summary>
+        public int Lift(System.Func<Vector3, float> rise)
+        {
+            int moved = 0;
+            for (int i = 0; i < _count; i++)
+            {
+                ref var it = ref _items[i];
+                if (it.body >= 0) continue;
+                float d = rise(it.pos);
+                if (d < 0.002f) continue;
+                if (_batches[it.batch].shape == Shape.BigLeaf)
+                    foreach (var leaf in _leaves)
+                        if (leaf != null && leaf.Index == i) leaf.transform.position += Vector3.up * d;
+                it.pos += Vector3.up * d;
+                it.home = it.pos;
+                it.m = Matrix4x4.TRS(it.pos, it.rot, Vector3.one * it.scale);
                 MoveToCell(i);
                 moved++;
             }

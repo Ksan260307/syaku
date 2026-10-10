@@ -82,7 +82,7 @@ def torus(mb, R, r, colfn, seg=28, rseg=12, m=None):
     for i in range(seg):
         A, B = rings[i], rings[(i + 1) % seg]
         for j in range(rseg):
-            mb.f(A[j], A[(j + 1) % rseg], B[(j + 1) % rseg], B[j])
+            mb.f(A[j], B[j], B[(j + 1) % rseg], A[(j + 1) % rseg])   # 面は外向き（うら返しにしない）
 
 
 PAINT_RED = hexc("#e2483a")

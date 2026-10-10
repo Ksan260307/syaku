@@ -902,6 +902,34 @@ namespace Shakutori
             return need;
         }
 
+        /// <summary>
+        /// a から b へ動くとき、上にかぶさる物（坂にのった岩の下・ひさし）までの高さ（n の向き）。なければ大きな値。
+        /// 頭や尾を持ち上げる高さを、これより低くする（岩の中へ頭をつっこまない）。
+        /// </summary>
+        static float PathCeiling(Vector3 a, Vector3 b, Vector3 n)
+        {
+            float best = 99f;
+            // 体はゆれて少し横へもふくらむので、通り道の少し左右も見る（石のふちにそって歩くとき）
+            Vector3 side = Vector3.Cross(n, b - a);
+            side = side.sqrMagnitude > 1e-8f ? side.normalized * 0.2f : Vector3.zero;
+            for (int i = 0; i <= 4; i++)
+                for (int j = -1; j <= 1; j++)
+                {
+                    Vector3 p = Vector3.Lerp(a, b, i / 4f) + side * j + n * 0.02f;
+                    if (Physics.Raycast(p, n, out var hit, 1.2f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
+                        best = Mathf.Min(best, hit.distance + 0.02f);
+                }
+            return best;
+        }
+
+        /// <summary>頭や尾の弧の高さを、上にかぶさる物の下におさめる（体の太さと、少しのすき間をのこす）。</summary>
+        float UnderCeiling(float lift, Vector3 a, Vector3 b, Vector3 n)
+        {
+            float ceil = PathCeiling(a, b, n);
+            _underCeiling = ceil < 1.1f;
+            return ceil > 50f ? lift : Mathf.Min(lift, Mathf.Max(0f, ceil - 2.4f * Rad));
+        }
+
         static bool IsEdgeFail(string why) => why == "nothing-ahead" || why == "cliff" || why == "no-drop" || why == "edge-invalid";
         static bool IsObstacleFail(string why) => why == "slide-blocked" || why == "slide-turn" || why == "overhang" || why == "wall-invalid";
 
@@ -1002,6 +1030,7 @@ namespace Shakutori
             // 尾の弧：歩幅と速さに合わせた高さ。通り道に出っぱりがあれば、それもこえる
             float baseLift = 0.05f * L * Mathf.Clamp(span / (0.7f * L), 0.5f, 1.4f) * (1f + 0.5f * _sprintBlend);
             _pullLift = Mathf.Max(baseLift, PathClearance(_from.point, _to.point, n) + 0.03f);
+            _pullLift = UnderCeiling(_pullLift, _from.point, _to.point, n);
             // 次に曲がる方へ、体を少しかたむける
             Vector3 want = _desiredNow.sqrMagnitude > 0.01f ? ShakuMath.ProjectOnPlaneSafe(_desiredNow, _head.normal, hf) : hf;
             _turnSign = Mathf.Clamp(Vector3.SignedAngle(hf, want, _head.normal) / 70f, -1f, 1f);
@@ -1209,6 +1238,7 @@ namespace Shakutori
             Vector3 liftN = (_from.normal + tgt.normal).normalized;
             float clear = PathClearance(_from.point, tgt.point, liftN);
             _reachLift = Mathf.Max(lift, (clear + 0.06f) / L);
+            _reachLift = UnderCeiling(_reachLift * L, _from.point, tgt.point, liftN) / L;
             // 曲がるときは、頭が尾のまわりを弧をえがいて動く（平らな所どうしのとき）
             float same = Mathf.Min(Vector3.Dot(_from.normal, tgt.normal), Vector3.Dot(n, tgt.normal));
             _arcBlend = same > 0.9f ? Mathf.Clamp01(Mathf.Abs(turnDeg) / 30f) : 0f;
@@ -1499,7 +1529,7 @@ namespace Shakutori
                     _target.pos[k] += _target.up[k] * (0.007f * L * Mathf.Sin(u * 14f - ph) * Mathf.Sin(Mathf.PI * u));
                 }
             }
-            ConformToSurface(_target);
+            ConformToSurface(_target, upHint);
 
             if (_rear > 0.001f)
             {
@@ -1540,6 +1570,8 @@ namespace Shakutori
                 // BuildRear の横向きは SignedAngle と逆まわりなので、符号を反転して渡す
                 _pose.BuildRear(tc, X, _tail.normal, L, rise, -swayAngle, nod);
                 _target.Blend(_target, _pose, ShakuMath.Smooth01(rise));
+                // 背伸びの形は、尾のところの面にそってまっすぐのびるので、上り坂では体のつけ根が地面にうまる。もう一度、面の外へ
+                ConformToSurface(_target, upHint);
             }
         }
 
@@ -1559,10 +1591,11 @@ namespace Shakutori
         }
 
         readonly Vector3[] _push = new Vector3[Samples];
+        bool _underCeiling;   // いまの一歩の通り道の上に、かぶさる物がある
         readonly Vector3[] _smooth = new Vector3[Samples];
 
         /// <summary>でこぼこにめり込まないよう、体の各点を表面の外へ押し出す。</summary>
-        void ConformToSurface(BodyCurve c)
+        void ConformToSurface(BodyCurve c, Vector3 surfaceUp)
         {
             int n = c.Count;
             for (int k = 0; k < n; k++) _push[k] = Vector3.zero;
@@ -1582,6 +1615,31 @@ namespace Shakutori
             for (int k = 1; k < n - 1; k++) _smooth[k] = (_push[k - 1] + _push[k] * 2f + _push[k + 1]) * 0.25f;
             for (int k = 1; k < n - 1; k++)
                 c.pos[k] += _push[k].sqrMagnitude > _smooth[k].sqrMagnitude ? _push[k] : _smooth[k];
+            // 上にかぶさる物（坂にのった岩の下・ひさし）があれば、Ω のこぶをその下へおさめる（岩の中へつき出さない）。
+            // 下の面へは、しずめない
+            bool any = false;
+            for (int k = 1; k < n - 1 && _underCeiling; k++)
+            {
+                _push[k] = Vector3.zero;
+                Vector3 p = c.pos[k];
+                Vector3 u = surfaceUp;   // Ω の両がわは体の背中が横を向くので、足場の面の向きで見る
+                // 体の下の面（体が物の中に入っていれば、物の下の地面）から上へさがして、最初の物の下の面が「上にかぶさる物」
+                if (!SurfaceProbe.Raycast(p + u * Rad, -u, 0.8f, out var floor)) continue;
+                if (!Physics.Raycast(floor.point + u * 0.02f, u, out var ceil, 1.2f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)) continue;
+                float h = Vector3.Dot(ceil.point - p, u);
+                if (h > 1.1f * Rad) continue;   // じゅうぶん上
+                float room = Vector3.Dot(p - floor.point, u) - minClear;
+                float down = Mathf.Min(1.1f * Rad - h, Mathf.Max(0f, room));
+                if (down <= 0f) continue;
+                _push[k] = -u * down;
+                any = true;
+            }
+            if (any)
+            {
+                for (int k = 1; k < n - 1; k++) _smooth[k] = (_push[k - 1] + _push[k] * 2f + _push[k + 1]) * 0.25f;
+                for (int k = 1; k < n - 1; k++)
+                    c.pos[k] += _push[k].sqrMagnitude > _smooth[k].sqrMagnitude ? _push[k] : _smooth[k];
+            }
             c.RecomputeTangents();
         }
 

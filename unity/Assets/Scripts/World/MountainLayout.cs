@@ -94,11 +94,33 @@ namespace Shakutori
             float sd = Vector2.Distance(p, Spring);
             float bed = SpringLevel - SpringDepth * SmoothStep(SpringRadius, SpringRadius * 0.35f, sd) - 0.25f;
             h = Mathf.Lerp(h, bed, SmoothStep(SpringRadius + 2.5f, SpringRadius - 0.5f, sd));
+            // 下り坂の側は、泉をせきとめる土手（水のふちが地面からうかない。土手の上から水ぎわへ下りられる）
+            if (AreaLayout.LateGround) h = Mathf.Max(h, SpringBank(sd));
             // ふもとのトンネルのまわりは、平らに
             h = Mathf.Lerp(h, BaseHeight(Gate.x, Gate.y + 6f), SmoothStep(12f, 6f, Vector2.Distance(p, Gate + new Vector2(0f, 4f))));
             // 外周は少しせり上がる（山頂から見ると、まわりは低い）
             h += 10f * Mathf.Pow(SmoothStep(60f, 96f, r), 1.4f);
             return h;
+        }
+
+        /// <summary>土手のてっぺんの、水面からの高さ。</summary>
+        public const float SpringBankTop = 0.16f;
+
+        /// <summary>水ぎわの浅い所の深さ（しゃくとりむしが歩いて入れる）。</summary>
+        public const float SpringShallow = 0.06f;
+
+        /// <summary>
+        /// 泉のふちの形（地面がこれより低い所だけ、盛り上げる）：まわりをぐるりと、歩いて入れる浅い水ぎわ。
+        /// 下り坂の側は、その外に水をせきとめる土手（水面より少し高い）。
+        /// </summary>
+        static float SpringBank(float sd)
+        {
+            const float r = SpringRadius;
+            if (sd < r - 1.1f) return -999f;
+            float shelf = SmoothStep(r - 1.1f, r - 0.4f, sd);         // 深い所から、浅い水ぎわへ
+            float bank = SmoothStep(r + 0.8f, r + 1.4f, sd);          // 水ぎわから、土手のてっぺんへ
+            float h = SpringLevel - 0.35f + (0.35f - SpringShallow) * shelf + (SpringShallow + SpringBankTop) * bank;
+            return h - 0.55f * ShakuMath.SoftRamp(sd - (r + 2.6f), 0.8f);
         }
 
         public static Vector3 Normal(float x, float z)

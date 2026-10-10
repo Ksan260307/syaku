@@ -39,6 +39,8 @@ namespace Shakutori
         public const float SpoutReach = 3.0f, SpoutHeight = 3.7f;
         /// <summary>水飲み場のまん中の飲み口の、丸い頭のてっぺん（台の根もとから）。しずくがのる。</summary>
         public const float BubblerTop = 8.2f;
+        /// <summary>水飲み場の台の、地面での半径。</summary>
+        public const float FountainBaseR = 1.6f;
 
         /// <summary>水飲み場から水たまりへの向き（じゃぐちは、水たまりの方を向いている）。</summary>
         public static Vector2 SpoutDir => (Puddle - Fountain).normalized;
@@ -101,7 +103,21 @@ namespace Shakutori
             float pd = Vector2.Distance(new Vector2(x, z), Puddle);
             float bed = WaterLevel - PuddleDepth * (0.6f + 0.4f * ShakuMath.SmoothStep(PuddleRadius, 0f, pd));
             h = Mathf.Lerp(h, bed, ShakuMath.SmoothStep(PuddleRadius + 1.2f, PuddleRadius - 0.8f, pd));
+            // 低い側のふちは、水面より少しだけ高い土手（水のふちが、地面からういて見えない）
+            if (AreaLayout.LateGround) h = Mathf.Max(h, PuddleRim(pd, Vector2.Distance(new Vector2(x, z), Fountain)));
             return h;
+        }
+
+        /// <summary>
+        /// 水たまりのふちの土手の高さ（地面がこれより低い所だけ、盛り上げる）。
+        /// 水飲み場の台の下は、もとの地面のまま（水飲み場と、その上のしずくの高さを変えない）。
+        /// </summary>
+        static float PuddleRim(float pd, float fountainDist)
+        {
+            if (pd < PuddleRadius - 0.4f || fountainDist < FountainBaseR - 0.1f) return -999f;
+            float up = ShakuMath.SmoothStep(PuddleRadius - 0.4f, PuddleRadius + 0.6f, pd);
+            float rim = WaterLevel - 0.08f + 0.13f * up - 0.3f * ShakuMath.SoftRamp(pd - (PuddleRadius + 1.9f), 0.8f);
+            return rim - 0.4f * ShakuMath.SmoothStep(FountainBaseR + 0.3f, FountainBaseR - 0.1f, fountainDist);
         }
 
         public static Vector3 Normal(float x, float z)

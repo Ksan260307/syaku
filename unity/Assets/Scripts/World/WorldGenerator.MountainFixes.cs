@@ -35,7 +35,9 @@ namespace Shakutori
         {
             MountainFixes.Clear();
             Physics.SyncTransforms();
+            PineRoots();
             MoveStairsDen();
+            SettleDens();
             ClearWalkingTrails();
             GroundFloatingRocks();
             MoveSnowMoundsOffTrail();
@@ -51,6 +53,115 @@ namespace Shakutori
             ClearTallPlantsAlongTrails();
             ClearTallFlowersInViews();
             Physics.SyncTransforms();
+        }
+
+        /// <summary>
+        /// オコジョのすみかを、坂の地面になじませる：石は 1 つずつ、その下の地面の高さへ（形はそのまま）、
+        /// 掘り出した土の山は地面にそって曲げる。しずくをのせた石は動かさない。穴と土の山の上の草花は取りのぞく。
+        /// </summary>
+        void SettleDens()
+        {
+            foreach (var go in PlacedObjects().Where(g => g.name == "Okojo_Rocks").ToList())
+            {
+                var mf = go.GetComponent<MeshFilter>();
+                Mesh src = mf != null ? mf.sharedMesh : assets.TryGet("Okojo_Rocks");
+                if (src == null || !src.isReadable) continue;
+                Transform t = go.transform;
+                Vector3 c = t.position;
+                float g0 = MountainLayout.Height(c.x, c.z);
+                var v = src.vertices;
+                var tris = src.triangles;
+                // つながった部分（石 1 つずつ・土の山）に分ける（同じ場所の頂点はひとつにまとめて）
+                var parent = new int[v.Length];
+                for (int i = 0; i < v.Length; i++) parent[i] = i;
+                int Find(int i) { while (parent[i] != i) i = parent[i] = parent[parent[i]]; return i; }
+                void Union(int a, int b) { a = Find(a); b = Find(b); if (a != b) parent[a] = b; }
+                var weld = new Dictionary<Vector3Int, int>();
+                for (int i = 0; i < v.Length; i++)
+                {
+                    var key = Vector3Int.RoundToInt(v[i] * 1000f);
+                    if (weld.TryGetValue(key, out int j)) Union(i, j); else weld[key] = i;
+                }
+                for (int i = 0; i + 2 < tris.Length; i += 3) { Union(tris[i], tris[i + 1]); Union(tris[i + 1], tris[i + 2]); }
+                var groups = new Dictionary<int, List<int>>();
+                for (int i = 0; i < v.Length; i++)
+                {
+                    int r = Find(i);
+                    if (!groups.TryGetValue(r, out var l)) groups[r] = l = new List<int>();
+                    l.Add(i);
+                }
+                var w = new Vector3[v.Length];
+                for (int i = 0; i < v.Length; i++) w[i] = t.TransformPoint(v[i]);
+                var col = src.colors;
+                bool Soil(List<int> idx)
+                {
+                    if (col.Length != v.Length) return false;
+                    float rg = 0f;
+                    foreach (int i in idx) rg += (col[i].r - col[i].g) / Mathf.Max(col[i].r, 0.02f);
+                    return rg / idx.Count > 0.15f;   // 土は茶色（赤みが強い）。石は灰色、地衣類は黄色っぽい
+                }
+                foreach (var kv in groups)
+                {
+                    var idx = kv.Value;
+                    if (Soil(idx))
+                    {
+                        // 土（山・こぼれた土・土くれ）は、地面にそって曲げる
+                        foreach (int i in idx) w[i].y += MountainLayout.Height(w[i].x, w[i].z) - g0;
+                        continue;
+                    }
+                    var b = new Bounds(w[idx[0]], Vector3.zero);
+                    foreach (int i in idx) b.Encapsulate(w[i]);
+                    bool dew = false;
+                    var bb = b;
+                    bb.Expand(new Vector3(0.6f, 1.2f, 0.6f));
+                    foreach (var d in DewdropPoints) if (bb.Contains(d)) dew = true;
+                    if (dew) continue;   // しずくをのせた石は、そのまま
+                    float dy = MountainLayout.Height(b.center.x, b.center.z) - g0;
+                    foreach (int i in idx) w[i].y += dy;
+                }
+                var nv = new Vector3[v.Length];
+                for (int i = 0; i < v.Length; i++) nv[i] = t.InverseTransformPoint(w[i]);
+                var m = Own(Instantiate(src));
+                m.name = src.name;
+                m.vertices = nv;
+                m.RecalculateBounds();
+                // 絵：インスタンスで描いている物は、この 1 つだけ作りなおしたメッシュで描く
+                if (mf != null) mf.sharedMesh = m;
+                else
+                {
+                    Vector3 at = c;
+                    instanced.Edit((mesh, mat, mtx) => mesh == src && ((Vector3)mtx.GetColumn(3) - at).sqrMagnitude < 1e-4f ? (Matrix4x4?)null : mtx);
+                    instanced.Add(m, assets.prop, Matrix4x4.TRS(c, t.rotation, t.lossyScale), true, 200f);
+                }
+                var mc = go.GetComponent<MeshCollider>();
+                if (mc != null)
+                {
+                    mc.sharedMesh = null;
+                    mc.sharedMesh = m;
+                }
+                // 穴と土の山の上の草花・小物は、どける
+                Vector2 c2 = new Vector2(c.x, c.z);
+                instanced.Edit((mesh, mat, mtx) =>
+                {
+                    if (mat != assets.foliage && mat != assets.flowers) return mtx;
+                    Vector3 p = mtx.GetColumn(3);
+                    return (new Vector2(p.x, p.z) - c2).sqrMagnitude < 2.7f * 2.7f ? (Matrix4x4?)null : mtx;
+                });
+                if (loose != null) loose.PushOut(c, 2.9f, 3f);
+                Physics.SyncTransforms();
+                Fixed("fix_densoil", c);
+            }
+        }
+
+        /// <summary>大きな松の根を、坂の地面にそわせる（下手の根が宙にうかない）。</summary>
+        void PineRoots()
+        {
+            foreach (Transform t in _solidRoot)
+                if (t.name == "Mtn_Pine")
+                {
+                    ConformRoots(t.gameObject, 3.4f, 3.2f);
+                    Fixed("pineRoots", t.position);
+                }
         }
 
         // ------------------------------------------------------------------

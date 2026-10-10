@@ -164,6 +164,19 @@ class CreatureKitTests(unittest.TestCase):
         center = [v for v in den.data.vertices if (v.co.x ** 2 + v.co.y ** 2) ** 0.5 < 1.0 and v.co.z > 0.2]
         self.assertEqual(len(center), 0, "穴の上には石がない（顔を出せる）")
 
+    def test_okojo_den_has_a_real_hole_in_a_soil_mound(self):
+        # 穴の口はオコジョの体が通る広さで、土の山のふちより低い（すみかは地面より 0.15 下に置く。底は地面のすぐ上）。
+        # まわりは掘り出した土の山で、すそは地面の下
+        den = cr.make_okojo_rocks()
+        ok = size(cr.make_okojo())
+        hole = [v.co for v in den.data.vertices if (v.co.x ** 2 + v.co.y ** 2) ** 0.5 < cr.OKOJO_HOLE_R - 0.1]
+        self.assertTrue(all(0.15 < p.z < 0.25 for p in hole), "穴の底は、地面のすぐ上（地面が穴をふさがない）")
+        self.assertGreater(cr.OKOJO_HOLE_R * 2, ok[0] * 0.95, "オコジョの体が穴を通る")
+        rim = [v.co.z for v in den.data.vertices if 1.15 < (v.co.x ** 2 + v.co.y ** 2) ** 0.5 < 1.45 and v.co.z < 0.6]
+        self.assertTrue(0.15 < max(rim) < 0.5, f"穴のまわりは、土が少しもり上がる {max(rim)}")
+        skirt = [v.co.z for v in den.data.vertices if (v.co.x ** 2 + v.co.y ** 2) ** 0.5 > cr.OKOJO_SOIL_R - 0.1 and v.co.z < 0.0]
+        self.assertLess(min(skirt), -0.4, "土の山のすそは、地面の下へ")
+
     def test_mountain_walkers_have_leg_rigs(self):
         for name in ("Risu", "Sanshouuo", "Higurashi", "Maimaikaburi"):
             parts = cr.split_legs(MAKERS[name], name)

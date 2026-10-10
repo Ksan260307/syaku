@@ -63,7 +63,11 @@ namespace Shakutori
 
         public static int Mask => ShakuConst.WalkableMask;
 
-        public static void ClearCache() => Cache.Clear();
+        public static void ClearCache()
+        {
+            Cache.Clear();
+            s_closed.Clear();
+        }
 
         /// <summary>メッシュの頂点法線を重心座標で補間した、なめらかな法線。</summary>
         public static Vector3 SmoothNormal(RaycastHit hit)
@@ -145,9 +149,87 @@ namespace Shakutori
         {
             Vector3 from = underside.point + d * 0.18f + Vector3.up * (ReachOverHeight + 0.15f);
             if (Raycast(from, Vector3.down, ReachOverHeight + 0.3f, out top) && top.normal.y > 0.5f
-                && top.point.y > p.y - 0.05f && top.point.y - p.y < ReachOverHeight && Valid(top.point))
+                && top.point.y > p.y - 0.05f && top.point.y - p.y < ReachOverHeight && Valid(top.point)
+                && !Covered(top.point, from.y - top.point.y))
                 return true;
             return false;
+        }
+
+        /// <summary>体を Ω にまげて進めるくらいの高さ。これより低いすき間には、もぐりこまない（上へ乗りこえるか、止まる）。</summary>
+        public const float BodyHeadroom = 0.2f;
+
+        /// <summary>
+        /// 体の太さくらいの高さに、下のあいた物のふち（地面から少しういた平たい石・ななめに置かれた板のはし）があるか。
+        /// 地面のような下のつまった面は、高い所ほど遠くにあるので、低いレイが当たらずに高いレイだけが当たるのは、ふちだけ
+        /// （ゆるくかたむいた石の下の面のように、ななめに当たるものもふくむ）。
+        /// 動く足場（舟）への乗り降りと、動くいきものは、ここでは見ない。
+        /// </summary>
+        static bool LowGap(Vector3 p, Vector3 n, Vector3 d, float s, out RaycastHit rim)
+        {
+            if (!Physics.Raycast(p + n * BodyHeadroom, d, out rim, s + 0.04f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)) return false;
+            return rim.collider.GetComponentInParent<MovingPlatform>() == null;
+        }
+
+        /// <summary>
+        /// 上から下へのレイで見つけた面の上に、物があるか（レイが物の中から始まると、物の中の地面が見つかってしまう。
+        /// 大きな岩の下のすき間や、半分うまったタイヤのふちから「乗りこえ」ようとして、物の中の地面へ入りこまないように）。
+        /// </summary>
+        static bool Covered(Vector3 point, float height)
+        {
+            if (height <= 0.03f) return false;
+            if (InsideSolid(point)) return true;
+            return Raycast(point + Vector3.up * 0.02f, Vector3.up, height - 0.02f, out _);
+        }
+
+        /// <summary>
+        /// 点が、閉じた物（岩・タイヤ・丸太）の中にあるか：上へのレイが、物の内がわ（うら面）に当たる。
+        /// 面の向きは外向きなので、内がわから当たった面は、上を向いている。
+        /// </summary>
+        public static bool InsideSolid(Vector3 point)
+        {
+            bool back = Physics.queriesHitBackfaces;
+            Physics.queriesHitBackfaces = true;
+            bool hit = Physics.Raycast(point + Vector3.up * 0.02f, Vector3.up, out var h, 6f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore);
+            Physics.queriesHitBackfaces = back;
+            if (!hit || h.normal.y <= 0.05f || h.collider.attachedRigidbody != null) return false;   // 動く物（葉っぱ）は見ない
+            // 閉じた形だけ（すべり台の板のような、うすい面だけの形は、下から見ると内がわに見えるので数えない）
+            return h.collider is MeshCollider mc && Closed(mc.sharedMesh);
+        }
+
+        static readonly Dictionary<Mesh, bool> s_closed = new Dictionary<Mesh, bool>();
+
+        /// <summary>メッシュが閉じているか（どの辺も 2 つの三角形にはさまれる。同じ場所の頂点はまとめて見る）。</summary>
+        static bool Closed(Mesh m)
+        {
+            if (m == null) return false;
+            if (s_closed.TryGetValue(m, out bool c)) return c;
+            c = false;
+            if (m.isReadable)
+            {
+                var v = m.vertices;
+                var t = m.triangles;
+                var id = new int[v.Length];
+                var weld = new Dictionary<Vector3Int, int>();
+                for (int i = 0; i < v.Length; i++)
+                {
+                    var key = Vector3Int.RoundToInt(v[i] * 2000f);
+                    if (!weld.TryGetValue(key, out id[i])) weld[key] = id[i] = i;
+                }
+                var edges = new Dictionary<long, int>();
+                for (int i = 0; i + 2 < t.Length; i += 3)
+                    for (int e = 0; e < 3; e++)
+                    {
+                        int a = id[t[i + e]], b = id[t[i + (e + 1) % 3]];
+                        if (a == b) continue;
+                        long k = a < b ? ((long)a << 32) | (uint)b : ((long)b << 32) | (uint)a;
+                        edges[k] = edges.TryGetValue(k, out int n) ? n + 1 : 1;
+                    }
+                int open = 0;
+                foreach (var kv in edges) if (kv.Value == 1) open++;
+                c = edges.Count > 0 && open <= edges.Count / 100;
+            }
+            s_closed[m] = c;
+            return c;
         }
 
         /// <summary>前の少し先から真下へ、低い所の上向きの面を探す（小さな段差をそのまま下りる）。</summary>
@@ -168,7 +250,8 @@ namespace Shakutori
         {
             Vector3 from = ahead + d * 0.04f + Vector3.up * (StepUpHeight + 0.08f);
             return Raycast(from, Vector3.down, StepUpHeight + 0.2f, out hit) && hit.normal.y > 0.5f
-                   && hit.point.y >= p.y - 0.02f && hit.point.y - p.y < StepUpHeight && Valid(hit.point);
+                   && hit.point.y >= p.y - 0.02f && hit.point.y - p.y < StepUpHeight && Valid(hit.point)
+                   && !Covered(hit.point, from.y - hit.point.y);
         }
 
         /// <summary>
@@ -203,8 +286,10 @@ namespace Shakutori
                 _curD = d;
 
                 // 1) 行く手に壁（凹んだ角）があれば、その面へ乗り移る。かすめるだけなら沿ってすべる
+                bool gentle = false;
                 if (Raycast(origin, d, s + 0.02f, out var wall))
                 {
+                    gentle = true;
                     Vector3 wn = SmoothNormal(wall);
                     // 細かいでこぼこ（樹皮のすじなど）は、なめらかな法線では平らに見えても実際はじゃまをするので、
                     // 面そのものの向きのほうが行く手をふさいでいれば、そちらで判断する
@@ -247,7 +332,23 @@ namespace Shakutori
                     }
                 }
 
+                // 1.2) 体の太さより低いすき間（地面から少しういた平たい石のふち・ななめに置かれた物のはし）：
+                //      下へもぐりこむと体が物にうまるので、上へ乗りこえる。とどかなければ、そこで止まる
+                else if (n.y > 0.5f && LowGap(p, n, d, s, out var rim))
+                {
+                    if (TryReachOver(rim, d, p, out var over1))
+                    {
+                        MoveTo(over1, ref p, ref n, ref d, ref lastCol);
+                        remaining -= s;
+                        continue;
+                    }
+                    return Fail("overhang");
+                }
+
                 Vector3 ahead = origin + d * s;
+                // ゆるい面（小さな盛り上がり・岩のなだらかな面）に、この一歩の中でぶつかった：その面の上から下ろす。
+                // 先の点が物の向こう側（物の中）になると、下へのレイが物の中の地面を見つけてしまう
+                if (gentle && wall.distance < s) ahead = wall.point + SmoothNormal(wall) * lift;
 
                 // 1.5) 動く足場（葉っぱの舟）と地面のあいだの乗り降り：少し高さがちがっても乗り移れる
                 if (Raycast(ahead + n * HopHeight, -n, HopHeight + lift + s * 1.2f + HopDrop, out var hop)
@@ -359,6 +460,8 @@ namespace Shakutori
                 offEdge = n.y >= MaxDescentY;
                 return Fail("nothing-ahead");
             }
+            // 最後の守り：どの道すじでも、物の中には入らない
+            if (lastCol != null && InsideSolid(p + n * 0.05f)) return Fail("inside");
             result = lastCol != null ? SurfacePoint.On(p, n, lastCol) : start;
             if (lastCol == null) result = new SurfacePoint(p, n);
             endDir = d;

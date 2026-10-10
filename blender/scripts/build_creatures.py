@@ -2374,15 +2374,37 @@ def make_okojo():
     return build(mb, "Okojo")
 
 
+OKOJO_HOLE_R = 1.0     # 穴の口の半径（オコジョの体が通る）
+OKOJO_SOIL_R = 3.1     # 掘り出した土の山のすそ（地面の下にうめる）
+
+
 def make_okojo_rocks():
-    """オコジョのすみか：花こう岩の石が、まるく積み重なり、まん中に暗い穴"""
+    """オコジョのすみか：花こう岩の石が、まるく積み重なり、まん中に掘りかえした土の山と、下へつづく暗い穴"""
     mb = MB()
     rnd = random.Random(9)
-    prof = [(0.0, -0.6), (1.2, -0.5), (1.45, -0.1), (1.5, 0.15), (0.0, 0.16)]
+    soil = hexc("#6b4a2f")
+    soil_light = hexc("#8f6a45")
+    dark = hexc("#120d0a")
+    off = Vector((3.1, -7.4, 1.7))
+    # 土の山：すそは地面の下、ふちは少しもり上がり、まん中に暗い穴の口。
+    # 地面はすみかの下にもあるので、穴の底は地面のすぐ上（まっ暗にぬって、深い穴に見せる）。オコジョは、この底を通って出入りする
+    prof = [(OKOJO_SOIL_R, -0.55), (2.5, -0.12), (2.0, 0.12), (1.6, 0.3), (1.28, 0.36), (OKOJO_HOLE_R + 0.08, 0.3),
+            (OKOJO_HOLE_R - 0.02, 0.19), (OKOJO_HOLE_R - 0.25, 0.18), (0.0, 0.18)]
 
-    def hole(t, a, p):
-        return mixc(hexc("#151210"), hexc("#3a3028"), sstep(0.8, 1.45, math.hypot(p.x, p.y)))
-    lathe(mb, prof, 24, hole)
+    def soil_col(t, a, p):
+        r = math.hypot(p.x, p.y)
+        c = mixc(soil, soil_light, 0.5 + 0.5 * noise.noise(p * 1.7 + off))
+        c = mixc(c, hexc("#4d3522"), 0.45 * sstep(1.9, 1.3, r))                 # 口のまわりは、しめった土
+        return mixc(c, dark, sstep(OKOJO_HOLE_R + 0.12, OKOJO_HOLE_R - 0.3, r))   # 穴の中は、まっ暗
+    def soil_z(r):
+        """土の山の、半径 r での高さ（外側のすそだけ）"""
+        outer = [q for q in prof if q[0] >= OKOJO_HOLE_R + 0.06][::-1]
+        for (r0, z0), (r1, z1) in zip(outer, outer[1:]):
+            if r0 <= r <= r1:
+                return lerp(z0, z1, (r - r0) / (r1 - r0))
+        return outer[-1][1]
+    lathe(mb, prof, 32, soil_col,
+          rfn=lambda t, a: 1.0 + (0.07 * noise.noise(Vector((math.cos(a) * 2.2, math.sin(a) * 2.2, t * 2.0)) + off) if t < 0.5 else 0.0))
     for k in range(8):
         a = TAU * k / 8 + rnd.uniform(-0.2, 0.2)
         r = rnd.uniform(2.6, 3.0)
@@ -2398,6 +2420,22 @@ def make_okojo_rocks():
         a = TAU * k / 3 + 0.5
         uv_sphere(mb, Vector((math.cos(a) * 2.5, math.sin(a) * 2.5, 1.5)), 1.0,
                   lambda n: mixc(hexc("#9a9a9e"), hexc("#c4c0b8"), 0.5 + 0.5 * n.z), seg=10, rings=6, scale=Vector((0.9, 0.75, 0.6)))
+    # 穴から外へ、かき出した土がこぼれる（石と石のあいだから、ひくく広がる）と、土の上の小石・土くれ
+    srnd = random.Random(19)
+    spill = TAU * 0.5 / 8
+    uv_sphere(mb, Vector((math.cos(spill) * 2.9, math.sin(spill) * 2.9, -0.2)), 1.0,
+              lambda n: mixc(soil, soil_light, 0.35 + 0.3 * n.z), seg=14, rings=6,
+              scale=Vector((1.7, 1.05, 0.38)), rot=Vector((1, 0, 0)).rotation_difference(Vector((math.cos(spill), math.sin(spill), 0))))
+    for k in range(14):
+        a = srnd.uniform(0, TAU)
+        r = srnd.uniform(OKOJO_HOLE_R + 0.35, 2.4)
+        z = soil_z(r) + 0.02
+        if srnd.random() < 0.5:
+            uv_sphere(mb, Vector((math.cos(a) * r, math.sin(a) * r, z)), srnd.uniform(0.09, 0.16),
+                      lambda n: mixc(hexc("#8e8e92"), hexc("#bdb8b0"), 0.5 + 0.5 * n.z), seg=6, rings=4, scale=Vector((1.2, 1.0, 0.7)))
+        else:
+            uv_sphere(mb, Vector((math.cos(a) * r, math.sin(a) * r, z)), srnd.uniform(0.12, 0.22),
+                      lambda n: mixc(soil, soil_light, 0.3 + 0.4 * n.z), seg=6, rings=4, scale=Vector((1.2, 1.0, 0.6)))
     return build(mb, "Okojo_Rocks", smooth=True, sharp_deg=50)
 
 

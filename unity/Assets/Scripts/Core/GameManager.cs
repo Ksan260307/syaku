@@ -195,6 +195,8 @@ namespace Shakutori
             AudioManager.Instance?.SetArea(area.Id);
             if (!SaveSystem.Data.visited.Contains(area.Id)) SaveSystem.Data.visited.Add(area.Id);
             AreaChanged?.Invoke(area);
+            // 読み込み画面のあいだに、エリアの物をひととおり描いておく（はじめて画面に入ったときに止まらない）
+            yield return RenderWarmup.Run(Camera.main, world, creatures);
         }
 
         void PlaceWorm(bool fromSave)

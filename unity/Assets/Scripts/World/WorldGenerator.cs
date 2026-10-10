@@ -123,6 +123,7 @@ namespace Shakutori
             bool park = area.Id == "park";
             bool mountain = area.Id == "mountain";
             _rng = new Random(forest ? seed : seed + 7919 * area.Id.Length);
+            AreaLayout.LateGround = false;   // しずくを置くまでは、もとの地面の形で作る
             SurfaceProbe.ClearCache();
             var rootGo = new GameObject("World (generated)");
             if (!Application.isPlaying) rootGo.hideFlags = HideFlags.DontSave;
@@ -170,32 +171,37 @@ namespace Shakutori
             if (forest) BuildForestFoliage(); else if (park) BuildParkFoliage(); else if (mountain) BuildMountainFoliage(); else BuildRiverFoliage();
             progress?.Invoke(0.8f, "しずくを置いています");
             yield return null;
+            if (forest) PlaceForestDewdrops();
+            else if (park) PlaceParkDewdrops();
+            else if (mountain) PlaceMountainDewdrops();
+            else PlaceRiverDewdrops();
+            // しずくを置いたあとに、泉や水たまりの土手を盛る（しずくの場所は変えない）
+            AreaLayout.LateGround = true;
+            ApplyLateGround();
             if (forest)
             {
-                PlaceForestDewdrops();
                 PlaceForestCreatures();
                 BuildLightShafts(ForestShaftSpots);
             }
             else if (park)
             {
-                PlaceParkDewdrops();
                 PlaceParkCreatures();
                 BuildLightShafts(ParkShaftSpots());
             }
             else if (mountain)
             {
-                PlaceMountainDewdrops();
                 FixMountainForPlay();       // 遊びやすさの直し（しずくを置いたあと。しずくの場所は変えない）
                 PlaceMountainCreatures();   // 山はひらけた空なので、木もれ日の光の筋はない
             }
             else
             {
-                PlaceRiverDewdrops();
                 PlaceRiverCreatures();
                 BuildLightShafts(RiverShaftSpots());
             }
             BuildLateGates();   // あとから足したトンネル（しずくの場所は変えない）
             BuildExtras();   // エリアの改善：小物・道・遠景（しずくの場所は変えない）
+            SettleFloatingRocks();   // 坂で宙にういた岩・流木を、地面になじませる
+            FillUnderDewRocks();     // しずくをのせた岩などの下にのこるすき間は、石でうめる
             PinLeavesUnderDew();
             TidyPlacements();   // 置き方の仕上げ：つきぬけ・重なり・うき（草花と苔だけ）
             BuildMap();
@@ -233,6 +239,8 @@ namespace Shakutori
             Root = null;
             MapTexture = null;
             _occupied.Clear();
+            _terrainChunks.Clear();
+            _insideOut.Clear();
             _bigRocks.Clear();
             _redCaps.Clear();
             _lilyPads.Clear();
@@ -348,11 +356,13 @@ namespace Shakutori
                 var mr = go.AddComponent<MeshRenderer>();
                 mr.sharedMaterial = assets.terrain;
                 mr.shadowCastingMode = ShadowCastingMode.Off;
+                MeshCollider chunkCol = null;
                 if (nearest < 80f)
                 {
-                    var mc = go.AddComponent<MeshCollider>();
-                    mc.sharedMesh = mesh;
+                    chunkCol = go.AddComponent<MeshCollider>();
+                    chunkCol.sharedMesh = mesh;
                 }
+                _terrainChunks.Add(new TerrainChunk { mesh = mesh, collider = chunkCol, min = new Vector2(minX, minZ), max = new Vector2(maxX, maxZ), spacing = spacing });
             }
         }
 
@@ -566,7 +576,14 @@ namespace Shakutori
                 // ほかの物は、凹凸にはさまらないよう、いちばん外側をなめらかにつつむ大まかな形にする（穴が大事な物は、そのまま）
                 Mesh col = assets.TryGet(meshName + "_Col");
                 if (col == null && CoarseCollider.Wants(meshName)) col = CoarseCollider.For(meshName, m);
-                go.AddComponent<MeshCollider>().sharedMesh = col != null ? col : DetailMeshes.ForCollision(m);
+                var mc = go.AddComponent<MeshCollider>();
+                mc.sharedMesh = col != null ? col : DetailMeshes.ForCollision(m);
+                if (!AreaLayout.LateGround && WasInsideOut.Contains(meshName))
+                {
+                    // しずくを置くまでは、前の（面がうら返った）当たり判定で（しずくの場所を変えない）
+                    _insideOut.Add((mc, mc.sharedMesh));
+                    mc.sharedMesh = InsideOut(mc.sharedMesh);
+                }
             }
             return go;
         }

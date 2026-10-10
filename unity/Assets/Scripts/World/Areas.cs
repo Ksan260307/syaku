@@ -31,6 +31,15 @@ namespace Shakutori
         /// </summary>
         public const float WadeDepth = 0.1f;
 
+        /// <summary>
+        /// しずくを置いたあとに足した地面の形（泉や水たまりの下手の土手）をふくめるか。ふだんは true。
+        /// エリアを作るときは、しずくを置くまで false にして、もとの形で作る（しずくの場所・数と、乱数の使い方を変えない）。
+        /// </summary>
+        public static bool LateGround = true;
+
+        /// <summary>しずくを置いたあとに地面の形を足す所（中心と半径）。そこの地形を作りなおし、上の物を持ち上げる。</summary>
+        public virtual IEnumerable<(Vector2 center, float radius)> LateGroundZones { get { yield break; } }
+
         public abstract string Id { get; }
         public abstract string DisplayName { get; }
         public abstract string Subtitle { get; }
@@ -190,6 +199,7 @@ namespace Shakutori
         public override float WaterLevelAt(float x, float z) => ParkLayout.WaterLevelAt(x, z);
         public override bool IsUnderwater(Vector3 p) => ParkLayout.IsUnderwater(p);
         public override bool InPlayArea(Vector3 p) => ParkLayout.InPlayArea(p);
+        public override IEnumerable<(Vector2 center, float radius)> LateGroundZones { get { yield return (ParkLayout.Puddle, ParkLayout.PuddleRadius + 3f); } }
     }
 
     public class MountainArea : AreaLayout
@@ -221,6 +231,7 @@ namespace Shakutori
         public override float WaterLevelAt(float x, float z) => MountainLayout.WaterLevelAt(x, z);
         public override bool IsUnderwater(Vector3 p) => MountainLayout.IsUnderwater(p);
         public override bool InPlayArea(Vector3 p) => MountainLayout.InPlayArea(p);
+        public override IEnumerable<(Vector2 center, float radius)> LateGroundZones { get { yield return (MountainLayout.Spring, MountainLayout.SpringRadius + 8f); } }
     }
 
     /// <summary>エリアの一覧と、いまいるエリア。</summary>

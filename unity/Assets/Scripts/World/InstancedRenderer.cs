@@ -205,6 +205,12 @@ namespace Shakutori
             }
         }
 
+        /// <summary>読み込み中に先に用意しておく、描く物の形と材質（RenderWarmup 用）。</summary>
+        public void CollectWarmup(List<(Mesh mesh, Material material, bool instanced)> into)
+        {
+            foreach (var b in _list) into.Add((b.mesh, b.material, true));
+        }
+
         /// <summary>いまの画質で、影が届く距離（影がなければ 0）。</summary>
         public static float ShadowDistance()
         {

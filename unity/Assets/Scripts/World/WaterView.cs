@@ -20,6 +20,9 @@ namespace Shakutori
         public static bool CopiesOn { get; private set; } = true;
         public static int WaterCount => s_water.Count;
 
+        /// <summary>読み込み中の下ごしらえ（RenderWarmup）のあいだは、水が見えなくても写しを作る（その描き方のシェーダーも先に用意する）。</summary>
+        public static bool ForceCopies;
+
         /// <summary>水面のレンダラーを登録する（エリアを作るときに呼ぶ）。</summary>
         public static void Register(Renderer r)
         {
@@ -43,7 +46,7 @@ namespace Shakutori
         /// <summary>いまのカメラの視野で、写しを作るかを決めて、カメラに設定する。</summary>
         public static void Apply(Camera cam)
         {
-            bool need = InView(cam);
+            bool need = ForceCopies || InView(cam);
             var data = cam.GetUniversalAdditionalCameraData();
             var opt = need ? CameraOverrideOption.On : CameraOverrideOption.Off;
             if (data.requiresDepthOption != opt) data.requiresDepthOption = opt;

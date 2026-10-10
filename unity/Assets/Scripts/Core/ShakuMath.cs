@@ -42,6 +42,14 @@ namespace Shakutori
             return Smooth01((x - e0) / (e1 - e0));
         }
 
+        /// <summary>角のない「0 から先は x と同じだけふえる」形（0 のまわりの幅 w だけ、なめらかに曲がる）。</summary>
+        public static float SoftRamp(float x, float w)
+        {
+            if (x <= 0f) return 0f;
+            if (x >= w) return x - w * 0.5f;
+            return x * x / (2f * w);
+        }
+
         /// <summary>0..1 のなめらかな山型（中心で 1、半径で 0）。</summary>
         public static float Bump(float dist, float radius)
         {
