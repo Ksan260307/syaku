@@ -270,6 +270,35 @@ namespace Shakutori.Tests
         }
 
         [Test]
+        public void PineRoots_TouchTheGround()
+        {
+            // 坂の下がわ（南から北西）で、根が地面から浮いていた：地面から上へのレイが、すぐ上の根の下の面に当たらない
+            var pine = Object.FindObjectsByType<MeshCollider>(FindObjectsSortMode.None).Single(c => c.name == "Mtn_Pine");
+            Assert.Less(_gen.PineRootDrop, -0.5f, "坂の下がわの根を、地面へ下げた");
+            Vector2 c0 = new Vector2(pine.transform.position.x, pine.transform.position.z);
+            int checkedPoints = 0;
+            for (int a = 0; a < 360; a += 5)
+            for (float r = 3.5f; r <= 9f; r += 0.5f)
+            {
+                Vector2 q = c0 + new Vector2(Mathf.Cos(a * Mathf.Deg2Rad), Mathf.Sin(a * Mathf.Deg2Rad)) * r;
+                Vector3 from = new Vector3(q.x, Areas.Mountain.Height(q.x, q.y) - 0.05f, q.y);
+                checkedPoints++;
+                if (pine.Raycast(new Ray(from, Vector3.up), out var hit, 2.5f) && hit.normal.y < 0f)
+                    Assert.Less(hit.distance - 0.05f, 0.12f, $"松の根が浮いている（{a} 度・中心から {r}）");
+            }
+            Assert.Greater(checkedPoints, 800);
+            // 根は土にうまりきらず、見えている：根もとの近く（中心から 4〜6）の地面のすぐ上に、松の面がある
+            int visible = 0;
+            for (int a = 0; a < 360; a += 10)
+            {
+                Vector2 q = c0 + new Vector2(Mathf.Cos(a * Mathf.Deg2Rad), Mathf.Sin(a * Mathf.Deg2Rad)) * 4.5f;
+                Vector3 top = new Vector3(q.x, Areas.Mountain.Height(q.x, q.y) + 3f, q.y);
+                if (pine.Raycast(new Ray(top, Vector3.down), out var h, 3.2f)) visible++;
+            }
+            Assert.Greater(visible, 6, "根が、まわりのいくつかの向きで地面の上に見えている");
+        }
+
+        [Test]
         public void GroundCreatures_KeepOffTrailsAndViews()
         {
             string[] ground = { "raichou", "risu", "nakiusagi", "sanshouuo", "maimaikaburi", "grasshopper", "ladybug", "spider", "snail" };

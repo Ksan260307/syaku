@@ -16,6 +16,8 @@ namespace Shakutori
         public float radius = 3f;
         public float height;                                // 飛ぶものの高さ（地面から）
         public List<Vector3> path = new List<Vector3>();    // 行列の道（ループ）や、鳥の降りる場所
+        /// <summary>名所の見どころとして、わざとそこに置いた（キノコの根もと・丸太の中・松の幹・中州）。景色の通り道の決まりの外。</summary>
+        public bool showcase;
     }
 
     /// <summary>生成されたエリア間トンネル。</summary>
@@ -174,12 +176,14 @@ namespace Shakutori
             {
                 PlaceForestDewdrops();
                 PlaceForestCreatures();
+                FixCreaturesForPlay();      // いきものの居場所の直し（しずくを置いたあと。乱数は使わない）
                 BuildLightShafts(ForestShaftSpots);
             }
             else if (park)
             {
                 PlaceParkDewdrops();
                 PlaceParkCreatures();
+                FixCreaturesForPlay();
                 BuildLightShafts(ParkShaftSpots());
             }
             else if (mountain)
@@ -187,17 +191,20 @@ namespace Shakutori
                 PlaceMountainDewdrops();
                 FixMountainForPlay();       // 遊びやすさの直し（しずくを置いたあと。しずくの場所は変えない）
                 PlaceMountainCreatures();   // 山はひらけた空なので、木もれ日の光の筋はない
+                FixCreaturesForPlay();
             }
             else
             {
                 PlaceRiverDewdrops();
                 PlaceRiverCreatures();
+                FixCreaturesForPlay();
                 BuildLightShafts(RiverShaftSpots());
             }
             BuildLateGates();   // あとから足したトンネル（しずくの場所は変えない）
             BuildExtras();   // エリアの改善：小物・道・遠景（しずくの場所は変えない）
             PinLeavesUnderDew();
             TidyPlacements();   // 置き方の仕上げ：つきぬけ・重なり・うき（草花と苔だけ）
+            FixCreaturesForPlay(again: true);   // あとから置いた小物の中に、いきものが入っていないか、もう一度
             BuildMap();
             instanced.Build();
             ComputeSpawn();
@@ -739,13 +746,28 @@ namespace Shakutori
                 if (g.arrival != null && !g.late) AddViewLane(g.arrival);
         }
 
-        void AddViewLane(ArrivalView v)
+        /// <summary>景色の通り道の、はしとはし（カメラのうしろから、見る先の手前まで）。</summary>
+        static (Vector2 a, Vector2 b) LaneOf(ArrivalView v)
         {
             Vector3 f = v.Forward;
             Vector2 d = new Vector2(f.x, f.z);
             float toTarget = Vector2.Distance(v.from, new Vector2(v.at.x, v.at.z));
-            Vector2 a = v.from - d * (v.distance + 1.5f);     // カメラのうしろから
-            Vector2 b = v.from + d * Mathf.Min(v.clear, toTarget * 0.85f);
+            return (v.from - d * (v.distance + 1.5f), v.from + d * Mathf.Min(v.clear, toTarget * 0.85f));
+        }
+
+        /// <summary>景色の通り道 a→b の中か。先へ行くほど広い。</summary>
+        static bool InLane(Vector2 p, Vector2 a, Vector2 b, float radius)
+        {
+            Vector2 ab = b - a;
+            float len = ab.magnitude;
+            float t = len > 1e-4f ? Mathf.Clamp(Vector2.Dot(p - a, ab) / (len * len), 0f, 1f) : 0f;
+            float width = ViewLaneRadius + Mathf.Min(t * len * 0.3f, 4f);
+            return Vector2.Distance(p, a + ab * t) < width + radius;
+        }
+
+        void AddViewLane(ArrivalView v)
+        {
+            var (a, b) = LaneOf(v);
             _viewLanes.Add((a, b));
             // ちらばる小物（岩・葉など）も、ここには置かない
             for (int i = 0; i <= 10; i++) Occupy(Vector2.Lerp(a, b, i / 10f), 1.6f);
@@ -755,14 +777,7 @@ namespace Shakutori
         public bool InViewLane(Vector2 p, float radius = 0f)
         {
             foreach (var (a, b) in _viewLanes)
-            {
-                Vector2 ab = b - a;
-                float len = ab.magnitude;
-                float t = len > 1e-4f ? Mathf.Clamp(Vector2.Dot(p - a, ab) / (len * len), 0f, 1f) : 0f;
-                float along = t * len;
-                float width = ViewLaneRadius + Mathf.Min(along * 0.3f, 4f);
-                if (Vector2.Distance(p, a + ab * t) < width + radius) return true;
-            }
+                if (InLane(p, a, b, radius)) return true;
             return false;
         }
 

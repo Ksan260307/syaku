@@ -573,7 +573,7 @@ namespace Shakutori
             AddMob("frog", RiverLayout.Ground(RiverBankEdgeX(8f, -1f) - 2f, 8f), 1, 2f);
             // サワガニ：中州と岸
             Vector2 ic = RiverLayout.IslandCenter;
-            AddMob("crab", RiverLayout.Ground(ic.x, ic.y), 2, 2.5f);
+            AddMob("crab", RiverLayout.Ground(ic.x, ic.y), 2, 2.5f).showcase = true;   // 小石の中州の住人
             AddMob("crab", RiverLayout.Ground(RiverBankEdgeX(RiverLayout.StonesZ + 4f, -1f) - 1.5f, RiverLayout.StonesZ + 4f), 1, 2f);
             // しめった岸の土にもぐるケラと、よどみを泳ぐゲンゴロウ
             AddMob("okera", RiverLayout.Ground(RiverBankEdgeX(-20f, 1f) + 2.5f, -20f), 1, 2.5f);
