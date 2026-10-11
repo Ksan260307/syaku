@@ -82,6 +82,7 @@ namespace Shakutori
             var c = CultureInfo.InvariantCulture;
             if (!float.TryParse(f[2], NumberStyles.Float, c, out float x) || !float.TryParse(f[3], NumberStyles.Float, c, out float z)
                 || !float.TryParse(f[4], NumberStyles.Float, c, out float r)) return false;
+            if (!float.IsFinite(x) || !float.IsFinite(z) || !float.IsFinite(r)) return false;   // こわれた記録（NaN など）は使わない
             h = new HabitatSpot { species = f[0], area = f[1], position = new Vector2(x, z), radius = r, landmark = f[5] };
             return true;
         }

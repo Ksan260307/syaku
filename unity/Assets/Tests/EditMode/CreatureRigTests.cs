@@ -380,6 +380,47 @@ namespace Shakutori.Tests
         }
 
         [Test]
+        public void BrokenNumbersInTheSave_AreRepaired()
+        {
+            // こわれた数（NaN・無限大・マイナス）は、ふつうの値にもどす（そのまま使うと、WebGL ではゲームが止まることがある）
+            var d = new SaveData { playTime = float.NaN, highest = float.PositiveInfinity, steps = -5, hasPosition = true,
+                                   tail = new Vector3(float.NaN, 0f, 0f), head = Vector3.one };
+            d.notes.Add(new CreatureNote { id = "ant", bigMm = float.NaN, smallMm = -3f, friendAt = float.NegativeInfinity });
+            SaveSystem.Migrate(d);
+            Assert.AreEqual(0f, d.playTime);
+            Assert.AreEqual(-999f, d.highest);
+            Assert.AreEqual(0, d.steps);
+            Assert.IsFalse(d.hasPosition, "こわれた位置からは始めない");
+            Assert.AreEqual(0f, d.notes[0].bigMm);
+            Assert.AreEqual(0f, d.notes[0].smallMm);
+            Assert.AreEqual(-999f, d.notes[0].friendAt);
+            // 設定も：こわれた値・範囲の外の値は、ふつうの値か、範囲のはしに
+            var st = new SettingsData { fov = float.NaN, sensitivity = 99f, music = -1f, sfx = float.NaN, quality = 7, textSize = -2, cameraDistance = float.NaN };
+            SaveSystem.SanitizeSettings(st);
+            Assert.AreEqual(50f, st.fov);
+            Assert.AreEqual(2.5f, st.sensitivity);
+            Assert.AreEqual(0f, st.music);
+            Assert.AreEqual(new SettingsData().sfx, st.sfx);
+            Assert.AreEqual(-1, st.quality);
+            Assert.AreEqual(0, st.textSize);
+            Assert.AreEqual(0f, st.cameraDistance);
+        }
+
+        [Test]
+        public void FloatToInt_NeverBreaksOnBadNumbers()
+        {
+            // WebGL では、NaN や int に入らない値をそのまま int にすると止まってしまうので、こわれた値は 0 にする
+            Assert.AreEqual(0, ShakuMath.FloorToIntSafe(float.NaN));
+            Assert.AreEqual(0, ShakuMath.FloorToIntSafe(float.PositiveInfinity));
+            Assert.AreEqual(0, ShakuMath.RoundToIntSafe(1e20f));
+            Assert.AreEqual(3, ShakuMath.FloorToIntSafe(3.7f));
+            Assert.AreEqual(-2, ShakuMath.FloorToIntSafe(-1.2f));
+            Assert.AreEqual(4, ShakuMath.RoundToIntSafe(3.6f));
+            Assert.AreEqual(-3, ShakuMath.CellIndex(-5f, 2f));
+            Assert.AreEqual(0, ShakuMath.CellIndex(float.NaN, 2f));
+        }
+
+        [Test]
         public void Saved_EventFires()
         {
             int n = 0;

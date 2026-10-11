@@ -165,7 +165,7 @@ namespace Shakutori
 
         static long CellOf(Vector3 p)
         {
-            int cx = Mathf.FloorToInt(p.x / CellSize), cz = Mathf.FloorToInt(p.z / CellSize);
+            int cx = ShakuMath.CellIndex(p.x, CellSize), cz = ShakuMath.CellIndex(p.z, CellSize);
             return ((long)cx << 32) ^ (uint)cz;
         }
 
@@ -356,8 +356,9 @@ namespace Shakutori
             var worm = InchwormController.Instance;
             if (worm == null) return;
             Vector3 p = worm.CenterPosition;
+            if (!ShakuPhysics.IsFinite(p)) return;
             // 近くの物に体を持たせる
-            int cx = Mathf.FloorToInt(p.x / CellSize), cz = Mathf.FloorToInt(p.z / CellSize);
+            int cx = ShakuMath.CellIndex(p.x, CellSize), cz = ShakuMath.CellIndex(p.z, CellSize);
             for (int dx = -1; dx <= 1; dx++)
             for (int dz = -1; dz <= 1; dz++)
             {

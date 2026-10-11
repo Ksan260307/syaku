@@ -254,6 +254,14 @@ class WorkflowTests(unittest.TestCase):
                     "Shakutori.EditorTools.BuildScript.BuildWebGL", "tools/check_build.py", "pages: write", "id-token: write"):
             self.assertIn(key, s)
 
+    def test_workflow_permissions_are_least_privilege(self):
+        # ふだんは読むだけ。書きこみの権限は、それがいるジョブ（公開・テスト結果）にだけ
+        s = read(os.path.join(ROOT, ".github", "workflows", "deploy-pages.yml"))
+        top = s.split(chr(10) + "jobs:")[0]
+        self.assertIn("contents: read", top)
+        for w in ("pages: write", "id-token: write", "checks: write", "contents: write"):
+            self.assertNotIn(w, top, w)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -24,6 +24,18 @@ namespace Shakutori
 
     public static class ShakuMath
     {
+        /// <summary>
+        /// 小数を整数にする（切り捨て）。NaN や大きすぎる値は 0 にする。
+        /// WebGL では、NaN や int に入らない値をそのまま int にすると、ゲームが止まってしまう（エディタでは止まらないので気づきにくい）。
+        /// </summary>
+        public static int FloorToIntSafe(float v) => v > -1e9f && v < 1e9f ? Mathf.FloorToInt(v) : 0;
+
+        /// <summary>小数を整数にする（四捨五入）。NaN や大きすぎる値は 0 にする（FloorToIntSafe と同じ理由）。</summary>
+        public static int RoundToIntSafe(float v) => v > -1e9f && v < 1e9f ? Mathf.RoundToInt(v) : 0;
+
+        /// <summary>ます目の番号（位置 ÷ ますの大きさ、切り捨て）。位置がこわれていても止まらない。</summary>
+        public static int CellIndex(float v, float cell) => FloorToIntSafe(v / cell);
+
         public static float Smooth01(float t)
         {
             t = Mathf.Clamp01(t);

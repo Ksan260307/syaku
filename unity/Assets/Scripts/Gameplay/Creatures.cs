@@ -384,7 +384,7 @@ namespace Shakutori
         /// </summary>
         public void Push(Transform colliderTransform, Vector3 wormVelocity)
         {
-            if (colliderTransform == null) return;
+            if (colliderTransform == null || !ShakuPhysics.IsFinite(wormVelocity)) return;
             foreach (var m in _mobs)
             {
                 if (m.collider != colliderTransform) continue;
@@ -395,6 +395,22 @@ namespace Shakutori
                 m.skidMu = ShakuPhysics.Ground.friction + LegGrip;
                 return;
             }
+        }
+
+        /// <summary>
+        /// こわれた数（NaN など）になったいきものを、前の場所（なければ、すみか）にもどして、止める。
+        /// そのままにすると、まわりのいきものにも広がり、WebGL では ます目の番号を作るところで止まってしまう。
+        /// </summary>
+        static void RecoverMob(Mob m)
+        {
+            m.pos = ShakuPhysics.IsFinite(m.prevPos) ? m.prevPos : m.home;
+            if (!ShakuPhysics.IsFinite(m.pos)) m.pos = Vector3.zero;
+            m.prevPos = m.drawPos = m.pos;
+            m.vel = m.skidVel = m.rollVel = Vector3.zero;
+            if (!ShakuPhysics.IsFinite(m.fwd) || m.fwd.sqrMagnitude < 1e-6f) m.fwd = Vector3.forward;
+            m.wantFwd = m.prevFwd = m.fwd;
+            if (!ShakuPhysics.IsFinite(m.up) || m.up.sqrMagnitude < 1e-6f) m.up = Vector3.up;
+            m.fallVel = 0f;
         }
 
         /// <summary>テスト用：個体の位置を動かす。</summary>
@@ -824,11 +840,13 @@ namespace Shakutori
             var worm = InchwormController.Instance;
             Vector3 headPrev = _head;
             _head = worm != null ? worm.HeadPosition : new Vector3(9999f, 0f, 0f);
+            if (!ShakuPhysics.IsFinite(_head)) _head = headPrev;   // しゃくとりむしの位置がこわれた一瞬は、前の位置で（安全装置がすぐ直す）
             // 頭の速さ（ワープしたときは数えない）
             _headVel = Time.deltaTime > 1e-5f ? (_head - headPrev) / Time.deltaTime : Vector3.zero;
             if (_headVel.sqrMagnitude > 4f * 4f) _headVel = Vector3.zero;
             Vector3 midPrev = _mid;
             _mid = worm != null ? worm.CenterPosition : new Vector3(9999f, 0f, 0f);
+            if (!ShakuPhysics.IsFinite(_mid)) _mid = midPrev;
             _curve = worm != null && worm.enabled ? worm.Curve : null;
             _midVel = Time.deltaTime > 1e-5f ? (_mid - midPrev) / Time.deltaTime : Vector3.zero;
             if (_midVel.sqrMagnitude > 4f * 4f) _midVel = Vector3.zero;
@@ -947,6 +965,8 @@ namespace Shakutori
                     }
                 }
 
+                // 位置や速さがこわれた数（NaN など）になったら、前の場所（なければ、すみか）へもどす
+                if (!ShakuPhysics.IsFinite(m.pos) || !ShakuPhysics.IsFinite(m.vel) || !ShakuPhysics.IsFinite(m.fwd) || !ShakuPhysics.IsFinite(m.up)) RecoverMob(m);
                 // 回る速さ（脚の動きと、飛ぶもののかたむきに使う）
                 // （坂で体が前後にかたむいた分は数えない：面に沿った向きの変化だけ）
                 float yaw = Vector3.SignedAngle(Vector3.ProjectOnPlane(m.prevFwd, m.up), Vector3.ProjectOnPlane(m.fwd, m.up), m.up);
@@ -3307,8 +3327,8 @@ namespace Shakutori
                 m.startBlink = m.blink;
                 m.startPathS = m.pathS;
                 m.startLat = m.lat;
-                m.cellX = Mathf.FloorToInt(m.pos.x / GridCell);
-                m.cellZ = Mathf.FloorToInt(m.pos.z / GridCell);
+                m.cellX = ShakuMath.CellIndex(m.pos.x, GridCell);
+                m.cellZ = ShakuMath.CellIndex(m.pos.z, GridCell);
                 int bk = Bucket(m.cellX, m.cellZ);
                 _gridNext[i] = _bucketHead[bk];
                 _bucketHead[bk] = i;
@@ -3404,8 +3424,12 @@ namespace Shakutori
         {
             int n = 0;
             if (_startCount != _mobs.Count) CaptureFrameStart();
-            int x0 = Mathf.FloorToInt((p.x - r) / GridCell), x1 = Mathf.FloorToInt((p.x + r) / GridCell);
-            int z0 = Mathf.FloorToInt((p.z - r) / GridCell), z1 = Mathf.FloorToInt((p.z + r) / GridCell);
+            if (!ShakuPhysics.IsFinite(p) || !float.IsFinite(r)) return 0;
+            int x0 = ShakuMath.CellIndex(p.x - r, GridCell), x1 = ShakuMath.CellIndex(p.x + r, GridCell);
+            int z0 = ShakuMath.CellIndex(p.z - r, GridCell), z1 = ShakuMath.CellIndex(p.z + r, GridCell);
+            // 広すぎる範囲は、まわりのますだけにする（とても大きな r でも、ます目を全部まわらない）
+            x1 = Mathf.Min(x1, x0 + 32);
+            z1 = Mathf.Min(z1, z0 + 32);
             float r2 = r * r;
             for (int cx = x0; cx <= x1; cx++)
                 for (int cz = z0; cz <= z1; cz++)

@@ -2883,7 +2883,10 @@ namespace Shakutori
         // ------------------------------------------------------------------
         void SafetyCheck(float dt)
         {
-            bool bad = float.IsNaN(_curve.Middle.x) || _curve.Middle.y < -40f || !float.IsFinite(_curve.Head.y);
+            bool bad = !ShakuPhysics.IsFinite(_curve.Middle) || _curve.Middle.y < -40f || !ShakuPhysics.IsFinite(_curve.Head)
+                       || !ShakuPhysics.IsFinite(_curve.Tail);
+            if (State == Mode.Hang && (!ShakuPhysics.IsFinite(_hangPos) || !float.IsFinite(_silkLen))) bad = true;
+            if (State == Mode.Fall && !ShakuPhysics.IsFinite(_fallPos)) bad = true;
             if (State == Mode.Hang && _silkLen > 200f) bad = true;
             if (State == Mode.Fall && _fallTime > 8f) bad = true;
             // 地面の中にうまってしまったら（すき間からぬけた）、少しして安全な場所へ

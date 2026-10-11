@@ -108,7 +108,9 @@ namespace Shakutori.EditorTools
             PlayerSettings.WebGL.decompressionFallback = true;
             PlayerSettings.WebGL.dataCaching = true;
             PlayerSettings.WebGL.template = "PROJECT:Shakutori";
-            PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly;
+            // null の参照や、配列の外を読んだときも、例外にする（ゲーム全体は止まらず、そのフレームの処理だけが止まる）。
+            // 「明示的に投げた例外だけ」にすると、WebGL ではそのままページごと止まってしまう。重さはほとんど変わらない（山で 31 fps のまま）
+            PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.FullWithoutStacktrace;
             PlayerSettings.WebGL.nameFilesAsHashes = false;
             PlayerSettings.WebGL.showDiagnostics = false;
             PlayerSettings.defaultWebScreenWidth = 1280;

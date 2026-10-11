@@ -165,7 +165,7 @@ namespace Shakutori
         public void Dust(Vector3 pos, Vector3 normal, float strength, float softness)
         {
             if (_dust == null) return;
-            int n = Mathf.RoundToInt((4f + 26f * strength) * (1f - 0.8f * softness));
+            int n = ShakuMath.RoundToIntSafe((4f + 26f * strength) * (1f - 0.8f * softness));
             if (n <= 0) return;
             _dust.transform.SetPositionAndRotation(pos + normal * 0.03f, Quaternion.FromToRotation(Vector3.forward, normal));
             var ep = new ParticleSystem.EmitParams();
@@ -204,7 +204,7 @@ namespace Shakutori
             _splash.transform.position = new Vector3(pos.x, waterLevel + 0.02f, pos.z);
             var main = _splash.main;
             main.startSpeed = new ParticleSystem.MinMaxCurve(1.0f + 1.5f * strength, 2.0f + 3.0f * strength);
-            _splash.Emit(Mathf.RoundToInt(20 + 60 * strength));
+            _splash.Emit(Mathf.Clamp(ShakuMath.RoundToIntSafe(20 + 60 * strength), 0, 200));
         }
 
         /// <summary>ぬれた体から、しずくがたれる。</summary>

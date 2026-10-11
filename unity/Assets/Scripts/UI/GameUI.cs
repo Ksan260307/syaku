@@ -616,7 +616,7 @@ namespace Shakutori
             if (!EnsureBound()) return;
             _loadingFill.style.width = Length.Percent(Mathf.Clamp01(progress) * 100f);
             if (!string.IsNullOrEmpty(text)) _loadingBase = text;
-            int pct = Mathf.RoundToInt(Mathf.Clamp01(progress) * 100f);
+            int pct = ShakuMath.RoundToIntSafe(Mathf.Clamp01(progress) * 100f);
             _loadingText.text = pct > 0 && pct < 100 ? $"{_loadingBase}　{pct}%" : _loadingBase;
         }
 
@@ -694,7 +694,7 @@ namespace Shakutori
         /// <summary>あそんだ時間を「1時間 5分」「12分」のように書く。</summary>
         public static string PlayTimeText(float seconds)
         {
-            int t = Mathf.Max(0, Mathf.FloorToInt(seconds));
+            int t = Mathf.Max(0, ShakuMath.FloorToIntSafe(seconds));
             return t >= 3600 ? $"{t / 3600}時間 {t / 60 % 60}分" : $"{t / 60}分";
         }
 
@@ -1579,7 +1579,7 @@ namespace Shakutori
         {
             _recordList.Clear();
             var d = SaveSystem.Data;
-            int t = Mathf.FloorToInt(d.playTime);
+            int t = Mathf.Max(0, ShakuMath.FloorToIntSafe(d.playTime));
             AddRecord("全体の達成度", $"{CompletionPercent()}%");
             AddRecord("あそんだ時間", PlayTimeText(d.playTime));
             foreach (var area in Areas.All)

@@ -170,8 +170,8 @@ namespace Shakutori
                 foreach (var m in b.pending)
                 {
                     Vector3 pos = m.GetColumn(3);
-                    int cx = Mathf.FloorToInt(pos.x / CellSize);
-                    int cz = Mathf.FloorToInt(pos.z / CellSize);
+                    int cx = ShakuMath.CellIndex(pos.x, CellSize);
+                    int cz = ShakuMath.CellIndex(pos.z, CellSize);
                     long key = ((long)cx << 32) ^ (uint)cz;
                     if (!b.cellMap.TryGetValue(key, out var cell))
                     {

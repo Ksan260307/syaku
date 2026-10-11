@@ -42,6 +42,8 @@ namespace Shakutori.Tests
             Assert.AreEqual(WebGLCompressionFormat.Gzip, PlayerSettings.WebGL.compressionFormat);
             Assert.IsTrue(PlayerSettings.WebGL.decompressionFallback, "GitHub Pages は Content-Encoding を付けないので展開フォールバックが必要");
             Assert.AreEqual("PROJECT:Shakutori", PlayerSettings.WebGL.template);
+            Assert.AreEqual(WebGLExceptionSupport.FullWithoutStacktrace, PlayerSettings.WebGL.exceptionSupport,
+                "null の参照や配列の外を読んでも、WebGL でページごと止まらない（例外にする）");
             Assert.AreEqual(ColorSpace.Linear, PlayerSettings.colorSpace);
             Assert.IsTrue(File.Exists("Assets/WebGLTemplates/Shakutori/index.html"));
             Assert.IsTrue(File.Exists("Assets/WebGLTemplates/Shakutori/icon.png"));

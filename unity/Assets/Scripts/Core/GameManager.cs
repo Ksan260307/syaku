@@ -568,7 +568,7 @@ namespace Shakutori
             // 苔の丘・目覚めの苔原では、ふわっと着地（土けむりが出ない・音もやわらか）
             float soft = Mathf.Max(worm.LastImpactSoftness, AreaProps.SoftGround(worm.TailPoint));
             AudioManager.Instance?.Thud(0.15f + 0.85f * k, soft > 0.5f && worm.LastImpactMaterial == "ground" ? "leaf" : worm.LastImpactMaterial);
-            fx.Burst(worm.CenterPosition, 6 + Mathf.RoundToInt(18f * k));
+            fx.Burst(worm.CenterPosition, 6 + ShakuMath.RoundToIntSafe(18f * k));
             // 土けむりは、面にそって広がる（やわらかい葉っぱや苔の上では、ほとんど出ない）
             fx.Dust(worm.TailPoint, worm.LastImpactNormal, k, soft);
             followCamera.Dip(k);
@@ -699,7 +699,7 @@ namespace Shakutori
         {
             float k = worm.LastImpact;
             AudioManager.Instance?.Thud(0.3f + 0.5f * k, worm.LastImpactMaterial);   // キノコは、ぽよんと高い音
-            fx.Burst(worm.CenterPosition, 4 + Mathf.RoundToInt(10f * k));
+            fx.Burst(worm.CenterPosition, 4 + ShakuMath.RoundToIntSafe(10f * k));
             if (creatures != null) creatures.Disturb(worm.CenterPosition, 1.5f + 3f * k);
             followCamera.Shake(0.15f + 0.35f * k);
         }
@@ -711,7 +711,7 @@ namespace Shakutori
             AudioManager.Instance?.Splash(k);
             float wl = Areas.Current.WaterLevelAt(worm.CenterPosition.x, worm.CenterPosition.z);
             fx.Splash(worm.CenterPosition, k, wl > -100f ? wl : worm.CenterPosition.y);
-            fx.Burst(worm.CenterPosition, 24 + Mathf.RoundToInt(32f * k));
+            fx.Burst(worm.CenterPosition, 24 + ShakuMath.RoundToIntSafe(32f * k));
             if (creatures != null) creatures.Disturb(worm.CenterPosition, 3f + 4f * k);
             ui.Toast("ぽちゃん！ 水に落ちてしまった…", "icon-drop");
         }
@@ -898,8 +898,6 @@ namespace Shakutori
                 _observedAll.Add(sp);
             }
             _observedFlushAt = Mathf.Min(Time.unscaledTime + ObserveDigestDelay, _observedFirstAt + ObserveDigestMax);
-            SaveProgress();
-            CheckProgress();
         }
 
         /// <summary>出した観察のおしらせの数と、さいごの文（テスト用）。</summary>
@@ -913,6 +911,9 @@ namespace Shakutori
         void FlushObserved()
         {
             if (_observed.Count == 0 || Time.unscaledTime < _observedFlushAt) return;
+            // 保存も、まとめて 1 回（WebGL では、保存のたびにブラウザの記録に書きこむので、つづけて何度も書かない）
+            SaveProgress();
+            CheckProgress();
             if (SaveSystem.Settings.observeNotice)
             {
                 LastObserveNotice = ObserveDigest(_observed, _observedAll);
@@ -1001,7 +1002,7 @@ namespace Shakutori
         {
             yield return new WaitForSecondsRealtime(3f);
             AudioManager.Instance?.Complete();
-            int min = Mathf.Max(1, Mathf.RoundToInt(SaveSystem.Data.playTime / 60f));
+            int min = Mathf.Max(1, ShakuMath.RoundToIntSafe(SaveSystem.Data.playTime / 60f));
             if (all)
             {
                 ui.ShowComplete(true, "すべてをめぐり終えました！",

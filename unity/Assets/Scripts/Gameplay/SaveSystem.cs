@@ -104,6 +104,7 @@ namespace Shakutori
                 if (PlayerPrefs.HasKey(SettingsKey))
                     _settings = JsonUtility.FromJson<SettingsData>(PlayerPrefs.GetString(SettingsKey)) ?? new SettingsData();
                 else _settings = new SettingsData();
+                SanitizeSettings(_settings);
             }
             catch (Exception e)
             {
@@ -148,6 +149,20 @@ namespace Shakutori
                 n.seen ??= new List<string>();
                 n.friend = Mathf.Clamp(n.friend, 0, Friends.MaxFriend);
             }
+            if (!float.IsFinite(d.playTime) || d.playTime < 0f) d.playTime = 0f;
+            if (!float.IsFinite(d.highest)) d.highest = -999f;
+            d.steps = Mathf.Max(0, d.steps);
+            d.silkUses = Mathf.Max(0, d.silkUses);
+            d.falls = Mathf.Max(0, d.falls);
+            // 体の位置がこわれていたら、エリアのはじめの場所から
+            if (!ShakuPhysics.IsFinite(d.tail) || !ShakuPhysics.IsFinite(d.head) || !ShakuPhysics.IsFinite(d.tailNormal) || !ShakuPhysics.IsFinite(d.headNormal))
+                d.hasPosition = false;
+            foreach (var n in d.notes)
+            {
+                if (!float.IsFinite(n.bigMm) || n.bigMm < 0f) n.bigMm = 0f;
+                if (!float.IsFinite(n.smallMm) || n.smallMm < 0f) n.smallMm = 0f;
+                if (!float.IsFinite(n.friendAt)) n.friendAt = -999f;
+            }
             if (string.IsNullOrEmpty(d.area)) d.area = "forest";
             if (string.IsNullOrEmpty(d.skin)) d.skin = "wakaba";
             if (d.version < 2)
@@ -160,6 +175,25 @@ namespace Shakutori
             }
             d.version = SaveData.CurrentVersion;
         }
+
+        /// <summary>
+        /// 設定の値がこわれていたり（NaN など）、範囲の外だったりしたら、ふつうの値にもどす（書きかえられた保存データなど）。
+        /// そのまま使うと、カメラの見える広さや感度がこわれて、画面が出なくなることがある。
+        /// </summary>
+        public static void SanitizeSettings(SettingsData s)
+        {
+            var d = new SettingsData();
+            s.sensitivity = Fix(s.sensitivity, 0.3f, 2.5f, d.sensitivity);
+            s.music = Fix(s.music, 0f, 1f, d.music);
+            s.sfx = Fix(s.sfx, 0f, 1f, d.sfx);
+            s.ambience = Fix(s.ambience, 0f, 1f, d.ambience);
+            s.fov = Fix(s.fov, 40f, 70f, d.fov);
+            s.cameraDistance = float.IsFinite(s.cameraDistance) && s.cameraDistance > 0f ? Mathf.Min(s.cameraDistance, 50f) : 0f;
+            if (s.quality < -1 || s.quality > 1) s.quality = -1;
+            if (s.textSize < 0 || s.textSize > 1) s.textSize = 0;
+        }
+
+        static float Fix(float v, float lo, float hi, float def) => float.IsFinite(v) ? Mathf.Clamp(v, lo, hi) : def;
 
         public static void Save()
         {
