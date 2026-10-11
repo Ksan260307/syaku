@@ -52,7 +52,7 @@ namespace Shakutori
         ScrollView _legend, _zukanGrid;
         Button _continue, _qLow, _qHigh, _tNormal, _tLarge;
         Slider _sens, _music, _sfx, _ambience, _fov;
-        Toggle _invert, _invertX, _autoCam, _minimapRot, _autosave, _motion, _vibrate;
+        Toggle _invert, _invertX, _autoCam, _minimapRot, _autosave, _motion, _vibrate, _observe;
         VisualElement _reticle, _saveIndicator, _minimapNorth;
         Label _reticleText, _creatureCardSub, _silkLabel, _silkTop;
         VisualElement _silkButton;
@@ -201,6 +201,19 @@ namespace Shakutori
         public bool IsBannerVisible => _banner != null && _banner.ClassListContains("banner--show");
         public string BannerTitle => _bannerTitle != null ? _bannerTitle.text : "";
         public int ToastCount => _toasts != null ? _toasts.childCount : 0;
+        /// <summary>出ているおしらせの文（テスト用）。</summary>
+        public List<string> ToastTexts
+        {
+            get
+            {
+                var list = new List<string>();
+                if (_toasts != null)
+                    foreach (var t in _toasts.Children()) list.Add(t.Q<Label>(className: "toast-label")?.text ?? "");
+                return list;
+            }
+        }
+        /// <summary>図鑑ボタンの、まだ図鑑で見ていない新しいスタンプの数。</summary>
+        public int BookBadgeCount => _bookBadgeCount;
         public string PromptText => _prompt != null && _prompt.ClassListContains("prompt--show") ? _promptText.text : "";
         public bool IsHudVisible => _hud != null && !_hud.ClassListContains("hud--hidden");
         public bool IsCreatureCardVisible => _creatureCard != null && _creatureCard.ClassListContains("creature-card--show");
@@ -342,6 +355,7 @@ namespace Shakutori
             _autosave = Q<Toggle>("set-autosave");
             _motion = Q<Toggle>("set-motion");
             _vibrate = Q<Toggle>("set-vibrate");
+            _observe = Q<Toggle>("set-observe");
             _ambience = Q<Slider>("set-ambience");
             _fov = Q<Slider>("set-fov");
             _tNormal = Q<Button>("t-normal");
@@ -458,6 +472,7 @@ namespace Shakutori
             _autosave.RegisterValueChangedCallback(e => { SaveSystem.Settings.autosave = e.newValue; ApplySettings(); });
             _motion.RegisterValueChangedCallback(e => { SaveSystem.Settings.reduceMotion = e.newValue; ApplySettings(); });
             _vibrate.RegisterValueChangedCallback(e => { SaveSystem.Settings.vibration = e.newValue; ApplySettings(); });
+            _observe?.RegisterValueChangedCallback(e => { SaveSystem.Settings.observeNotice = e.newValue; ApplySettings(); });
             _sprintToggle?.RegisterValueChangedCallback(e =>
             {
                 SaveSystem.Settings.sprintToggle = e.newValue;
@@ -506,6 +521,7 @@ namespace Shakutori
             _autosave.SetValueWithoutNotify(s.autosave);
             _motion.SetValueWithoutNotify(s.reduceMotion);
             _vibrate.SetValueWithoutNotify(s.vibration);
+            _observe?.SetValueWithoutNotify(s.observeNotice);
             _sprintToggle?.SetValueWithoutNotify(s.sprintToggle);
             _aimToggle?.SetValueWithoutNotify(s.aimToggle);
             _helpToggle?.SetValueWithoutNotify(s.showHelp);
@@ -936,6 +952,32 @@ namespace Shakutori
             while (_toasts.childCount > 4) _toasts.RemoveAt(0);
         }
 
+        Label _bookBadge;
+        int _bookBadgeCount;
+
+        /// <summary>
+        /// 図鑑ボタンに、新しいスタンプの数を足す（図鑑を開くと消える）。しぐさを観察したことは、ここでも知らせる
+        /// （画面の上のおしらせを消していても、あとで図鑑で見られる）。
+        /// </summary>
+        public void AddBookBadge(int n)
+        {
+            if (!EnsureBound() || n <= 0) return;
+            var btn = Q<Button>("collection-button");
+            if (btn == null) return;
+            if (_bookBadge == null)
+            {
+                _bookBadge = new Label { pickingMode = PickingMode.Ignore };
+                _bookBadge.AddToClassList("book-badge");
+                btn.Add(_bookBadge);
+            }
+            _bookBadgeCount += n;
+            _bookBadge.text = _bookBadgeCount > 9 ? "9+" : _bookBadgeCount.ToString();
+            _bookBadge.style.display = DisplayStyle.Flex;
+            // ぽんっと、ふくらむ
+            _bookBadge.AddToClassList("book-badge--pop");
+            _bookBadge.schedule.Execute(() => _bookBadge.RemoveFromClassList("book-badge--pop")).StartingIn(220);
+        }
+
         /// <summary>いきものを見つけたときのカード。</summary>
         public void ShowCreature(SpeciesDef sp)
         {
@@ -1151,6 +1193,9 @@ namespace Shakutori
         {
             if (show)
             {
+                // 図鑑を開いたら、図鑑ボタンの数を消す
+                _bookBadgeCount = 0;
+                if (_bookBadge != null) _bookBadge.style.display = DisplayStyle.None;
                 SelectTab(tab ?? _tab);
                 _tabs[_tab].Focus();
                 // メニューから開いたときは、メニューの前面に出す

@@ -215,6 +215,30 @@
     scale: 0.94 0.94;
 }
 
+/* 図鑑ボタンの、新しいスタンプの数 */
+.book-badge {
+    position: absolute;
+    right: -6px;
+    top: -6px;
+    min-width: 24px;
+    height: 24px;
+    border-radius: 12px;
+    padding: 0 5px;
+    font-size: 14px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    color: rgb(255, 255, 255);
+    background-color: rgb(232, 96, 70);
+    border-width: 2px;
+    border-color: rgb(255, 244, 214);
+    transition-property: scale;
+    transition-duration: 0.2s;
+}
+
+.book-badge--pop {
+    scale: 1.35 1.35;
+}
+
 /* ---- 発見バナー ---- */
 .banner {
     position: absolute;

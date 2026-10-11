@@ -121,15 +121,21 @@ namespace Shakutori.Tests
                 if (!SaveSystem.Data.creatures.Contains(id)) SaveSystem.Data.creatures.Add(id);
                 var n = Friends.Note(id);
                 n.friendAt = -999f;
-                Vector3 p = C.PositionOf(id);
-                Assert.AreNotEqual(Vector3.zero, p, id);
-                Vector3 at = SurfaceNear(p, 2.2f);
-                Vector3 face = p - at;
-                face.y = 0f;
-                Worm.Spawn(at, face.sqrMagnitude > 1e-4f ? face.normalized : Vector3.forward);
-                yield return Seconds(0.3f);
-                Assert.IsTrue(C.ForceBehaviorForTests(id, "call"), id + "：鳴く");
-                yield return WaitUntil(() => Friends.HasSeen(id, "call"), 3f, id + " が鳴くのを観察");
+                // 鳴くところを見る（岩のかげへ跳んでいったときは、もう一度そばへ行って、また鳴くのを待つ）
+                for (int tries = 0; tries < 3 && !Friends.HasSeen(id, "call"); tries++)
+                {
+                    Vector3 p = C.PositionOf(id);
+                    Assert.AreNotEqual(Vector3.zero, p, id);
+                    Vector3 at = SurfaceNear(p, 2.2f);
+                    Vector3 face = p - at;
+                    face.y = 0f;
+                    Worm.Spawn(at, face.sqrMagnitude > 1e-4f ? face.normalized : Vector3.forward);
+                    yield return FaceCamera(face.sqrMagnitude > 1e-4f ? face.normalized : Vector3.forward);
+                    yield return Seconds(0.3f);
+                    Assert.IsTrue(C.ForceBehaviorForTests(id, "call"), id + "：鳴く");
+                    for (float t = 0f; t < 2f && !Friends.HasSeen(id, "call"); t += Time.deltaTime) yield return null;
+                }
+                Assert.IsTrue(Friends.HasSeen(id, "call"), id + " が鳴くのを観察");
             }
         }
 

@@ -265,6 +265,8 @@ namespace Shakutori
         public void Greet() => Play(creature, 0.32f, Random.Range(1.3f, 1.45f));
         /// <summary>しぐさを観察した・なかよしが上がった。</summary>
         public void Friend() => Play(discover, 0.5f, 1.2f);
+        /// <summary>しぐさを観察したときの、小さな「ぽん」（図鑑にスタンプ）。</summary>
+        public void Stamp() => Play(discover, 0.22f, 1.6f);
         public void Travel() => Play(travel, 0.8f);
         public void Unlock() => Play(unlock, 0.8f);
         public void Caw(float volume) => Play(caw, volume, Random.Range(0.92f, 1.05f));

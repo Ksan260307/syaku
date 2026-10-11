@@ -190,6 +190,7 @@
                     <ui:Toggle name="set-autosave" label="オートセーブ" />
                     <ui:Toggle name="set-motion" label="画面のゆれをへらす" />
                     <ui:Toggle name="set-vibrate" label="スマホをふるわせる" />
+                    <ui:Toggle name="set-observe" label="しぐさの観察を知らせる" />
                     <ui:Button name="reset-settings" text="設定を最初にもどす" class="btn btn-small" />
                 </ui:ScrollView>
                 <ui:VisualElement class="row-buttons">

@@ -24,8 +24,14 @@ namespace Shakutori
 
         /// <summary>あいさつしてくれる近さ（体の大きさで少し広がる。飛ぶものは少し遠くから）。</summary>
         public const float GreetRadius = 2.4f, FlyerGreetRadius = 2.8f;
-        /// <summary>しぐさを観察できる近さ（画面に見えていること）。</summary>
+        /// <summary>しぐさを観察できる近さ（しゃくとりむしの頭から）。</summary>
         public const float ObserveRadius = 10f;
+        /// <summary>
+        /// しぐさは、ちゃんと見ていたときだけ観察したことにする：画面のまん中のあたり（はしから ObserveMargin より内）に、
+        /// ある大きさ以上（画面の高さの ObserveMinSize）で、物のかげにならずに映っていて、そのしぐさを ObserveDwell 秒見ていたとき。
+        /// 一瞬で終わるしぐさ（跳ぶ・鳴く など）は、ObserveDwellShort 秒でよい。
+        /// </summary>
+        public const float ObserveMargin = 0.12f, ObserveMinSize = 0.03f, ObserveDwell = 0.4f, ObserveDwellShort = 0.12f;
         /// <summary>同じ一匹が、もう一度あいさつするまでの時間（秒）。</summary>
         public const float GreetInterval = 18f;
         /// <summary>あんないは、つぎにするまで少しあける（秒）。いちばん長くて GuideTime 秒。</summary>
@@ -114,15 +120,19 @@ namespace Shakutori
             }
         }
 
+        /// <summary>見せてくれるしぐさの、いちばん短い長さ（秒）。観察には ObserveDwell 秒見ていることがいるので、それより十分長く。</summary>
+        const float ShowLength = 1.5f;
+
         /// <summary>なかよし ★5 のとき、とっておきのしぐさをしてみせる（できるものだけ）。</summary>
         bool ForceBehavior(Mob m, string key)
         {
             switch (key)
             {
-                case "groom": StartAct(m, ActGroom, ActLength(m, ActGroom), true); return true;
-                case "stretch": StartAct(m, ActStretch, ActLength(m, ActStretch), true); return true;
-                case "shake": StartAct(m, ActShake, ActLength(m, ActShake), true); return true;
-                case "special": StartAct(m, ActSpecial, ActLength(m, ActSpecial), true); return true;
+                // 見せてくれるしぐさは、ゆっくり見られるように、少し長めにする
+                case "groom": StartAct(m, ActGroom, Mathf.Max(ShowLength, ActLength(m, ActGroom)), true); return true;
+                case "stretch": StartAct(m, ActStretch, Mathf.Max(ShowLength, ActLength(m, ActStretch)), true); return true;
+                case "shake": StartAct(m, ActShake, Mathf.Max(ShowLength, ActLength(m, ActShake)), true); return true;
+                case "special": StartAct(m, ActSpecial, Mathf.Max(ShowLength, ActLength(m, ActSpecial)), true); return true;
                 case "alarm": StartAct(m, ActAlarm, 0.8f, true); return true;
                 case "curl": if (m.bid != "pillbug") return false; m.curled = Mathf.Max(m.curled, 3f); return true;
                 case "retreat": m.retreat = Mathf.Max(m.retreat, 2.5f); m.curSpeed = 0f; return true;
@@ -168,30 +178,50 @@ namespace Shakutori
         /// 見つけたことのあるいきもの：近くで見ていれば、しぐさを観察して、はじめて会った一匹は大きさをはかる。
         /// しずかに近づくと、あいさつしてくれて、なかよしが上がる。
         /// </summary>
-        void UpdateFriendly(Mob m, InchwormController worm)
+        void UpdateFriendly(Mob m, InchwormController worm, float dt)
         {
             if (worm == null || !Visible(m)) return;
             Vector3 c = m.pos + m.up * (0.3f * m.scale);
             float d2 = (_head - c).sqrMagnitude;
-            if (d2 > ObserveRadius * ObserveRadius) return;
+            if (d2 > ObserveRadius * ObserveRadius)
+            {
+                m.watchFor = 0f;
+                return;
+            }
             string id = m.sp.id;
-            // 大きさ：近くで会った一匹ずつ、一度だけはかる
-            if (!m.sizeSeen && d2 < m.sp.discoverRadius * m.sp.discoverRadius)
+            // 体のまん中（画面に映っているかを見る所）
+            var bodyMesh = M(m.sp.body);
+            Vector3 mid = m.drawPos + m.up * ((bodyMesh != null ? bodyMesh.bounds.center.y : 0.3f) * m.scale);
+            // 大きさ：近くで会った一匹ずつ、一度だけはかる（画面に映っているとき）
+            if (!m.sizeSeen && d2 < m.sp.discoverRadius * m.sp.discoverRadius && OnScreen(m, mid, 0f, 0f))
             {
                 m.sizeSeen = true;
                 float mm = BodyMm(m.sp, m.scale);
                 if (mm > 0f) Measured?.Invoke(m.sp, mm, m.pos);
             }
-            // しぐさの観察（画面に見えているときだけ）
-            bool inView = !_viewReady || GeometryUtility.TestPlanesAABB(_viewPlanes, new Bounds(m.pos, Vector3.one * (0.6f * m.scale + 0.3f)));
-            if (inView)
-                foreach (var b in Friends.BehaviorsOf(id))
+            // しぐさの観察：まだ見ていないしぐさをしていて、それを画面のまん中のあたりで、しばらく見ていたら
+            string doing = null;
+            foreach (var b in Friends.BehaviorsOf(id))
+                if (!Friends.HasSeen(id, b.key) && Doing(m, b.key))
                 {
-                    if (Friends.HasSeen(id, b.key) || !Doing(m, b.key)) continue;
-                    Friends.Observe(id, b.key);
-                    Observed?.Invoke(m.sp, b, m.pos);
+                    doing = b.key;
                     break;
                 }
+            if (doing == null || !OnScreen(m, mid, ObserveMargin, ObserveMinSize))
+                m.watchFor = Mathf.Max(0f, m.watchFor - dt * 2f);   // 一瞬かくれただけなら、少しずつへらす
+            else
+            {
+                if (doing != m.watchKey) m.watchFor = 0f;
+                m.watchKey = doing;
+                m.watchFor += dt;
+                if (m.watchFor >= (IsMomentary(doing) ? ObserveDwellShort : ObserveDwell))
+                {
+                    m.watchFor = 0f;
+                    Friends.Observe(id, doing);
+                    foreach (var b in Friends.BehaviorsOf(id))
+                        if (b.key == doing) Observed?.Invoke(m.sp, b, m.pos);
+                }
+            }
             // あいさつ
             if (m.anim < m.friendNext || worm.IsFalling || _headVel.sqrMagnitude > 2.2f * 2.2f) return;
             if (m.carryingWorm || m.curled > 0f || m.retreat > 0f || m.dig > 0.3f || m.anim < m.deadUntil || m.anim < m.watchUntil) return;
@@ -208,6 +238,44 @@ namespace Shakutori
             else if (m.airborne && !IsFlyer(m)) return;
             if (d2 > r * r) return;
             Greet(m);
+        }
+
+        /// <summary>一瞬で終わるしぐさ（見ていられる時間が短い）。</summary>
+        static bool IsMomentary(string key)
+        {
+            switch (key)
+            {
+                case "hop": case "strike": case "sidehop": case "turnhop": case "swoop": case "zigzag":
+                case "call": case "puff": case "spin": case "antgreet": case "alarm":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// いきものが、いまの画面にちゃんと映っているか：カメラの前にあり、体が画面のはしから margin（画面の割合）より内側に入っていて、
+        /// 体の大きさが画面の高さの minSize 以上あり、カメラとのあいだを地形や物がさえぎっていない。
+        /// </summary>
+        bool OnScreen(Mob m, Vector3 center, float margin, float minSize)
+        {
+            Camera cam = Camera.main;
+            if (cam == null || !_viewReady) return true;   // 画面のないとき（テストの一部）は、見えていることにする
+            Vector3 vp = cam.WorldToViewportPoint(center);
+            if (vp.z <= cam.nearClipPlane) return false;
+            // 体の大きさ（画面の高さに対する半径）。大きないきものは、まん中が画面の外でも、体が画面のまん中まで入っていればよい
+            float screenH = 2f * vp.z * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad);
+            float r = BodyReach(m) / Mathf.Max(1e-4f, screenH);
+            if (2f * r < minSize) return false;
+            float rx = r / Mathf.Max(0.1f, cam.aspect);
+            float cx = Mathf.Clamp(vp.x, margin, 1f - margin), cy = Mathf.Clamp(vp.y, margin, 1f - margin);
+            float ex = (vp.x - cx) / Mathf.Max(1e-4f, rx), ey = (vp.y - cy) / Mathf.Max(1e-4f, r);
+            if (ex * ex + ey * ey > 1f) return false;
+            // カメラから体のまん中まで、地形や物にさえぎられていない（体の手前で止める）
+            Vector3 from = cam.transform.position;
+            Vector3 to = center - from;
+            float dist = to.magnitude - Mathf.Max(0.35f * m.scale, 0.6f * BodyReach(m));
+            return dist <= 0.05f || !Physics.Raycast(from, to / to.magnitude, dist, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore);
         }
 
         void Greet(Mob m)

@@ -52,6 +52,7 @@ namespace Shakutori
         public bool sprintToggle;     // Shift を押すたびに「はやく」を切りかえる
         public bool aimToggle;        // F / 右クリックを押すたびに「ねらう」を切りかえる
         public float cameraDistance;  // 0 = 最初の距離
+        public bool observeNotice = true;   // しぐさを観察したことを、画面の上に知らせる（つづけて見つけたときは、まとめて 1 回）
     }
 
     /// <summary>

@@ -54,6 +54,32 @@ namespace Shakutori.Tests
         }
 
         [Test]
+        public void ObserveNotice_GroupsObservationsIntoOneLine()
+        {
+            var ant = SpeciesCatalog.Get("ant");
+            var sparrow = SpeciesCatalog.Get("sparrow");
+            var frog = SpeciesCatalog.Get("frog");
+            var a = Friends.BehaviorsOf("ant");
+            Friends.Observe("ant", a[0].key);
+            // 1 つなら、種としぐさと、その種でいくつ見たか
+            string one = GameManager.ObserveDigest(new[] { (ant, a[0]) }, new SpeciesDef[0]);
+            Assert.AreEqual($"かんさつ：アリが「{a[0].label}」（1 / 3）", one);
+            // いくつかなら、1 行にまとめる（はじめの 2 つと、ほかの数）
+            var s = Friends.BehaviorsOf("sparrow");
+            var f = Friends.BehaviorsOf("frog");
+            string many = GameManager.ObserveDigest(new[] { (ant, a[0]), (sparrow, s[1]), (frog, f[2]) }, new SpeciesDef[0]);
+            StringAssert.StartsWith("かんさつ +3：", many);
+            StringAssert.Contains($"アリ「{a[0].label}」", many);
+            StringAssert.Contains($"スズメ「{s[1].label}」", many);
+            StringAssert.EndsWith("ほか 1", many);
+            StringAssert.DoesNotContain("\n", many, "1 行");
+            // ぜんぶ観察した種は、同じ行のうしろに
+            string done = GameManager.ObserveDigest(new[] { (ant, a[0]), (frog, f[2]) }, new[] { frog });
+            StringAssert.EndsWith("アマガエルのしぐさを、ぜんぶ観察した！", done);
+            Assert.IsTrue(new SettingsData().observeNotice, "はじめは知らせる");
+        }
+
+        [Test]
         public void Observations_CountOncePerBehavior()
         {
             var bs = Friends.BehaviorsOf("pillbug");

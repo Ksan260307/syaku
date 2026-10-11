@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -282,6 +283,7 @@ namespace Shakutori
                 fx.Drip(worm.CenterPosition);
             }
             SaveSystem.FlushSettings();
+            FlushObserved();
             if (Time.unscaledTime > _rumbleUntil && _rumbleUntil > 0f)
             {
                 _rumbleUntil = 0f;
@@ -874,19 +876,79 @@ namespace Shakutori
             CheckProgress();
         }
 
+        // しぐさの観察のおしらせは、まとめて出す（つづけて見つけても、何度も出ない）
+        readonly List<(SpeciesDef sp, Behavior b)> _observed = new List<(SpeciesDef, Behavior)>();
+        readonly List<SpeciesDef> _observedAll = new List<SpeciesDef>();
+        float _observedFlushAt = -1f, _observedFirstAt;
+        /// <summary>最後に観察してから、この秒数のあいだ何も見つけなければ、まとめて知らせる（いちばん長くても ObserveDigestMax 秒で）。</summary>
+        public const float ObserveDigestDelay = 2.5f, ObserveDigestMax = 6f;
+
         void OnObserved(SpeciesDef sp, Behavior b, Vector3 pos)
         {
-            int n = Friends.SeenCount(sp.id), all = Friends.BehaviorsOf(sp.id).Length;
-            AudioManager.Instance?.Friend();
-            ui.Toast($"かんさつ：{sp.name}が「{b.label}」（{n} / {all}）", "icon-book", 3f);
-            if (n >= all)
+            // その場では、いきものの上に小さなスタンプの光と音。図鑑ボタンに数が出る
+            AudioManager.Instance?.Stamp();
+            fx.Burst(pos + Vector3.up * 0.35f, 6, new Color(1f, 0.86f, 0.5f, 1f));
+            ui.AddBookBadge(1);
+            if (_observed.Count == 0) _observedFirstAt = Time.unscaledTime;
+            _observed.Add((sp, b));
+            if (Friends.FullyObserved(sp.id))
             {
                 AudioManager.Instance?.Unlock();
                 fx.Burst(pos + Vector3.up * 0.4f, 40, new Color(1f, 0.85f, 0.35f, 1f));
-                ui.Toast($"{sp.name}のしぐさを、ぜんぶ観察した！", "icon-book", 4f);
+                _observedAll.Add(sp);
             }
+            _observedFlushAt = Mathf.Min(Time.unscaledTime + ObserveDigestDelay, _observedFirstAt + ObserveDigestMax);
             SaveProgress();
             CheckProgress();
+        }
+
+        /// <summary>出した観察のおしらせの数と、さいごの文（テスト用）。</summary>
+        public int ObserveNotices { get; private set; }
+        public string LastObserveNotice { get; private set; } = "";
+
+        /// <summary>しぐさを観察したことにする（テスト用）。</summary>
+        public void ObservedForTests(SpeciesDef sp, Behavior b, Vector3 pos) => OnObserved(sp, b, pos);
+
+        /// <summary>まとめておいた観察を、1 つのおしらせにする（設定で消せる）。</summary>
+        void FlushObserved()
+        {
+            if (_observed.Count == 0 || Time.unscaledTime < _observedFlushAt) return;
+            if (SaveSystem.Settings.observeNotice)
+            {
+                LastObserveNotice = ObserveDigest(_observed, _observedAll);
+                ObserveNotices++;
+                ui.Toast(LastObserveNotice, "icon-book", _observedAll.Count > 0 ? 4f : 3.2f);
+            }
+            _observed.Clear();
+            _observedAll.Clear();
+            _observedFlushAt = -1f;
+        }
+
+        /// <summary>
+        /// 観察のおしらせの文。1 つなら「かんさつ：アリが「行列」（2 / 3）」、いくつかなら「かんさつ +3：アリ「行列」・スズメ「砂あび」ほか 1」。
+        /// ぜんぶ観察した種があれば、うしろに足す。
+        /// </summary>
+        public static string ObserveDigest(IList<(SpeciesDef sp, Behavior b)> seen, IList<SpeciesDef> completed)
+        {
+            string text;
+            if (seen.Count == 1)
+            {
+                var (sp, b) = seen[0];
+                text = $"かんさつ：{sp.name}が「{b.label}」（{Friends.SeenCount(sp.id)} / {Friends.BehaviorsOf(sp.id).Length}）";
+            }
+            else
+            {
+                var parts = new List<string>();
+                for (int i = 0; i < Mathf.Min(2, seen.Count); i++) parts.Add($"{seen[i].sp.name}「{seen[i].b.label}」");
+                text = $"かんさつ +{seen.Count}：{string.Join("・", parts)}" + (seen.Count > 2 ? $" ほか {seen.Count - 2}" : "");
+            }
+            if (completed.Count > 0)
+            {
+                var names = new List<string>();
+                foreach (var sp in completed) if (!names.Contains(sp.name)) names.Add(sp.name);
+                text += $"　{string.Join("・", names)}のしぐさを、ぜんぶ観察した！";
+            }
+            return text;
         }
 
         void OnMeasured(SpeciesDef sp, float mm, Vector3 pos)

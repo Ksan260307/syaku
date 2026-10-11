@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
@@ -94,6 +95,73 @@ namespace Shakutori.Tests
             if (Friends.Level("pillbug") >= Friends.LikesAt) StringAssert.Contains("すきなもの：" + Friends.Likes("pillbug"), text, "なかよしになると、すきなものがわかる");
             else StringAssert.Contains("すきなもの：？", text, "なかよしになるまで、すきなものはわからない");
             StringAssert.Contains("ひみつ：？", text, "ひみつは、なかよし ★3 から");
+        }
+
+        [UnityTest]
+        public IEnumerator Observing_NeedsTheCreatureOnScreen()
+        {
+            Known("pillbug");
+            yield return NextTo("pillbug", 3f);
+            Vector3 p = C.PositionOf("pillbug");
+            Vector3 away = Worm.HeadPosition - p;
+            away.y = 0f;
+            away.Normalize();
+            // カメラをいきものと反対へ向ける：画面に映っていない所でしたしぐさは、観察にならない
+            yield return FaceCamera(away);
+            yield return Seconds(0.3f);
+            Assert.IsTrue(C.ForceBehaviorForTests("pillbug", "curl"));
+            yield return Seconds(1.2f);
+            Assert.IsFalse(Friends.HasSeen("pillbug", "curl"), "うしろで、まるくなっただんごむし");
+            // そちらを向いて、しばらく見ていると、観察できる
+            yield return FaceCamera(-away);
+            Assert.IsTrue(C.ForceBehaviorForTests("pillbug", "curl"));
+            yield return WaitUntil(() => Friends.HasSeen("pillbug", "curl"), 3f, "見えるところで、まるくなるのを観察");
+        }
+
+        [UnityTest]
+        public IEnumerator ManyObservations_ShowOneNotice_AndABadgeOnTheBook()
+        {
+            int Notices() => GM.ObserveNotices;
+            // まわりのいきものを、たまたま観察することもあるので、数は「少なくとも」で見る
+            UI.ShowCollection(true, "zukan");
+            yield return null;
+            UI.ShowCollection(false, "zukan");
+            yield return Seconds(GameManager.ObserveDigestMax + 0.5f);
+            int before = Notices();
+            // つづけて 3 つ観察しても、おしらせは 1 つにまとまる。その場では、図鑑ボタンに数が出る
+            foreach (var (id, k) in new[] { ("ant", 0), ("snail", 1), ("ladybug", 0) })
+            {
+                Known(id);
+                var b = Friends.BehaviorsOf(id)[k];
+                Friends.Observe(id, b.key);
+                GM.ObservedForTests(SpeciesCatalog.Get(id), b, Worm.HeadPosition);
+                yield return Seconds(0.4f);
+            }
+            Assert.AreEqual(before, Notices(), "見つけているあいだは、まだ知らせない");
+            Assert.GreaterOrEqual(UI.BookBadgeCount, 3, "図鑑ボタンに、新しいスタンプの数");
+            yield return Seconds(GameManager.ObserveDigestDelay + 0.5f);
+            Assert.AreEqual(before + 1, Notices(), "まとめて 1 つ");
+            StringAssert.StartsWith("かんさつ +", GM.LastObserveNotice);
+            CollectionAssert.Contains(UI.ToastTexts, GM.LastObserveNotice, "画面の上に出ている");
+            // 図鑑を開くと、数は消える
+            UI.ShowCollection(true, "zukan");
+            yield return null;
+            Assert.AreEqual(0, UI.BookBadgeCount);
+            UI.ShowCollection(false, "zukan");
+            // 設定で消すと、おしらせは出ない（図鑑ボタンの数は出る）
+            SaveSystem.Settings.observeNotice = false;
+            try
+            {
+                yield return Seconds(4f);
+                int quiet = Notices();
+                var g = Friends.BehaviorsOf("ant")[1];
+                Friends.Observe("ant", g.key);
+                GM.ObservedForTests(SpeciesCatalog.Get("ant"), g, Worm.HeadPosition);
+                yield return Seconds(GameManager.ObserveDigestDelay + 0.5f);
+                Assert.AreEqual(quiet, Notices(), "知らせない");
+                Assert.GreaterOrEqual(UI.BookBadgeCount, 1);
+            }
+            finally { SaveSystem.Settings.observeNotice = true; }
         }
 
         [UnityTest]

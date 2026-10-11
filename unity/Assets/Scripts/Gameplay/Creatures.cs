@@ -197,6 +197,8 @@ namespace Shakutori
             // ---- もう一度会う（Creatures.Friends.cs） ----
             public float friendNext;                   // つぎにあいさつできる時刻
             public bool sizeSeen;                      // 大きさをはかった
+            public string watchKey;                    // いま見ている、まだ観察していないしぐさ
+            public float watchFor;                     // そのしぐさを、見えるところで見ていた長さ（秒）
             public float guideUntil = -1f, guideNext;  // あんないしている間・つぎにあんないできる時刻
             public Vector3 guideTo;                    // あんないする先
             public float trailNext;                    // つぎに光のあとを残す時刻
@@ -981,7 +983,7 @@ namespace Shakutori
                     Vector3 c = m.pos + m.up * (0.3f * m.scale);
                     if ((_head - c).sqrMagnitude < m.sp.discoverRadius * m.sp.discoverRadius) Discover(m.sp, m.pos);
                 }
-                else if (Active) UpdateFriendly(m, worm);   // もう一度会った（あいさつ・観察・大きさ）
+                else if (Active) UpdateFriendly(m, worm, sdt);   // もう一度会った（あいさつ・観察・大きさ）
             }
         }
 
