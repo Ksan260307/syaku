@@ -418,12 +418,12 @@ namespace Shakutori
             {
                 float mid = (lo + hi) * 0.5f;
                 Vector3 b = top + outward * mid;
-                float y = MountainLayout.Height(b.x, b.z);
+                float y = Area.Height(b.x, b.z);
                 float l = Mathf.Sqrt(mid * mid + (top.y - y) * (top.y - y));
                 if (l < len) lo = mid; else hi = mid;
             }
             Vector3 g = top + outward * lo;
-            g.y = MountainLayout.Height(g.x, g.z);
+            g.y = Area.Height(g.x, g.z);
             return g;
         }
 

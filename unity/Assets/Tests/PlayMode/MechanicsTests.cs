@@ -98,6 +98,33 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
+        public IEnumerator HoldingTheStick_FromAWallDownToTheGround_StillTurnsWithTheCamera()
+        {
+            // 壁でスティックを倒して（下へ）、そのまま地面へ下り、倒したまま歩く（カメラは自分で回す）
+            bool autoCam = SaveSystem.Settings.autoCamera;
+            SaveSystem.Settings.autoCamera = false;
+            try
+            {
+            yield return ClimbStumpWall(2.5f);
+            GameInput.VirtualMove = Vector2.down;
+            yield return WaitUntil(() => Worm.SurfaceUp.y > 0.9f && Worm.TailPoint.y - GroundAt(Worm.TailPoint) < 0.3f, 15f, "地面へ下りる");
+            yield return Seconds(2f);
+            Assert.Greater(Worm.SurfaceUp.y, 0.9f, "平らな地面を歩いている");
+            // 倒したまま、カメラを大きく（120 度）回すと、その向きへ曲がる（面をまたいだときの「まっすぐ」が、いつまでも続かない）
+            Cam.yaw += 120f;
+            yield return Seconds(4f);
+            Vector3 want = -Vector3.ProjectOnPlane(Cam.transform.forward, Vector3.up).normalized;
+            Vector3 heading = Vector3.ProjectOnPlane(Worm.Heading, Vector3.up).normalized;
+            GameInput.VirtualMove = Vector2.zero;
+            Assert.Less(Vector3.Angle(heading, want), 45f, "カメラに合わせて曲がる");
+            }
+            finally
+            {
+                SaveSystem.Settings.autoCamera = autoCam;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator SteepCliffEdge_WalkingForwardFallsOff()
         {
             Vector2 s = ForestLayout.Stump;

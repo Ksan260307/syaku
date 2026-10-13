@@ -49,6 +49,54 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
+        public IEnumerator HollowLog_CanBeClimbedFromTheSide_ByTheLeaningLogs()
+        {
+            // 丸太の横腹はせり出していて、地面からは登れないので、両がわに倒木を立てかけてある
+            var ramps = GM.world.ExtraSpots("logramp");
+            Assert.AreEqual(2, ramps.Count, "両がわに 1 本ずつ：" + GM.world.ExtraSummary());
+            bool autoCam = SaveSystem.Settings.autoCamera;
+            SaveSystem.Settings.autoCamera = false;
+            try
+            {
+                Vector2 ax = ForestLayout.LogCenter, dir = ForestLayout.LogDir;
+                foreach (var mid in ramps)
+                {
+                    // 倒木のある側の、丸太から 13 はなれた地面から、丸太へ向かって歩く
+                    Vector2 m = new Vector2(mid.x, mid.z);
+                    Vector2 onAxis = ax + dir * Vector2.Dot(m - ax, dir);
+                    Vector2 outward = (m - onAxis).normalized;
+                    Vector2 from = onAxis + outward * 13f;
+                    Vector3 face = new Vector3(-outward.x, 0f, -outward.y);
+                    Place(from, face);
+                    float best = 0f;
+                    bool onLog = false;
+                    float t = 0f;
+                    while (t < 30f && !onLog)
+                    {
+                        Vector3 c = Worm.CenterPosition;
+                        Vector2 to = onAxis - new Vector2(c.x, c.z);
+                        Cam.yaw = Mathf.Atan2(to.x, to.y) * Mathf.Rad2Deg;
+                        Cam.pitch = 22f;
+                        GameInput.VirtualMove = Vector2.up;
+                        yield return null;
+                        t += Time.deltaTime;
+                        c = Worm.CenterPosition;
+                        best = Mathf.Max(best, c.y - ForestLayout.Height(c.x, c.z));
+                        onLog = c.y - ForestLayout.Height(c.x, c.z) > 6.5f
+                                && Physics.Raycast(c + Vector3.up * 0.5f, Vector3.down, out var hit, 2f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)
+                                && hit.collider.name.StartsWith("HollowLog");
+                    }
+                    ResetInput();
+                    Assert.IsTrue(onLog, $"倒木を登って、丸太の上へ（{mid} の側。いちばん高く {best:0.0}）");
+                }
+            }
+            finally
+            {
+                SaveSystem.Settings.autoCamera = autoCam;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator LogTunnel_EchoesFootsteps_AndMossIsSoft()
         {
             var log = ForestLayout.Landmarks.Find(l => l.useCapsule);

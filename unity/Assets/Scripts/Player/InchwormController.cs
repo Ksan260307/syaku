@@ -193,6 +193,8 @@ namespace Shakutori
         Vector3 _desiredNow;
         Vector2 _stick;                  // 面をまたぐときに向きを保つため
         Vector3 _stickNormal = Vector3.up;
+        Vector3 _settleNormal = Vector3.up;
+        float _floorSettle;              // 平らな所に落ち着いている時間（面をまたいだあとの「まっすぐ」を終える）
         float _pullLift;                 // 尾を持ち上げる高さ
         float _turnSign;                 // 曲がる向き（体をかたむける）
         float _arcBlend;                 // 頭を弧をえがいて動かす割合
@@ -452,12 +454,21 @@ namespace Shakutori
             // 面をまたいだとき（床→壁→上の面）、スティックをそのまま倒していれば、まっすぐ進みつづける。
             // カメラから見た向きで決めると、ふちを越えたとたんに逆向きになってしまうことがあるため
             bool steady = Vector2.Angle(mv, _stick) < 12f && Mathf.Abs(mv.magnitude - _stick.magnitude) < 0.25f;
-            if (!steady)
+            // 面をまたいだあと、平らな所に落ち着いたら（0.5 秒）、「まっすぐ」をやめてカメラの向きにしたがう。
+            // （壁でスティックを倒し、そのまま地面へ下りて歩くと、カメラを大きく回しても曲がらなくなるため）
+            bool airborne = State == Mode.Hang || State == Mode.Fall;
+            if (!airborne && n.y > 0.8f && Vector3.Angle(n, _settleNormal) < 15f) _floorSettle += Time.deltaTime;
+            else
+            {
+                _floorSettle = 0f;
+                _settleNormal = n;
+            }
+            if (!steady || (_floorSettle > 0.5f && Vector3.Angle(n, _stickNormal) > 30f))
             {
                 _stick = mv;
                 _stickNormal = n;
             }
-            else if (State != Mode.Hang && State != Mode.Fall && Vector3.Angle(n, _stickNormal) > 30f)
+            else if (!airborne && Vector3.Angle(n, _stickNormal) > 30f)
             {
                 Vector3 straight = ShakuMath.ProjectOnPlaneSafe(Heading, n, d);
                 if (straight.sqrMagnitude > 1e-4f && Vector3.Angle(straight, d) > 60f) d = straight.normalized;
