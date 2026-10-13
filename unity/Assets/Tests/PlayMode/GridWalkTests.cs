@@ -19,7 +19,10 @@ namespace Shakutori.Tests
     /// </summary>
     public class GridWalkTests
     {
-        const float Spacing = 16f;        // 網の目の間かく
+        // 網の目の間かく（16 ごとの線の、あいだにも 2 本ずつ。縦横それぞれ 3 倍の本数）。
+        // SHAKU_GRID_SPACING で変えられる（たとえば 1 にすると、ずっと細かく歩く。そのかわり全エリアで 3 時間ほど）
+        static float Spacing => float.TryParse(Environment.GetEnvironmentVariable("SHAKU_GRID_SPACING"), System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out float v) && v > 0.2f ? v : 16f / 3f;
         const float StallTime = 2.5f;     // この時間、線にそって進めなければ「止まった」
         const float Lookahead = 3f;
 
@@ -75,11 +78,11 @@ namespace Shakutori.Tests
 
         void OnSplash() => _events.Add(new Event { kind = Kind.Splash, pos = Worm.CenterPosition });
 
-        [UnityTest, Timeout(3600000)] public IEnumerator Forest_GridWalk() => Walk("forest");
-        [UnityTest, Timeout(3600000)] public IEnumerator River_GridWalk() => Walk("river");
-        [UnityTest, Timeout(3600000)] public IEnumerator Park_GridWalk() => Walk("park");
-        [UnityTest, Timeout(3600000)] public IEnumerator Mountain_GridWalk() => Walk("mountain");
-        [UnityTest, Timeout(3600000)] public IEnumerator Hut_GridWalk() => Walk("hut");
+        [UnityTest, Timeout(14400000)] public IEnumerator Forest_GridWalk() => Walk("forest");
+        [UnityTest, Timeout(14400000)] public IEnumerator River_GridWalk() => Walk("river");
+        [UnityTest, Timeout(14400000)] public IEnumerator Park_GridWalk() => Walk("park");
+        [UnityTest, Timeout(14400000)] public IEnumerator Mountain_GridWalk() => Walk("mountain");
+        [UnityTest, Timeout(14400000)] public IEnumerator Hut_GridWalk() => Walk("hut");
 
         IEnumerator Walk(string areaId)
         {
@@ -96,7 +99,10 @@ namespace Shakutori.Tests
 
             float ext = area.MapExtent;
             var lines = new List<(Vector2, Vector2)>();
-            for (float c = -ext + Spacing * 0.5f; c < ext; c += Spacing)
+            // 線は ±8, ±24, ±40 … を通る（16 ごとの線を、すべてふくむ）
+            float first = -ext + 8f;
+            while (first - Spacing > -ext) first -= Spacing;
+            for (float c = first; c < ext; c += Spacing)
             {
                 lines.Add((new Vector2(-ext, c), new Vector2(ext, c)));   // 東西
                 lines.Add((new Vector2(c, -ext), new Vector2(c, ext)));   // 南北
@@ -106,7 +112,7 @@ namespace Shakutori.Tests
             {
                 if (!string.IsNullOrEmpty(only))
                 {
-                    string id = a.y == b.y ? $"z{a.y:0}" : $"x{a.x:0}";
+                    string id = a.y == b.y ? $"z{a.y:0.#}" : $"x{a.x:0.#}";
                     if (id != only) continue;
                 }
                 ClipToPlay(area, a, b, out var ca, out var cb);
@@ -318,28 +324,41 @@ namespace Shakutori.Tests
             return $"[{Worm.State} up={Worm.SurfaceUp.y:0.00} rest={Worm.IsResting} fat={Worm.Fatigue:0.00} peek={Worm.IsPeeking} in={Worm.InputEnabled} step={Worm.LastStepDuration:0.00} head={Worm.Heading.x:0.0},{Worm.Heading.z:0.0} yaw={Cam.yaw:0} {string.Join(", ", names)}]";
         }
 
-        /// <summary>引っかかったら、後ろ・左右・前へ少しずつ動いてみる。どれでも動けなければ、とじこめ。</summary>
+        /// <summary>
+        /// 引っかかったら、後ろ・左右・前へ少しずつ動いてみる。だめなら、少し待ってから 8 方向へ長めに。
+        /// それでもどの向きにも動けなければ、とじこめ（小石のあいだに一時はさまっただけなら、ここで抜けられる）。
+        /// </summary>
         static IEnumerator CheckTrapped(Action<bool> result)
         {
             Vector3 start = Worm.CenterPosition;
             float baseYaw = Cam.yaw, best = 0f;
-            foreach (float off in new[] { 180f, 90f, -90f, 0f })
+            foreach (var (offs, time) in new[] { (new[] { 180f, 90f, -90f, 0f }, 1.6f), (new[] { 135f, 225f, 45f, 315f, 180f, 90f, 270f, 0f }, 2.5f) })
             {
-                // 向きを変えるたびに、人と同じように一度スティックをはなす
-                ResetInput();
-                yield return null;
-                yield return null;
-                Cam.yaw = baseYaw + off;
-                GameInput.VirtualMove = Vector2.up;
-                float t = 0f;
-                while (t < 1.6f)
-                {
-                    yield return null;
-                    t += Time.deltaTime;
-                    Vector3 p = Worm.CenterPosition;
-                    if (ShakuPhysics.IsFinite(p)) best = Mathf.Max(best, Vector3.Distance(start, p));
-                }
                 if (best > 0.5f) break;
+                foreach (float off in offs)
+                {
+                    // 向きを変えるたびに、人と同じように一度スティックをはなす
+                    ResetInput();
+                    yield return null;
+                    yield return null;
+                    Cam.yaw = baseYaw + off;
+                    GameInput.VirtualMove = Vector2.up;
+                    float t = 0f;
+                    while (t < time)
+                    {
+                        yield return null;
+                        t += Time.deltaTime;
+                        Vector3 p = Worm.CenterPosition;
+                        if (ShakuPhysics.IsFinite(p)) best = Mathf.Max(best, Vector3.Distance(start, p));
+                    }
+                    if (best > 0.5f) break;
+                }
+                ResetInput();
+                if (best <= 0.5f)
+                {
+                    float w = 0f;
+                    while (w < 1f) { yield return null; w += Time.deltaTime; }
+                }
             }
             ResetInput();
             result(best < 0.5f);
