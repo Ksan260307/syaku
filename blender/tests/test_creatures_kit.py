@@ -87,6 +87,19 @@ MAKERS = {
     "Oniyanma_Wing": cr.make_oniyanma_wing,
     "Higurashi": cr.make_higurashi,
     "Maimaikaburi": cr.make_maimaikaburi,
+    "Yamori": cr.make_yamori,
+    "Mukade_Head": cr.make_mukade_head,
+    "Mukade_Seg": cr.make_mukade_seg,
+    "Mukade_Tail": cr.make_mukade_tail,
+    "Mukade_Leg": cr.make_mukade_leg,
+    "Hasamimushi": cr.make_hasamimushi,
+    "Hasamimushi_Tail": cr.make_hasamimushi_tail,
+    "Hae_Body": cr.make_hae_body,
+    "Hae_Arm": cr.make_hae_arm,
+    "Hae_Wing": cr.make_hae_wing,
+    "Tsubame_Body": lambda: cr.make_bird_body("Tsubame_Body", 7.0, "tsubame"),
+    "Tsubame_Wing": lambda: cr.make_bird_wing("Tsubame_Wing", 7.0, "tsubame"),
+    "Nezumi": cr.make_nezumi,
 }
 
 
@@ -105,10 +118,12 @@ class CreatureKitTests(unittest.TestCase):
             self.assertEqual(len(col.data), len(ob.data.loops), name)
 
     def test_portrait_list_covers_all_species(self):
-        # ふつうの 40 種と、レアの 6 種
+        # ふつうの 46 種と、レアの 6 種
         ids = [c[0] for c in cr.CREATURES]
-        self.assertEqual(len(ids), 46)
-        self.assertEqual(len(set(ids)), 46)
+        self.assertEqual(len(ids), 52)
+        self.assertEqual(len(set(ids)), 52)
+        for need in ("yamori", "mukade", "hasamimushi", "hae", "tsubame", "nezumi"):
+            self.assertIn(need, ids)
         for need in ("raichou", "risu", "okojo", "nakiusagi", "sanshouuo", "asagimadara", "maruhanabachi", "oniyanma",
                      "higurashi", "maimaikaburi"):
             self.assertIn(need, ids)
@@ -146,7 +161,8 @@ class CreatureKitTests(unittest.TestCase):
         self.assertGreater(zmin(helmet), eye_top + 0.001, "ヘルメットのいちばん下が、目より上")
 
     def test_wings_are_thin(self):
-        for name in ("Butterfly_Wing", "Dragonfly_Wing", "Sparrow_Wing", "Crow_Wing", "Asagimadara_Wing", "Oniyanma_Wing", "Maruhanabachi_Wing"):
+        for name in ("Butterfly_Wing", "Dragonfly_Wing", "Sparrow_Wing", "Crow_Wing", "Asagimadara_Wing", "Oniyanma_Wing", "Maruhanabachi_Wing",
+                     "Hae_Wing", "Tsubame_Wing"):
             ob = MAKERS[name]()
             s = sorted(size(ob))
             self.assertLess(s[0], s[2] * 0.35, f"{name} が厚すぎる")
@@ -161,6 +177,32 @@ class CreatureKitTests(unittest.TestCase):
         self.assertTrue(3.2 < yanma[1] < 5.0, yanma)
         raichou = max(size(cr.make_bird_body("Raichou_Body", 15.0, "raichou")))
         self.assertGreater(raichou, max(size(cr.make_bird_body("Sparrow_Body", 5.5, False))) * 2.0, "ライチョウはスズメよりずっと大きい")
+
+    def test_hut_creatures_have_real_sizes(self):
+        # 1 単位 = 2.5cm：ヤモリは 12cm くらい、ネズミはしっぽまで 13cm、ハサミムシは 2cm、ハエは 1cm、ツバメは 17cm
+        self.assertTrue(4.0 < size(cr.make_yamori())[1] < 5.5)
+        self.assertTrue(4.5 < size(cr.make_nezumi())[1] < 6.5)
+        ha = size(cr.make_hasamimushi())[1] + size(cr.make_hasamimushi_tail())[1]
+        self.assertTrue(0.7 < ha < 1.6, ha)
+        self.assertLess(max(size(cr.make_hae_body())), 0.6)
+        tsubame = size(cr.make_bird_body("Tsubame_Body", 7.0, "tsubame"))
+        self.assertGreater(tsubame[1], size(cr.make_bird_body("Sparrow_Body", 5.5, False))[1], "ツバメは、尾が長い")
+        # ムカデは、体節をならべて 4〜5（10cm くらい）
+        n = (cr.MUKADE_N + 2) * cr.MUKADE_SEG
+        self.assertTrue(3.8 < n < 5.5, n)
+
+    def test_hut_walkers_have_leg_rigs(self):
+        for name in ("Yamori", "Hasamimushi", "Nezumi"):
+            reset()
+            parts = cr.split_legs(MAKERS[name], name)
+            self.assertGreaterEqual(len(parts) - 1, 2, f"{name} の右の脚")
+            self.assertTrue(name in cr.RIG or name in cr.LIMBS, name)
+        self.assertEqual(len(cr.RIG["Yamori"]), 2, "ヤモリの右の脚 2 本")
+        self.assertEqual(len(cr.LIMBS["Nezumi"]), 2, "ネズミの右の手足 2 本")
+        # ムカデの脚は、体節の横（右）から外へ、地面までのびる
+        leg = cr.make_mukade_leg()
+        self.assertAlmostEqual(min(v.co.z for v in leg.data.vertices) + cr.MUKADE_HIP.z, 0.0, delta=0.03)
+        self.assertGreater(max(v.co.x for v in leg.data.vertices), 0.15)
 
     def test_okojo_rises_from_its_den(self):
         # オコジョは立ち上がった形（上へ長い）。すみかの石は、まん中に穴があいている

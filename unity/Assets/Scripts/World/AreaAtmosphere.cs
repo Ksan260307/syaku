@@ -37,6 +37,14 @@ namespace Shakutori
                         sun = new Color(1f, 0.98f, 0.92f), sunIntensity = 1.65f,
                         sky = new Color(0.64f, 0.78f, 0.98f), equator = new Color(0.66f, 0.72f, 0.7f), ground = new Color(0.42f, 0.44f, 0.36f),
                     };
+                case "hut":
+                    // 山小屋の中：まきストーブの、あたたかい空気。窓からの日ざしは、やわらかい金色
+                    return new Look
+                    {
+                        fog = new Color(0.78f, 0.68f, 0.56f), fogStart = 90f, fogEnd = 420f,
+                        sun = new Color(1f, 0.88f, 0.68f), sunIntensity = 1.5f,
+                        sky = new Color(0.86f, 0.72f, 0.56f), equator = new Color(0.74f, 0.58f, 0.44f), ground = new Color(0.56f, 0.4f, 0.28f),
+                    };
                 case "park":
                     return new Look
                     {
@@ -55,6 +63,14 @@ namespace Shakutori
         }
 
         static readonly int SkyOpenId = Shader.PropertyToID("_SkyOpen");
+        static Texture s_cookie;
+        static bool s_cookieSaved;
+
+        /// <summary>
+        /// 影を落とす距離（画質 q）。山小屋の中は、かべと屋根のかげの中なので、部屋の奥まで影がとどくように長く
+        /// （窓ととびらからさしこむ日だまりだけが明るい）。
+        /// </summary>
+        public static float ShadowDistance(string areaId, int q) => areaId == "hut" ? (q == 0 ? 120f : 160f) : (q == 0 ? 28f : 48f);
 
         /// <summary>いまのエリアの空気と光にする（霧・日ざし・環境光・空）。</summary>
         public static void Apply(AreaLayout area, Light sun)
@@ -72,6 +88,9 @@ namespace Shakutori
             {
                 sun.color = l.sun;
                 sun.intensity = l.sunIntensity;
+                // 木もれ日のもよう（光のクッキー）は、小屋の中ではつかわない（窓の形の日だまりにする）
+                if (!s_cookieSaved) { s_cookie = sun.cookie; s_cookieSaved = true; }
+                sun.cookie = area != null && area.Id == "hut" ? null : s_cookie;
             }
             GameManager.ApplyAmbient();
         }
@@ -79,11 +98,11 @@ namespace Shakutori
         /// <summary>名所を見つけたときのきらめきの色（森は若葉の緑と金、川辺は水色、公園はひだまりの金色）。</summary>
         public static Color DiscoverTint(string areaId) =>
             areaId == "river" ? new Color(0.55f, 0.9f, 1f) : areaId == "park" ? new Color(1f, 0.86f, 0.42f)
-            : areaId == "mountain" ? new Color(0.85f, 0.88f, 1f) : new Color(0.7f, 1f, 0.45f);
+            : areaId == "mountain" ? new Color(0.85f, 0.88f, 1f) : areaId == "hut" ? new Color(1f, 0.78f, 0.5f) : new Color(0.7f, 1f, 0.45f);
 
         /// <summary>しずくを取ったときのきらめきに、まぜる色。</summary>
         public static Color DropTint(string areaId) =>
             areaId == "river" ? new Color(0.6f, 0.92f, 1f) : areaId == "park" ? new Color(1f, 0.9f, 0.55f)
-            : areaId == "mountain" ? new Color(0.88f, 0.9f, 1f) : new Color(0.72f, 1f, 0.55f);
+            : areaId == "mountain" ? new Color(0.88f, 0.9f, 1f) : areaId == "hut" ? new Color(1f, 0.82f, 0.58f) : new Color(0.72f, 1f, 0.55f);
     }
 }

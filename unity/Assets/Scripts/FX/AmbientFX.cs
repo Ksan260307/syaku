@@ -226,6 +226,7 @@ namespace Shakutori
             if (_area.Id == "forest") BuildForest();
             else if (_area.Id == "park") BuildPark();
             else if (_area.Id == "mountain") BuildMountain();
+            else if (_area.Id == "hut") { }   // 小屋の中の演出は、BuildAreaExtras（HutFX）で
             else BuildRiver();
             foreach (var g in world.Gates) GateMotes(g);
             BuildAreaExtras(world);   // エリアの改善：ただよう物
@@ -365,7 +366,8 @@ namespace Shakutori
         {
             var ps = Create("GateMotes", _areaRoot, 50, g.def.targetArea == "river" ? new Color(0.6f, 0.95f, 1f, 1f)
                 : g.def.targetArea == "park" ? new Color(1f, 0.9f, 0.55f, 1f)
-                : g.def.targetArea == "mountain" ? new Color(0.92f, 0.9f, 1f, 1f) : new Color(0.8f, 1f, 0.6f, 1f));
+                : g.def.targetArea == "mountain" ? new Color(0.92f, 0.9f, 1f, 1f)
+                : g.def.targetArea == "hut" ? new Color(1f, 0.82f, 0.5f, 1f) : new Color(0.8f, 1f, 0.6f, 1f));
             ps.transform.position = g.position + Vector3.up * 0.4f;
             var main = ps.main;
             main.startLifetime = new ParticleSystem.MinMaxCurve(2.5f, 4.5f);

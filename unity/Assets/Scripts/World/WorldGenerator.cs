@@ -18,6 +18,8 @@ namespace Shakutori
         public List<Vector3> path = new List<Vector3>();    // 行列の道（ループ）や、鳥の降りる場所
         /// <summary>名所の見どころとして、わざとそこに置いた（キノコの根もと・丸太の中・松の幹・中州）。景色の通り道の決まりの外。</summary>
         public bool showcase;
+        /// <summary>かべにいるいきもの（ヤモリ）：かべの面の向き。ふつうは 0（地面の上）。</summary>
+        public Vector3 up;
     }
 
     /// <summary>生成されたエリア間トンネル。</summary>
@@ -124,6 +126,7 @@ namespace Shakutori
             bool forest = area.Id == "forest";
             bool park = area.Id == "park";
             bool mountain = area.Id == "mountain";
+            bool hut = area.Id == "hut";
             _rng = new Random(forest ? seed : seed + 7919 * area.Id.Length);
             AreaLayout.LateGround = false;   // しずくを置くまでは、もとの地面の形で作る
             SurfaceProbe.ClearCache();
@@ -139,12 +142,12 @@ namespace Shakutori
             yield return null;
             BuildTerrain();
             BuildViewLanes();
-            progress?.Invoke(0.25f, forest ? "大きな木を育てています" : park ? "遊具を組み立てています" : mountain ? "山を高く積み上げています" : "川の水を流しています");
+            progress?.Invoke(0.25f, forest ? "大きな木を育てています" : park ? "遊具を組み立てています" : mountain ? "山を高く積み上げています" : hut ? "丸太のかべを積んでいます" : "川の水を流しています");
             yield return null;
-            BuildOuterRing();
-            if (forest) BuildForestSolids(); else if (park) BuildParkSolids(); else if (mountain) BuildMountainSolids(); else BuildRiverSolids();
+            if (!hut) BuildOuterRing();   // 小屋の中は、かべの外が見えない
+            if (forest) BuildForestSolids(); else if (park) BuildParkSolids(); else if (mountain) BuildMountainSolids(); else if (hut) BuildHutSolids(); else BuildRiverSolids();
             BuildGates();
-            progress?.Invoke(0.4f, forest ? "キノコと岩を並べています" : park ? "砂場をならしています" : mountain ? "岩と雪をのせています" : "川石を並べています");
+            progress?.Invoke(0.4f, forest ? "キノコと岩を並べています" : park ? "砂場をならしています" : mountain ? "岩と雪をのせています" : hut ? "家具を運びこんでいます" : "川石を並べています");
             yield return null;
             if (forest)
             {
@@ -162,6 +165,7 @@ namespace Shakutori
                 ScatterMountainProps();
                 BuildMountainWater();
             }
+            else if (hut) ScatterHutProps();   // 小屋の中には、水はない
             else
             {
                 ScatterRiverProps();
@@ -170,12 +174,13 @@ namespace Shakutori
             Physics.SyncTransforms();
             progress?.Invoke(0.6f, "草花を植えています");
             yield return null;
-            if (forest) BuildForestFoliage(); else if (park) BuildParkFoliage(); else if (mountain) BuildMountainFoliage(); else BuildRiverFoliage();
+            if (forest) BuildForestFoliage(); else if (park) BuildParkFoliage(); else if (mountain) BuildMountainFoliage(); else if (!hut) BuildRiverFoliage();
             progress?.Invoke(0.8f, "しずくを置いています");
             yield return null;
             if (forest) PlaceForestDewdrops();
             else if (park) PlaceParkDewdrops();
             else if (mountain) PlaceMountainDewdrops();
+            else if (hut) PlaceHutDewdrops();
             else PlaceRiverDewdrops();
             // しずくを置いたあとに、泉や水たまりの土手を盛る（しずくの場所は変えない）
             AreaLayout.LateGround = true;
@@ -196,6 +201,11 @@ namespace Shakutori
             {
                 FixMountainForPlay();       // 遊びやすさの直し（しずくを置いたあと。しずくの場所は変えない）
                 PlaceMountainCreatures();   // 山はひらけた空なので、木もれ日の光の筋はない
+                FixCreaturesForPlay();
+            }
+            else if (hut)
+            {
+                PlaceHutCreatures();        // 窓からの日ざしは、部屋を作るときに
                 FixCreaturesForPlay();
             }
             else
@@ -261,6 +271,7 @@ namespace Shakutori
             Ferry = null;
             ClearPark();
             ClearMountain();
+            ClearHut();
             _specialCap = Vector3.zero;
             DewdropPoints.Clear();
             FlowerPoints.Clear();
@@ -628,6 +639,12 @@ namespace Shakutori
             {
                 if (!g.late) continue;
                 BuildGate(g);
+                if (g.door)
+                {
+                    // とびらは、小屋のかべにある：まわりの草花はそのまま（景色の通り道の、背の高い草だけどける）
+                    if (g.arrival != null) AddViewLane(g.arrival);
+                    continue;
+                }
                 Vector3 c = Area.Ground(g.position.x, g.position.y);
                 int before = _viewLanes.Count;
                 if (g.arrival != null) AddViewLane(g.arrival);
@@ -649,6 +666,11 @@ namespace Shakutori
 
         void BuildGate(GateDef g)
         {
+            if (g.door)
+            {
+                BuildDoorGate(g);
+                return;
+            }
             {
                 Vector2 inward2 = (-g.position).normalized;
                 Vector3 inward = new Vector3(inward2.x, 0f, inward2.y);
@@ -672,6 +694,35 @@ namespace Shakutori
                 mr.SetPropertyBlock(mpb);
                 Gates.Add(new GateInstance { def = g, position = ground, inward = inward });
             }
+        }
+
+        /// <summary>
+        /// とびらの出入り口（山小屋）：トンネルの根は作らない。とびらの前に、ほんのり光る板（あたたかい部屋の明かり・外の明るさ）。
+        /// inward は、とびらから出てくる向き。
+        /// </summary>
+        void BuildDoorGate(GateDef g)
+        {
+            Vector3 ground = Area.Ground(g.position.x, g.position.y);
+            Vector3 walk = new Vector3(g.walk.x, 0f, g.walk.y).normalized;
+            Vector3 inward = -walk;
+            Occupy(g.position, Mathf.Min(2f, g.halfWidth));
+            bool intoHut = g.targetArea == "hut";
+            float w = intoHut ? 2.3f : g.halfWidth * 2f;
+            float h = intoHut ? 3.6f : HutLayout.DoorHeight - 2f;
+            var portal = new GameObject("GatePortal");
+            portal.transform.SetParent(_solidRoot, false);
+            // 小屋のとびら：とびらの面の少し前。小屋の中のとびら：しきいの外（外の光）
+            Vector3 at = intoHut ? ground + Vector3.up * (0.8f + h * 0.5f) + inward * 0.06f : ground + Vector3.up * (h * 0.5f + 0.5f) + walk * 2.5f;
+            portal.transform.SetPositionAndRotation(at, Quaternion.LookRotation(inward, Vector3.up));
+            portal.transform.localScale = new Vector3(w, h, 1f);
+            portal.AddComponent<MeshFilter>().sharedMesh = QuadMesh();
+            var mr = portal.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = assets.particle;
+            mr.shadowCastingMode = ShadowCastingMode.Off;
+            var mpb = new MaterialPropertyBlock();
+            mpb.SetColor("_TintColor", intoHut ? new Color(1.4f, 1.0f, 0.55f, 0.32f) : new Color(1.2f, 1.2f, 1.1f, 0.18f));
+            mr.SetPropertyBlock(mpb);
+            Gates.Add(new GateInstance { def = g, position = ground, inward = inward });
         }
 
         // ------------------------------------------------------------------
@@ -1073,6 +1124,7 @@ namespace Shakutori
             if (area.Id == "forest") DrawForestMap(px, size, generated);
             else if (area.Id == "park") DrawParkMap(px, size);
             else if (area.Id == "mountain") DrawMountainMap(px, size, generated);
+            else if (area.Id == "hut") DrawHutMap(px, size);
             else DrawRiverMap(px, size, generated);
             tex.SetPixels32(px);
             tex.Apply(false, false);   // 読めるままにしておく（地図の絵を確かめられるように。256×256 なので小さい）

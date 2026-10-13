@@ -202,6 +202,9 @@ namespace Shakutori
             public float guideUntil = -1f, guideNext;  // あんないしている間・つぎにあんないできる時刻
             public Vector3 guideTo;                    // あんないする先
             public float trailNext;                    // つぎに光のあとを残す時刻
+            // ---- 山小屋 ----
+            public Vector3[] trail, trailUp;           // ムカデ：頭が通ったあと（体節がたどる。新しい順に輪のようにためる）
+            public int trailHead, trailCount;
         }
 
         public struct MobInfo
@@ -613,8 +616,15 @@ namespace Shakutori
                         float b = R(0f, Mathf.PI * 2f);
                         m.pos = g.center + new Vector3(Mathf.Cos(b), 0f, Mathf.Sin(b)) * d;
                     }
+                    if (g.up.sqrMagnitude > 0.5f)
+                    {
+                        // かべにいる（ヤモリ）：体の上を、かべの面の向きに。前は、かべにそった横向き
+                        m.up = g.up.normalized;
+                        m.fwd = ShakuMath.ProjectOnPlaneSafe(m.fwd, m.up, Vector3.Cross(m.up, Vector3.up)).normalized;
+                    }
                     if (sp.kind == MobKind.Skater) m.pos.y = g.center.y;
                     else if (sp.kind != MobKind.Flutter && sp.kind != MobKind.Hover) SnapToSurface(m, 2.5f, 6f);
+                    if (sp.id == "mukade") StartTrail(m);
                     m.prevPos = m.pos;
                     m.drawPos = m.pos;
                     m.wantFwd = m.fwd;
@@ -709,7 +719,7 @@ namespace Shakutori
         /// 天井や物の裏（下を向いた面）にははりつかないいきもの（トカゲ・カメレオン）。坂や物の横は登れるが、
         /// タイヤのアーチの裏のような、さかさまの面には行かない。
         /// </summary>
-        static bool NoCeiling(Mob m) => m.bid == "tokage";
+        static bool NoCeiling(Mob m) => m.bid == "tokage" && m.sp.id != "yamori";   // ヤモリは、かべや天井にもはりつく
 
         /// <summary>はりつかないいきものが歩ける面の、いちばん急な向き（面の上向きの成分）。</summary>
         const float NoCeilingMinUp = 0.35f;
@@ -947,7 +957,9 @@ namespace Shakutori
                 if (near && Application.isPlaying && d2 < 25f * 25f)
                 {
                     float vol = Mathf.Clamp01(1f - Mathf.Sqrt(d2) / 25f);
-                    if (m.bid == "sparrow" && !m.airborne && R(0f, 1f) < sdt * 0.06f) AudioManager.Instance?.Chirp(0.35f * vol);
+                    if (m.sp.id == "tsubame" && R(0f, 1f) < sdt * 0.05f) AudioManager.Instance?.Swallow(0.4f * vol);   // ツバメは、飛びながらもさえずる
+                    else if (m.bid == "sparrow" && !m.airborne && R(0f, 1f) < sdt * 0.06f) AudioManager.Instance?.Chirp(0.35f * vol);
+                    else if (m.sp.id == "nezumi" && R(0f, 1f) < sdt * (m.speedMul > 1.3f ? 0.6f : 0.03f)) AudioManager.Instance?.Squeak(0.35f * vol);   // おどろくと「チュッ」
                     else if (m.bid == "frog" && !m.airborne && R(0f, 1f) < sdt * 0.04f)
                     {
                         AudioManager.Instance?.Croak(0.4f * vol);
@@ -997,6 +1009,7 @@ namespace Shakutori
                 UpdateGlance(m, sdt);
                 UpdateTilt(m, sdt);
                 m.drawPos = far ? ShakuPhysics.Damp(m.drawPos, m.pos, 40f, sdt) : m.pos;
+                if (m.trail != null) RecordTrail(m);
 
                 if (Active && !IsDiscovered(m.sp.id) && Visible(m))
                 {
@@ -1440,7 +1453,9 @@ namespace Shakutori
                 case "snail": case "riversnail": return r < 0.6f ? ActStretch : 0;
                 case "grasshopper": return r < 0.6f ? ActGroom : 0;
                 case "frog": return dw2 < 4f * 4f ? ActSpecial : r < 0.4f ? ActStretch : r < 0.7f ? ActGroom : 0;   // カエル：前足で目をぬぐう
-                case "sparrow": return r < 0.2f ? ActSpecial : r < 0.35f ? ActShake : r < 0.55f ? ActStretch : r < 0.75f ? ActGroom : ActLook;
+                case "sparrow":
+                    if (m.sp.id == "tsubame") return r < 0.35f ? ActGroom : r < 0.6f ? ActStretch : ActLook;   // ツバメ：羽づくろい・羽をのばす（砂あびはしない）
+                    return r < 0.2f ? ActSpecial : r < 0.35f ? ActShake : r < 0.55f ? ActStretch : r < 0.75f ? ActGroom : ActLook;
                 case "crow":
                     if (m.sp.id == "flamingo") return r < 0.3f ? ActShake : r < 0.6f ? ActGroom : r < 0.8f ? ActStretch : ActLook;
                     return r < 0.3f ? ActStretch : r < 0.6f ? ActGroom : ActLook;
@@ -1451,10 +1466,13 @@ namespace Shakutori
                 case "waterstrider": return r < 0.6f ? ActSpecial : 0;
                 case "dragonfly": return m.perched && r < 0.7f ? ActSpecial : 0;
                 case "tokage":
-                    if (m.sp.id == "risu") return r < 0.5f ? ActGroom : r < 0.8f ? ActLook : 0;   // リス：前足で顔を洗う・立ち上がって見まわす
+                    if (Rodent(m)) return r < 0.5f ? ActGroom : r < 0.8f ? ActLook : 0;   // リス・ネズミ：前足で顔を洗う・立ち上がって見まわす
+                    if (m.sp.id == "yamori") return r < 0.45f ? ActGroom : r < 0.7f ? ActLook : 0;   // ヤモリ：舌で目をなめる・首をかしげる
                     if (m.sp.id == "kameleon") return r < 0.6f ? ActSpecial : 0;                   // カメレオン：前足を上げたまま、ゆらゆら迷う
                     return m.sp.id == "tokage" && r < 0.5f ? ActSpecial : 0;
                 case "nakiusagi": return r < 0.35f ? ActLook : r < 0.65f ? ActGroom : 0;   // ナキウサギ：耳をたてて見まわす・顔をこする
+                case "mukade": return r < 0.5f ? ActStretch : 0;                            // ムカデ：触角をのばして、あたりをさぐる
+                case "hasamimushi": return r < 0.4f ? ActGroom : 0;                        // ハサミムシ：はさみで、はねをたたむ
                 case "sanshouuo": return r < 0.4f ? ActLook : r < 0.7f ? ActStretch : 0;   // サンショウウオ：首をもたげる・体をのばす
                 case "spider": return m.sp.IsRare && m.raise < 0.05f && r < 0.6f ? ActSpecial : 0;
                 case "pillbug":
@@ -1637,6 +1655,26 @@ namespace Shakutori
                 }
                 m.display = Mathf.MoveTowards(m.display, threat ? 1f : 0f, dt * 3f);   // おどされると、体の前（はさみ）を上げる
             }
+            // ハサミムシ：近づくと、はさみを持ち上げておどかす（そのあいだは止まって、こちらを向く）
+            // ムカデ：近づくと、頭を上げてあごをひらく。もっと近いと、さっと走って逃げる
+            if ((id == "hasamimushi" || id == "mukade") && !m.carryingWorm)
+            {
+                Vector3 to = Vector3.ProjectOnPlane(_head - m.pos, m.up);
+                float d = to.magnitude;
+                bool threat = d < (id == "mukade" ? 2.4f : 1.6f) * Mathf.Max(1f, m.scale);
+                m.display = Mathf.MoveTowards(m.display, threat ? 1f : 0f, dt * (threat ? 3f : 1f));
+                if (id == "mukade" && d < 1.1f && d > 1e-3f && m.speedMul < 1.4f)
+                {
+                    m.wantFwd = -to / d;
+                    m.speedMul = 1.8f;
+                    m.timer = R(0.8f, 1.4f);
+                }
+                else if (m.display > 0.3f && d > 1e-3f)
+                {
+                    m.wantFwd = id == "hasamimushi" ? -to / d : to / d;   // ハサミムシは、おしり（はさみ）を向ける
+                    m.pauseUntil = Mathf.Max(m.pauseUntil, m.anim + 0.25f);
+                }
+            }
             // カブトムシ：しゃくとりむしが前に来ると、角を持ち上げて見せる
             // トカゲ：しゃくとりむしが近づくと、さっと逃げる
             if (id == "tokage" && !m.carryingWorm && m.speedMul < 1.4f)
@@ -1711,7 +1749,8 @@ namespace Shakutori
         {
             string id = m.bid;
             Vector3 toHome = m.home - m.pos;
-            toHome.y = 0f;
+            if (m.sp.id == "yamori") toHome = Vector3.ProjectOnPlane(toHome, m.up);   // かべの上では、かべにそって
+            else toHome.y = 0f;
             float homeR = id == "pillbug" ? m.radius * 0.6f : m.radius;   // だんごむしは、かくれ場所からあまりはなれない
             // すみかから大きくはなれてしまったら、まっすぐもどる
             if (toHome.magnitude > Mathf.Max(homeR, 0.5f) * 3f && id != "crab")
@@ -2962,7 +3001,7 @@ namespace Shakutori
                 {
                     int next = (m.landIndex + 1 + _rng.Next(spots.Count - 1)) % spots.Count;
                     m.landIndex = next;
-                    dest = spots[next] + new Vector3(R(-1.5f, 1.5f), 0f, R(-1.5f, 1.5f)) * (crow ? 2f : 1f);
+                    dest = spots[next] + new Vector3(R(-1.5f, 1.5f), 0f, R(-1.5f, 1.5f)) * (crow ? 2f : m.sp.id == "tsubame" ? 0.3f : 1f);
                 }
                 else
                 {
@@ -2977,8 +3016,9 @@ namespace Shakutori
             m.to = dest;
             m.t = 0f;
             float dist = Vector3.Distance(m.from, m.to);
-            m.dur = Mathf.Max(2.5f, dist / (crow ? 9f : 7f)) * R(0.85f, 1.15f);   // 飛ぶ速さは毎回少しちがう
-            m.arc = crow ? R(22f, 32f) : R(10f, 16f);
+            bool swallow = m.sp.id == "tsubame";
+            m.dur = Mathf.Max(swallow ? 1.6f : 2.5f, dist / (crow ? 9f : swallow ? 11f : 7f)) * R(0.85f, 1.15f);   // 飛ぶ速さは毎回少しちがう
+            m.arc = crow ? R(22f, 32f) : swallow ? R(2f, 5f) : R(10f, 16f);   // ツバメは、天井の下を低くすいっと
             m.windKick = -Wind.Direction(Time.time) * R(1f, 2f);
             m.circleR = crow ? R(2.5f, 4f) : 0f;
             Vector3 flat = Vector3.ProjectOnPlane(m.to - m.from, Vector3.up);
@@ -3735,9 +3775,9 @@ namespace Shakutori
             // 歩く：左右（4 本足は、ななめの組）がかわりばんこ
             float phase = m.gait + ((li + (mirror ? 1 : 0)) % 2) * Mathf.PI;
             float lift = 0.25f * reach, toes = 30f;
-            if (id == "risu")
+            if (id == "risu" || id == "nezumi")
             {
-                // リスは、速く走るときは、前足どうし・うしろ足どうしをそろえて、ぴょんぴょん跳ねる
+                // リス・ネズミは、速く走るときは、前足どうし・うしろ足どうしをそろえて、ぴょんぴょん跳ねる
                 float bound = Mathf.Clamp01((m.moveSpeed / Mathf.Max(0.1f, m.sp.speed) - 0.35f) * 3f);
                 phase = m.gait + Mathf.Lerp(((li + (mirror ? 1 : 0)) % 2) * Mathf.PI, (hind ? Mathf.PI : 0f) + side * 0.35f, bound);
                 lift = 0.3f * reach;
@@ -3869,7 +3909,7 @@ namespace Shakutori
                 }
                 case "tokage":
                 {
-                    if (id == "risu")
+                    if (id == "risu" || id == "nezumi")
                     {
                         // リスの顔洗い：うしろ足で立って、前足で顔を、こしこし
                         float wash = ActEnvelope(m, ActGroom, out _);
@@ -3936,6 +3976,115 @@ namespace Shakutori
         /// <summary>
         /// 種ごとの細かな動き（体の姿勢でえがくもの）を、rot・scale3・bob に重ねる。脚と羽の動きは Draw で。
         /// </summary>
+        /// <summary>リス・ネズミ（前足で顔を洗い、速く走ると、ぴょんぴょん跳ねる）。</summary>
+        static bool Rodent(Mob m) => m.sp.id == "risu" || m.sp.id == "nezumi";
+
+        const int TrailCap = 96;
+        const float TrailStep = 0.06f;
+        static readonly LegMount MukadeLeg = new LegMount("Mukade_Leg", CreatureRig.MukadeHip, CreatureRig.MukadeHip);
+        readonly List<Vector3> _segPos = new List<Vector3>(), _segUp = new List<Vector3>();
+
+        /// <summary>ムカデの道を、うしろへまっすぐのびた形ではじめる（体節がまっすぐならぶ）。</summary>
+        static void StartTrail(Mob m)
+        {
+            m.trail = new Vector3[TrailCap];
+            m.trailUp = new Vector3[TrailCap];
+            Vector3 back = -ShakuMath.ProjectOnPlaneSafe(m.fwd, m.up, Vector3.forward).normalized;
+            for (int j = 0; j < TrailCap; j++)
+            {
+                m.trail[TrailCap - 1 - j] = m.pos + back * (TrailStep * m.scale * j);
+                m.trailUp[TrailCap - 1 - j] = m.up;
+            }
+            m.trailHead = TrailCap - 1;
+            m.trailCount = TrailCap;
+        }
+
+        /// <summary>頭が少し進むたびに、通った所を道に足す。</summary>
+        static void RecordTrail(Mob m)
+        {
+            if (m.trailCount > 0 && (m.pos - m.trail[m.trailHead]).sqrMagnitude < TrailStep * m.scale * TrailStep * m.scale) return;
+            // 大きくとんだ（場所をうつされた）ときは、道をはじめからにする
+            if (m.trailCount > 0 && (m.pos - m.trail[m.trailHead]).sqrMagnitude > 4f) { StartTrail(m); return; }
+            m.trailHead = (m.trailHead + 1) % TrailCap;
+            m.trail[m.trailHead] = m.pos;
+            m.trailUp[m.trailHead] = m.up;
+            m.trailCount = Mathf.Min(m.trailCount + 1, TrailCap);
+        }
+
+        /// <summary>
+        /// ムカデの胴：頭が通った道にそって、体節を 1 つずつならべる（体がくねって、うしろの体節が頭について行く）。
+        /// 体節ごとに左右 1 対の脚。脚の動きは、波のように前からうしろへ伝わる。いちばんうしろは、長い脚のおしり。
+        /// </summary>
+        void DrawMukade(Mob m, float s, float moving)
+        {
+            Mesh seg = M("Mukade_Seg"), tail = M("Mukade_Tail"), leg = M("Mukade_Leg");
+            if (seg == null || m.trailCount == 0) return;
+            int n = CreatureRig.MukadeSegments;
+            float step = CreatureRig.MukadeSegment * s;
+            // 頭から、道を新しい順にたどる
+            _segPos.Clear();
+            _segUp.Clear();
+            _segPos.Add(m.drawPos);
+            _segUp.Add(m.up);
+            for (int j = 0; j < m.trailCount; j++)
+            {
+                int k = (m.trailHead - j + TrailCap) % TrailCap;
+                _segPos.Add(m.trail[k]);
+                _segUp.Add(m.trailUp[k]);
+            }
+            int a = 0;
+            float into = 0f;   // a から a+1 へ、どれだけ進んだか
+            Vector3 prev = m.drawPos;
+            Vector3 lastDir = -ShakuMath.ProjectOnPlaneSafe(m.fwd, m.up, Vector3.forward).normalized;
+            float swing = 24f * moving + 3f, lift = 18f * moving + 2f;
+            for (int i = 1; i <= n + 1; i++)
+            {
+                // 前の体節から step だけ、道にそって進んだ所
+                float need = step;
+                Vector3 p = prev, up = m.up;
+                bool found = false;
+                while (a < _segPos.Count - 1)
+                {
+                    Vector3 A = Vector3.Lerp(_segPos[a], _segPos[a + 1], into);
+                    float left = Vector3.Distance(A, _segPos[a + 1]);
+                    if (left >= need && left > 1e-5f)
+                    {
+                        float t = need / left;
+                        p = Vector3.Lerp(A, _segPos[a + 1], t);
+                        up = Vector3.Lerp(_segUp[a], _segUp[a + 1], into + (1f - into) * t).normalized;
+                        into = Mathf.Clamp01(into + (1f - into) * t);
+                        found = true;
+                        break;
+                    }
+                    need -= left;
+                    a++;
+                    into = 0f;
+                }
+                if (!found)
+                {
+                    p = prev + lastDir * step;
+                    up = _segUp[_segUp.Count - 1];
+                }
+                Vector3 toward = prev - p;
+                if (toward.sqrMagnitude > 1e-8f) lastDir = -toward.normalized;
+                Vector3 fwd = ShakuMath.ProjectOnPlaneSafe(-lastDir, up, -lastDir).normalized;
+                if (!ShakuPhysics.IsFinite(p) || fwd.sqrMagnitude < 0.5f) return;
+                Matrix4x4 segM = Matrix4x4.TRS(p, Quaternion.LookRotation(-fwd, up), Vector3.one * s);
+                if (i <= n)
+                {
+                    Add(seg, assets.creature, segM);
+                    if (leg != null && _drawDist < 45f)
+                    {
+                        float ph = m.gait + i * 0.7f;
+                        for (int side = 0; side < 2; side++)
+                            Add(leg, assets.creature, segM * CreatureRig.LegMatrix(MukadeLeg, 0, side == 1, ph, swing, lift, GaitKind.Alternate, 2));
+                    }
+                }
+                else if (tail != null) Add(tail, assets.creature, segM);
+                prev = p;
+            }
+        }
+
         void MotionPose(Mob m, Vector3 f, Vector3 right, float s, float moving, bool walker, ref Quaternion rot, ref Vector3 scale3, ref Vector3 bob)
         {
             // ---- みんなに共通 ----
@@ -4166,9 +4315,28 @@ namespace Shakutori
                     break;
                 case "dragonfly":
                 {
+                    float tail = ActEnvelope(m, ActSpecial, out float tk);
+                    if (m.sp.id == "hae")
+                    {
+                        // ハエ：前足をすり合わせるあいだ、体を少し起こして、こきざみにゆれる
+                        if (tail > 0f) rot = Quaternion.AngleAxis(-8f * tail + 1.5f * tail * Mathf.Sin(tk * 60f), right) * rot;
+                        break;
+                    }
                     // とまったまま、ときどきおしりを持ち上げる
-                    float tail = ActEnvelope(m, ActSpecial, out _);
                     if (tail > 0f) rot = Quaternion.AngleAxis(15f * tail, right) * rot;
+                    break;
+                }
+                case "mukade":
+                {
+                    // ムカデ：頭を上げて、触角をのばす・おどされると、頭をもっと上げる
+                    float st = Mathf.Max(ActEnvelope(m, ActStretch, out _), m.display);
+                    if (st > 0f)
+                    {
+                        rot = Quaternion.AngleAxis(-(14f + 10f * m.display) * st, right) * rot;
+                        bob += m.up * (0.04f * s * st);
+                    }
+                    // 走るときは、頭を左右に小さくふる
+                    rot = Quaternion.AngleAxis(Mathf.Sin(m.gait * 0.5f) * 6f * moving, m.up) * rot;
                     break;
                 }
                 case "firefly":
@@ -4193,7 +4361,17 @@ namespace Shakutori
                     break;
                 }
                 case "tokage":
-                    if (m.sp.id == "risu")
+                    if (m.sp.id == "yamori")
+                    {
+                        // ヤモリ：体をくねらせて走る。目をなめるときは、首をかしげる
+                        rot = Quaternion.AngleAxis(Mathf.Sin(m.gait) * 8f * moving, m.up) * rot;
+                        float lick = ActEnvelope(m, ActGroom, out float lk);
+                        if (lick > 0f) rot = Quaternion.AngleAxis(10f * lick * Mathf.Sin(lk * Mathf.PI * 4f), f) * Quaternion.AngleAxis(-6f * lick, right) * rot;
+                        float look = ActEnvelope(m, ActLook, out _);
+                        if (look > 0f) rot = Quaternion.AngleAxis(Mathf.Sin(m.anim * 2f) * 18f * look, m.up) * rot;
+                        break;
+                    }
+                    if (Rodent(m))
                     {
                         // リス：止まると、しっぽを立てて体を起こす。顔を洗うときは、うしろ足で立ち上がる
                         float still = 1f - Mathf.Clamp01(moving * 3f);
@@ -4318,6 +4496,7 @@ namespace Shakutori
                 }
                 if (m.dig > 0.97f) continue;   // すっかりもぐっている
                 Add(M(bodyMesh), assets.creature, body);
+                if (m.trail != null && d2 < 70f * 70f) DrawMukade(m, s, moving);
 
                 // 脚（遠くは省く）
                 if (m.sp.rig != null && d2 < 60f * 60f && !ball)
@@ -4480,6 +4659,30 @@ namespace Shakutori
                             float mm = side == 0 ? 1f : -1f;
                             float sideRaise = raise + mm * 3f * Mathf.Sin(m.anim * 1.3f + m.phase);   // 左右のかまの高さが、少しずれてゆれる
                             var local = Matrix4x4.TRS(new Vector3(part.offset.x * mm, part.offset.y, part.offset.z), Quaternion.Euler(sideRaise, 0f, 0f), new Vector3(mm, 1f, 1f));
+                            Add(pm, assets.creature, body * local);
+                        }
+                        continue;
+                    }
+                    if (part.mesh == "Hasamimushi_Tail")
+                    {
+                        // ハサミムシ：おどすときは、はさみを高く持ち上げる。はねをたたむときは、腹をせなかの上へそらせる。歩くときは、少し左右にゆれる
+                        float fold = ActEnvelope(m, ActGroom, out float fk);
+                        float raise = 48f * m.display + 80f * fold + 4f * Mathf.Sin(m.anim * 1.7f + m.phase);
+                        float sway = Mathf.Sin(m.gait * 0.5f) * 6f * moving + 8f * fold * Mathf.Sin(fk * Mathf.PI * 6f);
+                        Add(pm, assets.creature, body * Matrix4x4.TRS(part.offset, Quaternion.Euler(0f, sway, 0f) * Quaternion.Euler(-raise, 0f, 0f), Vector3.one));
+                        continue;
+                    }
+                    if (part.mesh == "Hae_Arm")
+                    {
+                        // ハエの前足：ふだんは前について立つ。とまって手をするときは、胸の前で合わせて、こすり合わせる。飛ぶときは、たたむ
+                        float rub = m.airborne ? 0f : ActEnvelope(m, ActSpecial, out _);
+                        for (int side = 0; side < 2; side++)
+                        {
+                            float mm = side == 0 ? 1f : -1f;
+                            float inward = rub * (38f + 14f * Mathf.Sin(m.anim * 24f + side * Mathf.PI));
+                            float lift = m.airborne ? 35f : rub * (32f + 6f * Mathf.Sin(m.anim * 24f + side * Mathf.PI + 1f));
+                            var local = Matrix4x4.TRS(new Vector3(part.offset.x * mm, part.offset.y, part.offset.z),
+                                Quaternion.Euler(0f, -inward * mm, 0f) * Quaternion.Euler(lift, 0f, 0f), new Vector3(mm, 1f, 1f));
                             Add(pm, assets.creature, body * local);
                         }
                         continue;

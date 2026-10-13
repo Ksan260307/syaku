@@ -45,6 +45,8 @@ namespace Shakutori
         public Material creature;      // いきもの
         public Material creatureWing;  // 羽（両面）
         public Material creatureGlow;  // ホタルの光
+        public Material warmGlow;      // まきストーブの火・ランプ（山小屋）
+        public Material backdrop;      // 窓の外の景色（日ざしに関係なく明るい）
 
         [Header("Textures")]
         public Texture2D sunCookie;

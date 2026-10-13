@@ -125,6 +125,14 @@ namespace Shakutori
                 "大きな松の枝の先の、葉のかたまりの上にも乗れます。",
                 "岩のすみかの近くで、じっと待っていると、オコジョが顔を出します。",
                 "山頂まで登ると、まわりの山なみと雲の海が見えます。",
+                "山小屋のとびらに入ると、小屋の中へ行けます。",
+            },
+            ["hut"] = new[]
+            {
+                "テーブルへは、となりのベンチから登ると近道。上には、パンくずや山の地図があります。",
+                "天井のはりへは、かべの丸太を登っていきます。ツバメの巣は、はりの上。",
+                "まきストーブの上では、やかんの湯気がゆらゆら。かけ時計の、こち・こちという音が聞こえます。",
+                "かべのすそのネズミの穴のまわりには、ひまわりのたねが落ちています。",
             },
         };
 
@@ -1229,7 +1237,7 @@ namespace Shakutori
             // すみかでしぼりこむ
             var filters = new VisualElement();
             filters.AddToClassList("zukan-filters");
-            foreach (var (label, key) in new[] { ("すべて", ""), ("森", "森"), ("川辺", "川辺"), ("公園", "公園"), ("山", "山") })
+            foreach (var (label, key) in new[] { ("すべて", ""), ("森", "森"), ("川辺", "川辺"), ("公園", "公園"), ("山", "山"), ("山小屋", "山小屋") })
             {
                 var chip = new Button { text = label };
                 chip.AddToClassList("chip");
@@ -1246,7 +1254,7 @@ namespace Shakutori
             _zukanGrid.Add(filters);
             void AddCard(SpeciesDef sp)
             {
-                if (!string.IsNullOrEmpty(_zukanFilter) && (sp.areaLabel == null || !sp.areaLabel.Contains(_zukanFilter))) return;
+                if (!string.IsNullOrEmpty(_zukanFilter) && !LivesIn(sp, _zukanFilter)) return;
                 bool known = Creatures.IsDiscovered(sp.id);
                 var card = new Button();
                 card.AddToClassList("zukan-card");
@@ -2020,7 +2028,7 @@ namespace Shakutori
                 chip.EnableInClassList("area-chip--here", isHere);
                 chip.EnableInClassList("area-chip--shown", area == shown);
                 chip.EnableInClassList("area-chip--locked", !visited);
-                if (isHere) chip.text = area.DisplayName + "（いまここ）";
+                if (isHere) chip.text = area.DisplayName + "（ここ）";
                 string id = area.Id;
                 chip.clicked += () =>
                 {
@@ -2050,7 +2058,16 @@ namespace Shakutori
         public bool SilkButtonIdle => _silkButton != null && _silkButton.ClassListContains("touch-button--idle");
         public bool SilkButtonReady => _silkButton != null && _silkButton.ClassListContains("touch-button--ready");
 
-        /// <summary>地図の下のエリアのボタンを押す（テスト用。index は 森・川辺・公園・山 の順）。</summary>
+        /// <summary>すみかの名前（「山」と「山小屋」はべつ）に、そのエリアがあるか。</summary>
+        public static bool LivesIn(SpeciesDef sp, string area)
+        {
+            if (sp == null || string.IsNullOrEmpty(sp.areaLabel)) return false;
+            foreach (var a in sp.areaLabel.Split('・'))
+                if (a == area) return true;
+            return false;
+        }
+
+        /// <summary>地図の下のエリアのボタンを押す（テスト用。index は 森・川辺・公園・山・山小屋 の順）。</summary>
         public bool PressAreaChip(int index)
         {
             if (_mapAreas == null || index < 0 || index >= _mapAreas.childCount || !(_mapAreas[index] is Button b)) return false;

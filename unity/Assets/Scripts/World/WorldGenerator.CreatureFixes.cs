@@ -463,7 +463,7 @@ namespace Shakutori
                         else FixGroundCreature(g);
                         break;
                     case CreatureHome.OnObject: FixCreatureOnObject(g); break;
-                    case CreatureHome.Bird: FixBird(g); break;
+                    case CreatureHome.Bird: if (!g.showcase) FixBird(g); break;   // ツバメの巣のような見どころは、そのまま
                     case CreatureHome.Water: FixSkater(g); break;
                 }
             }

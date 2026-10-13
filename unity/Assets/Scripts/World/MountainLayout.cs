@@ -29,6 +29,15 @@ namespace Shakutori
         public static readonly Vector2 Ridge = new Vector2(-16f, 46f);
         public static readonly Vector2 Summit = new Vector2(8f, 46f);
 
+        /// <summary>山小屋のとびらの向き（小道の来る南西を向く）。</summary>
+        public static readonly Vector2 HutDoorDir = new Vector2(-6f, -5f).normalized;
+
+        /// <summary>山小屋のモデルの中の点（x = 右、z = とびらの方）を、地図の点にする。</summary>
+        public static Vector2 HutLocal(float lx, float lz) => Hut + new Vector2(HutDoorDir.y, -HutDoorDir.x) * lx + HutDoorDir * lz;
+
+        /// <summary>山小屋のとびらの面のまん中（床の点）。ここから中へ入ると、山小屋の中へ。</summary>
+        public static Vector2 HutDoor => HutLocal(3f, 5.6f);
+
         public const float SpringRadius = 8f;
         public const float SpringDepth = 1.1f;
         /// <summary>山頂の高さ（ふもとからの、だいたいの高さ）。</summary>

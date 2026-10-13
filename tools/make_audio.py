@@ -10,6 +10,7 @@
  - 効果音: 足音、しずく、発見、クリック、糸、着地、クリア、いきもの発見、エリア移動、きせかえ解放、カラス
  - music_mountain.wav  : 66BPM・ト長調の、ひろびろとしたループ曲（角笛のメロディ + ハープ + 高いチェレスタ）
  - ambience_mountain.wav: 高い所の風・遠くのウグイス・ナキウサギ。山の湧き水・尾根の風のループ、ヒグラシ・ナキウサギの声
+ - music_hut.wav / ambience_hut.wav: 山小屋の 3 拍子のオルゴールの曲と、しずかな部屋の音。まきストーブ・かけ時計・ハエの羽音のループ、ツバメ・ネズミの声
  - エリアの音: 公園の環境音、滝・浅瀬・カエルの合唱・ほら穴のしずく・森の葉ずれ（場所で聞こえるループ）、
    キツツキ・どんぐり・ホコリタケ・ブランコ・シーソー・水飲み場・自転車のベル・魚・金属・砂の音
 """
@@ -1028,6 +1029,131 @@ def make_mountain_sounds():
     write("pika.wav", buf)
 
 
+def music_box(freq, dur=1.8):
+    """オルゴール：くし歯をはじいた、高く澄んだ音（少しだけ金属の倍音）"""
+    t = t_axis(dur)
+    s = np.sin(2 * np.pi * freq * t) * np.exp(-t * 2.4)
+    s += 0.3 * np.sin(2 * np.pi * freq * 3.01 * t) * np.exp(-t * 6.0)
+    s += 0.12 * np.sin(2 * np.pi * freq * 5.97 * t) * np.exp(-t * 11.0)
+    return s * np.minimum(t / 0.002, 1.0) * 0.45
+
+
+def make_music_hut():
+    """山小屋：あたたかい、ゆったりの 3 拍子（84BPM・ヘ長調）。オルゴールのメロディ・ウクレレのきざみ・はじくベース"""
+    r = np.random.default_rng(84)
+    bpm = 84
+    beat = 60 / bpm
+    bar = beat * 3
+    prog = ["F", "C", "Dm", "Bb", "F", "Gm", "C", "C",
+            "Dm", "Bb", "F", "C", "Bb", "F", "Gm", "C"]
+    total = bar * len(prog)
+    buf = np.zeros((int(total * SR), 2))
+    scale = [0, 2, 4, 5, 7, 9, 11]
+    key = 65
+    mel_prev = 77
+    for i, ch in enumerate(prog):
+        root, tones = chord_notes(ch)
+        start = int(i * bar * SR)
+        add(buf, start, pad([midi(48 + t + 12) for t in tones], bar + 1.0), gain=0.22)
+        add(buf, start, pizz_bass(midi(36 + root), 0.7), gain=0.5)
+        # ウクレレ：2 拍目と 3 拍目に、やさしく和音
+        for b_ in (1, 2):
+            for k, tn in enumerate(tones):
+                add(buf, start + int((b_ * beat + 0.012 * k) * SR), ukulele(midi(60 + tn), 0.8), pan=0.25, gain=0.13)
+        # オルゴールのメロディ（1 小節に 2〜3 音）
+        cands = [key + p + o for p in scale for o in (0, 12) if 69 <= key + p + o <= 89]
+        for b_ in ((0, 1.5, 2) if i % 2 == 0 else (0, 2)):
+            note = pick_melody(cands, mel_prev, tones, root, r)
+            mel_prev = note
+            add(buf, start + int(b_ * beat * SR), music_box(midi(note), 2.0), pan=-0.2, gain=0.38)
+    buf = circular_reverb(buf, seconds=2.2, mix=0.32)
+    write("music_hut.wav", buf)
+
+
+def stove_crackle(total):
+    """まきのはぜる、ぱちぱち・ぽっ（つなぎ目のないループ）"""
+    n = int(total * SR)
+    buf = np.zeros((n, 2))
+    for _ in range(int(total * 9)):
+        dur = rng.uniform(0.004, 0.02)
+        m = int(dur * SR)
+        tt = np.arange(m) / SR
+        pop = shaped_noise(m, 0.3, 800, 9000) * np.exp(-tt * rng.uniform(150, 500))
+        add(buf, int(rng.uniform(0, total) * SR), pop, pan=rng.uniform(-0.4, 0.4), gain=rng.uniform(0.05, 0.4))
+    rumble = shaped_noise(n, 2.0, 30, 400)
+    t = np.arange(n) / SR
+    for ch in range(2):
+        buf[:, ch] += rumble * (0.25 + 0.08 * np.sin(2 * np.pi * t * (3 / total) + ch))
+    return buf
+
+
+def make_hut_sounds():
+    make_music_hut()
+    # 小屋の中の空気：しずかな部屋の音・外の風（かべごしに、こもって）・遠くのツバメ・ときどき、木のきしみ
+    total = 40.0
+    n = int(total * SR)
+    t = np.arange(n) / SR
+    buf = np.zeros((n, 2))
+    for ch in range(2):
+        buf[:, ch] += shaped_noise(n, 2.2, 30, 500) * (0.35 + 0.15 * np.sin(2 * np.pi * t * (3 / total) + ch * 1.2))
+        buf[:, ch] += shaped_noise(n, 1.0, 200, 1500) * 0.04
+    birds = np.zeros((n, 2))
+    time = 2.0
+    while time < total - 2.0:
+        if rng.random() < 0.6:
+            song = np.concatenate([bird_chirp(rng.uniform(3000, 3600), rng.uniform(4000, 4800), rng.uniform(0.04, 0.07), harm=0.1)
+                                   for _ in range(int(rng.integers(3, 7)))])
+            add(birds, int(time * SR), song, pan=rng.uniform(-0.8, 0.8), gain=rng.uniform(0.05, 0.1))
+        else:
+            creak = bird_chirp(rng.uniform(260, 340), rng.uniform(200, 260), rng.uniform(0.25, 0.45), vib=0.04, harm=0.6)
+            add(birds, int(time * SR), creak, pan=rng.uniform(-0.6, 0.6), gain=rng.uniform(0.03, 0.06))
+        time += rng.uniform(4.0, 9.0)
+    buf += circular_reverb(birds, seconds=1.6, mix=0.5) * 0.8
+    write("ambience_hut.wav", buf)
+
+    # まきストーブ（場所で聞こえるループ）
+    write("loop_stove.wav", circular_reverb(stove_crackle(12.0), seconds=0.6, mix=0.2))
+
+    # かけ時計の、こち・こち（1 秒に 1 回。こちと、こちを少しちがう高さで）
+    total = 8.0
+    n = int(total * SR)
+    buf = np.zeros((n, 2))
+    for k in range(int(total)):
+        tick = wood_knock(2400.0 if k % 2 == 0 else 2050.0, 0.05)
+        add(buf, int(k * SR), tick, pan=0.0, gain=0.5)
+    write("loop_clock.wav", circular_reverb(buf, seconds=0.5, mix=0.25))
+
+    # ハエの羽音（ぶーん。高さが少しゆれる）
+    total = 6.0
+    t = t_axis(total)
+    f = 190 * (1 + 0.06 * np.sin(2 * np.pi * t * 0.5) + 0.03 * np.sin(2 * np.pi * t * 1.5 + 1.0))
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    hum = np.sin(ph) + 0.6 * np.sin(2 * ph) + 0.35 * np.sin(3 * ph) + 0.2 * np.sin(4 * ph)
+    amp = 0.6 + 0.4 * np.sin(2 * np.pi * t * (2 / total)) ** 2
+    write("loop_buzz.wav", np.stack([hum * amp, np.roll(hum * amp, 300)], axis=1))
+
+    # ツバメのさえずり（チュビ、チュビ…）・ネズミの「チュッ」
+    parts = []
+    for k in range(5):
+        parts.append(bird_chirp(3200, 4400, 0.05, harm=0.12))
+        parts.append(bird_chirp(4600, 3000, 0.06, harm=0.12))
+        parts.append(np.zeros(int(0.03 * SR)))
+    parts.append(bird_chirp(2400, 2200, 0.25, vib=0.02, harm=0.3))   # おわりの「ジジ」
+    song = np.concatenate(parts)
+    buf = np.zeros((len(song) + int(0.3 * SR), 2))
+    add(buf, 0, song, pan=0.0, gain=0.8, wrap=False)
+    buf = circular_reverb(buf, seconds=0.6, mix=0.25)
+    buf[-int(0.08 * SR):] *= np.linspace(1, 0, int(0.08 * SR))[:, None]
+    write("swallow.wav", buf)
+    t = t_axis(0.09)
+    f = 6200 - 1800 * (t / 0.09)
+    sq = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.sin(np.pi * t / 0.09) ** 1.2
+    buf = np.zeros((int(0.35 * SR), 2))
+    add(buf, 0, sq, pan=0.0, gain=0.8, wrap=False)
+    add(buf, int(0.14 * SR), sq * 0.6, pan=0.0, gain=0.8, wrap=False)
+    write("squeak.wav", buf)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     make_sfx()
@@ -1041,3 +1167,4 @@ if __name__ == "__main__":
     make_music_park()
     make_area_sounds()
     make_mountain_sounds()
+    make_hut_sounds()

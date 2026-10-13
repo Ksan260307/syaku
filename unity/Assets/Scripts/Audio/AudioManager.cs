@@ -31,6 +31,8 @@ namespace Shakutori
         public AudioClip parkAmbience;   // 公園の環境音
         public AudioClip musicMountain;      // 山の BGM
         public AudioClip mountainAmbience;   // 山の環境音（高い所の風・遠くの鳥）
+        public AudioClip musicHut;           // 山小屋の BGM
+        public AudioClip hutAmbience;        // 山小屋の中の空気（しずかな部屋・かべごしの風）
         /// <summary>エリアの音（場所で聞こえるループと、できごとの音）。名前でさがす。</summary>
         public AudioClip[] areaClips = new AudioClip[0];
 
@@ -50,13 +52,14 @@ namespace Shakutori
         float _waterNear = 1f;
         float _duckUntil;
 
-        AudioSource _music, _amb, _amb2, _amb3, _amb4;
+        AudioSource _music, _amb, _amb2, _amb3, _amb4, _amb5;
         AudioSource _musicOut;        // 前のエリアの曲（ゆっくり小さくなって止まる）
         string _area = "forest";
         float _ambMix;   // 0 = 森, 1 = 川
         float _ambMixTarget;
         float _parkMix, _parkMixTarget;   // 1 = 公園
         float _mtnMix, _mtnMixTarget;     // 1 = 山
+        float _hutMix, _hutMixTarget;     // 1 = 山小屋
         AudioSource[] _sfx;
         int _next;
         float _musicTarget, _ambTarget;
@@ -89,6 +92,10 @@ namespace Shakutori
             _amb4.loop = true;
             _amb4.playOnAwake = false;
             _amb4.volume = 0f;
+            _amb5 = gameObject.AddComponent<AudioSource>();
+            _amb5.loop = true;
+            _amb5.playOnAwake = false;
+            _amb5.volume = 0f;
             _sfx = new AudioSource[8];
             for (int i = 0; i < _sfx.Length; i++)
             {
@@ -108,12 +115,13 @@ namespace Shakutori
             if (riverAmbience != null) { _amb2.clip = riverAmbience; _amb2.Play(); }
             if (parkAmbience != null) { _amb3.clip = parkAmbience; _amb3.Play(); }
             if (mountainAmbience != null) { _amb4.clip = mountainAmbience; _amb4.Play(); }
+            if (hutAmbience != null) { _amb5.clip = hutAmbience; _amb5.Play(); }
         }
 
         /// <summary>エリアの BGM（なければ森の曲）。</summary>
         public AudioClip MusicFor(string areaId)
         {
-            AudioClip c = areaId == "river" ? musicRiver : areaId == "park" ? musicPark : areaId == "mountain" ? musicMountain : null;
+            AudioClip c = areaId == "river" ? musicRiver : areaId == "park" ? musicPark : areaId == "mountain" ? musicMountain : areaId == "hut" ? musicHut : null;
             return c != null ? c : music;
         }
 
@@ -127,6 +135,7 @@ namespace Shakutori
             _ambMixTarget = areaId == "river" ? 1f : 0f;
             _parkMixTarget = areaId == "park" ? 1f : 0f;
             _mtnMixTarget = areaId == "mountain" ? 1f : 0f;
+            _hutMixTarget = areaId == "hut" ? 1f : 0f;
             var clip = MusicFor(areaId);
             if (_music == null || clip == null || _music.clip == clip) return;
             if (!_started)
@@ -158,7 +167,9 @@ namespace Shakutori
             _ambMix = Mathf.MoveTowards(_ambMix, _ambMixTarget, Time.unscaledDeltaTime * 0.5f);
             _parkMix = Mathf.MoveTowards(_parkMix, _parkMixTarget, Time.unscaledDeltaTime * 0.5f);
             _mtnMix = Mathf.MoveTowards(_mtnMix, _mtnMixTarget, Time.unscaledDeltaTime * 0.5f);
-            _amb.volume = Mathf.Lerp(_amb.volume, _started ? _ambTarget * (1f - _ambMix) * (1f - _parkMix) * (1f - _mtnMix) : 0f, k);
+            _hutMix = Mathf.MoveTowards(_hutMix, _hutMixTarget, Time.unscaledDeltaTime * 0.5f);
+            _amb.volume = Mathf.Lerp(_amb.volume, _started ? _ambTarget * (1f - _ambMix) * (1f - _parkMix) * (1f - _mtnMix) * (1f - _hutMix) : 0f, k);
+            _amb5.volume = Mathf.Lerp(_amb5.volume, _started ? _ambTarget * 0.9f * _hutMix : 0f, k);
             _amb4.volume = Mathf.Lerp(_amb4.volume, _started ? _ambTarget * 1.05f * _mtnMix : 0f, k);
             _amb3.volume = Mathf.Lerp(_amb3.volume, _started ? _ambTarget * 1.05f * _parkMix : 0f, k);
             _amb2.volume = Mathf.Lerp(_amb2.volume, _started ? _ambTarget * 1.1f * _ambMix * Mathf.Lerp(0.5f, 1.25f, _waterNear) : 0f, k);
@@ -187,6 +198,14 @@ namespace Shakutori
             if (n.Contains("Rock") || n.Contains("Stone") || n.Contains("Pebble") || n.Contains("Marble")) return Surface.Stone;
             if (n.Contains("Fungus") || n.Contains("PaperPlane")) return Surface.Leaf;
             if (n.Contains("Park_Block")) return Surface.Wood;
+            // 山小屋：床板と家具は木（ストーブ・やかん・バケツは金属、ラグやマット・ベッドは、やわらかい）
+            if (n.StartsWith("Hut_"))
+            {
+                if (n.Contains("Stove") || n.Contains("Kettle") || n.Contains("Bucket") || n.Contains("Lamp")) return Surface.Metal;
+                if (n.Contains("Rug") || n.Contains("Mat") || n.Contains("Bunk") || n.Contains("Backpack") || n.Contains("Boots")) return Surface.Moss;
+                return Surface.Wood;
+            }
+            if (n.StartsWith("Terrain_") && Areas.Current == Areas.Hut) return Surface.Wood;
             if (n.Contains("Leaf") || n.Contains("Lily") || n.Contains("Mushroom") || n.Contains("Fern") || n.Contains("Moss")) return Surface.Leaf;
             if (n.Contains("Trunk") || n.Contains("Stump") || n.Contains("Log") || n.Contains("Root") || n.Contains("Branch")
                 || n.Contains("Twig") || n.Contains("Pine") || n.Contains("Acorn") || n.Contains("Bark") || n.Contains("Wood")) return Surface.Wood;
@@ -247,6 +266,10 @@ namespace Shakutori
         public void Croak(float volume) => Play(croak, volume, Random.Range(0.9f, 1.08f));
         /// <summary>ナキウサギの「ピチッ」。</summary>
         public void Pika(float volume) => Play(AreaClip("pika"), volume, Random.Range(0.95f, 1.08f));
+        /// <summary>ツバメの「チュビチュビ…」。</summary>
+        public void Swallow(float volume) => Play(AreaClip("swallow"), volume, Random.Range(0.95f, 1.08f));
+        /// <summary>ネズミの「チュッ」。</summary>
+        public void Squeak(float volume) => Play(AreaClip("squeak"), volume, Random.Range(0.92f, 1.1f));
         /// <summary>ヒグラシの「カナカナカナ…」。</summary>
         public void Higurashi(float volume) => Play(AreaClip("higurashi"), volume, Random.Range(0.96f, 1.04f));
 

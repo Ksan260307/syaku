@@ -227,6 +227,7 @@ namespace Shakutori
             if (_area.Id == "forest") ForestFX(world);
             else if (_area.Id == "river") RiverFX(world);
             else if (_area.Id == "mountain") MountainFX(world);
+            else if (_area.Id == "hut") HutFX(world);
             else ParkFX(world);
         }
 
@@ -429,6 +430,30 @@ namespace Shakutori
             Vector3 sp = new Vector3(MountainLayout.Spring.x, MountainLayout.SpringLevel + 0.03f, MountainLayout.Spring.y);
             Motes("SpringGlints", sp, new Vector3(MountainLayout.SpringRadius * 1.5f, 0.02f, MountainLayout.SpringRadius * 1.5f), 18, 4f, new Color(1f, 1f, 0.92f, 0.9f),
                 new Vector2(0.05f, 0.09f), new Vector2(0.2f, 0.45f), Vector2.zero, 0f, 0f, 0f);
+        }
+
+        /// <summary>
+        /// 山小屋の中：窓とドアからの日ざしの中を、ゆっくりただようほこり・まきストーブの上にゆらぐ、あたたかい空気・
+        /// つるしたランプのまわりの、やわらかな光。
+        /// </summary>
+        void HutFX(WorldGenerator world)
+        {
+            Motes("SunDust", new Vector3(16f, 30f, -30f), new Vector3(40f, 44f, 34f), 70, 7f, new Color(1f, 0.93f, 0.72f, 0.6f),
+                new Vector2(0.06f, 0.12f), new Vector2(9f, 14f), new Vector2(0.02f, 0.08f), -0.002f, 0.12f, 0f);
+            Motes("SunDustEast", new Vector3(52f, 30f, 14f), new Vector3(30f, 40f, 40f), 50, 5f, new Color(1f, 0.93f, 0.72f, 0.55f),
+                new Vector2(0.06f, 0.12f), new Vector2(9f, 14f), new Vector2(0.02f, 0.08f), -0.002f, 0.12f, 0f);
+            Motes("SunDustDoor", new Vector3(-48f, 18f, -36f), new Vector3(24f, 30f, 24f), 30, 3f, new Color(1f, 0.95f, 0.8f, 0.5f),
+                new Vector2(0.06f, 0.12f), new Vector2(9f, 14f), new Vector2(0.02f, 0.08f), -0.002f, 0.12f, 0f);
+            // まきストーブの上：あたたかい空気に乗って、小さな火の粉がゆらゆら上がる
+            Vector3 stove = new Vector3(HutLayout.Stove.x, HutLayout.StoveTop + 2f, HutLayout.Stove.y);
+            Motes("StoveEmbers", stove, new Vector3(12f, 2f, 14f), 16, 1.4f, new Color(1f, 0.6f, 0.25f, 0.8f),
+                new Vector2(0.05f, 0.09f), new Vector2(3f, 5f), new Vector2(0.4f, 0.9f), -0.06f, 0.4f, 0f);
+            // やかんの湯気
+            Motes("KettleSteam", new Vector3(-50f, HutLayout.StoveTop + 12f, -1f), new Vector3(1.5f, 1f, 1.5f), 18, 2.2f, new Color(1f, 1f, 1f, 0.22f),
+                new Vector2(1.2f, 2.4f), new Vector2(3f, 4.5f), new Vector2(0.6f, 1.2f), -0.08f, 0.5f, 0f);
+            // ランプのまわりの、やわらかな光
+            Motes("LampHalo", new Vector3(36f, HutLayout.BeamY - 23f, -6f), new Vector3(0.2f, 0.2f, 0.2f), 3, 0.6f, new Color(1f, 0.85f, 0.55f, 0.25f),
+                new Vector2(6f, 7f), new Vector2(4f, 5f), Vector2.zero, 0f, 0f, 0f);
         }
 
         void ParkFX(WorldGenerator world)

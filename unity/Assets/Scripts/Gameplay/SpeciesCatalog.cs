@@ -67,7 +67,7 @@ namespace Shakutori
         public string BehaviorId => IsRare ? rareOf : behavesLike ?? id;
     }
 
-    /// <summary>いきもの図鑑にのる 40 しゅと、めったに会えないレア 6 しゅ。</summary>
+    /// <summary>いきもの図鑑にのる 46 しゅと、めったに会えないレア 6 しゅ。</summary>
     public static class SpeciesCatalog
     {
         static List<SpeciesDef> _all;
@@ -200,10 +200,10 @@ namespace Shakutori
                     parts = new[] { new PartMount { mesh = "Firefly_Glow", pair = false, glow = true } },
                     description = "おしりの光でおしゃべりする。ホタルがいるのは、きれいな川のしるし。",
                     hint = "水辺の草のかげで、ぽうっと光っている。" },
-                new SpeciesDef { id = "spider", name = "ハエトリグモ", areaLabel = "森・川辺・公園・山", kind = MobKind.Pouncer, body = "Spider", speed = 0.5f, discoverRadius = 2.8f,
+                new SpeciesDef { id = "spider", name = "ハエトリグモ", areaLabel = "森・川辺・公園・山・山小屋", kind = MobKind.Pouncer, body = "Spider", speed = 0.5f, discoverRadius = 2.8f,
                     climbs = true, rig = "Spider", stride = 0.14f, legSwing = 20f, legLift = 22f,
                     description = "大きな前の目でえものをねらい、ぴょんと跳びかかる小さなクモ。巣は張らずに歩きまわる。",
-                    hint = "切り株の上や丸太のまわり、川辺の石の上をうろうろしている。" },
+                    hint = "切り株の上や丸太のまわり、川辺の石の上をうろうろしている。山小屋の窓辺にも。" },
                 new SpeciesDef { id = "mantis", name = "オオカマキリ", areaLabel = "森・川辺", kind = MobKind.Stalker, body = "Mantis", speed = 0.25f, discoverRadius = 4.5f,
                     rideable = true, rig = "Mantis", stride = 0.45f, legSwing = 14f, legLift = 14f,
                     parts = new[] { new PartMount { mesh = "Mantis_Arm", offset = CreatureRig.MantisShoulder } },
@@ -309,6 +309,38 @@ namespace Shakutori
                     climbs = true, rig = "Maimaikaburi", stride = 0.2f, legSwing = 24f, legLift = 14f, behavesLike = "otoshibumi",
                     description = "かたつむりが大好物の、細長い首のオサムシのなかま。首を殻の中へさしこんで食べる。おどろくと、くさい液を出す。",
                     hint = "しめった落ち葉や、石のまわり。山小屋のうらの日かげ。" },
+                // ---- 山小屋 ----
+                new SpeciesDef { id = "yamori", name = "ニホンヤモリ", areaLabel = "山小屋", kind = MobKind.Crawler, body = "Yamori", speed = 1.5f, discoverRadius = 6f, fleeRadius = 3.4f,
+                    climbs = true, rideable = true, rig = "Yamori", stride = 0.55f, legSwing = 26f, legLift = 12f, behavesLike = "tokage",
+                    description = "家をまもる「家守」。指の先の、こまかい毛がびっしりはえた吸盤で、かべや天井にもぴたりとはりつく。夜は、明かりに来る虫を待ちぶせする。",
+                    hint = "小屋のかべの、高い所。かけ時計や窓のそばを、見上げてみよう。" },
+                new SpeciesDef { id = "mukade", name = "トビズムカデ", areaLabel = "山小屋", kind = MobKind.Crawler, body = "Mukade_Head", speed = 0.8f, discoverRadius = 4.5f,
+                    climbs = true, gait = GaitKind.None, stride = 0.2f,
+                    description = "赤い頭に、こい青緑の体、黄色い脚が 40 本あまり。体をくねらせて、すばやく走る。あごに毒があるので、つつかないように。",
+                    hint = "まきの山のかげや、ベッドの下の、うす暗い所。" },
+                new SpeciesDef { id = "hasamimushi", name = "ハサミムシ", areaLabel = "山小屋", kind = MobKind.Crawler, body = "Hasamimushi", scale = 1.2f, speed = 0.35f, discoverRadius = 2.8f,
+                    climbs = true, rig = "Hasamimushi", stride = 0.1f, legSwing = 22f, legLift = 16f,
+                    parts = new[] { new PartMount { mesh = "Hasamimushi_Tail", offset = CreatureRig.HasamiJoint, pair = false } },
+                    description = "おしりの先に、大きなはさみ。おどろくと、はさみを持ち上げて、おどかしてくる。小さなはねを、はさみを使ってたたむ。",
+                    hint = "玄関マットのはしや、ほうきのかげ。せまいすき間が好き。" },
+                new SpeciesDef { id = "hae", name = "イエバエ", areaLabel = "山小屋", kind = MobKind.Hover, body = "Hae_Body", scale = 1.3f, speed = 2.2f, discoverRadius = 4.5f,
+                    gait = GaitKind.None, behavesLike = "dragonfly",
+                    parts = new[]
+                    {
+                        new PartMount { mesh = "Hae_Wing", offset = CreatureRig.HaeWingRoot, restYaw = 55f, flapAmp = 40f, flapHz = 32f },
+                        new PartMount { mesh = "Hae_Arm", offset = CreatureRig.HaeShoulder },
+                    },
+                    description = "大きな赤い目の、ブーンと飛ぶハエ。とまると、前足をすり合わせて、きれいにする。足の先で、味がわかる。",
+                    hint = "テーブルの上のパンのまわりや、明るい窓辺。" },
+                new SpeciesDef { id = "tsubame", name = "ツバメ", areaLabel = "山小屋", kind = MobKind.Bird, body = "Tsubame_Body", speed = 1.2f, discoverRadius = 12f, fleeRadius = 5f,
+                    birdSize = 7f, birdShoulder = 0.34f, rig = "Tsubame_Body", stride = 0.8f, gait = GaitKind.None, behavesLike = "sparrow",
+                    parts = new[] { new PartMount { mesh = "Tsubame_Wing", flapAmp = 55f, flapHz = 8f } },
+                    description = "つやのある紺色のせなかに、赤いのど、長い二またの尾。春に南の国からわたってきて、毎年、同じ巣にもどってくる。",
+                    hint = "天井のはりの上。どろの巣のまわりを見上げよう。" },
+                new SpeciesDef { id = "nezumi", name = "ハツカネズミ", areaLabel = "山小屋", kind = MobKind.Crawler, body = "Nezumi", speed = 1.8f, discoverRadius = 6f, fleeRadius = 4.5f,
+                    climbs = true, rideable = true, rig = "Nezumi", stride = 0.5f, legSwing = 30f, legLift = 14f, behavesLike = "tokage",
+                    description = "大きなまるい耳と、長いしっぽの小さなネズミ。ちょろちょろ走っては止まり、ひげをひくひくさせて、においをかぐ。",
+                    hint = "かべのすその、かじった穴のまわり。テーブルの下のパンくずも、ねらっている。" },
                 // ---- レア ----
                 new SpeciesDef { id = "ant_helmet", name = "ヘルメットアリ", areaLabel = "？？？（とてもめずらしい）", kind = MobKind.Marcher, body = "Ant", speed = 0.9f, discoverRadius = 2.8f,
                     climbs = true, rig = "Ant", stride = 0.11f, legSwing = 26f, legLift = 18f, rareOf = "ant", rareChance = 0.05f,

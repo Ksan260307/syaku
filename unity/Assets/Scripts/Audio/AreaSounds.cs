@@ -95,6 +95,12 @@ namespace Shakutori
                 AddLoop("loop_spring", new Vector3(sp.x, MountainLayout.SpringLevel + 1f, sp.y + MountainLayout.SpringRadius * 0.6f), 2f, 22f, 0.7f);   // 湧き水
                 _ridge = AddLoop("loop_ridge_wind", Vector3.zero, 0f, 0f, 0.4f, global: true);                                                  // 尾根の風（高い所ほど大きい）
             }
+            else if (_area == "hut")
+            {
+                AddLoop("loop_stove", new Vector3(HutLayout.Stove.x + 6f, 16f, HutLayout.Stove.y), 6f, 70f, 0.7f);   // まきストーブの、ぱちぱち
+                AddLoop("loop_clock", new Vector3(-HutLayout.HalfX + 2f, 62f, 28f), 6f, 80f, 0.45f);                 // かけ時計の、こち・こち
+                AddLoop("loop_buzz", new Vector3(HutLayout.Table.x, HutLayout.TableHeight + 5f, HutLayout.Table.y), 2f, 18f, 0.25f);   // テーブルのハエの羽音
+            }
         }
 
         Loop AddLoop(string clip, Vector3 pos, float min, float max, float vol, bool global = false)

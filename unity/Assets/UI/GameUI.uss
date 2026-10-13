@@ -1024,19 +1024,24 @@
 
 .map-areas {
     flex-direction: row;
+    flex-wrap: wrap;
     margin-top: 6px;
 }
 
+/* 5 つのエリア：はばがせまいときは、2 列か 3 列にならべる */
 .area-chip {
     flex-grow: 1;
-    height: 52px;
-    margin-right: 8px;
+    flex-basis: 30%;
+    min-width: 120px;
+    height: 44px;
+    margin-right: 6px;
+    margin-bottom: 6px;
     border-radius: 26px;
     border-width: 2px;
     border-color: rgb(214, 186, 128);
     background-color: rgb(246, 238, 220);
     color: rgb(90, 70, 50);
-    font-size: 19px;
+    font-size: 17px;
     -unity-font-style: bold;
 }
 
@@ -1697,8 +1702,8 @@
 }
 
 .short .area-chip {
-    height: 46px;
-    font-size: 17px;
+    height: 40px;
+    font-size: 16px;
 }
 
 .short .collection-window {

@@ -190,6 +190,8 @@ namespace Shakutori
             Habitats.Record(area, world.Mobs);   // 図鑑で見られるように、いきもののすみかを記録
             fx.BuildArea(world);
             AreaAtmosphere.Apply(area, world.sun);   // エリアの空気と光
+            if (GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset urpNow)
+                urpNow.shadowDistance = AreaAtmosphere.ShadowDistance(area.Id, _qualityNow);   // 山小屋の中は、部屋の奥まで影
             _areaProps?.Build(world, fx);
             _areaSounds?.Build(world);
             ui.Init(collectibles, worm, followCamera.transform, world.MapTexture, world.assets);
@@ -351,8 +353,11 @@ namespace Shakutori
                 float d = new Vector2(head.x - g.position.x, head.z - g.position.z).magnitude;
                 var target = Areas.Get(g.def.targetArea);
                 if (target == null) continue;
-                if (d < 7f) hint = GateHintText(target);
-                if (d < g.def.radius && _gateCooldown <= 0f && worm.State != InchwormController.Mode.Hang && !ui.AnyOverlayOpen)
+                // とびらは、はばの広いとびらの前（しきいの上）でヒント。入ったかどうかは、とびらの面で見る
+                bool near = g.def.door ? g.def.DoorNear(head, g.position) : d < 7f;
+                if (near) hint = GateHintText(target, g.def.door);
+                bool inside = g.def.door ? g.def.DoorReached(head, g.position) : d < g.def.radius;
+                if (inside && _gateCooldown <= 0f && worm.State != InchwormController.Mode.Hang && !ui.AnyOverlayOpen)
                 {
                     TravelTo(target.Id);
                     break;
@@ -362,9 +367,10 @@ namespace Shakutori
         }
 
         /// <summary>トンネルの近くのヒント。行ったことがあれば、行き先で集めた数も出す。</summary>
-        public static string GateHintText(AreaLayout target)
+        public static string GateHintText(AreaLayout target, bool door = false)
         {
-            string text = $"トンネルを抜けると「{target.Subtitle}」へ";
+            string text = door ? (target.Id == "hut" ? $"とびらのすき間から「{target.Subtitle}」の中へ" : $"とびらを出ると「{target.Subtitle}」へ")
+                : $"トンネルを抜けると「{target.Subtitle}」へ";
             if (!SaveSystem.Data.visited.Contains(target.Id)) return text + "（まだ行ったことがない場所）";
             if (SaveSystem.Data.completedAreas.Contains(target.Id)) return text + "（★ めぐり終えた）";
             return text + $"（{target.DropName} {Collectibles.CollectedIn(target)} / {target.DropCount}）";
@@ -1046,16 +1052,19 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // 画質
         // ------------------------------------------------------------------
+        int _qualityNow = 1;
+
         public void ApplyQuality(int q)
         {
             if (q < 0) q = Application.isMobilePlatform ? 0 : 1;
+            _qualityNow = q;
             var urp = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
             if (urp != null)
             {
                 urp.renderScale = q == 0 ? 0.8f : 1f;
                 _scaleBase = _scaleNow = urp.renderScale;
                 urp.msaaSampleCount = q == 0 ? 1 : 2;
-                urp.shadowDistance = q == 0 ? 28f : 48f;
+                urp.shadowDistance = AreaAtmosphere.ShadowDistance(Areas.Current.Id, q);
                 // かるい：影は 1 段・小さめの影の絵（影の計算を半分以下に）
                 urp.shadowCascadeCount = q == 0 ? 1 : 2;
                 urp.mainLightShadowmapResolution = q == 0 ? 1024 : 2048;

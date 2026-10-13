@@ -485,6 +485,24 @@ namespace Shakutori.EditorTools
                 m.SetFloat("_ShadowBrightness", 1.4f);
                 m.SetShaderPassEnabled("SRPDefaultUnlit", false);
             });
+            assets.warmGlow = Mat("M_WarmGlow", "Shakutori/ToonLit", m =>
+            {
+                m.SetFloat("_OutlineWidth", 0f);
+                m.SetColor("_EmissionColor", new Color(1.6f, 0.95f, 0.4f) * 1.1f);
+                m.SetFloat("_RimStrength", 0f);
+                m.SetFloat("_ShadowBrightness", 1.5f);
+                m.SetShaderPassEnabled("SRPDefaultUnlit", false);
+            });
+            assets.backdrop = Mat("M_Backdrop", "Shakutori/ToonLit", m =>
+            {
+                // 窓の外の景色：日ざしの向きやかげに関係なく、明るい外の色
+                m.SetFloat("_OutlineWidth", 0f);
+                m.SetColor("_EmissionColor", new Color(0.2f, 0.2f, 0.2f));
+                m.SetFloat("_RimStrength", 0f);
+                m.SetFloat("_ShadowBrightness", 1.6f);
+                m.SetColor("_ShadowTint", Color.white);
+                m.SetShaderPassEnabled("SRPDefaultUnlit", false);
+            });
             Mat("M_Sky", "Shakutori/ForestSky", m => { });
             assets.sunCookie = tex.cookie;
 
@@ -691,12 +709,15 @@ namespace Shakutori.EditorTools
             audio.parkAmbience = Clip("ambience_park");
             audio.musicMountain = Clip("music_mountain");
             audio.mountainAmbience = Clip("ambience_mountain");
+            audio.musicHut = Clip("music_hut");
+            audio.hutAmbience = Clip("ambience_hut");
             audio.areaClips = new[]
             {
                 Clip("loop_waterfall"), Clip("loop_shallows"), Clip("loop_frogs"), Clip("loop_cave_drip"), Clip("loop_canopy"),
                 Clip("woodpecker"), Clip("knock_acorn"), Clip("puff"), Clip("creak"), Clip("clunk"), Clip("plink"), Clip("bell"),
                 Clip("fish_jump"), Clip("ting"), Clip("sand_step"), Clip("fall"),
                 Clip("loop_spring"), Clip("loop_ridge_wind"), Clip("higurashi"), Clip("pika"),
+                Clip("loop_stove"), Clip("loop_clock"), Clip("loop_buzz"), Clip("swallow"), Clip("squeak"),
             };
             var creatures = game.AddComponent<Creatures>();
             creatures.assets = assets;

@@ -17,6 +17,35 @@ namespace Shakutori
         /// 景色の通り道も作らない（草や小物の置き方が変わってしまうので）。
         /// </summary>
         public bool late;
+        /// <summary>
+        /// とびら（山小屋のとびら）：トンネルのかわりに、とびらへ入ると移動する。とびらの面（position）の前、
+        /// はば halfWidth・高さ height の中に頭が入ったら。radius は、とびらの面からの近さ。
+        /// </summary>
+        public bool door;
+        /// <summary>とびらへ入る向き（とびらの面の外から中へ）。</summary>
+        public Vector2 walk;
+        public float halfWidth = 1.3f;
+        public float height = 4f;
+
+        /// <summary>とびらの前（ヒントを出す所）：とびらの面から 6 以内、とびらのはばより少し広い所。</summary>
+        public bool DoorNear(Vector3 head, Vector3 at)
+        {
+            Vector3 rel = head - at;
+            Vector3 w = new Vector3(walk.x, 0f, walk.y).normalized;
+            float along = Vector3.Dot(rel, w);
+            float side = Mathf.Abs(Vector3.Dot(rel, new Vector3(-w.z, 0f, w.x)));
+            return along > -6f && side < halfWidth + 2f && rel.y > -1.5f && rel.y < height + 2f;
+        }
+
+        /// <summary>とびらに入ったか（頭の場所 head、とびらの床の点 at）。</summary>
+        public bool DoorReached(Vector3 head, Vector3 at)
+        {
+            Vector3 rel = head - at;
+            Vector3 w = new Vector3(walk.x, 0f, walk.y).normalized;
+            float along = Vector3.Dot(rel, w);
+            float side = Mathf.Abs(Vector3.Dot(rel, new Vector3(-w.z, 0f, w.x)));
+            return along > -radius && along < 6f && side < halfWidth && rel.y > -1.5f && rel.y < height;
+        }
     }
 
     /// <summary>
@@ -223,6 +252,10 @@ namespace Shakutori
         {
             new GateDef { position = MountainLayout.Gate, targetArea = "river", label = "川辺へ",
                 arrival = new ArrivalView(MountainLayout.Spawn, new Vector3(MountainLayout.Summit.x, 30f, MountainLayout.Summit.y), -2f, 4.6f, clear: 40f) },   // 山に出ると、雲のむこうの山頂を見上げる
+            // 山小屋のとびら（あとから足した。しずくの場所は変えない）。小屋から出ると、花畑の方を見下ろす
+            new GateDef { position = MountainLayout.HutDoor, targetArea = "hut", label = "山小屋へ", late = true,
+                door = true, walk = -MountainLayout.HutDoorDir, radius = 0.8f, halfWidth = 1.4f, height = 4.6f,
+                arrival = new ArrivalView(MountainLayout.HutLocal(-3.7f, 8.9f), new Vector3(MountainLayout.Meadow.x, 8f, MountainLayout.Meadow.y), 6f, 4.4f) },   // 石段の前の小道に出て、花畑への下り道を見る
         };
 
         public override string Id => "mountain";
@@ -250,6 +283,40 @@ namespace Shakutori
         public override IEnumerable<(Vector2 center, float radius)> LateGroundZones { get { yield return (MountainLayout.Spring, MountainLayout.SpringRadius + 8f); } }
     }
 
+    public class HutArea : AreaLayout
+    {
+        readonly List<GateDef> _gates = new List<GateDef>
+        {
+            // 南のかべの、あいたとびら（しきいをこえると、山へ）。小屋に入ると、高い天井と部屋の中を見わたす
+            new GateDef { position = HutLayout.DoorGate, targetArea = "mountain", label = "山へ",
+                door = true, walk = Vector2.down, radius = 1.2f, halfWidth = (HutLayout.DoorB - HutLayout.DoorA) * 0.5f - 0.5f, height = 12f,
+                arrival = new ArrivalView(HutLayout.Spawn, new Vector3(10f, 30f, 30f), -10f, 4.6f) },
+        };
+
+        public override string Id => "hut";
+        public override string DisplayName => "山小屋";
+        public override string Subtitle => "あたたかい山小屋";
+        public override string Tagline => "まきストーブのぬくもりと、木のにおいの、小屋の中";
+        public override string DropName => "小屋のしずく";
+        public override float PlayRadius => HutLayout.PlayRadius;
+        public override float TerrainHalf => HutLayout.TerrainHalf;
+        public override float MaxClimbHeight => HutLayout.MaxClimbHeight;
+        public override int DropIdOffset => 4000;
+        public override int DropCount => 30;
+        public override Vector2 Spawn => HutLayout.Spawn;
+        public override Vector3 SpawnForward => Vector3.forward;
+        public override List<LandmarkDef> Landmarks => HutLayout.Landmarks;
+        public override List<GateDef> Gates => _gates;
+        public override float Height(float x, float z) => HutLayout.Height(x, z);
+        public override Vector3 Normal(float x, float z) => HutLayout.Normal(x, z);
+        public override Color GroundColor(float x, float z, float h, Vector3 n) => HutLayout.GroundColor(x, z, h, n);
+        public override float TrailMask(float x, float z) => HutLayout.TrailMask(x, z);
+        public override List<Vector2[]> TrailLines => HutLayout.Trails;
+        public override float WaterLevelAt(float x, float z) => HutLayout.WaterLevelAt(x, z);
+        public override bool IsUnderwater(Vector3 p) => HutLayout.IsUnderwater(p);
+        public override bool InPlayArea(Vector3 p) => HutLayout.InPlayArea(p);
+    }
+
     /// <summary>エリアの一覧と、いまいるエリア。</summary>
     public static class Areas
     {
@@ -257,7 +324,8 @@ namespace Shakutori
         public static readonly RiverArea River = new RiverArea();
         public static readonly ParkArea Park = new ParkArea();
         public static readonly MountainArea Mountain = new MountainArea();
-        public static readonly AreaLayout[] All = { Forest, River, Park, Mountain };
+        public static readonly HutArea Hut = new HutArea();
+        public static readonly AreaLayout[] All = { Forest, River, Park, Mountain, Hut };
 
         public static AreaLayout Current { get; set; } = Forest;
 

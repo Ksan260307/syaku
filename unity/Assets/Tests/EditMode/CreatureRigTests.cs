@@ -163,6 +163,13 @@ namespace Shakutori.Tests
             foreach (var sp in SpeciesCatalog.All)
             {
                 if (sp.kind == MobKind.Flutter || sp.kind == MobKind.Hover || System.Array.IndexOf(noLegs, sp.id) >= 0) continue;
+                if (sp.id == "mukade")
+                {
+                    // ムカデは、体節ごとに左右 1 対の脚を、体節にそって動かす（Creatures.DrawMukade）
+                    Assert.IsNotNull(assets.TryGet("Mukade_Leg"), "ムカデの脚");
+                    Assert.IsNotNull(assets.TryGet("Mukade_Seg"), "ムカデの体節");
+                    continue;
+                }
                 Assert.IsNotNull(sp.rig, $"{sp.id} の脚が体と一体");
                 Assert.IsTrue(CreatureRig.HasLegs(sp.rig), $"{sp.id} の脚の付け根がない");
                 foreach (var leg in CreatureRig.Legs(sp.rig)) Assert.IsNotNull(assets.TryGet(leg.mesh), leg.mesh);

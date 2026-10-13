@@ -642,6 +642,8 @@ MonoBehaviour:
   parkAmbience: {fileID: 8300000, guid: 6eef09dd0c7c05046b460a820385caaa, type: 3}
   musicMountain: {fileID: 8300000, guid: 1a3d0d3a7354ac44c8746c41439cde8d, type: 3}
   mountainAmbience: {fileID: 8300000, guid: 6cee007a4630b4a4cb33dbbd036c7ecf, type: 3}
+  musicHut: {fileID: 8300000, guid: 94f28632ec964e54a998496c56bf0402, type: 3}
+  hutAmbience: {fileID: 8300000, guid: 469f53911bde3eb449390c5f824f7d6a, type: 3}
   areaClips:
   - {fileID: 8300000, guid: a79408e1807c6894aa11df23980ead55, type: 3}
   - {fileID: 8300000, guid: d30729de36d74464f851332d49ffc713, type: 3}
@@ -663,6 +665,11 @@ MonoBehaviour:
   - {fileID: 8300000, guid: a62f2a048a53834479e816bad0185944, type: 3}
   - {fileID: 8300000, guid: 6c08f30267fb93b4cbf37399cb2855f0, type: 3}
   - {fileID: 8300000, guid: 837a306ec56d9804f96e31709d8d58a7, type: 3}
+  - {fileID: 8300000, guid: 1c4fb1496fceccc4b9310317905d6bc6, type: 3}
+  - {fileID: 8300000, guid: 3f7e080cd61e97a4fa915e0072981c28, type: 3}
+  - {fileID: 8300000, guid: 630e1d27fac91c445963dc5556d1a7e5, type: 3}
+  - {fileID: 8300000, guid: 2eb1a1e5b4dfb874db6a5bf7e7c75de5, type: 3}
+  - {fileID: 8300000, guid: 619bdb855d022c7408a00e0f814eda38, type: 3}
 --- !u!114 &1551672536
 MonoBehaviour:
   m_ObjectHideFlags: 0

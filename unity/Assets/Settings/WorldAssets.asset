@@ -153,6 +153,12 @@ MonoBehaviour:
     mesh: {fileID: -627736852495485705, guid: 3e685419c94e7b348a425164cd181dec, type: 3}
   - name: GreatTree
     mesh: {fileID: 3387797446468001537, guid: 5544122e31e5bcc4e81cebe448a6d7e3, type: 3}
+  - name: Hae_Arm
+    mesh: {fileID: 3888917081017699666, guid: f05376847dbb4474c9dc2ef4a0951c6e, type: 3}
+  - name: Hae_Body
+    mesh: {fileID: 4361954568779300068, guid: 3163cd7dce13fc94c9aeb450fcef78ed, type: 3}
+  - name: Hae_Wing
+    mesh: {fileID: 2071477385066903679, guid: 37eaabb6db524a64887867a3b0382812, type: 3}
   - name: Hanakamakiri
     mesh: {fileID: 3608716529452032697, guid: 6acdb4510e38a8142a0a2542c3cea6e9, type: 3}
   - name: Hanakamakiri_Arm
@@ -177,6 +183,16 @@ MonoBehaviour:
     mesh: {fileID: -7041762935277723263, guid: d416e1a530ddafd45bb449b165c25049, type: 3}
   - name: Harinezumi_Limb2U
     mesh: {fileID: 6976058451990018781, guid: a4b3e65a4e17a23449ad976cec18e188, type: 3}
+  - name: Hasamimushi
+    mesh: {fileID: 1418038125399173370, guid: 25f5957297ee0464195897216b6f1b34, type: 3}
+  - name: Hasamimushi_Leg1
+    mesh: {fileID: -2115054133668513190, guid: 0c6096e1d4416204883d93341e6f81ef, type: 3}
+  - name: Hasamimushi_Leg2
+    mesh: {fileID: -2923832011715326920, guid: e544f2fe363d90746a961580998924b6, type: 3}
+  - name: Hasamimushi_Leg3
+    mesh: {fileID: -5146574442183705617, guid: e0c898967493ce84f9bff11a92b871aa, type: 3}
+  - name: Hasamimushi_Tail
+    mesh: {fileID: 3966051697758085474, guid: 26c4c067871e9fa418c9796deeb0782a, type: 3}
   - name: Hato_Body
     mesh: {fileID: 7575967685096627474, guid: a740933ce4b710443820d84fb8167303, type: 3}
   - name: Hato_Body_Limb1F
@@ -209,6 +225,76 @@ MonoBehaviour:
     mesh: {fileID: 4769565808284150128, guid: d5cab0f74d390b94b93661531ead7a0f, type: 3}
   - name: Horsetail
     mesh: {fileID: 7579281221193300042, guid: a35edf4e078fcb746ad6a38cb90a21a9, type: 3}
+  - name: Hut_Backpack
+    mesh: {fileID: 3037102642021213594, guid: 547d583ca3624a44ea76f039ebc77cef, type: 3}
+  - name: Hut_Beams
+    mesh: {fileID: -5563540803067684953, guid: 4ad1ea4f1b56c434e9f3ab50556a6209, type: 3}
+  - name: Hut_Bench
+    mesh: {fileID: -4320831499579364607, guid: 5378733383f8f1a4ea7cc0d129ba8985, type: 3}
+  - name: Hut_Book
+    mesh: {fileID: 7221689255416707599, guid: 55f2e9e8698b7d64e9487af1b08bee62, type: 3}
+  - name: Hut_Boots
+    mesh: {fileID: -24656815140711979, guid: 691292dd14c08054192c1ae0951b104b, type: 3}
+  - name: Hut_Bread
+    mesh: {fileID: 7735767615573110529, guid: a0285496c7e4be14394a1074f1621074, type: 3}
+  - name: Hut_Broom
+    mesh: {fileID: -6666817232244774441, guid: 5cfd73a01567f6c43b325c17883eed94, type: 3}
+  - name: Hut_Bucket
+    mesh: {fileID: -8682869767205665326, guid: 8558eb8af55ca9846933a0a05a215e84, type: 3}
+  - name: Hut_Bunk
+    mesh: {fileID: 8597584058025978461, guid: 7fa543be02a3ce140aeb3bddb8efaf93, type: 3}
+  - name: Hut_Button
+    mesh: {fileID: -1462601974810796468, guid: a7e48c50fa5eaa247b1b64b4a6c0c157, type: 3}
+  - name: Hut_Clock
+    mesh: {fileID: -7845109675285125482, guid: b3a7f7a4031d3ef4884308ca33f53200, type: 3}
+  - name: Hut_Crumb
+    mesh: {fileID: 1129125243152551854, guid: 88cca4812a371854aa2c499a214fd2f2, type: 3}
+  - name: Hut_Door
+    mesh: {fileID: 6467218386576151353, guid: 7a1179f3b26ef1244bd8a44384263aac, type: 3}
+  - name: Hut_DoorMat
+    mesh: {fileID: -2771731445801427878, guid: bd5dab39dc5b6c341a7e982e3b26bdd1, type: 3}
+  - name: Hut_Firewood
+    mesh: {fileID: 2844167849469006446, guid: 7f555d667a2e49144a7f9b6e925d5ffe, type: 3}
+  - name: Hut_Herbs
+    mesh: {fileID: -7793312655484760928, guid: 12a81436ed84fdc4885dde584f498ad5, type: 3}
+  - name: Hut_Kettle
+    mesh: {fileID: 4569318121192936074, guid: cbb01adbb308e904da6299ca01281b7e, type: 3}
+  - name: Hut_Lamp
+    mesh: {fileID: 6334764048386351648, guid: 6b6c8ab07b828ad4794d3267a88b2c9e, type: 3}
+  - name: Hut_LampGlow
+    mesh: {fileID: -8444871194089129042, guid: bf16444c25536a94d8cf5ab45c2caa08, type: 3}
+  - name: Hut_Map
+    mesh: {fileID: 8670898260190353937, guid: 07f673ed7352a2b408679089b114b110, type: 3}
+  - name: Hut_Match
+    mesh: {fileID: -973678788831431896, guid: c1940ec5e17f67e4a981c00fdee07336, type: 3}
+  - name: Hut_MouseHole
+    mesh: {fileID: -1898533381871451410, guid: 8a0b13c0b7e89a541895028e87d2dc86, type: 3}
+  - name: Hut_Mug
+    mesh: {fileID: 6737071974074006938, guid: 1809bf43b857564419a600111be57f96, type: 3}
+  - name: Hut_Nest
+    mesh: {fileID: 7924477599602909387, guid: 87e6d0a4c5ace8f459a488bc656fed99, type: 3}
+  - name: Hut_Roof
+    mesh: {fileID: -8281390367793031919, guid: db00c61749864824a8f2673ddfb04634, type: 3}
+  - name: Hut_Roof_Col
+    mesh: {fileID: -1041705280405419432, guid: 97a68430d113b5045a525f880f47767b, type: 3}
+  - name: Hut_Rug
+    mesh: {fileID: 7236734587742711479, guid: b7d20e5e22d458543ae666683a284042, type: 3}
+  - name: Hut_Seed
+    mesh: {fileID: 2747843236524315653, guid: 73676455182e700448fab24c619299cc, type: 3}
+  - name: Hut_Shelf
+    mesh: {fileID: -3586521300257878395, guid: ef59400ac57ddf74c89ef9afa1aec38c, type: 3}
+  - name: Hut_Stove
+    mesh: {fileID: 6384450962966975268, guid: c457942da34b5264c8924f203aee6d8d, type: 3}
+  - name: Hut_StoveFire
+    mesh: {fileID: 4443697575551746889, guid: 1aa7b56ae313d7b418ba4a0b3c1f06d4, type: 3}
+  - name: Hut_Table
+    mesh: {fileID: -6015272029588377117, guid: 6d4a2ef6da4df8341a32f065229e5dcf, type: 3}
+  - name: Hut_View
+    mesh: {fileID: -3775242292327027511, guid: 6b7a77a4d2f22ea40a1672ae6bc90cb2, type: 3}
+  - name: Hut_Walls
+    mesh: {fileID: -977959066194331497, guid: 637ced57148a83f4eb1bff9defef3cbf, type: 3}
+  - name: Hut_Walls_Col
+    mesh: {fileID: 4416086889878403765, guid: 1644975710e012c45965ff4185572dd6, type: 3}
   - name: Inchworm
     mesh: {fileID: -7065828297190242328, guid: 87b4e529b10de504da6c471ca9e8700e, type: 3}
   - name: Iris
@@ -357,6 +443,14 @@ MonoBehaviour:
     mesh: {fileID: -7262869336311475268, guid: 6c795259fa1e4c14c8a6804bfc8f9776, type: 3}
   - name: Mtn_SummitPost
     mesh: {fileID: -189120202551634824, guid: 88ed544ba65ecdd459445187b743ca8c, type: 3}
+  - name: Mukade_Head
+    mesh: {fileID: 6258355989044111386, guid: 75caf34c6b2e0c647aeaaa52c9b89bb8, type: 3}
+  - name: Mukade_Leg
+    mesh: {fileID: -5992335717828024881, guid: 1dcec4b93c1f188419f4681a63f75325, type: 3}
+  - name: Mukade_Seg
+    mesh: {fileID: -6866657014617515767, guid: 0c8bd47599f72ac49b9392c0f91bc645, type: 3}
+  - name: Mukade_Tail
+    mesh: {fileID: -6722116052808048696, guid: 82c8faeb29db9024e9cbc80ef0d43115, type: 3}
   - name: Mushroom_Brown
     mesh: {fileID: -6464232304797740508, guid: 38fc1a4a0aa80654dac6ce46f501f443, type: 3}
   - name: Mushroom_Brown_Col
@@ -395,6 +489,20 @@ MonoBehaviour:
     mesh: {fileID: -1599934234763369472, guid: e5be3b82dbbeb1048a26b4143206384c, type: 3}
   - name: Nanafushi_Leg3
     mesh: {fileID: -4585478585251690312, guid: 079bfef2f98ba2e4cb14ba5b2263c18c, type: 3}
+  - name: Nezumi
+    mesh: {fileID: 3286637252147338682, guid: caa29e501c4499843bd8622e4e571eca, type: 3}
+  - name: Nezumi_Limb1F
+    mesh: {fileID: 3497258942721644844, guid: 04c2856c3142c2e45b98418ca8a78ef3, type: 3}
+  - name: Nezumi_Limb1L
+    mesh: {fileID: -2569675057075886193, guid: 8f81a89e3e7355147a16c50b766f1908, type: 3}
+  - name: Nezumi_Limb1U
+    mesh: {fileID: 2506064425747339083, guid: f088336d50c1fc644adbddfdaa067b8b, type: 3}
+  - name: Nezumi_Limb2F
+    mesh: {fileID: -4303535041501798903, guid: a4aa06a089400c34f8cc334e066b5504, type: 3}
+  - name: Nezumi_Limb2L
+    mesh: {fileID: -5858761248264323885, guid: 277b15c055453a249b77aabcf3033998, type: 3}
+  - name: Nezumi_Limb2U
+    mesh: {fileID: -8032562184684675203, guid: 991ad5e0352b91341a4dbfc37e8a12c9, type: 3}
   - name: Okera
     mesh: {fileID: -901442137709937791, guid: 1d041f417263bd14988bbecc52656a4b, type: 3}
   - name: Okera_Leg1
@@ -591,6 +699,18 @@ MonoBehaviour:
     mesh: {fileID: 2637486533146488282, guid: e4ce3229946c8014c8949918e2a6b60a, type: 3}
   - name: Tokage_Leg2
     mesh: {fileID: 4883398603691130762, guid: f908a221a7db5ad4f993103ef3208199, type: 3}
+  - name: Tsubame_Body
+    mesh: {fileID: -6580232210186165945, guid: 5dbb928767b5daa41a2a23f8a876ccbd, type: 3}
+  - name: Tsubame_Body_Limb1F
+    mesh: {fileID: 7163747993888253640, guid: 2a2d26fec466c3c42bc05539817761bd, type: 3}
+  - name: Tsubame_Body_Limb1L
+    mesh: {fileID: 6141693112749040498, guid: e2bd1000ce0e95442b1280ca68a5d2a4, type: 3}
+  - name: Tsubame_Body_Limb1U
+    mesh: {fileID: 5564142603457088020, guid: 81d865fd78eed9b478ab5d8c5bcb9b87, type: 3}
+  - name: Tsubame_Wing
+    mesh: {fileID: -1690855140041739595, guid: 5dcc7bf46482de6458bb1d925142d72a, type: 3}
+  - name: Tsubame_WingFolded
+    mesh: {fileID: -7714232155062440200, guid: f1a62bb1b5967d74489a69561e7b9cda, type: 3}
   - name: Tulip_Pink
     mesh: {fileID: -862521941546523501, guid: 8145983b496043c4f99e14dcacdb4fd1, type: 3}
   - name: Tulip_Red
@@ -613,6 +733,12 @@ MonoBehaviour:
     mesh: {fileID: 2616509245610173146, guid: a43d947b0f0ed2c44961636b79c94291, type: 3}
   - name: WaterStrider_Leg3
     mesh: {fileID: -4307120471902797404, guid: 4ca63e0ca1c425344a1d7c5d3e0fd076, type: 3}
+  - name: Yamori
+    mesh: {fileID: 3379804976030079378, guid: 71b58ab6cea1ec148aa8af966b94e84e, type: 3}
+  - name: Yamori_Leg1
+    mesh: {fileID: 8553714719559656584, guid: f4209a49887fb974b93d9b6f429caa30, type: 3}
+  - name: Yamori_Leg2
+    mesh: {fileID: -4032914250901339698, guid: 47f6bd560609e404ea8cfeea6a0a1403, type: 3}
   portraits:
   - name: ant
     texture: {fileID: 2800000, guid: 2a57c240507214542a9abb159f93b8e2, type: 3}
@@ -640,10 +766,14 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 9a8df336b305196458ae7332c9152280, type: 3}
   - name: grasshopper
     texture: {fileID: 2800000, guid: 31a4d271760ef9549b51921e6a9c827e, type: 3}
+  - name: hae
+    texture: {fileID: 2800000, guid: c245550c36b6107439ce82a1736d8727, type: 3}
   - name: hanakamakiri
     texture: {fileID: 2800000, guid: 392abc548dbc758419e592dce6b6af72, type: 3}
   - name: harinezumi
     texture: {fileID: 2800000, guid: 73fbc775d1109324696985eb5945462a, type: 3}
+  - name: hasamimushi
+    texture: {fileID: 2800000, guid: d80afb75c65db9146ac9518f22a64650, type: 3}
   - name: hato
     texture: {fileID: 2800000, guid: d3d1d452e51db91429f6e843a1daf8c4, type: 3}
   - name: herakuresu
@@ -672,10 +802,14 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 59e46efa95108b54caae8af0b7848249, type: 3}
   - name: monshiro
     texture: {fileID: 2800000, guid: 0c6dce403431aeb4984b91b0bd98aa94, type: 3}
+  - name: mukade
+    texture: {fileID: 2800000, guid: 1efd317f1db52584d9fb1dbf56ab1283, type: 3}
   - name: nakiusagi
     texture: {fileID: 2800000, guid: 9751787dd8532ea4c9cc50a446290d8a, type: 3}
   - name: nanafushi
     texture: {fileID: 2800000, guid: b6b7f8693c7655c4ba5f7a75dfaae200, type: 3}
+  - name: nezumi
+    texture: {fileID: 2800000, guid: 16d2155bca7b5dd428c21c2ea3c59d91, type: 3}
   - name: okera
     texture: {fileID: 2800000, guid: e2229fa82ca041640a5e1b465c2cbc0a, type: 3}
   - name: okojo
@@ -704,8 +838,12 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 6c1dbaba024a27f4eb92594b2b6913a3, type: 3}
   - name: tokage
     texture: {fileID: 2800000, guid: 22bb01cfbb059cb42888fe5cd993a7f8, type: 3}
+  - name: tsubame
+    texture: {fileID: 2800000, guid: bf66305b091627644b350d77b91b1ae6, type: 3}
   - name: waterstrider
     texture: {fileID: 2800000, guid: 5189426165d8db240afa746472fc8c72, type: 3}
+  - name: yamori
+    texture: {fileID: 2800000, guid: ffcb31d35a5b4ed469317536c95901b2, type: 3}
   prop: {fileID: 2100000, guid: a7965964abebd0a4da0383ab074e54e2, type: 2}
   propGlossy: {fileID: 2100000, guid: d9a315e8ef8c4f546a6208deeb6df9e7, type: 2}
   bark: {fileID: 2100000, guid: 16db4c8b7a994db44b8a03ce3efd3938, type: 2}
@@ -725,4 +863,6 @@ MonoBehaviour:
   creature: {fileID: 2100000, guid: 2c5ca66a9ba2c0c498313f76aac8ba25, type: 2}
   creatureWing: {fileID: 2100000, guid: d1e537e3dbb188f4e9a54638a7398e9e, type: 2}
   creatureGlow: {fileID: 2100000, guid: 956c42b1a60d6e84daa5718c8579b501, type: 2}
+  warmGlow: {fileID: 2100000, guid: f40ff25ea8f90e6439f1d2a6209fc4f0, type: 2}
+  backdrop: {fileID: 2100000, guid: 3ec367a2002f624468b04e4600a2e7c0, type: 2}
   sunCookie: {fileID: 2800000, guid: 11d4622ca0f4c3e4eadbbeac8afa0d92, type: 3}

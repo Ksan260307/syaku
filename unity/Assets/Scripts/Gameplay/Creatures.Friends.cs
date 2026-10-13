@@ -157,6 +157,7 @@ namespace Shakutori
         /// <summary>体の長さ（mm）：体の形の長い方 × 一匹ずつの大きさ。1 体長 ＝ 25 mm。</summary>
         public float BodyMm(SpeciesDef sp, float scale)
         {
+            if (sp.id == "mukade") return (CreatureRig.MukadeSegments + 2) * CreatureRig.MukadeSegment * scale * Friends.MmPerUnit;   // 頭からおしりまで
             Mesh mesh = M(sp.body);
             if (mesh == null) return 0f;
             Vector3 s = mesh.bounds.size;
