@@ -161,7 +161,7 @@
                     <ui:Button name="pause-collection" text="図鑑・きせかえ" class="btn btn-small" />
                     <ui:Button name="save-now" text="いますぐセーブ" class="btn btn-small" />
                 </ui:VisualElement>
-                <ui:ScrollView name="settings-scroll" class="settings">
+                <ui:ScrollView name="settings-scroll" class="settings" horizontal-scroller-visibility="Hidden">
                     <ui:Label text="カメラと操作" class="settings-head" picking-mode="Ignore" />
                     <ui:Slider name="set-sens" label="カメラ感度" low-value="0.3" high-value="2.5" value="1" />
                     <ui:Slider name="set-fov" label="見える広さ" low-value="40" high-value="70" value="50" />
@@ -246,7 +246,7 @@
             <ui:VisualElement class="window howto-window">
                 <ui:Label text="あそびかた" class="window-title" picking-mode="Ignore" />
                 <ui:Label class="howto-lead" text="あなたは小さなしゃくとりむし。体を「Ω」の字に曲げては伸ばして、少しずつ進みます。&#10;森のしずくを集め、名所をめぐり、いろんないきものに会いに行こう。戦いはありません。" picking-mode="Ignore" />
-                <ui:VisualElement name="howto-grid" class="howto-grid" picking-mode="Ignore" />
+                <ui:ScrollView name="howto-grid" class="howto-grid" mode="Vertical" horizontal-scroller-visibility="Hidden" />
                 <ui:Label class="howto-tip" text="ヒント：森の東のはしにある木の根のトンネルを抜けると、川辺に行けます。川辺の滝の上の奥には、山へのトンネルがあります。いきものに近づくと図鑑に登録され、集めた数できせかえが増えます。" picking-mode="Ignore" />
                 <ui:Button name="howto-close" text="わかった！" class="btn btn-primary" />
             </ui:VisualElement>

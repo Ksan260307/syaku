@@ -243,6 +243,37 @@ namespace Shakutori
         /// <summary>テスト用：タッチ画面かどうかを固定する（null で自動判定）。</summary>
         public bool? ForceTouch { get; set; }
 
+        Vector2Int? _fakeScreen;
+        RenderTexture _fakeTarget;
+
+        /// <summary>
+        /// テスト用：スマホ・タブレット・PC の画面の大きさをまねる（null で実際の画面にもどす）。
+        /// UI は同じ大きさのテクスチャにかくので、レイアウトはその大きさで決まる。
+        /// </summary>
+        public void EmulateScreen(Vector2Int? size)
+        {
+            if (_panel == null) return;
+            if (_fakeTarget != null)
+            {
+                _panel.targetTexture = null;
+                _fakeTarget.Release();
+                Destroy(_fakeTarget);
+                _fakeTarget = null;
+            }
+            _fakeScreen = size;
+            if (size is Vector2Int sz)
+            {
+                _fakeTarget = new RenderTexture(sz.x, sz.y, 0) { name = "EmulatedScreen" };
+                _panel.targetTexture = _fakeTarget;
+            }
+            _safeTimer = 0f;
+        }
+
+        /// <summary>まねた画面の UI がかかれるテクスチャ（テスト用。まねていなければ null）。</summary>
+        public RenderTexture EmulatedTarget => _fakeTarget;
+
+        Vector2 ScreenSize => _fakeScreen is Vector2Int f ? new Vector2(f.x, f.y) : new Vector2(Screen.width, Screen.height);
+
         Collectibles _collect;
         InchwormController _worm;
         Transform _cam;
@@ -260,6 +291,7 @@ namespace Shakutori
         {
             SaveSystem.Saved -= OnSaved;
             if (_panel != null && _baseResolution.x > 0) _panel.referenceResolution = _baseResolution;
+            if (_fakeTarget != null) EmulateScreen(null);
         }
 
         void OnEnable()
@@ -497,6 +529,7 @@ namespace Shakutori
             });
 
             _bigmap.RegisterCallback<GeometryChangedEvent>(e => LayoutBigMap());
+            _bigmap.parent.RegisterCallback<GeometryChangedEvent>(e => FitBigMap());
             // 地図をタップすると、見つけた名所・行ったことのあるエリアへすぐ移動
             _bigmap.RegisterCallback<ClickEvent>(e =>
             {
@@ -1855,6 +1888,7 @@ namespace Shakutori
         {
             foreach (var it in _bigItems) it.el.RemoveFromHierarchy();
             _bigItems.Clear();
+            _spreadDirty = true;
             var area = ViewArea;
             bool here = area == MapArea;
             _mapTitle.text = area.DisplayName + "の地図";
@@ -1971,13 +2005,86 @@ namespace Shakutori
             BuildAreaChips();
         }
 
+        bool _bigmapFitted;
+        bool _spreadDirty = true;
+        float _spreadSize;
+        Vector2 _spreadHere;
+        readonly List<Rect> _placedLabels = new List<Rect>();
+        readonly Dictionary<VisualElement, float> _labelTop = new Dictionary<VisualElement, float>();
+
+        /// <summary>
+        /// 小さい地図（スマホなど）では名前の字を少し小さくし、近くの名前と重なるときは、
+        /// 印の下 → 上 → もう一段下 → もう一段上 の順に、空いている所へずらす（地図の大きさや中身が変わったときだけ計算）。
+        /// </summary>
+        void SpreadBigMapLabels(float size, Vector2 here)
+        {
+            _spreadDirty = false;
+            _spreadSize = size;
+            _spreadHere = here;
+            _labelTop.Clear();
+            float font = Mathf.Round(Mathf.Lerp(13f, 16f, Mathf.InverseLerp(340f, 614f, size)));
+            _placedLabels.Clear();
+            // 「いまここ」（しゃくとりむしの印の上）は動かさないので、先に場所をとっておく
+            if (here.x > -900f) _placedLabels.Add(new Rect(here.x - 36f, here.y - 48f, 72f, 26f));
+            float[] tries = new float[4];
+            foreach (var it in _bigItems.Where(i => i.el is Label).OrderBy(i => i.uv.y))
+            {
+                var l = (Label)it.el;
+                l.style.fontSize = font;
+                float w = Mathf.Min(200f, l.text.Length * font) + 4f, h = font * 1.4f;
+                float cx = it.uv.x * size, cy = it.uv.y * size;
+                float below = cy + it.offset.y, above = cy - it.offset.y - h;
+                tries[0] = below; tries[1] = above; tries[2] = below + h; tries[3] = above - h;
+                Rect pick = new Rect(cx - w * 0.5f, below, w, h);
+                foreach (float y in tries)
+                {
+                    var r = new Rect(cx - w * 0.5f, y, w, h);
+                    if (!_placedLabels.Any(p => p.Overlaps(r)))
+                    {
+                        pick = r;
+                        break;
+                    }
+                }
+                _placedLabels.Add(pick);
+                _labelTop[l] = pick.y;
+            }
+        }
+
+        /// <summary>
+        /// 縦長の画面では、地図をウィンドウの幅（と画面の高さの 4 割弱）に入る正方形にする。
+        /// （USS の aspect-ratio は max-width を見ないので、大きさはここで決める）
+        /// </summary>
+        void FitBigMap()
+        {
+            if (!IsPortrait)
+            {
+                if (!_bigmapFitted) return;
+                _bigmap.style.width = StyleKeyword.Null;
+                _bigmap.style.height = StyleKeyword.Null;
+                _bigmapFitted = false;
+                return;
+            }
+            float avail = _bigmap.parent.contentRect.width;
+            float screenH = _root.panel != null ? _root.panel.visualTree.layout.height : 0f;
+            if (float.IsNaN(avail) || avail < 1f || float.IsNaN(screenH) || screenH < 1f) return;
+            float side = Mathf.Floor(Mathf.Min(avail, 480f, screenH * 0.38f));
+            if (!_bigmapFitted || Mathf.Abs(_bigmap.layout.width - side) > 0.5f || Mathf.Abs(_bigmap.layout.height - side) > 0.5f)
+            {
+                _bigmap.style.width = side;
+                _bigmap.style.height = side;
+            }
+            _bigmapFitted = true;
+        }
+
         void LayoutBigMap()
         {
             float size = Size(_bigmap, 614f);
+            Vector2 here = _worm != null && ViewArea == MapArea && _bigmapHere != null ? WorldToMap(_worm.CenterPosition) * size : new Vector2(-999f, -999f);
+            if (_spreadDirty || Mathf.Abs(size - _spreadSize) > 0.5f || (here - _spreadHere).sqrMagnitude > 16f) SpreadBigMapLabels(size, here);
             foreach (var it in _bigItems)
             {
                 it.el.style.left = it.uv.x * size + it.offset.x;
-                it.el.style.top = it.uv.y * size + it.offset.y;
+                it.el.style.top = _labelTop.TryGetValue(it.el, out float top) ? top : it.uv.y * size + it.offset.y;
             }
             if (_worm != null && ViewArea == MapArea)
             {
@@ -2347,7 +2454,8 @@ namespace Shakutori
         void UpdateScale()
         {
             if (_panel == null || _baseResolution.x <= 0) return;
-            float aspect = Screen.width / (float)Mathf.Max(1, Screen.height);
+            Vector2 screen = ScreenSize;
+            float aspect = screen.x / Mathf.Max(1f, screen.y);
             float k = 1f;
             if (_touchMode) k = aspect > 1.75f || aspect < 0.6f ? 0.6f : 0.84f;   // スマホ / タブレット
             if (SaveSystem.Settings.textSize != 0) k *= 0.86f;                     // 文字を大きく
@@ -2372,6 +2480,7 @@ namespace Shakutori
             Rect sa = Screen.safeArea;
             float sw = Mathf.Max(1, Screen.width), sh = Mathf.Max(1, Screen.height);
             f = new Vector4(sa.xMin / sw, (sh - sa.yMax) / sh, (sw - sa.xMax) / sw, sa.yMin / sh);
+            if (_fakeScreen != null) f = Vector4.zero;
 #endif
             var inset = new Vector4(Mathf.Clamp(f.x, 0f, 0.2f) * w, Mathf.Clamp(f.y, 0f, 0.2f) * h,
                                     Mathf.Clamp(f.z, 0f, 0.2f) * w, Mathf.Clamp(f.w, 0f, 0.2f) * h);
@@ -2449,7 +2558,7 @@ namespace Shakutori
             _touch.style.display = _touchMode && playing ? DisplayStyle.Flex : DisplayStyle.None;
 
             // 縦向きのスマホでは、横向きをすすめる（数秒だけ）
-            bool phonePortrait = _touchMode && IsPortrait && Screen.width < Screen.height * 0.75f;
+            bool phonePortrait = _touchMode && IsPortrait && ScreenSize.x < ScreenSize.y * 0.75f;
             if (!phonePortrait) _rotateTimer = 0f;
             else if (playing) _rotateTimer += Time.unscaledDeltaTime;
             _rotateHint.EnableInClassList("hidden", !(phonePortrait && playing && _rotateTimer < 6f));

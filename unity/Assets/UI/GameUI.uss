@@ -285,6 +285,9 @@
     text-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
     -unity-text-outline-width: 0.5px;
     -unity-text-outline-color: rgba(90, 60, 30, 0.6);
+    max-width: 94%;
+    white-space: nowrap;
+    -unity-text-auto-size: best-fit 24px 64px;
 }
 
 .banner-desc {
@@ -292,6 +295,9 @@
     color: rgb(250, 248, 240);
     text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
     margin-top: 2px;
+    max-width: 90%;
+    white-space: normal;
+    -unity-text-align: upper-center;
 }
 
 /* ---- トースト ---- */
@@ -300,6 +306,7 @@
     right: 32px;
     top: 330px;
     align-items: flex-end;
+    left: 40%;
 }
 
 .toast {
@@ -315,6 +322,8 @@
     translate: 40px 0;
     transition-property: opacity, translate;
     transition-duration: 0.35s;
+    max-width: 100%;
+    flex-shrink: 1;
 }
 
 .toast--show {
@@ -326,6 +335,8 @@
     margin-left: 8px;
     font-size: 21px;
     color: rgb(225, 250, 255);
+    flex-shrink: 1;
+    white-space: normal;
 }
 
 /* ---- 操作のヒント ---- */
@@ -588,6 +599,11 @@
     height: 48px;
     font-size: 19px;
     margin: 6px 6px;
+    flex-shrink: 1;
+    min-width: 0;
+    padding: 0 8px;
+    white-space: nowrap;
+    -unity-text-auto-size: best-fit 12px 19px;
 }
 
 .row-buttons {
@@ -606,6 +622,8 @@
     color: rgb(90, 70, 50);
     font-size: 19px;
     min-width: 190px;
+    white-space: normal;
+    flex-shrink: 1;
 }
 
 .settings .unity-base-slider__tracker {
@@ -688,6 +706,7 @@
 .map-side {
     flex-grow: 1;
     margin-left: 24px;
+    flex-shrink: 1;
 }
 
 .map-summary {
@@ -699,6 +718,8 @@
 
 .map-legend {
     flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 90px;
 }
 
 .legend-row {
@@ -715,6 +736,8 @@
     margin-left: 10px;
     color: rgb(80, 64, 48);
     -unity-font-style: bold;
+    flex-shrink: 1;
+    white-space: normal;
 }
 
 .legend-name--unknown {
@@ -741,8 +764,6 @@
 }
 
 .howto-grid {
-    flex-direction: row;
-    flex-wrap: wrap;
     margin-bottom: 8px;
 }
 
@@ -757,12 +778,15 @@
     background-color: rgb(238, 226, 200);
     font-size: 17px;
     margin-right: 6px;
+    flex-shrink: 0;
 }
 
 .howto-item-text {
     font-size: 19px;
     margin-left: 8px;
     color: rgb(80, 64, 48);
+    flex-shrink: 1;
+    white-space: normal;
 }
 
 .howto-tip {
@@ -789,6 +813,8 @@
 
 .complete-title {
     color: rgb(190, 130, 40);
+    white-space: nowrap;
+    -unity-text-auto-size: best-fit 18px 36px;
 }
 
 .complete-text {
@@ -994,12 +1020,15 @@
     font-size: 16px;
     color: rgb(190, 130, 40);
     letter-spacing: 2px;
+    white-space: normal;
 }
 
 .creature-card-name {
     font-size: 30px;
     -unity-font-style: bold;
     color: rgb(74, 62, 50);
+    white-space: nowrap;
+    -unity-text-auto-size: best-fit 16px 30px;
 }
 
 .creature-card-desc {
@@ -1012,6 +1041,7 @@
     font-size: 13px;
     color: rgb(120, 160, 90);
     margin-top: 4px;
+    white-space: normal;
 }
 
 /* ---- 地図：エリア移動 ---- */
@@ -1020,12 +1050,14 @@
     color: rgb(110, 82, 50);
     margin-top: 12px;
     -unity-font-style: bold;
+    flex-shrink: 0;
 }
 
 .map-areas {
     flex-direction: row;
     flex-wrap: wrap;
     margin-top: 6px;
+    flex-shrink: 0;
 }
 
 /* 5 つのエリア：はばがせまいときは、2 列か 3 列にならべる */
@@ -1083,6 +1115,11 @@
     color: rgb(120, 96, 70);
     font-size: 21px;
     -unity-font-style: bold;
+    flex-basis: 0;
+    min-width: 0;
+    padding: 0 6px;
+    white-space: nowrap;
+    -unity-text-auto-size: best-fit 12px 21px;
 }
 
 .tab--on {
@@ -1155,6 +1192,9 @@
     -unity-font-style: bold;
     color: rgb(80, 64, 48);
     -unity-text-align: middle-center;
+    align-self: stretch;
+    white-space: nowrap;
+    -unity-text-auto-size: best-fit 10px 17px;
 }
 
 .zukan-detail {
@@ -1188,6 +1228,10 @@
     -unity-font-style: bold;
     color: rgb(74, 62, 50);
     margin-top: 6px;
+    align-self: stretch;
+    white-space: nowrap;
+    -unity-text-align: upper-center;
+    -unity-text-auto-size: best-fit 16px 30px;
 }
 
 .zukan-area {
@@ -1290,6 +1334,7 @@
     color: rgb(226, 120, 150);
     -unity-font-style: bold;
     margin-bottom: 4px;
+    white-space: normal;
 }
 
 .zukan-friend-line {
@@ -1309,6 +1354,7 @@
     color: rgb(120, 98, 70);
     margin-top: 4px;
     margin-bottom: 4px;
+    white-space: normal;
 }
 
 .zukan-stamps {
@@ -1393,6 +1439,8 @@
 .skin-text {
     margin-left: 12px;
     flex-shrink: 1;
+    flex-grow: 1;
+    min-width: 0;
 }
 
 /* きせかえの絵（いろは全身、ぼうし・めがねは頭のアップ） */
@@ -1408,13 +1456,16 @@
     font-size: 22px;
     -unity-font-style: bold;
     color: rgb(110, 82, 50);
-    margin: 12px 8px 2px 8px;
+    margin: 12px 0 2px 0;
+    padding: 0 8px;
 }
 
 .skin-name {
     font-size: 22px;
     -unity-font-style: bold;
     color: rgb(74, 62, 50);
+    white-space: nowrap;
+    -unity-text-auto-size: best-fit 12px 22px;
 }
 
 .skin-cond {
@@ -1444,6 +1495,7 @@
     margin-bottom: 6px;
     border-radius: 14px;
     background-color: rgba(220, 200, 160, 0.22);
+    flex-wrap: wrap;
 }
 
 .portrait .record-row {
@@ -1468,11 +1520,14 @@
 }
 
 .record-value {
-    flex-shrink: 0;
-    margin-left: 10px;
+    flex-shrink: 1;
+    margin-left: auto;
     font-size: 21px;
     -unity-font-style: bold;
     color: rgb(110, 82, 50);
+    white-space: normal;
+    -unity-text-align: middle-right;
+    padding-left: 10px;
 }
 
 /* ---- スマホ・タブレット ---- */
@@ -1526,7 +1581,8 @@
     font-size: 26px;
     color: rgb(255, 250, 235);
     background-color: rgba(28, 40, 34, 0.6);
-    padding: 14px 0;
+    padding: 14px 18px;
+    white-space: normal;
 }
 
 .zukan-text {
@@ -1668,8 +1724,9 @@
 }
 
 .compact .zukan-card {
-    width: 124px;
+    width: 130px;
     height: 150px;
+    padding: 6px 4px;
 }
 
 .compact .zukan-card-img {
@@ -1833,8 +1890,6 @@
 }
 
 .portrait .bigmap {
-    width: 480px;
-    height: 480px;
     align-self: center;
 }
 
@@ -1844,7 +1899,9 @@
 }
 
 .portrait .map-legend {
-    max-height: 300px;
+    max-height: 220px;
+    flex-shrink: 1;
+    min-height: 80px;
 }
 
 .portrait .zukan-detail {
@@ -1862,6 +1919,9 @@
 .portrait .zukan-text {
     align-items: flex-start;
     margin-left: 12px;
+    align-self: flex-start;
+    flex-grow: 1;
+    flex-shrink: 1;
 }
 
 .portrait .zukan-img {
@@ -1881,11 +1941,12 @@
 .portrait .toasts {
     top: 360px;
     right: 14px;
+    left: 14px;
 }
 
 .portrait .creature-card {
     left: 14px;
-    right: 14px;
+    right: 124px;
     width: auto;
     bottom: 330px;
 }
@@ -1939,13 +2000,13 @@
 }
 
 .portrait .obj-count {
-    font-size: 18px;
-    margin-left: 8px;
+    font-size: 16px;
+    margin-left: 6px;
 }
 
 .portrait .logo {
-    font-size: 58px;
-    letter-spacing: 4px;
+    font-size: 50px;
+    letter-spacing: 3px;
 }
 
 .portrait .logo-sub {
@@ -2077,7 +2138,9 @@
     font-size: 18px;
     -unity-font-style: bold;
     color: rgb(170, 120, 30);
-    margin: 10px 5px 2px 5px;
+    margin: 10px 0 2px 0;
+    padding: 0 5px;
+    white-space: normal;
 }
 
 .zukan-card--rare {
@@ -2132,6 +2195,8 @@
 
 .portrait .settings {
     max-height: 560px;
+    flex-shrink: 1;
+    min-height: 160px;
 }
 
 /* ===================================================================
@@ -2253,4 +2318,187 @@
     height: 34px;
     margin: 0 6px 4px 0;
     font-size: 16px;
+}
+
+/* ---- はみ出し対策（せまい画面・文字を大きくしたとき） ---- */
+/* 字の大きさを自動で合わせる所は、画面の種類ごとの大きさを上限にする */
+.compact .banner-title {
+    -unity-text-auto-size: best-fit 20px 44px;
+}
+
+.compact .creature-card-name {
+    -unity-text-auto-size: best-fit 14px 24px;
+}
+
+.short .tab {
+    -unity-text-auto-size: best-fit 12px 19px;
+}
+
+.short .zukan-name {
+    -unity-text-auto-size: best-fit 14px 24px;
+}
+
+.short .complete-title {
+    -unity-text-auto-size: best-fit 16px 28px;
+}
+
+/* ウィンドウが画面より高くならないよう、設定・凡例だけを縮める */
+.portrait .pause-window,
+.portrait .map-window,
+.howto-window {
+    max-height: 98%;
+}
+
+/* あそびかたの一覧は、ウィンドウに入らなければスクロールする */
+.howto-window > * {
+    flex-shrink: 0;
+}
+
+.howto-window > .howto-grid {
+    flex-shrink: 1;
+}
+
+.howto-grid .unity-scroll-view__content-container {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.portrait .creature-card-img {
+    width: 64px;
+    height: 64px;
+}
+
+.pause-window > *,
+.map-window > * {
+    flex-shrink: 0;
+}
+
+.pause-window > .settings {
+    flex-shrink: 1;
+}
+
+.map-window > .map-body {
+    flex-shrink: 1;
+}
+
+.portrait .map-side {
+    flex-shrink: 1;
+}
+
+.portrait .settings .unity-label,
+.portrait .quality-label {
+    min-width: 120px;
+}
+
+.quality-row .chip {
+    flex-shrink: 1;
+}
+
+.portrait .quality-row .chip {
+    min-width: 72px;
+}
+
+.portrait .loading-logo {
+    font-size: 44px;
+    letter-spacing: 4px;
+}
+
+/* スマホ縦のきせかえ：絵の下に名前（たてならび） */
+.portrait .skin-card {
+    width: 44%;
+    height: auto;
+    min-height: 172px;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 10px 6px 8px 6px;
+    margin: 5px;
+}
+
+.portrait .skin-text {
+    margin-left: 0;
+    margin-top: 6px;
+    align-self: stretch;
+    flex-grow: 0;
+}
+
+.portrait .skin-name {
+    -unity-text-align: middle-center;
+    -unity-text-auto-size: best-fit 12px 20px;
+}
+
+.portrait .skin-cond {
+    -unity-text-align: upper-center;
+}
+
+.portrait .zukan-name {
+    -unity-text-align: upper-left;
+}
+
+/* あそびかた：せまい画面では、説明をキーの下の行へ */
+.portrait .howto-item {
+    flex-wrap: wrap;
+}
+
+.portrait .howto-item-text {
+    margin-top: 2px;
+}
+
+.portrait .area-chip {
+    min-width: 0;
+}
+
+/* 小さい画面のタイトルでは、版を右上へ（下の説明と重ならない） */
+.compact .version {
+    bottom: auto;
+    top: 10px;
+}
+
+/* スマホ縦：操作説明は、右の丸ボタンと「糸」などのボタンをよけて置く */
+.portrait.touch-ui .help {
+    top: 330px;
+    right: 180px;
+}
+
+.portrait .help-key {
+    flex-shrink: 0;
+}
+
+.portrait .help-text {
+    flex-shrink: 1;
+    white-space: normal;
+}
+
+.portrait .zukan-area {
+    -unity-text-align: upper-left;
+}
+
+.portrait .zukan-go {
+    justify-content: flex-start;
+}
+
+/* スマホ縦：目標は、絵と数だけにして、右上のミニマップと重ならないようにする */
+.portrait .obj-label {
+    display: none;
+}
+
+/* スマホ縦のタイトル：2 つの説明が重ならないよう、上の説明を少し上げる */
+.portrait .title-hint {
+    bottom: 80px;
+}
+
+.portrait .title-hint-small {
+    bottom: 16px;
+}
+
+.portrait .objectives {
+    padding: 6px 10px;
+    left: 10px;
+}
+
+.portrait .top-right {
+    right: 10px;
+}
+
+.portrait .top-buttons {
+    margin-left: 8px;
 }
