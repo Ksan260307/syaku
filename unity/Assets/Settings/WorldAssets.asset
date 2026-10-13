@@ -733,6 +733,34 @@ MonoBehaviour:
     mesh: {fileID: 2616509245610173146, guid: a43d947b0f0ed2c44961636b79c94291, type: 3}
   - name: WaterStrider_Leg3
     mesh: {fileID: -4307120471902797404, guid: 4ca63e0ca1c425344a1d7c5d3e0fd076, type: 3}
+  - name: Wear_Acorn
+    mesh: {fileID: 6616108802775062375, guid: c7bdd9852b0dfad40b595064817d7d39, type: 3}
+  - name: Wear_Beret
+    mesh: {fileID: 6540540346418949904, guid: 3cc0dee69eadea44faddfa68e4c77cc7, type: 3}
+  - name: Wear_Cap
+    mesh: {fileID: 3768089395661336406, guid: 8c766967a1e6eff42a72cfc55ddb8cff, type: 3}
+  - name: Wear_Crown
+    mesh: {fileID: 3514043035277767649, guid: e91547cf1ba5c4f4e8b56127c6e730fa, type: 3}
+  - name: Wear_Flower
+    mesh: {fileID: 4873864233843137394, guid: 980aa86fc219c564387295c103011b98, type: 3}
+  - name: Wear_Hair
+    mesh: {fileID: -6425120773593593263, guid: 786ec0beefc4cef478fca10a218b3cce, type: 3}
+  - name: Wear_HeartGlasses
+    mesh: {fileID: 7667451436048041641, guid: 7d9072e115483d84bb272b0181183bac, type: 3}
+  - name: Wear_Knit
+    mesh: {fileID: 6710925293668181214, guid: db0bf4290f9a64c438768144e9009659, type: 3}
+  - name: Wear_Ribbon
+    mesh: {fileID: 3668707869578392168, guid: 7a06d43824ce65a408567b2d994cc671, type: 3}
+  - name: Wear_RoundGlasses
+    mesh: {fileID: -3597043459209851248, guid: 12bc69bcee360934b99bdad9ab9aedc6, type: 3}
+  - name: Wear_Silk
+    mesh: {fileID: -6471941773042966700, guid: 6ce6f25e9fdb9744b9be04b0ddc34c60, type: 3}
+  - name: Wear_StarGlasses
+    mesh: {fileID: 8381614624189225962, guid: 3fa7981c6b2450c479a123449939026a, type: 3}
+  - name: Wear_Straw
+    mesh: {fileID: 2281869185647553734, guid: 85a35a0ab4b9f4642adf7ca69cd31cdc, type: 3}
+  - name: Wear_Sunglasses
+    mesh: {fileID: -6551794701614749244, guid: 6d21c5f882dc4254c9ef9f8ca9c44a22, type: 3}
   - name: Yamori
     mesh: {fileID: 3379804976030079378, guid: 71b58ab6cea1ec148aa8af966b94e84e, type: 3}
   - name: Yamori_Leg1
@@ -844,6 +872,66 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 5189426165d8db240afa746472fc8c72, type: 3}
   - name: yamori
     texture: {fileID: 2800000, guid: ffcb31d35a5b4ed469317536c95901b2, type: 3}
+  - name: skin_acorn
+    texture: {fileID: 2800000, guid: 60fd28d7956cf554da91a3f010c841be, type: 3}
+  - name: skin_beret
+    texture: {fileID: 2800000, guid: d7172344b37be8f49af454b7efd223c5, type: 3}
+  - name: skin_cap
+    texture: {fileID: 2800000, guid: 6dfa7909cb20e164fb07aca822de60f8, type: 3}
+  - name: skin_crown
+    texture: {fileID: 2800000, guid: bf7894a8be3b5834d980e3c0d5527b8e, type: 3}
+  - name: skin_flower
+    texture: {fileID: 2800000, guid: b999e31ecf9e5fb459999d6e4a80a296, type: 3}
+  - name: skin_fuji
+    texture: {fileID: 2800000, guid: 4ec1b9345300cf04a9358c84e0bb03af, type: 3}
+  - name: skin_hair
+    texture: {fileID: 2800000, guid: 1019ee1c479b0a04280a7d493d0c4c57, type: 3}
+  - name: skin_heart
+    texture: {fileID: 2800000, guid: 4618e1110303173469654809648172a1, type: 3}
+  - name: skin_ichigo
+    texture: {fileID: 2800000, guid: 72ec031d62963ad4c82ab664fb6ecb2b, type: 3}
+  - name: skin_kimidori
+    texture: {fileID: 2800000, guid: bcb7854a9cf69324badcff583a0564ba, type: 3}
+  - name: skin_knit
+    texture: {fileID: 2800000, guid: 4bfdd491e84507549b4a6e46489956b9, type: 3}
+  - name: skin_kogane
+    texture: {fileID: 2800000, guid: 7a7d930a98e750a4d89c34dd82de1f58, type: 3}
+  - name: skin_mint
+    texture: {fileID: 2800000, guid: e271565c46897f84c96bfd81dc7e063f, type: 3}
+  - name: skin_momiji
+    texture: {fileID: 2800000, guid: 07e60f25258ec0341b4e28b68ce690e5, type: 3}
+  - name: skin_niji
+    texture: {fileID: 2800000, guid: f8c520592b3df5e40aab3e9f82533484, type: 3}
+  - name: skin_rainbow
+    texture: {fileID: 2800000, guid: f6e6e1da68060cd49b23d5bc25356d52, type: 3}
+  - name: skin_ribbon
+    texture: {fileID: 2800000, guid: c71b83dcceb78344191f1e472b9a8189, type: 3}
+  - name: skin_round
+    texture: {fileID: 2800000, guid: b4fe2e60186243e4d902efe254976d29, type: 3}
+  - name: skin_ruri
+    texture: {fileID: 2800000, guid: f3547408261fcc848bd6eabe2e75b593, type: 3}
+  - name: skin_sakura
+    texture: {fileID: 2800000, guid: 5724fc3b12360d84c813e3d98df984a6, type: 3}
+  - name: skin_shima
+    texture: {fileID: 2800000, guid: 78e9b39d42132f64090a3affb416c966, type: 3}
+  - name: skin_silk
+    texture: {fileID: 2800000, guid: 0d011be7b467ef244aa12f646844c105, type: 3}
+  - name: skin_sorairo
+    texture: {fileID: 2800000, guid: eda6c21896c721b4a93280f40e16fb70, type: 3}
+  - name: skin_star
+    texture: {fileID: 2800000, guid: f6f6e17b485af8940b4dd7d564a1d53f, type: 3}
+  - name: skin_straw
+    texture: {fileID: 2800000, guid: 264a66bbab3e5b54ebe55f86f13d5e93, type: 3}
+  - name: skin_sumi
+    texture: {fileID: 2800000, guid: 3ec3dac3160e6364d8ed164acc196e67, type: 3}
+  - name: skin_sun
+    texture: {fileID: 2800000, guid: 2c843e27799a27041af4ac065ec7bd6e, type: 3}
+  - name: skin_wakaba
+    texture: {fileID: 2800000, guid: 3bedd401e0b937647bc77c36e30f70a0, type: 3}
+  - name: skin_yozora
+    texture: {fileID: 2800000, guid: 55534ae624ddc404cacfbabc31727cc7, type: 3}
+  - name: skin_yuki
+    texture: {fileID: 2800000, guid: 6504b4f3856a6774f983646829eee3eb, type: 3}
   prop: {fileID: 2100000, guid: a7965964abebd0a4da0383ab074e54e2, type: 2}
   propGlossy: {fileID: 2100000, guid: d9a315e8ef8c4f546a6208deeb6df9e7, type: 2}
   bark: {fileID: 2100000, guid: 16db4c8b7a994db44b8a03ce3efd3938, type: 2}
@@ -865,4 +953,5 @@ MonoBehaviour:
   creatureGlow: {fileID: 2100000, guid: 956c42b1a60d6e84daa5718c8579b501, type: 2}
   warmGlow: {fileID: 2100000, guid: f40ff25ea8f90e6439f1d2a6209fc4f0, type: 2}
   backdrop: {fileID: 2100000, guid: 3ec367a2002f624468b04e4600a2e7c0, type: 2}
+  wear: {fileID: 2100000, guid: b5d8f704d0e9b3441a80ab01031c19f8, type: 2}
   sunCookie: {fileID: 2800000, guid: 11d4622ca0f4c3e4eadbbeac8afa0d92, type: 3}

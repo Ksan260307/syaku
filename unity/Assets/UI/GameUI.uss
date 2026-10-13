@@ -1348,6 +1348,12 @@
     border-width: 3px;
 }
 
+/* 30 枚のきせかえは、ウィンドウの中でスクロールする */
+.skin-scroll {
+    flex-grow: 1;
+    flex-shrink: 1;
+}
+
 .skin-grid {
     flex-direction: row;
     flex-wrap: wrap;
@@ -1387,6 +1393,22 @@
 .skin-text {
     margin-left: 12px;
     flex-shrink: 1;
+}
+
+/* きせかえの絵（いろは全身、ぼうし・めがねは頭のアップ） */
+.skin-swatch--icon {
+    background-color: rgb(255, 250, 238);
+    -unity-background-scale-mode: scale-to-fit;
+    border-color: rgb(236, 220, 186);
+}
+
+/* いろ・ぼうし・めがねの見出し（1 行まるごと） */
+.skin-section {
+    width: 100%;
+    font-size: 22px;
+    -unity-font-style: bold;
+    color: rgb(110, 82, 50);
+    margin: 12px 8px 2px 8px;
 }
 
 .skin-name {
@@ -2199,8 +2221,10 @@
 
 .zukan-filters {
     flex-direction: row;
+    flex-wrap: wrap;
     width: 100%;
-    margin: 0 5px 4px 5px;
+    padding: 0 5px;
+    margin: 0 0 4px 0;
 }
 
 .toast--tip {
@@ -2225,8 +2249,8 @@
 }
 
 .zukan-filters .chip {
-    min-width: 84px;
+    min-width: 66px;
     height: 34px;
-    margin: 0 8px 0 0;
+    margin: 0 6px 4px 0;
     font-size: 16px;
 }

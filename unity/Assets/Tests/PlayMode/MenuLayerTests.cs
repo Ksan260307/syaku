@@ -123,8 +123,9 @@ namespace Shakutori.Tests
                 Assert.IsTrue(IsInside(picked, overlay), $"きせかえの画面が前に出ている（{p} で {picked?.name} に当たった）");
             }
             var skins = UI.Root.Q("skin-grid");
-            Assert.Greater(skins.childCount, 0);
-            Assert.IsTrue(IsInside(UI.Root.panel.Pick(skins[0].worldBound.center), skins[0]), "きせかえを選べる");
+            var card = skins.Q(className: "skin-card");
+            Assert.IsNotNull(card);
+            Assert.IsTrue(IsInside(UI.Root.panel.Pick(card.worldBound.center), card), "きせかえを選べる");
             // とじると、メニューにもどる
             UI.ShowCollection(false);
             yield return null;

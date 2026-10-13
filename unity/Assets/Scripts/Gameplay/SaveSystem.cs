@@ -24,6 +24,8 @@ namespace Shakutori
         public List<string> habitats = new List<string>();         // いきもののすみか（図鑑用。"種|エリア|x|z|広さ|名所"）
         public List<CreatureNote> notes = new List<CreatureNote>(); // いきものとのなかよし・観察したしぐさ・大きさの記録
         public string skin = "wakaba";
+        public string hat = "";                                    // かぶっているぼうし（"" = なし）
+        public string glasses = "";                                // かけているめがね（"" = なし）
         // きろく
         public int steps;
         public int silkUses;
@@ -165,6 +167,8 @@ namespace Shakutori
             }
             if (string.IsNullOrEmpty(d.area)) d.area = "forest";
             if (string.IsNullOrEmpty(d.skin)) d.skin = "wakaba";
+            if (d.hat == null) d.hat = "";
+            if (d.glasses == null) d.glasses = "";
             if (d.version < 2)
             {
                 // v1 にはなかった：最初のエリアは行ったことがある・図鑑は全部見たことにする

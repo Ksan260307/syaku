@@ -38,6 +38,8 @@ Material:
     - _Cull: 2
     - _DetailScale: 0.35
     - _DetailStrength: 0.3
+    - _Dots: 0
+    - _HueAlong: 0
     - _HueShift: 0
     - _HueShiftOn: 0
     - _NearFade: 0
@@ -52,6 +54,8 @@ Material:
     - _ShadowThreshold: 0.5
     - _SpecularSize: 0.035
     - _SpecularStrength: 0.7
+    - _StripeDark: 0
+    - _Stripes: 0
     - _Terrain: 0
     - _ValMul: 1
     - _VertexColorSRGB: 1

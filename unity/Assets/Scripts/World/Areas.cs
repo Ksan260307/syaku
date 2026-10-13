@@ -255,7 +255,7 @@ namespace Shakutori
             // 山小屋のとびら（あとから足した。しずくの場所は変えない）。小屋から出ると、花畑の方を見下ろす
             new GateDef { position = MountainLayout.HutDoor, targetArea = "hut", label = "山小屋へ", late = true,
                 door = true, walk = -MountainLayout.HutDoorDir, radius = 0.8f, halfWidth = 1.4f, height = 4.6f,
-                arrival = new ArrivalView(MountainLayout.HutLocal(-3.7f, 8.9f), new Vector3(MountainLayout.Meadow.x, 8f, MountainLayout.Meadow.y), 6f, 4.4f) },   // 石段の前の小道に出て、花畑への下り道を見る
+                arrival = new ArrivalView(MountainLayout.HutLocal(-3.7f, 8.9f), new Vector3(MountainLayout.Meadow.x, 8f, MountainLayout.Meadow.y), 6f, 4.4f, clear: 4f) },   // 石段の前の小道に出て、花畑への下り道を見る（草をどけるのは、すぐ前だけ。花畑のバッタのすみかにかからない）
         };
 
         public override string Id => "mountain";

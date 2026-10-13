@@ -213,7 +213,7 @@
                 </ui:VisualElement>
                 <ui:VisualElement name="page-zukan" class="page">
                     <ui:VisualElement class="zukan-body">
-                        <ui:ScrollView name="zukan-grid" class="zukan-grid" />
+                        <ui:ScrollView name="zukan-grid" class="zukan-grid" horizontal-scroller-visibility="Hidden" />
                         <ui:ScrollView name="zukan-detail" class="zukan-detail" mode="Vertical" horizontal-scroller-visibility="Hidden">
                             <ui:VisualElement name="zukan-img" class="zukan-img" picking-mode="Ignore" />
                             <ui:VisualElement class="zukan-text" picking-mode="Ignore">
@@ -229,8 +229,10 @@
                     </ui:VisualElement>
                 </ui:VisualElement>
                 <ui:VisualElement name="page-skin" class="page hidden">
-                    <ui:Label text="集めた数で、しゃくとりむしの色をえらべるようになります。" class="page-sub" picking-mode="Ignore" />
-                    <ui:VisualElement name="skin-grid" class="skin-grid" />
+                    <ui:Label text="集めた数で、いろ・ぼうし・めがねがふえていきます。いろとぼうしとめがねは、いっしょに身につけられます。" class="page-sub" picking-mode="Ignore" />
+                    <ui:ScrollView name="skin-scroll" class="skin-scroll" mode="Vertical" horizontal-scroller-visibility="Hidden" mouse-wheel-scroll-size="90">
+                        <ui:VisualElement name="skin-grid" class="skin-grid" />
+                    </ui:ScrollView>
                 </ui:VisualElement>
                 <ui:VisualElement name="page-record" class="page hidden">
                     <ui:ScrollView name="record-list" class="record-list" mode="Vertical" horizontal-scroller-visibility="Hidden" />

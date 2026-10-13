@@ -230,7 +230,7 @@ namespace Shakutori
         public string SelectedSpecies => _selectedSpecies;
         public string ZukanDetailName => _zukanName != null ? _zukanName.text : "";
         public int ZukanCardCount => _zukanCards.Count;
-        public int SkinCardCount => _skinGrid != null ? _skinGrid.childCount : 0;
+        public int SkinCardCount => _skinGrid != null ? _skinGrid.Query(className: "skin-card").ToList().Count : 0;
         public int AreaChipCount => _mapAreas != null ? _mapAreas.childCount : 0;
         public string AreaTitle => _areaTitle != null ? _areaTitle.text : "";
         public bool IsTouchMode => _touchMode;
@@ -1521,62 +1521,96 @@ namespace Shakutori
             }
         }
 
+        /// <summary>きせかえの画面：いろ・ぼうし・めがねの 3 つの見出しに分けて、カード（絵・名前・解放の条件）をならべる。</summary>
         void BuildSkins()
         {
             _skinGrid.Clear();
             var st = ProgressStats.FromSave();
-            var current = Skins.Get(SaveSystem.Data.skin);
-            foreach (var skin in Skins.All)
+            foreach (var (kind, title) in new[] { (WearKind.Color, "いろ"), (WearKind.Hat, "ぼうし"), (WearKind.Glasses, "めがね") })
             {
-                bool open = Skins.IsUnlocked(skin, st);
-                var card = new Button();
-                card.AddToClassList("skin-card");
-                card.EnableInClassList("skin-card--on", current != null && current.id == skin.id);
-                card.EnableInClassList("skin-card--locked", !open);
-                var sw = new VisualElement { pickingMode = PickingMode.Ignore };
-                sw.AddToClassList("skin-swatch");
-                sw.style.backgroundColor = open ? skin.swatch : new Color(0.62f, 0.58f, 0.52f);
-                if (!open)
-                {
-                    var lockIcon = new VisualElement { pickingMode = PickingMode.Ignore };
-                    lockIcon.AddToClassList("icon");
-                    lockIcon.AddToClassList("icon-lock");
-                    lockIcon.style.alignSelf = Align.Center;
-                    lockIcon.style.marginTop = 18;
-                    sw.Add(lockIcon);
-                }
-                var text = new VisualElement { pickingMode = PickingMode.Ignore };
-                text.AddToClassList("skin-text");
-                var nm = new Label(open ? skin.name : "？？？") { pickingMode = PickingMode.Ignore };
-                nm.AddToClassList("skin-name");
-                var cond = new Label(open ? (current != null && current.id == skin.id ? "きがえ中" : "タップしてきがえる") : skin.condition)
-                    { pickingMode = PickingMode.Ignore };
-                cond.AddToClassList("skin-cond");
-                text.Add(nm);
-                text.Add(cond);
-                card.Add(sw);
-                card.Add(text);
-                string id = skin.id;
-                card.clicked += () =>
-                {
-                    if (!Skins.IsUnlocked(Skins.Get(id), ProgressStats.FromSave()))
-                    {
-                        AudioManager.Instance?.Click();
-                        return;
-                    }
-                    SelectSkin(id);
-                };
-                _skinGrid.Add(card);
+                var head = new Label(title) { pickingMode = PickingMode.Ignore };
+                head.AddToClassList("skin-section");
+                _skinGrid.Add(head);
+                foreach (var skin in Skins.OfKind(kind)) _skinGrid.Add(SkinCard(skin, st));
             }
         }
 
-        /// <summary>きせかえを選ぶ（解放済みのときだけ）。</summary>
+        /// <summary>そのきせかえを、いま身につけているか。</summary>
+        static bool Wearing(SkinDef s)
+        {
+            var d = SaveSystem.Data;
+            return s.kind == WearKind.Hat ? d.hat == s.id : s.kind == WearKind.Glasses ? d.glasses == s.id : Skins.Get(d.skin).id == s.id;
+        }
+
+        VisualElement SkinCard(SkinDef skin, ProgressStats st)
+        {
+            bool open = Skins.IsUnlocked(skin, st);
+            bool on = Wearing(skin);
+            var card = new Button();
+            card.AddToClassList("skin-card");
+            card.EnableInClassList("skin-card--on", on);
+            card.EnableInClassList("skin-card--locked", !open);
+            var sw = new VisualElement { pickingMode = PickingMode.Ignore };
+            sw.AddToClassList("skin-swatch");
+            Texture2D icon = open && _assets != null ? _assets.Portrait(skin.Icon) : null;
+            if (icon != null)
+            {
+                // いろは Ω の字の全身、ぼうし・めがねは頭のアップの絵
+                sw.AddToClassList("skin-swatch--icon");
+                sw.style.backgroundImage = new StyleBackground(icon);
+            }
+            else sw.style.backgroundColor = open ? skin.swatch : new Color(0.62f, 0.58f, 0.52f);
+            if (!open)
+            {
+                var lockIcon = new VisualElement { pickingMode = PickingMode.Ignore };
+                lockIcon.AddToClassList("icon");
+                lockIcon.AddToClassList("icon-lock");
+                lockIcon.style.alignSelf = Align.Center;
+                lockIcon.style.marginTop = 18;
+                sw.Add(lockIcon);
+            }
+            var text = new VisualElement { pickingMode = PickingMode.Ignore };
+            text.AddToClassList("skin-text");
+            var nm = new Label(open ? skin.name : "？？？") { pickingMode = PickingMode.Ignore };
+            nm.AddToClassList("skin-name");
+            string how = skin.kind == WearKind.Hat ? (on ? "かぶっている（タップではずす）" : "タップしてかぶる")
+                : skin.kind == WearKind.Glasses ? (on ? "かけている（タップではずす）" : "タップしてかける")
+                : on ? "きがえ中" : "タップしてきがえる";
+            var cond = new Label(open ? how : skin.condition) { pickingMode = PickingMode.Ignore };
+            cond.AddToClassList("skin-cond");
+            text.Add(nm);
+            text.Add(cond);
+            card.Add(sw);
+            card.Add(text);
+            string id = skin.id;
+            card.clicked += () =>
+            {
+                var def = Skins.Find(id);
+                if (def == null || !Skins.IsUnlocked(def, ProgressStats.FromSave()))
+                {
+                    AudioManager.Instance?.Click();
+                    return;
+                }
+                SelectSkin(id);
+            };
+            return card;
+        }
+
+        /// <summary>
+        /// きせかえを選ぶ（解放済みのときだけ）。いろは 1 つをえらぶ。ぼうし・めがねは、もう一度えらぶと外す。
+        /// </summary>
         public bool SelectSkin(string id)
         {
-            var skin = Skins.Get(id);
+            var skin = Skins.Find(id);
             if (skin == null || !Skins.IsUnlocked(skin, ProgressStats.FromSave())) return false;
             AudioManager.Instance?.Unlock();
-            SaveSystem.Data.skin = id;
+            var d = SaveSystem.Data;
+            switch (skin.kind)
+            {
+                case WearKind.Hat: d.hat = d.hat == id ? "" : id; break;
+                case WearKind.Glasses: d.glasses = d.glasses == id ? "" : id; break;
+                default: d.skin = id; break;
+            }
             SaveSystem.Save();
             SkinSelected?.Invoke(id);
             if (_tab == "skin" && IsCollectionOpen) BuildSkins();

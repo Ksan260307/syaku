@@ -246,7 +246,7 @@ namespace Shakutori.EditorTools
                 return new Color(val, val, val, 1f);
             }, false, TextureWrapMode.Repeat);
 
-            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/UI/Icons", "Assets/UI/Creatures" }))
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/UI/Icons", "Assets/UI/Creatures", "Assets/UI/Wear" }))
             {
                 string p = AssetDatabase.GUIDToAssetPath(guid);
                 var imp = (TextureImporter)AssetImporter.GetAtPath(p);
@@ -503,6 +503,15 @@ namespace Shakutori.EditorTools
                 m.SetColor("_ShadowTint", Color.white);
                 m.SetShaderPassEnabled("SRPDefaultUnlit", false);
             });
+            assets.wear = Mat("M_Wear", "Shakutori/ToonLit", m =>
+            {
+                // きせかえのぼうし・めがね：しゃくとりむしと同じくらいの細いふちどりと、つやのハイライト
+                m.SetFloat("_OutlineWidth", 0.35f);
+                m.SetFloat("_OutlineSmoothNormals", 0f);
+                m.SetFloat("_RimStrength", 0.4f);
+                m.SetFloat("_SpecularStrength", 0.5f);
+                m.SetFloat("_SpecularSize", 0.04f);
+            });
             Mat("M_Sky", "Shakutori/ForestSky", m => { });
             assets.sunCookie = tex.cookie;
 
@@ -518,7 +527,7 @@ namespace Shakutori.EditorTools
             }
             // いきもの図鑑の絵（Blender で描き出したもの）
             assets.portraits.Clear();
-            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/UI/Creatures" }))
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/UI/Creatures", "Assets/UI/Wear" }))
             {
                 string p = AssetDatabase.GUIDToAssetPath(guid);
                 var t = AssetDatabase.LoadAssetAtPath<Texture2D>(p);

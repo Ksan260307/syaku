@@ -43,6 +43,10 @@ Shader "Shakutori/ToonLit"
         _HueShift ("Hue Shift (deg)", Float) = 0
         _SatMul ("Saturation", Float) = 1
         _ValMul ("Value", Float) = 1
+        _HueAlong ("Hue Along Body (deg)", Float) = 0
+        _Stripes ("Stripes Along Body", Float) = 0
+        _StripeDark ("Stripe Darkness", Range(0, 1)) = 0
+        _Dots ("Polka Dots", Range(0, 1)) = 0
     }
 
     SubShader

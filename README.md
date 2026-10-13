@@ -33,7 +33,13 @@ PC・ゲームパッド・**スマホ／iPad** で遊べます。
   森の東のはしにある **木の根のトンネル** を抜けると川辺へ、西のはしのトンネルを抜けると公園へ。川辺の滝の上の台地の奥（北東）のトンネルを抜けると山へ。山の山小屋の **とびら** に入ると、小屋の中へ。地図の下の「エリアの地図」のボタンで、一度行ったエリアの地図に切りかえられ、その地図の見つけた名所をタップすると、そのエリアのその名所へすぐ移動できます。
 - いきものに近づくと **いきもの図鑑** に登録されます（46 種）。図鑑は「森・川辺・公園・山・山小屋」のすみかで絞りこめます。まだ見ていないいきものは図鑑にヒントが出ます。
   見つけたいきものは、図鑑で **すみか**（どの名所のまわりにいるか・すんでいるエリアの地図の上の場所）が見られ、そばの見つけた名所へ **図鑑からすぐ移動** できます（ほかのエリアの名所へも）。
-- 集めたしずく・名所・いきものの数で **きせかえ**（しゃくとりむしの色）が増えます。ぜんぶ集めると「にじいろ」。
+- 集めたしずく・名所・いきものの数で **きせかえ** が増えます（30 しゅ）。**いろ・ぼうし・めがね** を 1 つずつ、いっしょに身につけられます。
+  - いろ（16）：わかば・きみどり・さくら・そらいろ・もみじ・よぞら・こがね・るりいろ・ふじいろ・ミント・ゆきんこ・すみいろ、
+    もようつきの **いちごみるく**（水玉）・**はちみつしましま**（しま）・**レインボー**（尾から頭へ虹のしまが、ゆっくり流れる）、ぜんぶ集めると「にじいろ」。
+  - ぼうし（10）：**ぴょこんげ**（頭のてっぺんから毛が 1 本ニュッ。歩くと、ぴょこぴょこゆれる）・キャップ・むぎわらぼうし・どんぐりぼうし・リボン・
+    ニットぼう・花かんむり・ベレーぼう・シルクハット・おうかん
+  - めがね（4）：まるめがね・サングラス・ハートのサングラス・ほしのめがね
+  - ぼうしとめがねは、もう一度えらぶと外せます。どれも、曲がる体の頭の向きにぴったりついてきます。
 - キノコの柄やかさ・切り株の壁・葉っぱの裏…しゃくとりむしは**どんな面でも這って登れます**。
   かたつむり・カブトムシ・クワガタ・トカゲ・カエル・カニ・カマキリの背中にも登って乗れます。地面の大きな落ち葉も、登って乗れる足場です。
 - 軽く動くように：しゃくとりむしの体の変形は体の輪ごとに 1 回だけ計算し、草や小物はカメラが動いたときだけ数えなおし、
@@ -193,7 +199,11 @@ Unity 側で毎フレームこの曲線に沿って曲げています（`Inchwor
   手足の IK（`SolveLimb`）と歩く足の行き先（`StepTarget`）、Blender→Unity の座標変換。
   Blender では `legs()`（細い脚）・`leg_part()`（形を自由にかく脚）・`limb()`（ひざで曲がる手足）でかいた手足を、`split_legs()` が右側だけ別のメッシュにする
 - 図鑑の絵は Blender でモデルを並べて描き出した PNG（`unity/Assets/UI/Creatures`）
-- `Skins.cs`: きせかえはシェーダーの色相・彩度・明度シフト（`_HUE_SHIFT`）を MaterialPropertyBlock で切り替え
+- `Skins.cs`: きせかえのいろはシェーダーの色相・彩度・明度シフト（`_HUE_SHIFT`）を MaterialPropertyBlock で切り替え。
+  もようは、体のどこか（尾 0 → 頭 1）と体のまわりの角度（どちらもしゃくとりむしの UV）で、しま（`_Stripes`）・水玉（`_Dots`）・体にそった色相（`_HueAlong`）をかく
+- `WormWear.cs`: ぼうし・めがね（`blender/scripts/build_wear_kit.py` で、頭のまん中を原点に作ったメッシュ）を、毎フレーム頭のまん中と向き
+  （`InchwormBody.HeadCenter` / `HeadForward` / `HeadUp`）に合わせて置く。ぴょこんげは、頭の加速でばねのようにゆれる。
+  きせかえの画面の絵（いろは Ω の字の全身、ぼうし・めがねは頭のアップ）も、同じスクリプトが Blender で描き出す（`unity/Assets/UI/Wear`）
 
 ### 軽さのくふう
 ゲームの中身（いきものの動き方・当たり判定・ルール）は変えずに、毎フレームの計算をへらしています。
@@ -296,6 +306,7 @@ docs/                  ビルド済み WebGL（GitHub Pages の公開用）
 "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b --factory-startup --python blender/scripts/build_park_kit.py
 "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b --factory-startup --python blender/scripts/build_mountain_kit.py
 "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b --factory-startup --python blender/scripts/build_hut_kit.py
+"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" -b --factory-startup --python blender/scripts/build_wear_kit.py
 python tools/make_icons.py
 python tools/make_fonts.py
 python tools/make_audio.py

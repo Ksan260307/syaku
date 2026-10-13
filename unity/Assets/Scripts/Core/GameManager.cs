@@ -65,6 +65,10 @@ namespace Shakutori
         AreaProps _areaProps;
         AreaSounds _areaSounds;
         Renderer _wormRenderer;
+        WormWear _wear;
+
+        /// <summary>しゃくとりむしの頭のぼうし・めがね（テスト用）。</summary>
+        public WormWear Wear => _wear;
 
         IEnumerator Start()
         {
@@ -82,6 +86,14 @@ namespace Shakutori
             // スマホ・タブレットは草花を少なめにして軽くする
             if (Application.isMobilePlatform || GameInput.TouchCapable) world.foliageDensity = Mathf.Min(world.foliageDensity, 0.65f);
             _wormRenderer = worm.body != null ? worm.body.GetComponent<Renderer>() : null;
+            if (worm.body != null)
+            {
+                _wear = worm.body.GetComponent<WormWear>();
+                if (_wear == null) _wear = worm.body.gameObject.AddComponent<WormWear>();
+                _wear.body = worm.body;
+                _wear.assets = world.assets;
+                _wear.material = world.assets != null ? world.assets.wear : null;
+            }
 
             var area = SaveSystem.HasSave ? Areas.Get(SaveSystem.Data.area) ?? Areas.Forest : Areas.Forest;
             ui.LoadingAreaId = area.Id;
@@ -1025,12 +1037,13 @@ namespace Shakutori
             }
         }
 
-        /// <summary>選んでいるきせかえの色をしゃくとりむしに反映（にじいろは毎フレーム色が変わる）。</summary>
+        /// <summary>選んでいるきせかえ（いろ・ぼうし・めがね）をしゃくとりむしに反映（にじいろ・レインボーは毎フレーム色が変わる）。</summary>
         void ApplySkin()
         {
             if (_wormRenderer == null) return;
-            var skin = Skins.Get(SaveSystem.Data.skin) ?? Skins.Get("wakaba");
+            var skin = Skins.Worn(WearKind.Color) ?? Skins.Get("wakaba");
             Skins.Apply(_wormRenderer, skin, Time.unscaledTime);
+            if (_wear != null) _wear.Set(Skins.Worn(WearKind.Hat), Skins.Worn(WearKind.Glasses));
         }
 
         /// <summary>

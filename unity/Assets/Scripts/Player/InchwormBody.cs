@@ -31,6 +31,17 @@ namespace Shakutori
         /// <summary>輪の数（テスト用）。</summary>
         public int RingCount => _ringA != null ? _ringA.Length : 0;
 
+        /// <summary>頭のまん中の、体の位置 s（Blender の make_inchworm の HEAD_C）と、せなかの方への高さ。</summary>
+        public const float HeadS = 0.935f, HeadLift = 0.007f;
+        /// <summary>頭のまん中・頭の前・せなかの向き（ぼうしやめがねをのせる。Apply のたびに新しくなる）。</summary>
+        public Vector3 HeadCenter { get; private set; }
+        public Vector3 HeadForward { get; private set; } = Vector3.forward;
+        public Vector3 HeadUp { get; private set; } = Vector3.up;
+        /// <summary>体の大きさ（ぼうしやめがねも、同じだけ大きくする）。</summary>
+        public float Scale => lengthScale;
+        /// <summary>Apply した回数（頭の向きが新しくなったか）。</summary>
+        public int Applied { get; private set; }
+
         public void Init(int samples)
         {
             var mf = GetComponent<MeshFilter>();
@@ -186,6 +197,23 @@ namespace Shakutori
             }
             _mesh.SetVertices(_verts);
             _mesh.SetNormals(_norms);
+            // 頭のまん中と向き（ぼうし・めがね用）
+            {
+                int K = P.Length - 1;
+                float f = HeadS * K;
+                int a = Mathf.Clamp(Mathf.FloorToInt(f), 0, K - 1);
+                float t = f - a;
+                Vector3 tn = Vector3.Lerp(T[a], T[a + 1], t).normalized;
+                Vector3 up = Vector3.Lerp(U[a], U[a + 1], t);
+                up = (up - tn * Vector3.Dot(up, tn)).normalized;
+                if (ShakuPhysics.IsFinite(tn) && ShakuPhysics.IsFinite(up) && tn.sqrMagnitude > 0.5f && up.sqrMagnitude > 0.5f)
+                {
+                    HeadForward = tn;
+                    HeadUp = up;
+                    HeadCenter = Vector3.LerpUnclamped(P[a], P[a + 1], t) + up * (HeadLift * L);
+                }
+                Applied++;
+            }
             var b = new Bounds((min + max) * 0.5f - center, (max - min) + Vector3.one * 0.3f * L);
             _mesh.bounds = b;
         }
