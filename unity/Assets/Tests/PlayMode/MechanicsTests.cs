@@ -110,13 +110,31 @@ namespace Shakutori.Tests
             yield return WaitUntil(() => Worm.SurfaceUp.y > 0.9f && Worm.TailPoint.y - GroundAt(Worm.TailPoint) < 0.3f, 15f, "地面へ下りる");
             yield return Seconds(2f);
             Assert.Greater(Worm.SurfaceUp.y, 0.9f, "平らな地面を歩いている");
-            // 倒したまま、カメラを大きく（120 度）回すと、その向きへ曲がる（面をまたいだときの「まっすぐ」が、いつまでも続かない）
+            // 倒したまま、カメラを大きく（120 度）回すと、その向きへ曲がって歩いていく（面をまたいだときの「まっすぐ」が、いつまでも続かない）。
+            // ・曲がった先には切り株の張り出した根があり、1〜2 秒歩くと登りはじめる（登る間は「まっすぐ」が正しく働き、
+            //   水平な向きは意味をもたない）。なので 4 秒たった時の向きではなく、平らな地面の上で曲がって歩きだしたかを見る
+            // ・「まっすぐ」が続いてしまうときも、前の小山から落ちると（落ちている間は「まっすぐ」がない）4 秒以内に向きが合う。
+            //   また、物をよける一歩で一瞬だけ向きが合うこともある。なので、落ちずに、その向きへ実際に進んだことも確かめる
             Cam.yaw += 120f;
-            yield return Seconds(4f);
-            Vector3 want = -Vector3.ProjectOnPlane(Cam.transform.forward, Vector3.up).normalized;
-            Vector3 heading = Vector3.ProjectOnPlane(Worm.Heading, Vector3.up).normalized;
+            Vector3 want = -(Quaternion.Euler(0f, Cam.yaw, 0f) * Vector3.forward);   // カメラから見て手前
+            Vector3 start = Worm.CenterPosition;
+            bool fell = false;
+            Worm.Fell += () => fell = true;
+            float t = 0f, angle, gone;
+            while (true)
+            {
+                Vector3 heading = Vector3.ProjectOnPlane(Worm.Heading, Vector3.up).normalized;
+                angle = Vector3.Angle(heading, want);
+                gone = Vector3.Dot(Worm.CenterPosition - start, want);
+                if ((angle < 45f && gone > 0.5f && Worm.SurfaceUp.y > 0.9f) || fell || t > 4f) break;
+                yield return null;
+                t += Time.deltaTime;
+            }
             GameInput.VirtualMove = Vector2.zero;
-            Assert.Less(Vector3.Angle(heading, want), 45f, "カメラに合わせて曲がる");
+            Assert.IsFalse(fell, "落ちずに曲がる");
+            Assert.Less(angle, 45f, "カメラに合わせて曲がる");
+            Assert.Greater(gone, 0.5f, "曲がった向きへ歩いていく");
+            Assert.Greater(Worm.SurfaceUp.y, 0.9f, "平らな地面の上で曲がる");
             }
             finally
             {
