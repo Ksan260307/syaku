@@ -17,6 +17,9 @@ namespace Shakutori.Tests
     /// 地面の下へぬける・数がこわれる（NaN）・とじこめは、あってはいけない。
     /// SHAKU_GRID_OUT に書き出し先があれば、エリアを上から見た絵に歩いた跡と止まった所をかいて残す。
     /// </summary>
+    // 時間がかかる（全エリアで 30 分ほど）ので、ふだんのテストでは走らせない。名前を指定したときだけ：
+    //   -testFilter Shakutori.Tests.GridWalkTests（エリアだけなら …GridWalkTests.Forest_GridWalk）
+    [Explicit("網の目に歩くテストは、たのまれたときだけ走らせる")]
     public class GridWalkTests
     {
         // 網の目の間かく（16 ごとの線の、あいだにも 2 本ずつ。縦横それぞれ 3 倍の本数）。
