@@ -278,6 +278,7 @@ namespace Shakutori
             const float step = 0.11f;
             const float lift = 0.05f;
             int guard = 0, slides = 0;
+            Vector3 foldN = Vector3.zero, foldP = new Vector3(9999f, 9999f, 9999f);   // ひとつ前に乗り移った面（うすい葉のふちを回り込むのを見つける）
             while (remaining > 1e-4f && guard++ < 64)
             {
                 float s = Mathf.Min(step, remaining);
@@ -310,9 +311,19 @@ namespace Shakutori
                             return Fail("overhang");
                         }
                         bool facing = Vector3.Dot(wn, d) < -0.2f;
+                        // 地面に落ちた大きな葉の、うすいふちを回り込んで裏へ行こうとした：ふちの先には何もないことにする
+                        // （回り込むと、葉の裏をたどって元の所へもどってしまい、その場で頭をのばしつづける）
+                        if (facing && Vector3.Dot(wn, foldN) < -0.5f && Vector3.Distance(wall.point, foldP) < 0.25f
+                            && wall.collider.GetComponentInParent<BigLeaf>() != null)
+                        {
+                            offEdge = foldN.y >= MaxDescentY;
+                            return Fail("nothing-ahead");
+                        }
                         if (facing && CanEnter(n, wn, true))
                         {
                             if (!Valid(wall.point)) return Fail("wall-invalid");
+                            foldN = n;
+                            foldP = wall.point;
                             Vector3 nd = ShakuMath.ProjectOnPlaneSafe(n, wn, ShakuMath.AnyPerpendicular(wn));
                             remaining -= Mathf.Max(wall.distance, 0.02f);
                             lastCol = wall.collider;

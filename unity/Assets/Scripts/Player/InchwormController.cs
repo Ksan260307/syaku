@@ -1172,6 +1172,12 @@ namespace Shakutori
                             WalkOff(stop, go);
                             return false;
                         }
+                        // 大きな葉っぱのふち（うすくて、反り返っていることもある）で先に何もない・急に下りている：葉からおりる（地面はすぐ下）
+                        if ((why == "nothing-ahead" || why == "cliff") && !gapAhead && headAtEdge && OffBigLeaf(stop, go))
+                        {
+                            WalkOff(stop, go);
+                            return false;
+                        }
                     }
                     if (firstTry && !ok)
                     {
@@ -2126,6 +2132,22 @@ namespace Shakutori
             if (!SurfaceProbe.Raycast(probe, Vector3.down, L * 0.9f + 0.1f, out var below)) return true;
             // がけのふちのすぐ下が急な面（切り株の外側のふくらんだ樹皮など）なら、そこもがけ
             return cliff && below.normal.y < 0.5f;
+        }
+
+        /// <summary>
+        /// 大きな葉っぱ（地面に落ちている葉）の上にいて、ふちの先の下に、水ではない地面や物があるか。
+        /// 葉はうすく、ふちが反り返っていることもあるので、ふちから先へは歩いて行けない。そのときは葉からおりる。
+        /// </summary>
+        bool OffBigLeaf(Vector3 edge, Vector3 forward)
+        {
+            if (!SurfaceProbe.Raycast(_tail.point + _tail.normal * 0.12f, -_tail.normal, 0.32f, out var under)
+                || under.collider.GetComponentInParent<BigLeaf>() == null) return false;
+            Vector3 f = Vector3.ProjectOnPlane(forward, Vector3.up);
+            if (f.sqrMagnitude < 1e-4f) return false;
+            Vector3 probe = edge + f.normalized * 0.35f + Vector3.up * 0.1f;
+            if (!SurfaceProbe.Raycast(probe, Vector3.down, 3f, out var below) || below.normal.y < 0.5f) return false;
+            var area = Areas.Current;
+            return !area.IsUnderwater(below.point + Vector3.up * 0.05f) && area.InPlayArea(below.point);
         }
 
         /// <summary>がけのふちから、前へのり出して落ちる（一瞬のり出してから）。</summary>

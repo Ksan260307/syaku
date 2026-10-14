@@ -97,6 +97,24 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
+        public IEnumerator BigLeaf_CurledRim_StepsOffInsteadOfWrigglingInPlace()
+        {
+            // 草原の西の大きな葉（ふちが反り返っている）：北へ歩くと、ふちで葉の裏へ回り込もうとして、その場で頭をのばしつづけていた
+            Vector2 from = new Vector2(11.0f, 35.3f);
+            Assert.IsTrue(Physics.Raycast(new Vector3(from.x, ForestLayout.Height(from.x, from.y) + 3f, from.y), Vector3.down, out var top, 6f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore));
+            Assert.IsNotNull(top.collider.GetComponentInParent<BigLeaf>(), "大きな葉の上から歩きだす：" + top.collider.name);
+            Worm.Spawn(top.point, Vector3.forward);
+            yield return FaceCamera(Vector3.forward);
+            Vector3 start = Worm.CenterPosition;
+            yield return Hold(Vector2.up, 5f);
+            Vector3 end = Worm.CenterPosition;
+            Assert.Greater(end.z - start.z, 2f, $"葉のふちからおりて、先へ進む（{start} → {end}）");
+            bool onLeaf = Physics.Raycast(end + Vector3.up * 0.5f, Vector3.down, out var under, 1.5f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)
+                          && under.collider.GetComponentInParent<BigLeaf>() != null;
+            Assert.IsFalse(onLeaf, "葉からおりた");
+        }
+
+        [UnityTest]
         public IEnumerator LogTunnel_EchoesFootsteps_AndMossIsSoft()
         {
             var log = ForestLayout.Landmarks.Find(l => l.useCapsule);
