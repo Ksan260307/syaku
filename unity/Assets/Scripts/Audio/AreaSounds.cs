@@ -20,6 +20,7 @@ namespace Shakutori
         Transform _root;
         Loop _canopy;
         Loop _ridge;
+        Loop _surf;
         string _area = "forest";
         float _woodNext;
         readonly System.Random _rng = new System.Random(77);
@@ -73,6 +74,7 @@ namespace Shakutori
             _loops.Clear();
             _canopy = null;
             _ridge = null;
+            _surf = null;
             _woodNext = Time.time + R(15f, 30f);
             if (_area == "forest")
             {
@@ -94,6 +96,12 @@ namespace Shakutori
                 Vector2 sp = MountainLayout.Spring;
                 AddLoop("loop_spring", new Vector3(sp.x, MountainLayout.SpringLevel + 1f, sp.y + MountainLayout.SpringRadius * 0.6f), 2f, 22f, 0.7f);   // 湧き水
                 _ridge = AddLoop("loop_ridge_wind", Vector3.zero, 0f, 0f, 0.4f, global: true);                                                  // 尾根の風（高い所ほど大きい）
+            }
+            else if (_area == "coast")
+            {
+                _surf = AddLoop("loop_surf", Vector3.zero, 0f, 0f, 0.85f, global: true);   // 波打ちぎわ（波打ちぎわに近いほど大きい）
+                foreach (var (c, r) in CoastLayout.Pools)
+                    AddLoop("loop_shallows", new Vector3(c.x, CoastLayout.PoolLevel, c.y), 1.5f, 10f, 0.25f);   // 潮だまりの、ちゃぷちゃぷ
             }
             else if (_area == "hut")
             {
@@ -159,6 +167,13 @@ namespace Shakutori
                     var w = InchwormController.Instance;
                     float high = w != null ? ShakuMath.SmoothStep(6f, 26f, w.CenterPosition.y) : 0f;
                     target *= (0.1f + 0.9f * high) * (0.5f + 0.5f * gust);
+                }
+                if (l == _surf)
+                {
+                    // 波打ちぎわの音：波打ちぎわに近いほど大きい（砂丘のむこうでは、遠くの波だけ）
+                    var w = InchwormController.Instance;
+                    float d = w != null ? Mathf.Abs(CoastLayout.Inland(w.CenterPosition.x, w.CenterPosition.z)) : 40f;
+                    target *= 0.08f + 0.92f * ShakuMath.SmoothStep(34f, 3f, d);
                 }
                 l.src.volume = Mathf.Lerp(l.src.volume, target, k);
             }

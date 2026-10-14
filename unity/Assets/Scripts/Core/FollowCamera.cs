@@ -105,6 +105,16 @@ namespace Shakutori
 
         public void SnapToTarget() => SnapToTarget(true);
 
+        /// <summary>
+        /// うしろから、決めた向き（度）を見るように、すぐにカメラを置く。
+        /// しゃくとりむしを置きなおした直後は、体の向き（Heading）がまだ前のままのことがあるので、向きは自分で決める。
+        /// </summary>
+        public void SnapBehind(float yawDeg)
+        {
+            yaw = yawDeg;
+            SnapToTarget(false);
+        }
+
         void SnapToTarget(bool faceHeading)
         {
             if (target == null) return;

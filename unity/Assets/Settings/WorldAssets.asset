@@ -55,6 +55,46 @@ MonoBehaviour:
     mesh: {fileID: 832611055651994780, guid: b7b27f962fa103c41943c8c052c06dd9, type: 3}
   - name: Clover_B
     mesh: {fileID: -4778820943216205989, guid: 47a3d3bf6438ea046b537f1076e97e52, type: 3}
+  - name: Coast_Burrow
+    mesh: {fileID: 3911780163484827454, guid: 138ac60fe2bf46c43ab3ece8e16eec02, type: 3}
+  - name: Coast_Cape
+    mesh: {fileID: 9103544099607745916, guid: 98b34f93233539d4fbfa8f04a8c26a12, type: 3}
+  - name: Coast_Clam
+    mesh: {fileID: 2639728807695941479, guid: 36c7ec00574e96b49bc48b2096e47010, type: 3}
+  - name: Coast_Conch
+    mesh: {fileID: 6499085244894887412, guid: 1b866b2d46021174ea465e936b8f5fcc, type: 3}
+  - name: Coast_Driftwood
+    mesh: {fileID: 3982416670378040037, guid: bbb613a258594f249b4be6e77a4dd03c, type: 3}
+  - name: Coast_Float
+    mesh: {fileID: 340159694381653154, guid: a96a76140a4acbd47be22a4a20befc15, type: 3}
+  - name: Coast_Grass_A
+    mesh: {fileID: 9087710712307697649, guid: 2512fb439b32f3c41ab6b369f52b0e95, type: 3}
+  - name: Coast_Grass_B
+    mesh: {fileID: -7386963729664898540, guid: 15352daa024808048948d8e35d89431e, type: 3}
+  - name: Coast_Hirugao
+    mesh: {fileID: -1854592801004288592, guid: 0996878d706407e418c0adb4b037c0e2, type: 3}
+  - name: Coast_Islet
+    mesh: {fileID: -6280955141768984197, guid: 276cff9a6b1bc124dbd88b05848dc168, type: 3}
+  - name: Coast_Kelp
+    mesh: {fileID: 1220867461439081869, guid: 270ad4f987c2e3d48945328e8b7faaaa, type: 3}
+  - name: Coast_Lighthouse
+    mesh: {fileID: 7273258210042968715, guid: 32969fb6e329240489d130f9a495d078, type: 3}
+  - name: Coast_Reef_A
+    mesh: {fileID: 6897774333304609666, guid: 76ba267e6cfc99145869095878681737, type: 3}
+  - name: Coast_Reef_B
+    mesh: {fileID: -3409209285549479448, guid: 50b8eeca830c3d845b2da0841e647f0c, type: 3}
+  - name: Coast_Reef_C
+    mesh: {fileID: 8473816746492977558, guid: a409c7e171fce9042afbff90b95fe45b, type: 3}
+  - name: Coast_Sandal
+    mesh: {fileID: 4195347907655027038, guid: f5a31d0d7cc8ba44eada3a73015031d9, type: 3}
+  - name: Coast_Scallop
+    mesh: {fileID: 1484157082851440959, guid: cfbdf7d0ab2d645489fb868b6a97328e, type: 3}
+  - name: Coast_SeaGlass
+    mesh: {fileID: 7516911347176321339, guid: 8da10bdaa62aaed48a0dbc9ca9c0c4f8, type: 3}
+  - name: Coast_Spiral
+    mesh: {fileID: 8140615813155392147, guid: c100dff1e27443d4287e151a2707963f, type: 3}
+  - name: Coast_Wrack
+    mesh: {fileID: 4802433796408967704, guid: 98941c0525eab354ca85c6ce0545ead8, type: 3}
   - name: Crab
     mesh: {fileID: 3077898677918171208, guid: 965d9db93fdb7594188e513eb8d306a4, type: 3}
   - name: Crab_Leg1
@@ -129,6 +169,22 @@ MonoBehaviour:
     mesh: {fileID: -4778640171728460850, guid: acec384fe848ba54aa51fd5d0b966501, type: 3}
   - name: Frog_Limb2U
     mesh: {fileID: -5883960418941743906, guid: ae27e76f33e840b4188893b6184a8dab, type: 3}
+  - name: Funamushi
+    mesh: {fileID: 4439546218427516490, guid: c8a216efd85a59f45a92e22d743edde3, type: 3}
+  - name: Funamushi_Leg1
+    mesh: {fileID: -416264378918014009, guid: 9e05c6217f082f7458feaef1b9460d38, type: 3}
+  - name: Funamushi_Leg2
+    mesh: {fileID: -7460202882792984924, guid: b46130be6d590be45ac2756f2fef4f7b, type: 3}
+  - name: Funamushi_Leg3
+    mesh: {fileID: -2339259529330092567, guid: ad6d3aae4b822704e9bdfb6e829126a9, type: 3}
+  - name: Funamushi_Leg4
+    mesh: {fileID: 7775708439733773226, guid: c2afd1ed18686c04aaa406ea43dc164c, type: 3}
+  - name: Funamushi_Leg5
+    mesh: {fileID: -4150201724427490134, guid: 9622f781e05d82c488fcda6004b90daf, type: 3}
+  - name: Funamushi_Leg6
+    mesh: {fileID: -7801804520176178211, guid: 58a71b56c96325e428429121fe33566b, type: 3}
+  - name: Funamushi_Leg7
+    mesh: {fileID: 6419295772318745594, guid: 38a62b88da9503a4b9fdb47a7076557d, type: 3}
   - name: Gengorou
     mesh: {fileID: -249514128375062826, guid: 1089d032da64f464a8e4a19218c5bdc4, type: 3}
   - name: Gengorou_Leg1
@@ -221,6 +277,10 @@ MonoBehaviour:
     mesh: {fileID: 5219151397807064102, guid: 48dbed6ccec802e49b17a0ba797f5e09, type: 3}
   - name: Higurashi_Leg3
     mesh: {fileID: -7133127067989338866, guid: 2a53ab92259483246af926e8f7e8309e, type: 3}
+  - name: Hitode
+    mesh: {fileID: 7362834066388387171, guid: ccb0e3f214fe5ff45bef405b9198fe5c, type: 3}
+  - name: Hitode_Arm
+    mesh: {fileID: 6643889200251298784, guid: d3af34462c5fff64a81250248047a648, type: 3}
   - name: HollowLog
     mesh: {fileID: 4769565808284150128, guid: d5cab0f74d390b94b93661531ead7a0f, type: 3}
   - name: Horsetail
@@ -329,6 +389,18 @@ MonoBehaviour:
     mesh: {fileID: 5684406655071311006, guid: 91ee11f163bffbe4791732ec9ddd6d45, type: 3}
   - name: Kamikiri_Leg3
     mesh: {fileID: -8219194941444317199, guid: a14a1159cc0f36d4ebb22b72e87f8d3f, type: 3}
+  - name: Kamome_Body
+    mesh: {fileID: 6838486460655062129, guid: eacb2eb1d8d8c2f4eaea1b39902a7e8d, type: 3}
+  - name: Kamome_Body_Limb1F
+    mesh: {fileID: 7238864546730206724, guid: f6af992c44c5acf4a9296fd678a8dfa6, type: 3}
+  - name: Kamome_Body_Limb1L
+    mesh: {fileID: 8556351782101113245, guid: dcd0aaba0d2e9ea41b2fff49a9a5a79e, type: 3}
+  - name: Kamome_Body_Limb1U
+    mesh: {fileID: 4409474726933429529, guid: 616d90c5338de2a409f348dcbdcfd71b, type: 3}
+  - name: Kamome_Wing
+    mesh: {fileID: 1255542108347270075, guid: 07d195a30a60fd642b90b6babdffcbf0, type: 3}
+  - name: Kamome_WingFolded
+    mesh: {fileID: -6148311865120917465, guid: 408a0a6ad6217c144a94098bc27c32fd, type: 3}
   - name: Koumori_Body
     mesh: {fileID: -8248474982827443127, guid: 71e58970a8c6eb743840d9ab5255ded1, type: 3}
   - name: Koumori_Wing
@@ -371,6 +443,10 @@ MonoBehaviour:
     mesh: {fileID: 7639062826793558362, guid: 90dd03bc76ae8e643a07c6136a4542ef, type: 3}
   - name: Maimaikaburi_Leg3
     mesh: {fileID: -6489325596821747430, guid: d375c557a1c51544c9e72ba5f3b37864, type: 3}
+  - name: Manta_Body
+    mesh: {fileID: 3685878384097932223, guid: a9792853de0b2e242ac1850d40c0e06a, type: 3}
+  - name: Manta_Fin
+    mesh: {fileID: -3427693404038492327, guid: 7e8a5e85fad65904496a6c27a1f81bcc, type: 3}
   - name: Mantis
     mesh: {fileID: -5002742827640740714, guid: cebd2517248f41e48b3ecdf7ca638af8, type: 3}
   - name: Mantis_Arm
@@ -655,6 +731,18 @@ MonoBehaviour:
     mesh: {fileID: 546792125584462195, guid: 71863a1242346e24a910bcb5b0dbd470, type: 3}
   - name: ShelfFungus
     mesh: {fileID: -6601528021611610703, guid: 1e480dcbeb02d9541bcad82472a98c10, type: 3}
+  - name: Shiomaneki
+    mesh: {fileID: 7548815807049397469, guid: b04db6a2e7285cd439b31ef42f67248c, type: 3}
+  - name: Shiomaneki_Claw
+    mesh: {fileID: 3586847767878902404, guid: 50aa22bf42982994f8dbe42f56c8d967, type: 3}
+  - name: Shiomaneki_Leg1
+    mesh: {fileID: 2512222692041419229, guid: c5dc3167dafa7de4ab6f8594f3f39854, type: 3}
+  - name: Shiomaneki_Leg2
+    mesh: {fileID: 1897039467641102458, guid: 82ec79d86027ec04891c04431f42f5da, type: 3}
+  - name: Shiomaneki_Leg3
+    mesh: {fileID: 4324907800828235815, guid: d1d716da9ce81994883002e76a818f35, type: 3}
+  - name: Shiomaneki_Leg4
+    mesh: {fileID: -3054696851868400881, guid: d90935e56156c68498aa5a5cbf0e08f7, type: 3}
   - name: Snail
     mesh: {fileID: 2833990666634714160, guid: 2f673947adb625540a5092c2408d0fb1, type: 3}
   - name: Sparrow_Body
@@ -721,6 +809,14 @@ MonoBehaviour:
     mesh: {fileID: -6296972413218348916, guid: cdb6c645970d1e64aaa919afd52acab7, type: 3}
   - name: Twig_B
     mesh: {fileID: -3568724568143279270, guid: 2d1344d139666024eb4b4da5eb5432f2, type: 3}
+  - name: Uni
+    mesh: {fileID: -6909917810625772897, guid: d9b74bd86c9c8984396a49c668800c67, type: 3}
+  - name: Uni_SpineA
+    mesh: {fileID: 8888116307041294202, guid: e3a0012ae11316347b9d9e1b9f11bb2a, type: 3}
+  - name: Uni_SpineB
+    mesh: {fileID: -685719468888961848, guid: 90667dff4bcda9d4e9b1281a24ab9cef, type: 3}
+  - name: Uni_SpineC
+    mesh: {fileID: -4305397249960793426, guid: ca7a04109756a6546994da530120098a, type: 3}
   - name: WaterGrass
     mesh: {fileID: -9072703401649481902, guid: f7cb1ba55bfb41e43bc5821b93af7130, type: 3}
   - name: WaterLily
@@ -761,6 +857,14 @@ MonoBehaviour:
     mesh: {fileID: 2281869185647553734, guid: 85a35a0ab4b9f4642adf7ca69cd31cdc, type: 3}
   - name: Wear_Sunglasses
     mesh: {fileID: -6551794701614749244, guid: 6d21c5f882dc4254c9ef9f8ca9c44a22, type: 3}
+  - name: Yadokari
+    mesh: {fileID: -8443137957222503045, guid: f594f412fa2d7864395ebca498226a92, type: 3}
+  - name: Yadokari_Crab
+    mesh: {fileID: -4389920404130784970, guid: 967636f77608ff5418dc21b5e08e1145, type: 3}
+  - name: Yadokari_Leg1
+    mesh: {fileID: 7940411701313346448, guid: bbf930547c8b0fc4ea111381affdd410, type: 3}
+  - name: Yadokari_Leg2
+    mesh: {fileID: 8516250505547679203, guid: 32451401e5bd852488bf0e4959663192, type: 3}
   - name: Yamori
     mesh: {fileID: 3379804976030079378, guid: 71b58ab6cea1ec148aa8af966b94e84e, type: 3}
   - name: Yamori_Leg1
@@ -790,6 +894,8 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 11a9cadc8d0da404fb1b4ea2c5999c8f, type: 3}
   - name: frog
     texture: {fileID: 2800000, guid: 8fcaf1b260f3bf949a6ee7132e70a1d3, type: 3}
+  - name: funamushi
+    texture: {fileID: 2800000, guid: 5c472f5bdcc6bc44faa1296ace7b4140, type: 3}
   - name: gengorou
     texture: {fileID: 2800000, guid: 9a8df336b305196458ae7332c9152280, type: 3}
   - name: grasshopper
@@ -808,12 +914,16 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 0b83f4e273a444d43951f0c1145f22b5, type: 3}
   - name: higurashi
     texture: {fileID: 2800000, guid: f58e2e5430b41b44eac294d19f58a7e2, type: 3}
+  - name: hitode
+    texture: {fileID: 2800000, guid: 52c878ad597ceca4eb5490dbf6070c69, type: 3}
   - name: kameleon
     texture: {fileID: 2800000, guid: 00487fd5793d4e1438b182c1e122f1c6, type: 3}
   - name: kamemushi
     texture: {fileID: 2800000, guid: c3916bb2bc4c55042a5be808c57409cd, type: 3}
   - name: kamikiri
     texture: {fileID: 2800000, guid: 6d202447e8d59b74e960fd16b08221c8, type: 3}
+  - name: kamome
+    texture: {fileID: 2800000, guid: 3cf1f59475cda614db739df27fea423d, type: 3}
   - name: koumori
     texture: {fileID: 2800000, guid: 99c26dc65f5ca3a4991cf73b27005d84, type: 3}
   - name: kuwagata
@@ -822,6 +932,8 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 6ab90112b8809e243855985771340812, type: 3}
   - name: maimaikaburi
     texture: {fileID: 2800000, guid: cb1095c53df82cd479bf8d14f3f81589, type: 3}
+  - name: manta
+    texture: {fileID: 2800000, guid: f28debfd5eacb654ba493559f69f3cd2, type: 3}
   - name: mantis
     texture: {fileID: 2800000, guid: e7315fd762c90314d880531e8ad377ca, type: 3}
   - name: maruhanabachi
@@ -856,6 +968,8 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: f1f06a4d47074084da33da2f4f8f5f3a, type: 3}
   - name: sanshouuo
     texture: {fileID: 2800000, guid: 51c26a14a3042b04e864ad303356c712, type: 3}
+  - name: shiomaneki
+    texture: {fileID: 2800000, guid: e2fcf789364bd384fa68295befe1d8ee, type: 3}
   - name: snail
     texture: {fileID: 2800000, guid: a76a29a25746df0438034d7ed04e213c, type: 3}
   - name: sparrow
@@ -868,8 +982,12 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 22bb01cfbb059cb42888fe5cd993a7f8, type: 3}
   - name: tsubame
     texture: {fileID: 2800000, guid: bf66305b091627644b350d77b91b1ae6, type: 3}
+  - name: uni
+    texture: {fileID: 2800000, guid: 28a872fee50e5494db1ea4363225b534, type: 3}
   - name: waterstrider
     texture: {fileID: 2800000, guid: 5189426165d8db240afa746472fc8c72, type: 3}
+  - name: yadokari
+    texture: {fileID: 2800000, guid: 6808a57874a59fc48a0dbb55ae5dfd2a, type: 3}
   - name: yamori
     texture: {fileID: 2800000, guid: ffcb31d35a5b4ed469317536c95901b2, type: 3}
   - name: skin_acorn
@@ -948,6 +1066,7 @@ MonoBehaviour:
   river: {fileID: 2100000, guid: d3f01413383aefd4797e1da9528b62d4, type: 2}
   pond: {fileID: 2100000, guid: 068b1c056f5a30746ae35f879032e2a0, type: 2}
   waterfall: {fileID: 2100000, guid: 6c82c146f9459f949bfc4c209d1a22af, type: 2}
+  sea: {fileID: 2100000, guid: 12533f58f7525cc4dbf503f9fa1629c7, type: 2}
   creature: {fileID: 2100000, guid: 2c5ca66a9ba2c0c498313f76aac8ba25, type: 2}
   creatureWing: {fileID: 2100000, guid: d1e537e3dbb188f4e9a54638a7398e9e, type: 2}
   creatureGlow: {fileID: 2100000, guid: 956c42b1a60d6e84daa5718c8579b501, type: 2}

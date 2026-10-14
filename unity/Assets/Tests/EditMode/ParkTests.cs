@@ -32,7 +32,7 @@ namespace Shakutori.Tests
         [Test]
         public void Park_IsTheThirdArea_ConnectedToTheForest()
         {
-            Assert.AreEqual(5, Areas.All.Length);
+            Assert.AreEqual(6, Areas.All.Length);
             Assert.AreSame(Areas.Park, Areas.All[2]);
             Assert.AreSame(Areas.Park, Areas.Get("park"));
             Assert.IsTrue(Areas.Forest.Gates.Any(g => g.targetArea == "park"), "森から公園へのトンネル");
@@ -107,7 +107,7 @@ namespace Shakutori.Tests
             var ids = _gen.Mobs.Select(m => m.species).ToList();
             foreach (var id in new[] { "kamikiri", "kuwagata", "kamemushi", "tokage", "monshiro" })
                 CollectionAssert.Contains(ids, id, $"{id} が公園にいる");
-            Assert.AreEqual(46, SpeciesCatalog.Count, "図鑑は 46 種");
+            Assert.AreEqual(52, SpeciesCatalog.Count, "図鑑は 52 種");
             foreach (var id in new[] { "hato", "mogura", "okera", "hanakamakiri" })
                 CollectionAssert.Contains(ids, id, $"{id} が公園にいる");
             foreach (var id in new[] { "kamikiri", "kuwagata", "kamemushi", "tokage", "monshiro" })

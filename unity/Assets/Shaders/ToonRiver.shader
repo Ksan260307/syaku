@@ -202,7 +202,9 @@ Shader "Shakutori/ToonRiver"
                 if (_Glint > 0.0)
                 {
                     float g = vnoise(i.positionWS.xz * 7.0 + float2(_Time.y * 0.7, -_Time.y * 0.5)) * vnoise(i.positionWS.xz * 11.0 - _Time.y * 0.9);
-                    col += smoothstep(0.55h, 0.8h, g) * _Glint * (0.4h + fres) * light.color * light.shadowAttenuation;
+                    // 遠くでは、きらめきの点が画面の点より小さくなって、全体が白っぽくなるので、うすくする
+                    half nearK = saturate((40.0 - distance(_WorldSpaceCameraPos.xyz, i.positionWS)) / 28.0);
+                    col += smoothstep(0.55h, 0.8h, g) * _Glint * nearK * (0.4h + fres) * light.color * light.shadowAttenuation;
                 }
 
                 // ---- 流れにそった細い筋 ----

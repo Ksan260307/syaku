@@ -70,7 +70,7 @@ namespace Shakutori.Tests
             int toasts = UI.ToastCount;
             UI.ShowMap(true);
             yield return Frames(2);
-            Assert.AreEqual(5, UI.AreaChipCount, "森・川辺・公園・山・山小屋");
+            Assert.AreEqual(6, UI.AreaChipCount, "森・川辺・公園・山・山小屋・海岸");
             Assert.IsFalse(UI.RequestTravel("river"), "まだ行っていないエリアには地図から行けない");
             Assert.IsFalse(UI.RequestTravel("park"), "まだ行っていないエリアには地図から行けない");
             Assert.Greater(UI.ToastCount, toasts);

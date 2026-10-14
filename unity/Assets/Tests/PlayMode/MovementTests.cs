@@ -131,7 +131,8 @@ namespace Shakutori.Tests
         [UnityTest]
         public IEnumerator WaterEdge_IsTestedWithTheHead()
         {
-            Vector2 p = new Vector2(ForestLayout.Pond.x + 7f, ForestLayout.Pond.y + 17f);
+            // 池の北東の岸の坂から（その手前の高い物の上からだと、ときどき横へおりて、岸ぞいに歩いていってしまう）
+            Vector2 p = new Vector2(ForestLayout.Pond.x + 6.3f, ForestLayout.Pond.y + 12.6f);
             Place(p, Vector3.back);
             yield return FaceCamera(Vector3.back);
             GameInput.VirtualMove = Vector2.up;

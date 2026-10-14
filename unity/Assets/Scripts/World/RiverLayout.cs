@@ -27,6 +27,8 @@ namespace Shakutori
         public static readonly Vector2 Spawn = new Vector2(-52f, -11.5f);
         /// <summary>山へ行く木の根のトンネル（滝の上の台地の、東の奥）</summary>
         public static readonly Vector2 MountainGate = new Vector2(30f, 50.4f);
+        /// <summary>海辺へ行く木の根のトンネル（下流の、東の岸）</summary>
+        public static readonly Vector2 CoastGate = new Vector2(22f, -55f);
 
         public static float CenterX(float z) => 7f * Mathf.Sin(z * 0.045f + 0.6f) + 3f * Mathf.Sin(z * 0.11f + 1.3f);
 

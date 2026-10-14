@@ -44,6 +44,7 @@ namespace Shakutori
             "curl", "roll", "retreat", "dead", "spin", "display", "raise", "strike", "call", "puff", "sidehop", "turnhop",
             "carry", "antgreet", "dig", "popup", "sniff", "dive", "surface", "row", "dart", "sideways", "watch", "mimic",
             "climb", "ride", "glow", "hover", "swoop", "zigzag", "walk", "run",
+            "creep", "swim", "leap", "turn",
         };
 
         readonly System.Random _friendRng = new System.Random(4242);
@@ -116,6 +117,10 @@ namespace Shakutori
                 case "zigzag": return m.airborne && Mathf.Abs(m.turnRate) > 150f;
                 case "walk": return !m.airborne && m.moveSpeed > 0.08f;
                 case "run": return !m.airborne && m.speedMul > 1.3f && m.moveSpeed > 0.3f;
+                case "creep": return m.sp.aquatic && m.moveSpeed > 0.012f;                       // ヒトデ・ウニの、ゆっくり歩き
+                case "swim": return m.sp.id == "manta" && !m.leaping;
+                case "leap": return m.leaping;
+                case "turn": return m.sp.id == "manta" && !m.leaping && Mathf.Abs(m.turnRate) > 14f;
                 default: return false;
             }
         }
@@ -150,6 +155,7 @@ namespace Shakutori
                 case "popup": case "sniff": case "surface": m.digDown = false; m.digNext = m.anim + 4f; return true;
                 case "swoop": if (!m.airborne) return false; m.vel.y = -1.6f; return true;
                 case "run": m.speedMul = 1.5f; m.timer = 0.8f; return true;
+                case "leap": if (m.sp.id != "manta" || m.leaping) return false; m.hopNext = m.anim; return true;
                 default: return false;
             }
         }

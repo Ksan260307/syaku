@@ -11,6 +11,7 @@
  - music_mountain.wav  : 66BPM・ト長調の、ひろびろとしたループ曲（角笛のメロディ + ハープ + 高いチェレスタ）
  - ambience_mountain.wav: 高い所の風・遠くのウグイス・ナキウサギ。山の湧き水・尾根の風のループ、ヒグラシ・ナキウサギの声
  - music_hut.wav / ambience_hut.wav: 山小屋の 3 拍子のオルゴールの曲と、しずかな部屋の音。まきストーブ・かけ時計・ハエの羽音のループ、ツバメ・ネズミの声
+ - music_coast.wav / ambience_coast.wav: 海辺の、ゆれる 4 拍子のスチールパンの曲と、遠くの波・海風・カモメ。波打ちぎわのループ、カモメの声
  - エリアの音: 公園の環境音、滝・浅瀬・カエルの合唱・ほら穴のしずく・森の葉ずれ（場所で聞こえるループ）、
    キツツキ・どんぐり・ホコリタケ・ブランコ・シーソー・水飲み場・自転車のベル・魚・金属・砂の音
 """
@@ -1154,6 +1155,122 @@ def make_hut_sounds():
     write("squeak.wav", buf)
 
 
+def steel_pan(freq, dur=1.4):
+    """スチールパン：やわらかい打音に、少しずれた倍音（南の海の音）"""
+    t = t_axis(dur)
+    s = np.sin(2 * np.pi * freq * t) * np.exp(-t * 2.2)
+    s += 0.45 * np.sin(2 * np.pi * freq * 2.0 * t + 0.3) * np.exp(-t * 3.5)
+    s += 0.22 * np.sin(2 * np.pi * freq * 3.02 * t) * np.exp(-t * 6.0)
+    s += 0.1 * np.sin(2 * np.pi * freq * 4.1 * t) * np.exp(-t * 9.0)
+    return s * np.minimum(t / 0.004, 1.0) * 0.5
+
+
+def make_music_coast():
+    """海辺：のんびり、ゆれる 4 拍子（92BPM・イ長調）。スチールパンのメロディ・ウクレレのきざみ・はじくベース・シェイカー"""
+    r = np.random.default_rng(92)
+    bpm = 92
+    beat = 60 / bpm
+    bar = beat * 4
+    prog = ["A", "F#m", "D", "E", "A", "C#m", "D", "E",
+            "F#m", "D", "A", "E", "D", "E", "A", "A"]
+    total = bar * len(prog)
+    buf = np.zeros((int(total * SR), 2))
+    scale = [0, 2, 4, 5, 7, 9, 11]
+    key = 69
+    mel_prev = 76
+    for i, ch in enumerate(prog):
+        root, tones = chord_notes(ch)
+        start = int(i * bar * SR)
+        add(buf, start, pad([midi(48 + t + 12) for t in tones], bar + 1.0), gain=0.16)
+        # ベース：1 拍目と 3 拍目の半分うしろ（ゆれるリズム）
+        add(buf, start, pizz_bass(midi(33 + root), 0.6), gain=0.5)
+        add(buf, start + int(2.5 * beat * SR), pizz_bass(midi(33 + root + 7), 0.5), gain=0.35)
+        # ウクレレ：うら拍に、やさしく和音
+        for b_ in (0.5, 1.5, 2.5, 3.5):
+            for k, tn in enumerate(tones):
+                add(buf, start + int((b_ * beat + 0.01 * k) * SR), ukulele(midi(60 + tn), 0.6), pan=0.3, gain=0.1)
+        # シェイカー：8 分音符
+        for b_ in range(8):
+            add(buf, start + int(b_ * 0.5 * beat * SR), shaker(0.08, 1.0 if b_ % 2 else 0.6), pan=-0.4, gain=0.12)
+        # スチールパンのメロディ（1 小節に 3〜4 音）
+        cands = [key + p + o for p in scale for o in (0, 12) if 69 <= key + p + o <= 88]
+        for b_ in ((0, 1, 1.5, 3) if i % 2 == 0 else (0, 2, 2.5)):
+            note = pick_melody(cands, mel_prev, tones, root, r)
+            mel_prev = note
+            add(buf, start + int(b_ * beat * SR), steel_pan(midi(note), 1.4), pan=-0.15, gain=0.32)
+    buf = circular_reverb(buf, seconds=2.0, mix=0.28)
+    write("music_coast.wav", buf)
+
+
+def surf_wave(total, period, strength=1.0):
+    """よせては返す波：くだける「ざぶん」と、砂の上をもどる「しゃー」（つなぎ目のないループ）"""
+    n = int(total * SR)
+    t = np.arange(n) / SR
+    hiss = shaped_noise(n, 0.8, 300, 9000)
+    roar = shaped_noise(n, 1.6, 60, 2500)
+    buf = np.zeros((n, 2))
+    k = int(round(total / period))
+    for i in range(k):
+        t0 = i * total / k + rng.uniform(-0.3, 0.3)
+        ph = ((t - t0) % total)
+        crash = np.exp(-((ph - 0.8) ** 2) / 0.18) * (ph < 3.0)
+        wash = np.clip((ph - 0.9) / 0.6, 0, 1) * np.exp(-np.clip(ph - 1.5, 0, None) * 0.9) * (ph < 6.0)
+        g = rng.uniform(0.8, 1.1) * strength
+        pan = rng.uniform(-0.3, 0.3)
+        for ch in range(2):
+            side = 1.0 + (pan if ch == 0 else -pan)
+            buf[:, ch] += (roar * crash * 0.9 + hiss * wash * 0.55) * g * side
+    for ch in range(2):
+        buf[:, ch] += shaped_noise(n, 1.8, 40, 1200) * 0.15   # 沖の、ひくいざわめき
+    return buf
+
+
+def gull_call():
+    """カモメの「ミャーオ」：高い声が、ゆれながら下がる（2 回）"""
+    parts = []
+    for k, (f0, f1, dur) in enumerate(((1450, 900, 0.42), (1350, 820, 0.5))):
+        t = t_axis(dur)
+        f = f0 + (f1 - f0) * (t / dur) ** 0.8 + 60 * np.sin(2 * np.pi * 9 * t)
+        ph = 2 * np.pi * np.cumsum(f) / SR
+        env = np.sin(np.pi * np.clip(t / dur, 0, 1)) ** 0.7
+        s = (np.sin(ph) + 0.5 * np.sin(2 * ph) + 0.3 * np.sin(3 * ph) + 0.15 * np.sin(4 * ph)) * env
+        s += shaped_noise(len(t), 0.6, 1500, 6000) * env * 0.08   # かすれ
+        parts.append(s)
+        parts.append(np.zeros(int(0.12 * SR)))
+    call = np.concatenate(parts)
+    return call
+
+
+def make_coast_sounds():
+    global rng
+    rng = np.random.default_rng(5050)   # 海辺の音は、自分の乱数で（ほかの音を作りなおしても、同じ音になる）
+    make_music_coast()
+    # 海辺の空気：遠くの波・海風・遠くのカモメ
+    total = 48.0
+    n = int(total * SR)
+    t = np.arange(n) / SR
+    buf = surf_wave(total, 8.0, 0.45)
+    for ch in range(2):
+        buf[:, ch] += shaped_noise(n, 1.2, 100, 3000) * (0.12 + 0.08 * np.sin(2 * np.pi * t * (2 / total) + ch))   # 海風
+    gulls = np.zeros((n, 2))
+    time = 4.0
+    while time < total - 3.0:
+        g = gull_call()
+        add(gulls, int(time * SR), g, pan=rng.uniform(-0.8, 0.8), gain=rng.uniform(0.04, 0.09))
+        time += rng.uniform(7.0, 14.0)
+    buf += circular_reverb(gulls, seconds=1.8, mix=0.5)
+    write("ambience_coast.wav", buf)
+    # 波打ちぎわ（近くで聞こえる、よせては返す波）
+    write("loop_surf.wav", surf_wave(24.0, 6.0, 1.0))
+    # カモメの声（1 回）
+    call = gull_call()
+    buf = np.zeros((len(call) + int(0.4 * SR), 2))
+    add(buf, 0, call, pan=0.0, gain=0.8, wrap=False)
+    buf = circular_reverb(buf, seconds=0.8, mix=0.3)
+    buf[-int(0.08 * SR):] *= np.linspace(1, 0, int(0.08 * SR))[:, None]
+    write("gull.wav", buf)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     make_sfx()
@@ -1168,3 +1285,4 @@ if __name__ == "__main__":
     make_area_sounds()
     make_mountain_sounds()
     make_hut_sounds()
+    make_coast_sounds()

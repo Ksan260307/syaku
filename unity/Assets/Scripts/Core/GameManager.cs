@@ -141,6 +141,11 @@ namespace Shakutori
             {
                 creatures.Discovered += OnCreature;
                 creatures.Stank += p => fx.Stink(p);   // カメムシのにおい
+                creatures.Splashed += (p, s, loud) =>   // マンタのジャンプの水しぶき
+                {
+                    fx.Splash(p, s, p.y);
+                    if (loud > 0.05f) AudioManager.Instance?.Splash(s * loud);
+                };
                 creatures.DiscoveredAt += (sp, pos) =>
                 {
                     if (pos == Vector3.zero) return;
@@ -774,11 +779,7 @@ namespace Shakutori
         {
             float yaw = Mathf.Atan2(fwd.x, fwd.z) * Mathf.Rad2Deg;
             if (view != null) followCamera.ShowView(yaw, view.pitch, view.distance);
-            else
-            {
-                followCamera.yaw = yaw;
-                followCamera.SnapToTarget();
-            }
+            else followCamera.SnapBehind(yaw);   // 着いた向き（体の向きは、まだ前のエリアのままのことがある）
         }
 
         /// <summary>地図から、見つけた名所へ移動する。</summary>

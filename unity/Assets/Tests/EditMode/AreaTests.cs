@@ -153,8 +153,9 @@ namespace Shakutori.Tests
             Assert.AreSame(Areas.Park, Areas.Get("park"));
             Assert.AreSame(Areas.Mountain, Areas.Get("mountain"));
             Assert.AreSame(Areas.Hut, Areas.Get("hut"));
+            Assert.AreSame(Areas.Coast, Areas.Get("coast"));
             Assert.AreSame(Areas.Forest, Areas.Get("nowhere"), "知らない ID は森（壊れたセーブ対策）");
-            Assert.AreEqual(5, Areas.All.Length);
+            Assert.AreEqual(6, Areas.All.Length);
         }
 
         [Test]
@@ -176,9 +177,10 @@ namespace Shakutori.Tests
             for (int i = 0; i < ranges.Count; i++)
             for (int j = i + 1; j < ranges.Count; j++)
                 Assert.IsTrue(ranges[i].Item2 <= ranges[j].Item1 || ranges[j].Item2 <= ranges[i].Item1);
-            Assert.AreEqual(45 + 30 + 35 + 40 + 30, Areas.TotalDrops);
+            Assert.AreEqual(45 + 30 + 35 + 40 + 30 + 30, Areas.TotalDrops);
             Assert.AreEqual(ForestLayout.Landmarks.Count + RiverLayout.Landmarks.Count + ParkLayout.Landmarks.Count + MountainLayout.Landmarks.Count
-                + HutLayout.Landmarks.Count, Areas.TotalLandmarks);
+                + HutLayout.Landmarks.Count + CoastLayout.Landmarks.Count, Areas.TotalLandmarks);
+            Assert.AreSame(Areas.Coast, Areas.AreaOfDrop(5029));
             Assert.AreSame(Areas.Hut, Areas.AreaOfDrop(4029));
             Assert.AreSame(Areas.Mountain, Areas.AreaOfDrop(3012));
             Assert.AreSame(Areas.Forest, Areas.AreaOfDrop(3));
@@ -255,11 +257,11 @@ namespace Shakutori.Tests
     public class SpeciesCatalogTests
     {
         [Test]
-        public void Catalog_Has46SpeciesAnd6RaresWithTexts()
+        public void Catalog_Has52SpeciesAnd7RaresWithTexts()
         {
-            Assert.AreEqual(46, SpeciesCatalog.Count, "図鑑のコンプリートに必要なのは 46 しゅ");
-            Assert.AreEqual(6, SpeciesCatalog.RareCount);
-            Assert.AreEqual(52, SpeciesCatalog.All.Select(s => s.id).Distinct().Count());
+            Assert.AreEqual(52, SpeciesCatalog.Count, "図鑑のコンプリートに必要なのは 52 しゅ");
+            Assert.AreEqual(7, SpeciesCatalog.RareCount);
+            Assert.AreEqual(59, SpeciesCatalog.All.Select(s => s.id).Distinct().Count());
             foreach (var s in SpeciesCatalog.All)
             {
                 Assert.IsFalse(string.IsNullOrEmpty(s.name), s.id);
@@ -751,10 +753,11 @@ namespace Shakutori.Tests
         [Test]
         public void Gate_LeadsBackToTheForest()
         {
-            Assert.AreEqual(2, _gen.Gates.Count, "森へと、山へ");
+            Assert.AreEqual(3, _gen.Gates.Count, "森へと、山へと、海岸へ");
             var g = _gen.Gates[0];
             Assert.AreEqual("forest", g.def.targetArea);
             Assert.AreEqual("mountain", _gen.Gates[1].def.targetArea, "山へのトンネルは、あとから作る");
+            Assert.AreEqual("coast", _gen.Gates[2].def.targetArea, "海岸へのトンネルも、あとから作る");
             Assert.Greater(Vector3.Dot(g.inward, -new Vector3(g.position.x, 0f, g.position.z).normalized), 0.9f);
             Assert.IsTrue(Physics.Raycast(g.position + Vector3.up * 2f, Vector3.down, out _, 6f, ShakuConst.SurfaceMask), "トンネルの床");
         }
@@ -847,10 +850,11 @@ namespace Shakutori.Tests
             var park = new[] { "kamikiri", "kuwagata", "kamemushi", "tokage", "monshiro", "hato", "okera" };   // 公園のいきもの（ParkTests で確かめる）
             var mountain = new[] { "raichou", "risu", "okojo", "nakiusagi", "sanshouuo", "asagimadara", "maruhanabachi", "oniyanma", "higurashi", "maimaikaburi" };   // 山のいきもの（MountainTests で確かめる）
             var hut = new[] { "yamori", "mukade", "hasamimushi", "hae", "tsubame", "nezumi" };   // 山小屋のいきもの（HutTests で確かめる）
+            var coast = new[] { "yadokari", "shiomaneki", "kamome", "hitode", "uni", "funamushi" };   // 海岸のいきもの（CoastTests で確かめる）
             foreach (var s in SpeciesCatalog.Regular)
-                Assert.IsTrue(forest.Contains(s.id) || river.Contains(s.id) || park.Contains(s.id) || mountain.Contains(s.id) || hut.Contains(s.id), $"{s.id} がどこにもいない");
+                Assert.IsTrue(forest.Contains(s.id) || river.Contains(s.id) || park.Contains(s.id) || mountain.Contains(s.id) || hut.Contains(s.id) || coast.Contains(s.id), $"{s.id} がどこにもいない");
             foreach (var r in SpeciesCatalog.Rares)
-                Assert.IsTrue(forest.Contains(r.rareOf) || park.Contains(r.rareOf), $"{r.id} の元になる {r.rareOf} が森か公園にいる");
+                Assert.IsTrue(forest.Contains(r.rareOf) || park.Contains(r.rareOf) || coast.Contains(r.rareOf), $"{r.id} の元になる {r.rareOf} が森か公園か海岸にいる");
             foreach (var id in new[] { "koumori", "nanafushi", "gengorou", "hanakamakiri", "mogura" })
                 Assert.IsTrue(forest.Contains(id), $"{id} は森にいる");
         }

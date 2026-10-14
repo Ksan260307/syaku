@@ -452,6 +452,28 @@ namespace Shakutori.EditorTools
                 m.SetFloat("_Refraction", 0.025f);
                 m.SetFloat("_SpecStrength", 1.6f);
             });
+            // 海：浅い所はエメラルド、深い所はこい青。波は沖から波打ちぎわへよせ、泡は波がくだける所のすじと、岸ぎわのふちだけ
+            assets.sea = Mat("M_Sea", "Shakutori/ToonSea", m =>
+            {
+                m.SetColor("_ShallowColor", new Color(0.42f, 0.82f, 0.78f, 1f));
+                m.SetColor("_DeepColor", new Color(0.04f, 0.22f, 0.38f, 1f));
+                m.SetVector("_Absorb", new Vector4(1.6f, 0.55f, 0.38f, 0f));
+                m.SetFloat("_Clarity", 1.6f);
+                m.SetColor("_ReflectColor", new Color(0.55f, 0.74f, 0.88f, 1f));
+                // 低い所から見ると、水平に近い映りこみが多い：空の白ではなく、海の青（白く見えない）
+                m.SetColor("_HorizonReflect", new Color(0.2f, 0.42f, 0.58f, 1f));
+                m.SetFloat("_FresnelStrength", 0.5f);
+                m.SetColor("_FoamColor", new Color(0.93f, 0.97f, 0.98f, 1f));
+                m.SetFloat("_FoamDepth", 0.05f);
+                m.SetColor("_CrestColor", new Color(0.62f, 0.9f, 0.9f, 1f));
+                m.SetFloat("_WaveK", 0.5f);
+                m.SetFloat("_WaveSpeed", 1.0f);
+                m.SetFloat("_WaveHeight", 0.07f);
+                m.SetFloat("_RippleStrength", 0.7f);
+                m.SetFloat("_Refraction", 0.02f);
+                m.SetFloat("_SpecStrength", 1.6f);
+                m.SetFloat("_Glint", 1.0f);
+            });
             // 滝：まっ白ではなく、水の色の中に白い筋。滝つぼは白くあわ立つ
             assets.waterfall = Mat("M_Waterfall", "Shakutori/Waterfall", m =>
             {
@@ -720,6 +742,8 @@ namespace Shakutori.EditorTools
             audio.mountainAmbience = Clip("ambience_mountain");
             audio.musicHut = Clip("music_hut");
             audio.hutAmbience = Clip("ambience_hut");
+            audio.musicCoast = Clip("music_coast");
+            audio.coastAmbience = Clip("ambience_coast");
             audio.areaClips = new[]
             {
                 Clip("loop_waterfall"), Clip("loop_shallows"), Clip("loop_frogs"), Clip("loop_cave_drip"), Clip("loop_canopy"),
@@ -727,6 +751,7 @@ namespace Shakutori.EditorTools
                 Clip("fish_jump"), Clip("ting"), Clip("sand_step"), Clip("fall"),
                 Clip("loop_spring"), Clip("loop_ridge_wind"), Clip("higurashi"), Clip("pika"),
                 Clip("loop_stove"), Clip("loop_clock"), Clip("loop_buzz"), Clip("swallow"), Clip("squeak"),
+                Clip("loop_surf"), Clip("gull"),
             };
             var creatures = game.AddComponent<Creatures>();
             creatures.assets = assets;

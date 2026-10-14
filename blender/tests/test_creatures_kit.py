@@ -100,6 +100,18 @@ MAKERS = {
     "Tsubame_Body": lambda: cr.make_bird_body("Tsubame_Body", 7.0, "tsubame"),
     "Tsubame_Wing": lambda: cr.make_bird_wing("Tsubame_Wing", 7.0, "tsubame"),
     "Nezumi": cr.make_nezumi,
+    "Yadokari": cr.make_yadokari,
+    "Yadokari_Crab": cr.make_yadokari_crab,
+    "Shiomaneki": cr.make_shiomaneki,
+    "Shiomaneki_Claw": cr.make_shiomaneki_claw,
+    "Hitode": cr.make_hitode,
+    "Hitode_Arm": cr.make_hitode_arm,
+    "Uni": cr.make_uni,
+    "Funamushi": cr.make_funamushi,
+    "Manta_Body": cr.make_manta,
+    "Manta_Fin": cr.make_manta_fin,
+    "Kamome_Body": lambda: cr.make_bird_body("Kamome_Body", 19.0, "gull"),
+    "Kamome_Wing": lambda: cr.make_bird_wing("Kamome_Wing", 19.0, "gull"),
 }
 
 
@@ -118,10 +130,12 @@ class CreatureKitTests(unittest.TestCase):
             self.assertEqual(len(col.data), len(ob.data.loops), name)
 
     def test_portrait_list_covers_all_species(self):
-        # ふつうの 46 種と、レアの 6 種
+        # ふつうの 52 種と、レアの 7 種
         ids = [c[0] for c in cr.CREATURES]
-        self.assertEqual(len(ids), 52)
-        self.assertEqual(len(set(ids)), 52)
+        self.assertEqual(len(ids), 59)
+        self.assertEqual(len(set(ids)), 59)
+        for need in ("yadokari", "shiomaneki", "kamome", "hitode", "uni", "funamushi", "manta"):
+            self.assertIn(need, ids)
         for need in ("yamori", "mukade", "hasamimushi", "hae", "tsubame", "nezumi"):
             self.assertIn(need, ids)
         for need in ("raichou", "risu", "okojo", "nakiusagi", "sanshouuo", "asagimadara", "maruhanabachi", "oniyanma",
@@ -203,6 +217,32 @@ class CreatureKitTests(unittest.TestCase):
         leg = cr.make_mukade_leg()
         self.assertAlmostEqual(min(v.co.z for v in leg.data.vertices) + cr.MUKADE_HIP.z, 0.0, delta=0.03)
         self.assertGreater(max(v.co.x for v in leg.data.vertices), 0.15)
+
+    def test_coast_creatures_have_real_sizes(self):
+        # 1 単位 = 2.5cm：ヤドカリは殻ごと 2.5cm、ヒトデは 6cm、ウニはとげまで 8cm、フナムシは 4cm（触角まで 5cm）、
+        # カモメはカラスくらい、マンタは子どもでも、むなびれを広げると 40cm より大きい
+        self.assertTrue(0.7 < max(size(cr.make_yadokari())) < 1.4)
+        self.assertTrue(1.8 < size(cr.make_hitode())[0] + 2 * size(cr.make_hitode_arm())[1] < 3.2)
+        uni = size(cr.make_uni())[0]
+        spine = cr.make_uni_spines(0)
+        span = max(v.co.x for v in spine.data.vertices) - min(v.co.x for v in spine.data.vertices)
+        self.assertTrue(1.2 < uni < 1.6 and 2.6 < span < 3.8, (uni, span))
+        self.assertTrue(1.0 < size(cr.make_funamushi())[1] < 2.4)
+        kamome = max(size(cr.make_bird_body("Kamome_Body", 19.0, "gull")))
+        self.assertGreater(kamome, max(size(cr.make_bird_body("Sparrow_Body", 5.5, False))) * 2.5)
+        fin = size(cr.make_manta_fin())[0]
+        self.assertGreater(2 * (fin + cr.MANTA_FIN.x), 14.0, "マンタは、むなびれを広げると大きい")
+
+    def test_coast_walkers_have_leg_rigs(self):
+        for name, n in (("Yadokari", 2), ("Shiomaneki", 4), ("Funamushi", 7)):
+            reset()
+            parts = cr.split_legs(MAKERS[name], name)
+            self.assertEqual(len(cr.RIG[name]), n, f"{name} の右の脚")
+            self.assertGreaterEqual(len(parts) - 1, n)
+        # ヤドカリの頭とはさみは、殻の口から前へ出る（ひっこむときは、口のまん中へちぢむ）
+        crab = cr.make_yadokari_crab()
+        mouth = cr.yadokari_mouth()
+        self.assertGreater(max(v.co.y for v in crab.data.vertices), mouth.y + 0.3, "はさみは、殻の口より前")
 
     def test_okojo_rises_from_its_den(self):
         # オコジョは立ち上がった形（上へ長い）。すみかの石は、まん中に穴があいている

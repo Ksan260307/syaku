@@ -26,6 +26,8 @@ namespace Shakutori
         public event Action<SpeciesDef> Discovered;
         /// <summary>カメムシがにおいを出した（場所）。</summary>
         public event Action<Vector3> Stank;
+        /// <summary>水しぶき（マンタのジャンプ）：場所・勢い・聞こえる大きさ。</summary>
+        public event Action<Vector3, float, float> Splashed;
         /// <summary>見つけたいきものと、その場所（演出用）。</summary>
         public event Action<SpeciesDef, Vector3> DiscoveredAt;
 
@@ -205,6 +207,9 @@ namespace Shakutori
             // ---- 山小屋 ----
             public Vector3[] trail, trailUp;           // ムカデ：頭が通ったあと（体節がたどる。新しい順に輪のようにためる）
             public int trailHead, trailCount;
+            // ---- 海岸 ----
+            public bool leaping;                       // マンタが、海の上へジャンプしている
+            public float leapT;
         }
 
         public struct MobInfo
@@ -623,6 +628,7 @@ namespace Shakutori
                         m.fwd = ShakuMath.ProjectOnPlaneSafe(m.fwd, m.up, Vector3.Cross(m.up, Vector3.up)).normalized;
                     }
                     if (sp.kind == MobKind.Skater) m.pos.y = g.center.y;
+                    else if (sp.id == "manta") StartManta(m);
                     else if (sp.kind != MobKind.Flutter && sp.kind != MobKind.Hover) SnapToSurface(m, 2.5f, 6f);
                     if (sp.id == "mukade") StartTrail(m);
                     m.prevPos = m.pos;
@@ -922,7 +928,7 @@ namespace Shakutori
                     {
                         if (m.flinch < 0.3f && o.sqrMagnitude > 1e-6f) m.flinch = 1f;   // 押されると、びくっとする
                         Vector3 next = m.pos + o;
-                        if (!_area.IsUnderwater(next) && _area.InPlayArea(next))
+                        if ((!_area.IsUnderwater(next) || m.sp.aquatic) && _area.InPlayArea(next))
                         {
                             m.pos = next;
                             SnapToSurface(m, 0.5f, 1.5f, true);
@@ -1073,7 +1079,7 @@ namespace Shakutori
                 var m = _mobs[_gDisturb[k]];
                 if (m.carryingWorm) continue;
                 // 水辺のいきもの（カエル・カニ・カワニナ・アメンボ）は、物音により強くおどろく
-                bool waterside = m.bid == "frog" || m.bid == "crab" || m.bid == "riversnail" || m.bid == "sanshouuo" || m.sp.kind == MobKind.Skater;
+                bool waterside = m.bid == "frog" || m.bid == "crab" || m.bid == "riversnail" || m.bid == "sanshouuo" || m.bid == "yadokari" || m.sp.kind == MobKind.Skater;
                 float r = radius * (waterside ? 1.5f : 1f);
                 if ((m.pos - p).sqrMagnitude > r * r) continue;
                 DisturbOne(m);
@@ -1110,7 +1116,7 @@ namespace Shakutori
                     break;
                 default:
                     if (m.bid == "pillbug") m.curled = Mathf.Max(m.curled, 3f);
-                    else if (m.bid == "snail" || m.bid == "riversnail")
+                    else if (m.bid == "snail" || m.bid == "riversnail" || m.bid == "yadokari")
                     {
                         // 殻にひっこんだら、その場で止まる（画面の外で動きを間引いているいきものも、すぐに）
                         if (m.retreat <= 0f) m.flinch = 1f;
@@ -1118,6 +1124,12 @@ namespace Shakutori
                         m.curSpeed = 0f;
                     }
                     else if (m.bid == "ladybug") m.deadUntil = m.anim + 3f;   // てんとうむしは死んだふり
+                    else if (m.sp.id == "shiomaneki" && !m.digDown)
+                    {
+                        // シオマネキ：巣穴にさっともぐる
+                        m.digDown = true;
+                        m.digNext = m.anim + R(4f, 7f);
+                    }
                     else if (m.bid == "kamemushi")
                     {
                         // カメムシ：くさいにおいを出して（しばらくは出さない）、さっとはなれる
@@ -1263,6 +1275,7 @@ namespace Shakutori
         {
             Vector3 p = m.pos + dir * dist;
             if (!_area.InPlayArea(p)) return false;
+            if (m.sp.aquatic) return OnWater(p);   // 潮だまりのヒトデ・ウニは、水の中だけを歩く
             if (_area.IsUnderwater(new Vector3(p.x, _area.Height(p.x, p.z), p.z)) && !OnLandAbove(p)) return false;
             float s = Mathf.Max(1f, m.scale);
             if (NoCeiling(m))
@@ -1462,13 +1475,19 @@ namespace Shakutori
                 case "hato": return r < 0.3f ? ActSpecial : r < 0.5f ? ActStretch : r < 0.75f ? ActGroom : ActLook;
                 case "ladybug": return r < 0.7f ? ActGroom : 0;
                 case "beetle": case "kuwagata": return r < 0.5f ? ActSpecial : ActShake;
-                case "crab": return r < 0.6f ? ActGroom : 0;
+                case "crab":
+                    if (m.sp.id == "shiomaneki") return r < 0.5f ? ActSpecial : r < 0.75f ? ActGroom : 0;   // シオマネキ：大きなはさみをふる
+                    return r < 0.6f ? ActGroom : 0;
+                case "yadokari": return r < 0.5f ? ActGroom : 0;    // ヤドカリ：はさみで口もとをつつく
+                case "hitode": return r < 0.45f ? ActSpecial : 0;   // ヒトデ：腕を持ち上げる
+                case "uni": return r < 0.55f ? ActSpecial : 0;      // ウニ：とげをゆらす
                 case "waterstrider": return r < 0.6f ? ActSpecial : 0;
                 case "dragonfly": return m.perched && r < 0.7f ? ActSpecial : 0;
                 case "tokage":
                     if (Rodent(m)) return r < 0.5f ? ActGroom : r < 0.8f ? ActLook : 0;   // リス・ネズミ：前足で顔を洗う・立ち上がって見まわす
                     if (m.sp.id == "yamori") return r < 0.45f ? ActGroom : r < 0.7f ? ActLook : 0;   // ヤモリ：舌で目をなめる・首をかしげる
                     if (m.sp.id == "kameleon") return r < 0.6f ? ActSpecial : 0;                   // カメレオン：前足を上げたまま、ゆらゆら迷う
+                    if (m.sp.id == "funamushi") return r < 0.5f ? ActGroom : 0;                    // フナムシ：触角の手入れ
                     return m.sp.id == "tokage" && r < 0.5f ? ActSpecial : 0;
                 case "nakiusagi": return r < 0.35f ? ActLook : r < 0.65f ? ActGroom : 0;   // ナキウサギ：耳をたてて見まわす・顔をこする
                 case "mukade": return r < 0.5f ? ActStretch : 0;                            // ムカデ：触角をのばして、あたりをさぐる
@@ -1499,6 +1518,9 @@ namespace Shakutori
                         case "waterstrider": return 0.8f;
                         case "hato": return 2f;
                         case "dragonfly": return 2.5f;
+                        case "crab": return 2.6f;     // シオマネキは、何回もはさみをふる
+                        case "hitode": return 3f;
+                        case "uni": return 2.2f;
                         default: return 1.2f;
                     }
                 default: return 1f;
@@ -1562,6 +1584,9 @@ namespace Shakutori
                 case "ladybug": return 140f;
                 case "otoshibumi": return 90f;
                 case "sanshouuo": return 50f;
+                case "yadokari": return 90f;
+                case "hitode": return 12f;
+                case "uni": return 10f;
                 default: return 120f;
             }
         }
@@ -1576,6 +1601,8 @@ namespace Shakutori
                 case "tokage": return 9f;   // トカゲは、すぐに走りだし、ぴたりと止まる
                 case "crab": return 4f;
                 case "sanshouuo": return 0.6f;
+                case "yadokari": return 1.2f;
+                case "hitode": case "uni": return 0.1f;
                 default: return 1.5f;
             }
         }
@@ -1594,7 +1621,14 @@ namespace Shakutori
                 return;
             }
             if (id == "pillbug" && UpdatePillbugCurl(m, dt)) return;
-            if ((id == "snail" || id == "riversnail") && UpdateSnailRetreat(m, dt)) return;
+            if ((id == "snail" || id == "riversnail" || id == "yadokari") && UpdateSnailRetreat(m, dt)) return;
+            if (m.sp.id == "shiomaneki" && UpdateFiddler(m, dt, near, index)) return;
+            if (id == "uni" || id == "hitode")
+            {
+                // ウニは、とげをしゃくとりむしへ向ける。ヒトデは、腕を少し持ち上げる
+                bool close = (_head - m.pos).sqrMagnitude < 2.2f * 2.2f && !m.carryingWorm;
+                m.display = Mathf.MoveTowards(m.display, close ? 1f : 0f, dt * (close ? 2f : 0.6f));
+            }
             if (id == "ladybug")
             {
                 // てんとうむし：すぐそばに来られると、脚をちぢめて死んだふり
@@ -1726,6 +1760,7 @@ namespace Shakutori
             if (id == "riversnail" && _area.WaterLevelAt(m.pos.x, m.pos.z) > -100f && m.pos.y - _area.WaterLevelAt(m.pos.x, m.pos.z) < 0.1f) wantSpeed *= 1.3f;
             // カブトムシ：一歩ずつ、のっしのっし
             if (id == "beetle" || id == "kuwagata") wantSpeed *= (0.6f + 0.4f * Mathf.Abs(Mathf.Sin(m.gait))) * (1f - m.display);
+            if (id == "yadokari") wantSpeed *= m.emerge;   // 殻から出きるまでは動かない
             // カメレオン：一歩ごとに、ためらうように止まりながら、ゆっくり歩く
             if (m.sp.id == "kameleon") wantSpeed *= 0.25f + 0.75f * Mathf.Max(0f, Mathf.Sin(m.anim * 1.6f + m.phase));
             // オトシブミ：少し歩いては止まって、葉をたしかめるようにうなずく
@@ -1868,7 +1903,8 @@ namespace Shakutori
         /// <summary>かたつむり：しゃくとりむしがすぐそばに来ると、殻にひっこんでしばらく動かない。</summary>
         bool UpdateSnailRetreat(Mob m, float dt)
         {
-            if (!m.carryingWorm && (_head - m.pos).sqrMagnitude < 0.7f * 0.7f * m.scale * m.scale)
+            float reach = m.bid == "yadokari" ? 1.25f : 0.7f;   // ヤドカリは、少しはなれていても、さっとひっこむ
+            if (!m.carryingWorm && (_head - m.pos).sqrMagnitude < reach * reach * m.scale * m.scale)
             {
                 if (m.retreat <= 0f) m.flinch = 1f;   // ひっこむ瞬間に、ぶるっとふるえる
                 m.retreat = Mathf.Max(m.retreat, 3f);
@@ -1916,6 +1952,49 @@ namespace Shakutori
                 return true;
             }
             return false;
+        }
+
+        /// <summary>
+        /// シオマネキ：巣穴のまわりを、横歩きでうろうろ。しゃくとりむしが近づくと、横歩きで巣穴へかけもどって、もぐる。
+        /// しゃくとりむしがはなれて、しばらくたつと、そっと出てくる。
+        /// </summary>
+        bool UpdateFiddler(Mob m, float dt, bool near, int index)
+        {
+            float dw = Vector3.ProjectOnPlane(_head - m.pos, Vector3.up).magnitude;
+            float flee = m.sp.fleeRadius * FearScale(m);
+            if (m.digDown)
+            {
+                m.dig = Mathf.MoveTowards(m.dig, 1f, dt * 2.5f);
+                m.curSpeed = 0f;
+                if (m.dig >= 1f && m.anim > m.digNext && dw > flee * 1.3f) m.digDown = false;
+                return true;
+            }
+            if (m.dig > 0f)
+            {
+                m.dig = Mathf.MoveTowards(m.dig, 0f, dt * 0.7f);   // そっと出てくる
+                m.curSpeed = 0f;
+                if (dw < flee && !m.carryingWorm)
+                {
+                    m.digDown = true;
+                    m.digNext = m.anim + R(4f, 7f);
+                }
+                return true;
+            }
+            if (dw >= flee || m.carryingWorm) return false;
+            Vector3 toHole = Vector3.ProjectOnPlane(m.home - m.pos, Vector3.up);
+            if (toHole.magnitude < 0.35f)
+            {
+                m.digDown = true;
+                m.digNext = m.anim + R(4f, 7f);
+                m.curSpeed = 0f;
+                return true;
+            }
+            // 体の横を巣穴へ向けて、横歩きでかけもどる
+            m.wantFwd = Vector3.Cross(toHole.normalized, Vector3.up);
+            m.sideSign = 1f;
+            m.display = Mathf.MoveTowards(m.display, 1f, dt * 3f);
+            Walk(m, dt, m.sp.speed * 2.4f, 360f, 6f, near, index, false);
+            return true;
         }
 
         /// <summary>見えている（もぐっていない）か。もぐっている間は、見つけられない。</summary>
@@ -2803,6 +2882,11 @@ namespace Shakutori
         // ------------------------------------------------------------------
         void UpdateBird(Mob m, float dt)
         {
+            if (m.sp.id == "manta")
+            {
+                UpdateManta(m, dt);
+                return;
+            }
             bool crow = m.bid == "crow";
             m.turnHop = Mathf.MoveTowards(m.turnHop, 0f, dt * 5f);
             if (m.airborne)
@@ -3037,7 +3121,71 @@ namespace Shakutori
             if (cam == null || !Application.isPlaying) return;
             float dist = Vector3.Distance(cam.transform.position, m.pos);
             float vol = Mathf.Clamp01(1f - dist / 70f) * loud;
-            if (vol > 0.05f) AudioManager.Instance?.Caw(vol);
+            if (vol <= 0.05f) return;
+            if (m.sp.id == "kamome") AudioManager.Instance?.Gull(vol);   // カモメは「ミャーオ」
+            else AudioManager.Instance?.Caw(vol);
+        }
+
+        // ------------------------------------------------------------------
+        // マンタ
+        // ------------------------------------------------------------------
+        /// <summary>マンタの、泳ぐ高さ（せなかが水面から少し出る）。</summary>
+        public const float MantaSwimY = -0.6f;
+
+        static Vector3 MantaPoint(float a)
+        {
+            Vector2 c = CoastLayout.MantaBay, r = CoastLayout.MantaLoop;
+            return new Vector3(c.x + Mathf.Cos(a) * r.x, MantaSwimY, c.y + Mathf.Sin(a) * r.y);
+        }
+
+        void StartManta(Mob m)
+        {
+            m.t = R(0f, Mathf.PI * 2f);
+            m.pos = MantaPoint(m.t);
+            Vector3 ahead = MantaPoint(m.t + 0.05f) - m.pos;
+            m.fwd = new Vector3(ahead.x, 0f, ahead.z).normalized;
+            m.airborne = true;
+            m.hopNext = R(6f, 12f);
+        }
+
+        /// <summary>
+        /// マンタ（カモメのかわりに、まれにいる）：沖の海を、大きな輪をえがいてゆったり泳ぐ（せなかとむなびれの先が、水面から出る）。
+        /// ときどき、海の上へ、ざぶんとジャンプする。浜には上がらない。
+        /// </summary>
+        void UpdateManta(Mob m, float dt)
+        {
+            Vector2 r = CoastLayout.MantaLoop;
+            m.airborne = true;
+            m.t += dt * m.sp.speed * m.pace / ((r.x + r.y) * 0.5f);
+            Vector3 p = MantaPoint(m.t);
+            p.y += 0.12f * Mathf.Sin(m.anim * 0.7f + m.phase);
+            Camera cam = Camera.main;
+            float loud = cam != null && Application.isPlaying ? Mathf.Clamp01(1f - Vector3.Distance(cam.transform.position, m.pos) / 80f) : 0f;
+            if (!m.leaping && m.anim > m.hopNext)
+            {
+                m.leaping = true;
+                m.leapT = 0f;
+                Splashed?.Invoke(new Vector3(p.x, CoastLayout.SeaLevel, p.z), 0.8f, loud);
+            }
+            if (m.leaping)
+            {
+                // 水から飛び出して、弧をえがいて、また海へ
+                m.leapT += dt / 2.4f;
+                float k = Mathf.Clamp01(m.leapT);
+                p.y = MantaSwimY + 4.6f * Mathf.Sin(Mathf.PI * k);
+                if (k >= 1f)
+                {
+                    m.leaping = false;
+                    m.hopNext = m.anim + R(14f, 26f);
+                    Splashed?.Invoke(new Vector3(p.x, CoastLayout.SeaLevel, p.z), 1f, loud);
+                }
+            }
+            Vector3 d = p - m.pos;
+            m.vel = d / Mathf.Max(dt, 1e-4f);
+            m.pos = p;
+            Vector3 hd = new Vector3(d.x, 0f, d.z);
+            if (hd.sqrMagnitude > 1e-6f) m.fwd = ShakuPhysics.DampDir(m.fwd, hd, 4f, dt);
+            m.up = Vector3.up;
         }
 
         // ------------------------------------------------------------------
@@ -3608,7 +3756,7 @@ namespace Shakutori
                 if (downhill.sqrMagnitude > 0.0025f) rot = Quaternion.AngleAxis(-Vector3.Dot(downhill, right) * 6f, f) * rot;
                 if (m.retreat <= 0f && m.emerge < 1f) scale3.y *= Mathf.Lerp(0.9f, 1f, m.emerge);   // ゆっくり出てくる
             }
-            if (m.bid == "crab" && m.moveSpeed < 0.02f) rot = Quaternion.AngleAxis(Mathf.Sin(m.anim * 3f) * 3f, right) * rot;   // はさみを上げ下げ
+            if (m.bid == "crab" && m.moveSpeed < 0.02f && m.sp.id != "shiomaneki") rot = Quaternion.AngleAxis(Mathf.Sin(m.anim * 3f) * 3f, right) * rot;   // はさみを上げ下げ
             // 跳ぶ前にかがむ・着地でつぶれる
             if (m.crouch > 0f)
             {
@@ -3626,7 +3774,8 @@ namespace Shakutori
                 scale3 *= 1f + 0.03f * Mathf.Sin(m.anim * 3f + m.phase);
             if ((m.bid == "snail" || m.bid == "riversnail") && m.moveSpeed > 0.01f)
                 scale3.z *= 1f + 0.06f * Mathf.Sin(m.anim * 2.4f);   // のびちぢみ（速さの脈と同じリズム）
-            if (m.retreat > 0f) scale3.y *= 0.9f;                    // 殻にひっこむ
+            if (m.retreat > 0f && m.bid != "yadokari") scale3.y *= 0.9f;   // 殻にひっこむ（ヤドカリの殻は、そのまま）
+            if (m.bid == "yadokari" && m.moveSpeed > 0.02f) rot = Quaternion.AngleAxis(Mathf.Sin(m.gait * 2f) * 4f, f) * rot;   // せおった殻が、ゆらゆら
             if (m.sp.kind == MobKind.Hopper && m.airborne) scale3.z *= 1.12f;   // 跳ぶときは体がのびる
             if (m.sp.kind == MobKind.Stalker) rot *= Quaternion.Euler(0f, 0f, Mathf.Sin(m.anim * 1.1f + m.phase) * 4f * (1f + Wind.Gust(Time.time)) * (1f - m.raise));   // 葉のようにゆらゆら（風が強いと大きく）
             // カブトムシは角を持ち上げ、オトシブミはうなずく
@@ -3725,6 +3874,7 @@ namespace Shakutori
                 bob = origin - m.drawPos;
             }
             else if (m.bid == "okera") bob -= m.up * (0.45f * m.dig * s);   // 土にもぐる
+            else if (m.sp.id == "shiomaneki") bob -= m.up * (0.75f * m.dig * s);   // 巣穴にもぐる
             MotionPose(m, f, right, s, moving, walker, ref rot, ref scale3, ref bob);
             Vector3 drawAt = m.drawPos + bob;
             ball = m.bid == "pillbug" && m.curled > 0.35f && m.curlK > 0.5f;   // 体をちぢめてから、くるんと玉になる
@@ -4499,7 +4649,7 @@ namespace Shakutori
                 if (m.trail != null && d2 < 70f * 70f) DrawMukade(m, s, moving);
 
                 // 脚（遠くは省く）
-                if (m.sp.rig != null && d2 < 60f * 60f && !ball)
+                if (m.sp.rig != null && d2 < 60f * 60f && !ball && !(m.bid == "yadokari" && m.emerge < 0.6f))
                 {
                     var legs = CreatureRig.Legs(m.sp.rig);
                     // 速く歩くほど、脚を大きくふる
@@ -4613,18 +4763,19 @@ namespace Shakutori
                     }
                 }
 
-                // レアのいきもののまわりには、光のつぶがくるくる回る（気づきやすいように）
+                // レアのいきもののまわりには、光のつぶがくるくる回る（気づきやすいように。大きなマンタは、大きな輪で）
                 if (m.sp.IsRare)
                 {
                     Mesh spark = M("Firefly_Glow");
+                    float ring = m.sp.id == "manta" ? 6f : 1f;
                     for (int k = 0; k < 3; k++)
                     {
-                        float a = m.anim * 2.2f + k * 2.094f;
-                        Vector3 o = new Vector3(Mathf.Cos(a) * 0.35f, 0.25f + 0.08f * Mathf.Sin(a * 1.7f), Mathf.Sin(a) * 0.35f);
-                        Add(spark, assets.creatureGlow, Matrix4x4.TRS(m.drawPos + o * m.scale, Quaternion.identity, Vector3.one * 0.45f));
+                        float a = m.anim * 2.2f / Mathf.Sqrt(ring) + k * 2.094f;
+                        Vector3 o = new Vector3(Mathf.Cos(a) * 0.35f, 0.25f + 0.08f * Mathf.Sin(a * 1.7f), Mathf.Sin(a) * 0.35f) * ring;
+                        Add(spark, assets.creatureGlow, Matrix4x4.TRS(m.drawPos + o * m.scale, Quaternion.identity, Vector3.one * (0.45f * Mathf.Sqrt(ring))));
                     }
                 }
-                bool farParts = d2 > 75f * 75f;
+                bool farParts = d2 > (m.sp.id == "manta" ? 110f : 75f) * (m.sp.id == "manta" ? 110f : 75f);   // 大きなマンタは、遠くからもむなびれが見える
                 for (int pi = 0; pi < m.sp.parts.Length && !farParts; pi++)
                 {
                     var part = m.sp.parts[pi];
@@ -4642,6 +4793,7 @@ namespace Shakutori
                         Add(pm, assets.creature, body);
                         continue;
                     }
+                    if (DrawCoastPart(m, part, pm, body, moving)) continue;
                     if (part.onlyCarrying)
                     {
                         // 運んでいる食べものは、歩くたびに少しゆれる

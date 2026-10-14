@@ -54,7 +54,7 @@ namespace Shakutori
         /// <summary>花の頭の位置（チョウやトンボがとまる）。</summary>
         public readonly List<Vector3> FlowerPoints = new List<Vector3>();
         static readonly HashSet<string> FlowerMeshes = new HashSet<string> { "Daisy", "Bellflower", "Dandelion", "DandelionPuff", "Strawberry", "Iris",
-            "Tulip_Red", "Tulip_Yellow", "Tulip_Pink", "Park_WhiteClover", "Mtn_Komakusa", "Mtn_Chinguruma", "Mtn_Kurumayuri" };
+            "Tulip_Red", "Tulip_Yellow", "Tulip_Pink", "Park_WhiteClover", "Mtn_Komakusa", "Mtn_Chinguruma", "Mtn_Kurumayuri", "Coast_Hirugao" };
         public readonly List<MobGroup> Mobs = new List<MobGroup>();
         public readonly List<GateInstance> Gates = new List<GateInstance>();
         public Vector3 SpawnPoint { get; private set; }
@@ -127,6 +127,7 @@ namespace Shakutori
             bool park = area.Id == "park";
             bool mountain = area.Id == "mountain";
             bool hut = area.Id == "hut";
+            bool coast = area.Id == "coast";
             _rng = new Random(forest ? seed : seed + 7919 * area.Id.Length);
             AreaLayout.LateGround = false;   // しずくを置くまでは、もとの地面の形で作る
             SurfaceProbe.ClearCache();
@@ -142,12 +143,12 @@ namespace Shakutori
             yield return null;
             BuildTerrain();
             BuildViewLanes();
-            progress?.Invoke(0.25f, forest ? "大きな木を育てています" : park ? "遊具を組み立てています" : mountain ? "山を高く積み上げています" : hut ? "丸太のかべを積んでいます" : "川の水を流しています");
+            progress?.Invoke(0.25f, forest ? "大きな木を育てています" : park ? "遊具を組み立てています" : mountain ? "山を高く積み上げています" : hut ? "丸太のかべを積んでいます" : coast ? "砂浜をならしています" : "川の水を流しています");
             yield return null;
             if (!hut) BuildOuterRing();   // 小屋の中は、かべの外が見えない
-            if (forest) BuildForestSolids(); else if (park) BuildParkSolids(); else if (mountain) BuildMountainSolids(); else if (hut) BuildHutSolids(); else BuildRiverSolids();
+            if (forest) BuildForestSolids(); else if (park) BuildParkSolids(); else if (mountain) BuildMountainSolids(); else if (hut) BuildHutSolids(); else if (coast) BuildCoastSolids(); else BuildRiverSolids();
             BuildGates();
-            progress?.Invoke(0.4f, forest ? "キノコと岩を並べています" : park ? "砂場をならしています" : mountain ? "岩と雪をのせています" : hut ? "家具を運びこんでいます" : "川石を並べています");
+            progress?.Invoke(0.4f, forest ? "キノコと岩を並べています" : park ? "砂場をならしています" : mountain ? "岩と雪をのせています" : hut ? "家具を運びこんでいます" : coast ? "貝がらをひろっています" : "川石を並べています");
             yield return null;
             if (forest)
             {
@@ -166,6 +167,11 @@ namespace Shakutori
                 BuildMountainWater();
             }
             else if (hut) ScatterHutProps();   // 小屋の中には、水はない
+            else if (coast)
+            {
+                ScatterCoastProps();
+                BuildCoastWater();
+            }
             else
             {
                 ScatterRiverProps();
@@ -174,13 +180,14 @@ namespace Shakutori
             Physics.SyncTransforms();
             progress?.Invoke(0.6f, "草花を植えています");
             yield return null;
-            if (forest) BuildForestFoliage(); else if (park) BuildParkFoliage(); else if (mountain) BuildMountainFoliage(); else if (!hut) BuildRiverFoliage();
+            if (forest) BuildForestFoliage(); else if (park) BuildParkFoliage(); else if (mountain) BuildMountainFoliage(); else if (coast) BuildCoastFoliage(); else if (!hut) BuildRiverFoliage();
             progress?.Invoke(0.8f, "しずくを置いています");
             yield return null;
             if (forest) PlaceForestDewdrops();
             else if (park) PlaceParkDewdrops();
             else if (mountain) PlaceMountainDewdrops();
             else if (hut) PlaceHutDewdrops();
+            else if (coast) PlaceCoastDewdrops();
             else PlaceRiverDewdrops();
             // しずくを置いたあとに、泉や水たまりの土手を盛る（しずくの場所は変えない）
             AreaLayout.LateGround = true;
@@ -206,6 +213,11 @@ namespace Shakutori
             else if (hut)
             {
                 PlaceHutCreatures();        // 窓からの日ざしは、部屋を作るときに
+                FixCreaturesForPlay();
+            }
+            else if (coast)
+            {
+                PlaceCoastCreatures();      // 海辺はひらけた空なので、木もれ日の光の筋はない
                 FixCreaturesForPlay();
             }
             else
@@ -272,6 +284,7 @@ namespace Shakutori
             ClearPark();
             ClearMountain();
             ClearHut();
+            ClearCoast();
             _specialCap = Vector3.zero;
             DewdropPoints.Clear();
             FlowerPoints.Clear();
@@ -391,8 +404,9 @@ namespace Shakutori
             var pos = new List<Vector3>();
             var col = new List<Color>();
             var tris = new List<int>();
-            ColorUtility.TryParseHtmlString(Area.Id == "mountain" ? "#5d7550" : "#3f6a35", out var deep);
-            ColorUtility.TryParseHtmlString(Area.Id == "mountain" ? "#7c7a78" : "#5c4a38", out var soil);   // 山は、岩の灰色
+            bool coast = Area.Id == "coast";
+            ColorUtility.TryParseHtmlString(Area.Id == "mountain" ? "#5d7550" : coast ? "#8aa35c" : "#3f6a35", out var deep);
+            ColorUtility.TryParseHtmlString(Area.Id == "mountain" ? "#7c7a78" : coast ? "#d6c08f" : "#5c4a38", out var soil);   // 山は、岩の灰色。海辺は、砂と草
             for (int r = 0; r < radii.Length; r++)
             {
                 for (int s = 0; s < seg; s++)
@@ -401,11 +415,14 @@ namespace Shakutori
                     float x = Mathf.Cos(a) * radii[r];
                     float z = Mathf.Sin(a) * radii[r];
                     float h = Area.Height(x, z) - 0.35f;
-                    if (radii[r] > 96f) h = Area.Height(x / radii[r] * 96f, z / radii[r] * 96f) + (radii[r] - 96f) * 0.12f
+                    if (radii[r] > 96f) h = coast ? CoastLayout.OuterHeight(x, z)
+                                          : Area.Height(x / radii[r] * 96f, z / radii[r] * 96f) + (radii[r] - 96f) * 0.12f
                                             + (Mathf.PerlinNoise(x * 0.02f, z * 0.02f) - 0.5f) * 6f;
                     pos.Add(new Vector3(x, h, z));
                     float k = Mathf.PerlinNoise(x * 0.03f + 5f, z * 0.03f);
-                    col.Add(Color.Lerp(deep, soil, k * 0.6f) * Mathf.Lerp(0.85f, 0.6f, r / (float)radii.Length));
+                    Color c = Color.Lerp(deep, soil, k * 0.6f) * Mathf.Lerp(0.85f, 0.6f, r / (float)radii.Length);
+                    if (coast && CoastLayout.Inland(x, z) < 6f) c = Color.Lerp(soil, soil * 0.8f, k);   // 海の底と、浜の砂
+                    col.Add(c);
                 }
             }
             for (int r = 0; r < radii.Length - 1; r++)
@@ -690,7 +707,8 @@ namespace Shakutori
                 var mpb = new MaterialPropertyBlock();
                 mpb.SetColor("_TintColor", g.targetArea == "river" ? new Color(0.55f, 0.95f, 1.4f, 0.55f)
                     : g.targetArea == "park" ? new Color(1.4f, 1.15f, 0.55f, 0.55f)
-                    : g.targetArea == "mountain" ? new Color(1.2f, 1.15f, 1.5f, 0.55f) : new Color(0.75f, 1.3f, 0.6f, 0.55f));
+                    : g.targetArea == "mountain" ? new Color(1.2f, 1.15f, 1.5f, 0.55f)
+                    : g.targetArea == "coast" ? new Color(0.6f, 1.2f, 1.45f, 0.55f) : new Color(0.75f, 1.3f, 0.6f, 0.55f));
                 mr.SetPropertyBlock(mpb);
                 Gates.Add(new GateInstance { def = g, position = ground, inward = inward });
             }
@@ -796,7 +814,7 @@ namespace Shakutori
         public const float ViewLaneRadius = 2.4f;
 
         // 花は見せたいものなので、よけない
-        static readonly string[] TallFoliage = { "Grass_", "Fern_", "Clover_", "Sprout", "Reed", "Iris", "Horsetail" };
+        static readonly string[] TallFoliage = { "Grass_", "Fern_", "Clover_", "Sprout", "Reed", "Iris", "Horsetail", "Coast_Grass" };
 
         static bool IsTallFoliage(string meshName)
         {
@@ -1125,6 +1143,7 @@ namespace Shakutori
             else if (area.Id == "park") DrawParkMap(px, size);
             else if (area.Id == "mountain") DrawMountainMap(px, size, generated);
             else if (area.Id == "hut") DrawHutMap(px, size);
+            else if (area.Id == "coast") DrawCoastMap(px, size, generated);
             else DrawRiverMap(px, size, generated);
             tex.SetPixels32(px);
             tex.Apply(false, false);   // 読めるままにしておく（地図の絵を確かめられるように。256×256 なので小さい）

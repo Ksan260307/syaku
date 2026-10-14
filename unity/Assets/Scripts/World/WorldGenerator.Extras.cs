@@ -43,6 +43,7 @@ namespace Shakutori
             else if (Area.Id == "park") BuildParkExtras();
             else if (Area.Id == "mountain") BuildMountainExtras();
             else if (Area.Id == "hut") { }   // 小屋の中は、家具と小物で足りている
+            else if (Area.Id == "coast") { }   // 海辺は、組み立てたときの物で足りている
             else BuildRiverExtras();
             Physics.SyncTransforms();
         }

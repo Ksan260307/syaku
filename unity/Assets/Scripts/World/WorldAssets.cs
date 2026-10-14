@@ -42,6 +42,7 @@ namespace Shakutori
         public Material river;         // 流れる川
         public Material pond;          // 森の水たまり（川と同じ水の描き方で、流れのない水）
         public Material waterfall;     // 滝
+        public Material sea;           // 海（沖から波打ちぎわへ、波がよせる）
         public Material creature;      // いきもの
         public Material creatureWing;  // 羽（両面）
         public Material creatureGlow;  // ホタルの光

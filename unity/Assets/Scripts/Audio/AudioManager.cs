@@ -33,6 +33,8 @@ namespace Shakutori
         public AudioClip mountainAmbience;   // 山の環境音（高い所の風・遠くの鳥）
         public AudioClip musicHut;           // 山小屋の BGM
         public AudioClip hutAmbience;        // 山小屋の中の空気（しずかな部屋・かべごしの風）
+        public AudioClip musicCoast;         // 海辺の BGM
+        public AudioClip coastAmbience;      // 海辺の環境音（遠くの波・海風・カモメ）
         /// <summary>エリアの音（場所で聞こえるループと、できごとの音）。名前でさがす。</summary>
         public AudioClip[] areaClips = new AudioClip[0];
 
@@ -52,7 +54,7 @@ namespace Shakutori
         float _waterNear = 1f;
         float _duckUntil;
 
-        AudioSource _music, _amb, _amb2, _amb3, _amb4, _amb5;
+        AudioSource _music, _amb, _amb2, _amb3, _amb4, _amb5, _amb6;
         AudioSource _musicOut;        // 前のエリアの曲（ゆっくり小さくなって止まる）
         string _area = "forest";
         float _ambMix;   // 0 = 森, 1 = 川
@@ -60,6 +62,7 @@ namespace Shakutori
         float _parkMix, _parkMixTarget;   // 1 = 公園
         float _mtnMix, _mtnMixTarget;     // 1 = 山
         float _hutMix, _hutMixTarget;     // 1 = 山小屋
+        float _coastMix, _coastMixTarget; // 1 = 海辺
         AudioSource[] _sfx;
         int _next;
         float _musicTarget, _ambTarget;
@@ -96,6 +99,10 @@ namespace Shakutori
             _amb5.loop = true;
             _amb5.playOnAwake = false;
             _amb5.volume = 0f;
+            _amb6 = gameObject.AddComponent<AudioSource>();
+            _amb6.loop = true;
+            _amb6.playOnAwake = false;
+            _amb6.volume = 0f;
             _sfx = new AudioSource[8];
             for (int i = 0; i < _sfx.Length; i++)
             {
@@ -116,12 +123,14 @@ namespace Shakutori
             if (parkAmbience != null) { _amb3.clip = parkAmbience; _amb3.Play(); }
             if (mountainAmbience != null) { _amb4.clip = mountainAmbience; _amb4.Play(); }
             if (hutAmbience != null) { _amb5.clip = hutAmbience; _amb5.Play(); }
+            if (coastAmbience != null) { _amb6.clip = coastAmbience; _amb6.Play(); }
         }
 
         /// <summary>エリアの BGM（なければ森の曲）。</summary>
         public AudioClip MusicFor(string areaId)
         {
-            AudioClip c = areaId == "river" ? musicRiver : areaId == "park" ? musicPark : areaId == "mountain" ? musicMountain : areaId == "hut" ? musicHut : null;
+            AudioClip c = areaId == "river" ? musicRiver : areaId == "park" ? musicPark : areaId == "mountain" ? musicMountain : areaId == "hut" ? musicHut
+                        : areaId == "coast" ? musicCoast : null;
             return c != null ? c : music;
         }
 
@@ -136,6 +145,7 @@ namespace Shakutori
             _parkMixTarget = areaId == "park" ? 1f : 0f;
             _mtnMixTarget = areaId == "mountain" ? 1f : 0f;
             _hutMixTarget = areaId == "hut" ? 1f : 0f;
+            _coastMixTarget = areaId == "coast" ? 1f : 0f;
             var clip = MusicFor(areaId);
             if (_music == null || clip == null || _music.clip == clip) return;
             if (!_started)
@@ -168,7 +178,9 @@ namespace Shakutori
             _parkMix = Mathf.MoveTowards(_parkMix, _parkMixTarget, Time.unscaledDeltaTime * 0.5f);
             _mtnMix = Mathf.MoveTowards(_mtnMix, _mtnMixTarget, Time.unscaledDeltaTime * 0.5f);
             _hutMix = Mathf.MoveTowards(_hutMix, _hutMixTarget, Time.unscaledDeltaTime * 0.5f);
-            _amb.volume = Mathf.Lerp(_amb.volume, _started ? _ambTarget * (1f - _ambMix) * (1f - _parkMix) * (1f - _mtnMix) * (1f - _hutMix) : 0f, k);
+            _coastMix = Mathf.MoveTowards(_coastMix, _coastMixTarget, Time.unscaledDeltaTime * 0.5f);
+            _amb.volume = Mathf.Lerp(_amb.volume, _started ? _ambTarget * (1f - _ambMix) * (1f - _parkMix) * (1f - _mtnMix) * (1f - _hutMix) * (1f - _coastMix) : 0f, k);
+            _amb6.volume = Mathf.Lerp(_amb6.volume, _started ? _ambTarget * 1.05f * _coastMix : 0f, k);
             _amb5.volume = Mathf.Lerp(_amb5.volume, _started ? _ambTarget * 0.9f * _hutMix : 0f, k);
             _amb4.volume = Mathf.Lerp(_amb4.volume, _started ? _ambTarget * 1.05f * _mtnMix : 0f, k);
             _amb3.volume = Mathf.Lerp(_amb3.volume, _started ? _ambTarget * 1.05f * _parkMix : 0f, k);
@@ -196,6 +208,14 @@ namespace Shakutori
             if (n.Contains("JungleGym") || n.Contains("Slide") || n.Contains("Swing") || n.Contains("Lamp") || n.Contains("SeesawBase")) return Surface.Metal;
             if (n.Contains("SandMound") || n.Contains("SandCastle")) return Surface.Sand;
             if (n.Contains("Rock") || n.Contains("Stone") || n.Contains("Pebble") || n.Contains("Marble")) return Surface.Stone;
+            // 海辺：磯の岩・貝がら・ガラスは、かたい音。ビーチサンダルは、やわらかい。流木は木。砂浜は、しゃりしゃり
+            if (n.StartsWith("Coast_"))
+            {
+                if (n.Contains("Sandal") || n.Contains("Wrack") || n.Contains("Kelp")) return Surface.Moss;
+                if (n.Contains("Driftwood")) return Surface.Wood;
+                return Surface.Stone;
+            }
+            if (n.StartsWith("Terrain_") && Areas.Current == Areas.Coast) return Surface.Sand;
             if (n.Contains("Fungus") || n.Contains("PaperPlane")) return Surface.Leaf;
             if (n.Contains("Park_Block")) return Surface.Wood;
             // 山小屋：床板と家具は木（ストーブ・やかん・バケツは金属、ラグやマット・ベッドは、やわらかい）
@@ -293,6 +313,8 @@ namespace Shakutori
         public void Travel() => Play(travel, 0.8f);
         public void Unlock() => Play(unlock, 0.8f);
         public void Caw(float volume) => Play(caw, volume, Random.Range(0.92f, 1.05f));
+        /// <summary>カモメの「ミャーオ」。</summary>
+        public void Gull(float volume) => Play(AreaClip("gull"), volume, Random.Range(0.94f, 1.08f));
         public void Fall() => Play(fall, 0.55f, Random.Range(0.95f, 1.08f));
         public void Splash() => Play(splash, 0.85f);
         public void Rare()

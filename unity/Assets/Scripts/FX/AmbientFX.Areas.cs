@@ -228,6 +228,7 @@ namespace Shakutori
             else if (_area.Id == "river") RiverFX(world);
             else if (_area.Id == "mountain") MountainFX(world);
             else if (_area.Id == "hut") HutFX(world);
+            else if (_area.Id == "coast") { }
             else ParkFX(world);
         }
 
@@ -598,6 +599,17 @@ namespace Shakutori
                         Vector3 side = Vector3.Cross(Vector3.up, back) * FR(-1f, 1f);
                         EmitAt(_wake, new Vector3(p.x, RiverLayout.WaterLevel(p.z) + 0.03f, p.z) + back * 2.4f + side, back * 0.3f + side * 0.4f, 1, 0.05f);
                     }
+                }
+            }
+            else if (_area.Id == "coast")
+            {
+                // 海の水面が、日の光で、ときどききらっと光る（しゃくとりむしの見ている海の上）
+                if (t > _rockGlintNext && worm != null)
+                {
+                    _rockGlintNext = t + FR(0.25f, 0.7f);
+                    Vector3 c = worm.CenterPosition;
+                    Vector2 p = new Vector2(c.x, c.z) + Random.insideUnitCircle * 26f;
+                    if (CoastLayout.Height(p.x, p.y) < CoastLayout.SeaLevel - 0.3f) Glint(new Vector3(p.x, CoastLayout.SeaLevel + 0.08f, p.y));
                 }
             }
             else if (_area.Id == "mountain")

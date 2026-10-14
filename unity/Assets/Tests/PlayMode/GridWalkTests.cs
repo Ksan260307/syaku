@@ -86,6 +86,7 @@ namespace Shakutori.Tests
         [UnityTest, Timeout(14400000)] public IEnumerator Park_GridWalk() => Walk("park");
         [UnityTest, Timeout(14400000)] public IEnumerator Mountain_GridWalk() => Walk("mountain");
         [UnityTest, Timeout(14400000)] public IEnumerator Hut_GridWalk() => Walk("hut");
+        [UnityTest, Timeout(14400000)] public IEnumerator Coast_GridWalk() => Walk("coast");
 
         IEnumerator Walk(string areaId)
         {

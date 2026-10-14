@@ -187,6 +187,9 @@ namespace Shakutori
                 arrival = new ArrivalView(RiverLayout.Gate + new Vector2(12f, 2f), new Vector3(RiverLayout.CenterX(-2f), RiverLayout.LowerStart + 0.5f, -2f), 6f, 4.4f, clear: 34f) },   // 川辺に出ると、小道の先に川が見える
             new GateDef { position = RiverLayout.MountainGate, targetArea = "mountain", label = "山へ", late = true,
                 arrival = new ArrivalView(RiverLayout.MountainGate + new Vector2(-4f, -6f), new Vector3(RiverLayout.CenterX(RiverLayout.FallZ + 4f), RiverLayout.UpperLevel + 0.5f, RiverLayout.FallZ + 4f), 6f, 4.4f) },   // 山からもどると、滝の上の流れが見える
+            // 海辺へ（川の下流の、東の岸。あとから足した。しずくの場所は変えない）。
+            // 海からもどると、トンネルの前で川の方を向く（景色の通り道を作ると、岸の流木の置き方が変わるので、作らない）
+            new GateDef { position = RiverLayout.CoastGate, targetArea = "coast", label = "海辺へ", late = true },
         };
 
         public override string Id => "river";
@@ -317,6 +320,39 @@ namespace Shakutori
         public override bool InPlayArea(Vector3 p) => HutLayout.InPlayArea(p);
     }
 
+    public class CoastArea : AreaLayout
+    {
+        readonly List<GateDef> _gates = new List<GateDef>
+        {
+            // 海辺に出ると、砂丘のむこうに海が見える
+            new GateDef { position = CoastLayout.Gate, targetArea = "river", label = "川辺へ",
+                arrival = new ArrivalView(CoastLayout.Spawn, new Vector3(0f, 0f, -40f), 6f, 4.6f, clear: 40f) },
+        };
+
+        public override string Id => "coast";
+        public override string DisplayName => "海岸";
+        public override string Subtitle => "潮風の海辺";
+        public override string Tagline => "波の音と、潮のかおりの、砂浜と磯";
+        public override string DropName => "海のしずく";
+        public override float PlayRadius => CoastLayout.PlayRadius;
+        public override float TerrainHalf => CoastLayout.TerrainHalf;
+        public override float MaxClimbHeight => CoastLayout.MaxClimbHeight;
+        public override int DropIdOffset => 5000;
+        public override int DropCount => 30;
+        public override Vector2 Spawn => CoastLayout.Spawn;
+        public override Vector3 SpawnForward => Vector3.back;
+        public override List<LandmarkDef> Landmarks => CoastLayout.Landmarks;
+        public override List<GateDef> Gates => _gates;
+        public override float Height(float x, float z) => CoastLayout.Height(x, z);
+        public override Vector3 Normal(float x, float z) => CoastLayout.Normal(x, z);
+        public override Color GroundColor(float x, float z, float h, Vector3 n) => CoastLayout.GroundColor(x, z, h, n);
+        public override float TrailMask(float x, float z) => CoastLayout.TrailMask(x, z);
+        public override List<Vector2[]> TrailLines => CoastLayout.Trails;
+        public override float WaterLevelAt(float x, float z) => CoastLayout.WaterLevelAt(x, z);
+        public override bool IsUnderwater(Vector3 p) => CoastLayout.IsUnderwater(p);
+        public override bool InPlayArea(Vector3 p) => CoastLayout.InPlayArea(p);
+    }
+
     /// <summary>エリアの一覧と、いまいるエリア。</summary>
     public static class Areas
     {
@@ -325,7 +361,8 @@ namespace Shakutori
         public static readonly ParkArea Park = new ParkArea();
         public static readonly MountainArea Mountain = new MountainArea();
         public static readonly HutArea Hut = new HutArea();
-        public static readonly AreaLayout[] All = { Forest, River, Park, Mountain, Hut };
+        public static readonly CoastArea Coast = new CoastArea();
+        public static readonly AreaLayout[] All = { Forest, River, Park, Mountain, Hut, Coast };
 
         public static AreaLayout Current { get; set; } = Forest;
 

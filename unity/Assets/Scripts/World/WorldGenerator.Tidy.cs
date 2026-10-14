@@ -17,7 +17,7 @@ namespace Shakutori
         public readonly List<(string why, string mesh, Vector3 pos)> TidyLog = new List<(string, string, Vector3)>();
 
         /// <summary>水ぎわ・水の中に生える草花（水の中にあってもよい）。</summary>
-        static readonly HashSet<string> WaterPlants = new HashSet<string> { "Reed", "Cattail", "Horsetail", "Iris", "WaterGrass", "WaterLily", "SasaBune" };
+        static readonly HashSet<string> WaterPlants = new HashSet<string> { "Reed", "Cattail", "Horsetail", "Iris", "WaterGrass", "WaterLily", "SasaBune", "Coast_Kelp" };
         /// <summary>水面にうく物（葉の上・水の上にのせてある。下へは置きなおさない）。</summary>
         static readonly HashSet<string> Floaters = new HashSet<string> { "WaterGrass", "WaterLily", "SasaBune" };
 
