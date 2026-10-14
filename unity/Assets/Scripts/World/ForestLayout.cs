@@ -20,6 +20,13 @@ namespace Shakutori
         public Color mapColor;
         /// <summary>移動してきたときに見せる景色（立つ場所・見る先・カメラ）。なければ、名所のそばのかわいた陸地に着く。</summary>
         public ArrivalView view;
+        /// <summary>
+        /// 地図や図鑑から、この名所へ移動したときに始める所（なければ view）。
+        /// view はエリアを作るときの景色の通り道にも使う（しずくの場所に関わる）ので、移動の始まりだけを直すときは、こちらで決める。
+        /// </summary>
+        public ArrivalView travel;
+        /// <summary>移動したときに始める景色。</summary>
+        public ArrivalView TravelView => travel ?? view;
     }
 
     /// <summary>
@@ -131,6 +138,12 @@ namespace Shakutori
             _landmarks[6].view = new ArrivalView(Stump, new Vector3(4f, 6f, 6f), 6f, 5.2f, onTop: true);                      // 切り株の頂から、森を見わたす
             _landmarks[7].view = new ArrivalView(new Vector2(-27f, -23f), new Vector3(-38f, 1f, -33f), 16f, 4.2f);            // どんぐり広場
             _landmarks[8].view = new ArrivalView(LogCenter - LogDir * 31f, new Vector3(LogCenter.x, 3f, LogCenter.y), 4f, 4f); // 丸太のトンネルの入り口
+            // 地図や図鑑から移動したときに始める所（カメラが地面や物にぶつからず、名所がよく見える、少し上からの景色）
+            _landmarks[0].travel = new ArrivalView(new Vector2(1.5f, -5f), new Vector3(0f, 0f, 40f), 7f, 4.6f);                 // 苔原から、奥の大樹の方
+            _landmarks[1].travel = new ArrivalView(new Vector2(10f, 30f), new Vector3(2f, 0f, 76f), 4f, 6.5f);                 // 山脈のような大樹の根の下
+            _landmarks[3].travel = new ArrivalView(new Vector2(30f, 3f), new Vector3(46f, 0f, 8f), 6f, 4.6f);                  // 赤キノコの林
+            _landmarks[5].travel = new ArrivalView(new Vector2(6.5f, -30.5f), new Vector3(3f, 0f, -48f), 16f, 4.6f);           // 水たまりを見下ろす
+            _landmarks[8].travel = new ArrivalView(LogCenter - LogDir * 27f, new Vector3(LogCenter.x, 0f, LogCenter.y), 6f, 4.4f);   // 丸太のトンネルの口の前（うしろの大きな葉にカメラが当たらない所）
 
             var lm = _landmarks[8];
             Vector2 a = LogCenter - LogDir * (LogLength * 0.42f);

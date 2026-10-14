@@ -117,7 +117,9 @@ namespace Shakutori.Tests
             {
                 Vector3 p = _gen.ArrivalPoint(lm, out var f);
                 Assert.IsTrue(HutLayout.InRoom(p.x, p.z), lm.name + "：部屋の中に着く");
-                Assert.Less(p.y, 1f, lm.name + "：床に着く");
+                // 高い所の名所（テーブル・ベッド・棚・窓台・はり・巣）へ移動したときは、その上に着く。ほかは床
+                if (lm.TravelView != null && lm.TravelView.onTop) Assert.GreaterOrEqual(p.y, lm.minHeightAboveGround, lm.name + "：高い所の上に着く");
+                else Assert.Less(p.y, 1f, lm.name + "：床に着く");
                 if (lm.minHeightAboveGround <= 0f) continue;
                 // 高い名所：名所の中に、その高さより上の面がある
                 bool found = false;

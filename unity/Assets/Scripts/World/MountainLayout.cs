@@ -302,6 +302,14 @@ namespace Shakutori
                     _landmarks[6].view = new ArrivalView(Hut + new Vector2(-8f, -9f), new Vector3(Hut.x, 20f, Hut.y), -2f, 5f);
                     _landmarks[7].view = new ArrivalView(RockArch + new Vector2(-6f, 2f), new Vector3(RockArch.x, 12f, RockArch.y), 2f, 4.4f);
                     _landmarks[8].view = new ArrivalView(Summit + new Vector2(0f, -3f), new Vector3(0f, 6f, -40f), 14f, 5f, clear: 40f);   // 山頂から、ふもとを見下ろす
+                    // 地図や図鑑から移動したときに始める所（カメラが地面や物にぶつからず、名所がよく見える、少し上からの景色）
+                    _landmarks[0].travel = new ArrivalView(new Vector2(-3f, -50f), new Vector3(Summit.x, 0f, Summit.y), 4f, 5f);      // ふもとの小道から、山頂の方（道しるべの柱をよける）
+                    _landmarks[1].travel = new ArrivalView(new Vector2(10.5f, -20.4f), new Vector3(0f, 0f, -50f), 18f, 5f, onTop: true);   // 岩の階段のいちばん上から、ふもとを見下ろす
+                    _landmarks[3].travel = new ArrivalView(Meadow + new Vector2(4f, 7f), new Vector3(Meadow.x - 4f, 0f, Meadow.y - 6f), 16f, 4.6f);   // 上から、花畑を見下ろす
+                    _landmarks[4].travel = new ArrivalView(Pine + new Vector2(2f, -6f), new Vector3(0f, 0f, -50f), 10f, 5f, onTop: true);   // 松の葉のかたまりの上から、ふもとを見わたす
+                    _landmarks[5].travel = new ArrivalView(SnowPatch + new Vector2(8f, -6f), new Vector3(SnowPatch.x, 0f, SnowPatch.y), 14f, 4.6f);
+                    _landmarks[7].travel = new ArrivalView(RockArch + new Vector2(-16f, 1f), new Vector3(RockArch.x, 0f, RockArch.y), 8f, 6f);   // 岩のトンネルを、西からながめる
+                    _landmarks[8].travel = new ArrivalView(Summit + new Vector2(0f, -1f), new Vector3(0f, 0f, -40f), 18f, 5f);          // 山頂のてっぺんから、ふもとを見下ろす
                 }
                 return _landmarks;
             }

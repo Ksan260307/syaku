@@ -243,6 +243,11 @@ namespace Shakutori
                     _landmarks[7].view = new ArrivalView(new Vector2(-33f, 24f), new Vector3(-48f, 14f, 34f), -3f, 5.2f);                            // クヌギを見上げる
                     _landmarks[8].view = new ArrivalView(new Vector2(31f, -42f), new Vector3(19f, 2f, -42f), 4f, 4.4f);                                // 土管の入り口
                     _landmarks[9].view = new ArrivalView(new Vector2(18f, 15f), new Vector3(9f, 1f, 5f), 22f, 4.6f);                                 // 水たまりごしに、水飲み場
+                    // 地図や図鑑から移動したときに始める所（カメラが地面や物にぶつからず、名所がよく見える、少し上からの景色）
+                    _landmarks[2].travel = new ArrivalView(new Vector2(20f, 12f), new Vector3(20f, 0f, 28f), 7f, 4.6f);
+                    _landmarks[4].travel = new ArrivalView(new Vector2(-14f, -11f), new Vector3(-28f, 0f, -18f), 6f, 4.8f);
+                    _landmarks[6].travel = new ArrivalView(new Vector2(-4f, 29f), new Vector3(-4f, 0f, 40f), 3f, 8f);                    // れんがの花だんと、ならんださくチューリップ
+                    _landmarks[7].travel = new ArrivalView(new Vector2(-40f, 22f), new Vector3(Kunugi.x, 0f, Kunugi.y), 5f, 6.5f);         // さくの前の、クヌギの太い幹
                 }
                 return _landmarks;
             }

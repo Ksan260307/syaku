@@ -502,9 +502,10 @@ namespace Shakutori
             AddMob("funamushi", CG(new Vector2(45f, -12f)), 3, 3f);
             // カモメ：流木・岩場・波打ちぎわに下りる
             {
+                // 下りる所は、波打ちぎわの景色（名所へ移動したときに見る所）の前をよける
                 var g = AddMob("kamome", CG(CoastLayout.Driftwood + new Vector2(-4f, -6f)), 1, 3f);
                 Vector2[] spots = { CoastLayout.Driftwood + new Vector2(-4f, -6f), CoastLayout.Reef + new Vector2(-6f, -2f),
-                    new Vector2(-18f, CoastLayout.ShoreZ(-18f) + 3f), new Vector2(10f, CoastLayout.ShoreZ(10f) + 2.5f), CoastLayout.DuneFlowers + new Vector2(8f, -8f) };
+                    new Vector2(-18f, CoastLayout.ShoreZ(-18f) + 3f), new Vector2(18f, CoastLayout.ShoreZ(18f) + 2.5f), CoastLayout.DuneFlowers + new Vector2(8f, -8f) };
                 foreach (var p in spots) g.path.Add(CG(p));
             }
             // 砂丘のチョウとバッタ

@@ -297,6 +297,10 @@ namespace Shakutori
                     _landmarks[6].view = new ArrivalView(Reef + new Vector2(-10f, 3f), new Vector3(Reef.x, 3f, Reef.y), 4f, 4.6f);
                     _landmarks[7].view = new ArrivalView(Cape, new Vector3(Lighthouse.x, 14f, Lighthouse.y), 4f, 4.4f, onTop: true, clear: 0f);   // 岬の上から、沖の灯台
                     _landmarks[8].view = new ArrivalView(Mudflat + new Vector2(9f, 5f), new Vector3(Mudflat.x, 0f, Mudflat.y), 16f, 4.4f);
+                    // 地図や図鑑から移動したときに始める所（カメラが地面や物にぶつからず、名所がよく見える、少し上からの景色）
+                    _landmarks[3].travel = new ArrivalView(Conch + new Vector2(2f, 13f), new Vector3(Conch.x, 0f, Conch.y), 10f, 5f);
+                    _landmarks[5].travel = new ArrivalView(TidePool + new Vector2(-3.8f, 4f), new Vector3(TidePool.x, 0f, TidePool.y), 30f, 4.6f);   // 潮だまりのふちから、のぞきこむ
+                    _landmarks[6].travel = new ArrivalView(new Vector2(30.5f, 10.5f), new Vector3(Reef.x, 0f, Reef.y), 8f, 4.6f);
                 }
                 return _landmarks;
             }

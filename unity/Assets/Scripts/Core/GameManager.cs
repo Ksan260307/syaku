@@ -445,14 +445,16 @@ namespace Shakutori
             worm.enabled = false;
             yield return BuildArea(to, (p, t) => ui.SetLoading(p, t));
 
-            to.ArrivalFrom(from.Id, out Vector2 xz, out Vector3 fwd);
+            bool viaGate = to.ArrivalFrom(from.Id, out Vector2 xz, out Vector3 fwd);
             var view = to.ArrivalViewFrom(from.Id);
+            // つながるトンネルのないエリアへ地図から行くときは、入り口の名所の景色から始める
+            if (!viaGate && to.EntryLandmark != null) view = to.EntryLandmark.TravelView;
             Vector3 arrive = world.TopSurface(xz);
             if (target != null)
             {
                 // 図鑑から名所へ：トンネルではなく、その名所の景色から始める
                 arrive = world.ArrivalPoint(target, out fwd);
-                view = target.view;
+                view = target.TravelView;
             }
             else if (view != null && world.ViewPoint(view, out var vp, out var vf)) { arrive = vp; fwd = vf; }
             worm.enabled = true;
@@ -802,7 +804,7 @@ namespace Shakutori
             // 名所のまん中が水の中（滝つぼ・水たまり）でも、そばのかわいた陸地に着く
             Vector3 p = world.ArrivalPoint(lm, out var fwd);
             worm.Spawn(p, fwd);
-            ShowArrivalView(lm.view, fwd);
+            ShowArrivalView(lm.TravelView, fwd);
             yield return new WaitForSecondsRealtime(0.15f);
             ui.Fade(false);
             State = GameState.Playing;

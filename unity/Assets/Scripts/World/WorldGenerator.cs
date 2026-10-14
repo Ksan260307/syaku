@@ -232,6 +232,7 @@ namespace Shakutori
             FillUnderDewRocks();     // しずくをのせた岩などの下にのこるすき間は、石でうめる
             PinLeavesUnderDew();
             TidyPlacements();   // 置き方の仕上げ：つきぬけ・重なり・うき（草花と苔だけ）
+            ClearTravelLanes();   // 名所へ移動したときに見る景色の前の、背の高い草をどける（しずくを置いたあと）
             FixCreaturesForPlay(again: true);   // あとから置いた小物の中に、いきものが入っていないか、もう一度
             BuildMap();
             instanced.Build();
@@ -757,7 +758,13 @@ namespace Shakutori
         /// </summary>
         public Vector3 ArrivalPoint(LandmarkDef lm, out Vector3 forward)
         {
-            if (lm.view != null && ViewPoint(lm.view, out var vp, out forward)) return vp;
+            Vector3 p = FindArrival(lm, out forward);
+            return OffDew(p, ref forward);
+        }
+
+        Vector3 FindArrival(LandmarkDef lm, out Vector3 forward)
+        {
+            if (lm.TravelView != null && ViewPoint(lm.TravelView, out var vp, out forward, keepFacing: true)) return vp;
             Vector2 c = lm.position;
             Vector3 home = new Vector3(-c.x, 0f, -c.y);
             Vector3 centerFwd = home.sqrMagnitude > 0.01f ? home.normalized : Vector3.forward;
@@ -783,11 +790,59 @@ namespace Shakutori
         }
 
         /// <summary>
+        /// しずくの上に着くなら、同じ高さのすぐそば（3 まで）へずらす（着いたとたんに拾ってしまわないように）。
+        /// 切り株やすべり台のてっぺんなら、てっぺんの上のまま。ずらす所がなければ、そのまま。
+        /// </summary>
+        Vector3 OffDew(Vector3 p, ref Vector3 fwd)
+        {
+            if (ClearOfDew(p, fwd)) return p;
+            bool onGround = p.y - Area.Height(p.x, p.z) <= 0.6f;
+            for (float r = 0.75f; r <= 3f; r += 0.75f)
+                for (int k = 0; k < 12; k++)
+                {
+                    float a = k * Mathf.PI * 2f / 12f;
+                    Vector2 xz = new Vector2(p.x, p.z) + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
+                    if (!DryArrival(xz, onGround, out var q)) continue;
+                    if (!onGround && Mathf.Abs(q.y - p.y) > 0.4f) continue;
+                    Vector3 f = fwd;
+                    if (!RoomForBody(q, ref f, onGround, 3) || !ClearOfDew(q, f)) continue;
+                    fwd = f;
+                    return q;
+                }
+            return p;
+        }
+
+        /// <summary>しっぽ・まん中・頭のどれも、しずくから 1.2 より離れているか。</summary>
+        bool ClearOfDew(Vector3 p, Vector3 fwd)
+        {
+            foreach (var d in DewdropPoints)
+                for (int i = 0; i <= 2; i++)
+                    if (Vector3.Distance(d, p + fwd * (ShakuConst.BodyLength * 0.5f * i)) < 1.2f) return false;
+            return true;
+        }
+
+        /// <summary>
         /// 景色を見る場所：決めた場所がかわいた平らな陸地ならそこ、だめならすぐそば（3 まで）。
         /// 向きは見る先の方（体がのらないときだけ、少し回す）。
         /// </summary>
-        public bool ViewPoint(ArrivalView v, out Vector3 p, out Vector3 forward)
+        public bool ViewPoint(ArrivalView v, out Vector3 p, out Vector3 forward, bool keepFacing = false)
         {
+            // 名所へ移動するときは、見る先の方を向いたまま立てる所を先にさがす（大きく向きを変えると、名所が見えない）
+            if (keepFacing)
+                for (float r = 0f; r <= 3f; r += 0.75f)
+                {
+                    int n = r < 0.01f ? 1 : 8;
+                    for (int k = 0; k < n; k++)
+                    {
+                        float a = k * Mathf.PI * 2f / n;
+                        Vector2 xz = v.from + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
+                        if (!DryArrival(xz, !v.onTop, out p)) continue;
+                        Vector3 f = v.Forward;
+                        if (!RoomForBody(p, ref f, !v.onTop, 3)) continue;
+                        forward = f;
+                        return true;
+                    }
+                }
             for (float r = 0f; r <= 3f; r += 0.75f)
             {
                 int n = r < 0.01f ? 1 : 8;
@@ -851,6 +906,33 @@ namespace Shakutori
             return Vector2.Distance(p, a + ab * t) < width + radius;
         }
 
+        /// <summary>
+        /// 名所へ移動したときの景色（travel）の通り道から、背の高い草をどけ、立つ所のまわりの小石をよける。
+        /// しずくを置いたあとに行うので、しずくの場所は変わらない。
+        /// </summary>
+        void ClearTravelLanes()
+        {
+            var lanes = new List<(Vector2 a, Vector2 b)>();
+            foreach (var lm in Area.Landmarks)
+            {
+                if (lm.travel == null) continue;
+                lanes.Add(LaneOf(lm.travel));
+                if (loose != null && !lm.travel.onTop) loose.PushOut(Area.Ground(lm.travel.from.x, lm.travel.from.y), 2.5f, 3f);
+            }
+            if (lanes.Count == 0) return;
+            int removed = instanced.Edit((mesh, mat, m) =>
+            {
+                if (mat != assets.foliage && mat != assets.flowers) return m;
+                if (!IsTallFoliage(mesh.name)) return m;
+                Vector3 p = m.GetColumn(3);
+                Vector2 xz = new Vector2(p.x, p.z);
+                foreach (var (a, b) in lanes)
+                    if (InLane(xz, a, b, 0.5f)) return null;
+                return m;
+            });
+            if (removed > 0) Count("travelLane", Area.Id, Vector3.zero);
+        }
+
         void AddViewLane(ArrivalView v)
         {
             var (a, b) = LaneOf(v);
@@ -882,9 +964,9 @@ namespace Shakutori
         }
 
         /// <summary>頭の先（1 体長前）まで、かわいた陸地にのるか。だめなら、ほかの向きをためす。</summary>
-        bool RoomForBody(Vector3 p, ref Vector3 fwd, bool onGround = true)
+        bool RoomForBody(Vector3 p, ref Vector3 fwd, bool onGround = true, int turns = 8)
         {
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < turns; i++)
             {
                 float turn = (i + 1) / 2 * 45f * (i % 2 == 0 ? 1f : -1f);
                 Vector3 d = Quaternion.AngleAxis(turn, Vector3.up) * fwd;
