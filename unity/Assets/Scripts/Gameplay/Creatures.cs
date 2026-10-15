@@ -1094,6 +1094,51 @@ namespace Shakutori
             }
         }
 
+        /// <summary>
+        /// しゃくとりむしが移動して着いた（画面が暗いあいだ）：体（尾 tail から頭 head まで）から clear より近くにいる、
+        /// 地面を歩くいきものを、同じ面の少しはなれた所へずらす。いきものの上に着くと、着いたとたんに横へよけて、
+        /// 見せたい景色から横を向いてしまう（切り株の上のハエトリグモ）。体の上へ跳ぼうとかがんでいたものは、跳ぶのをやめる。
+        /// 行列のアリ・飛んでいるもの・水の上のもの・乗れるいきもの・壁にいるものは、そのまま。
+        /// </summary>
+        public void MakeRoom(Vector3 tail, Vector3 head, float clear)
+        {
+            Vector3 seg = head - tail;
+            foreach (var m in _mobs)
+            {
+                var kind = m.sp.kind;
+                bool jumper = kind == MobKind.Hopper || kind == MobKind.Pouncer;
+                if (jumper && m.launchAt >= 0f && (m.launchTo - ClosestOnSegment(m.launchTo, tail, seg)).sqrMagnitude < clear * clear) m.launchAt = -1f;
+                if (m.airborne || m.carryingWorm || m.sp.rideable || m.up.y < 0.5f) continue;
+                if (kind != MobKind.Crawler && kind != MobKind.Pouncer && kind != MobKind.Hopper && kind != MobKind.Bird && kind != MobKind.Stalker) continue;
+                Vector3 near = ClosestOnSegment(m.pos, tail, seg);
+                if ((m.pos - near).sqrMagnitude >= clear * clear) continue;
+                Vector3 away = Vector3.ProjectOnPlane(m.pos - near, Vector3.up);
+                if (away.sqrMagnitude < 1e-6f) away = Vector3.Cross(Vector3.up, seg);
+                if (away.sqrMagnitude < 1e-6f) away = Vector3.right;
+                away.Normalize();
+                // まっすぐはなれる向きから、左右へ順に（0, -45, 45, -90, 90, ... 度）
+                for (int k = 0; k < 8; k++)
+                {
+                    Vector3 dir = Quaternion.AngleAxis((k + 1) / 2 * 45f * (k % 2 == 0 ? 1f : -1f), Vector3.up) * away;
+                    Vector3 spot = near + dir * (clear + 0.1f);
+                    if (!Physics.Raycast(new Vector3(spot.x, m.pos.y + 1f, spot.z), Vector3.down, out var hit, 2f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)
+                        || hit.normal.y < 0.5f || Mathf.Abs(hit.point.y - m.pos.y) > 0.4f || _area.IsUnderwater(hit.point)
+                        || (hit.point - ClosestOnSegment(hit.point, tail, seg)).sqrMagnitude < clear * clear) continue;
+                    m.pos = m.prevPos = m.drawPos = m.startPos = hit.point;
+                    m.up = hit.normal;
+                    m.vel = m.skidVel = Vector3.zero;
+                    m.curSpeed = 0f;
+                    break;
+                }
+            }
+        }
+
+        static Vector3 ClosestOnSegment(Vector3 p, Vector3 a, Vector3 ab)
+        {
+            float t = ab.sqrMagnitude > 1e-8f ? Mathf.Clamp01(Vector3.Dot(p - a, ab) / ab.sqrMagnitude) : 0f;
+            return a + ab * t;
+        }
+
         /// <summary>1 匹がおどろく（種ごとの反応）。</summary>
         void DisturbOne(Mob m)
         {

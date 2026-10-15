@@ -2734,9 +2734,9 @@ namespace Shakutori
                 Recoil(0.22f);
                 return;
             }
-            // いきものが体にぶつかりそうになると、横へよける
+            // いきものが体にぶつかりそうになると、横へよける（出てきて目をさましている間はよけない：着いたとたんに、景色から横を向かないように）
             float dm = Vector3.Distance(pos, _curve.Middle);
-            if (dm < 0.35f && !near.rideable && Time.time > _dodgeNext)
+            if (dm < 0.35f && !near.rideable && Time.time > _dodgeNext && Time.time >= _wakeUntil)
             {
                 _dodgeNext = Time.time + 2.5f;
                 Vector3 away = Vector3.ProjectOnPlane(_curve.Middle - pos, _tail.normal);

@@ -459,6 +459,7 @@ namespace Shakutori
             else if (view != null && world.ViewPoint(view, out var vp, out var vf)) { arrive = vp; fwd = vf; }
             worm.enabled = true;
             worm.Spawn(arrive, fwd);
+            MakeRoomForWorm();
             followCamera.titleMode = false;
             followCamera.pitch = 20f;
             ShowArrivalView(view, fwd);
@@ -776,6 +777,15 @@ namespace Shakutori
             SaveProgress();
         }
 
+        /// <summary>
+        /// 着いた所（画面が暗いあいだ）：体のすぐそばにいる、地面を歩くいきものを少しずらす。
+        /// いきものの上に着くと、着いたとたんに横へよけて、景色から横を向いてしまう。
+        /// </summary>
+        void MakeRoomForWorm()
+        {
+            if (creatures != null) creatures.MakeRoom(worm.TailPoint, worm.HeadPoint, 0.8f);
+        }
+
         /// <summary>着いたときの景色をカメラで写す（景色がなければ、いつもどおりうしろから）。</summary>
         void ShowArrivalView(ArrivalView view, Vector3 fwd)
         {
@@ -804,6 +814,7 @@ namespace Shakutori
             // 名所のまん中が水の中（滝つぼ・水たまり）でも、そばのかわいた陸地に着く
             Vector3 p = world.ArrivalPoint(lm, out var fwd);
             worm.Spawn(p, fwd);
+            MakeRoomForWorm();
             ShowArrivalView(lm.TravelView, fwd);
             yield return new WaitForSecondsRealtime(0.15f);
             ui.Fade(false);
