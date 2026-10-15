@@ -18,6 +18,8 @@ namespace Shakutori
         /// <summary>森へもどる木の根のトンネル（東の端）</summary>
         public static readonly Vector2 Gate = new Vector2(58.5f, -6f);
         public static readonly Vector2 Spawn = new Vector2(51f, -5.5f);
+        /// <summary>神社へ行く木の根のトンネル（北東のさくの所。あとから足した）</summary>
+        public static readonly Vector2 ShrineGate = new Vector2(30f, 50.2f);
 
         // 遊具（まん中の場所）
         public static readonly Vector2 Slide = new Vector2(-28f, 12f);        // 台のまん中。すべる先は東（+X）

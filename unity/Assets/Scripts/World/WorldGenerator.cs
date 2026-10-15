@@ -128,6 +128,7 @@ namespace Shakutori
             bool mountain = area.Id == "mountain";
             bool hut = area.Id == "hut";
             bool coast = area.Id == "coast";
+            bool shrine = area.Id == "shrine";
             _rng = new Random(forest ? seed : seed + 7919 * area.Id.Length);
             AreaLayout.LateGround = false;   // しずくを置くまでは、もとの地面の形で作る
             SurfaceProbe.ClearCache();
@@ -143,12 +144,12 @@ namespace Shakutori
             yield return null;
             BuildTerrain();
             BuildViewLanes();
-            progress?.Invoke(0.25f, forest ? "大きな木を育てています" : park ? "遊具を組み立てています" : mountain ? "山を高く積み上げています" : hut ? "丸太のかべを積んでいます" : coast ? "砂浜をならしています" : "川の水を流しています");
+            progress?.Invoke(0.25f, forest ? "大きな木を育てています" : park ? "遊具を組み立てています" : mountain ? "山を高く積み上げています" : hut ? "丸太のかべを積んでいます" : coast ? "砂浜をならしています" : shrine ? "鳥居を立てています" : "川の水を流しています");
             yield return null;
             if (!hut) BuildOuterRing();   // 小屋の中は、かべの外が見えない
-            if (forest) BuildForestSolids(); else if (park) BuildParkSolids(); else if (mountain) BuildMountainSolids(); else if (hut) BuildHutSolids(); else if (coast) BuildCoastSolids(); else BuildRiverSolids();
+            if (forest) BuildForestSolids(); else if (park) BuildParkSolids(); else if (mountain) BuildMountainSolids(); else if (hut) BuildHutSolids(); else if (coast) BuildCoastSolids(); else if (shrine) BuildShrineSolids(); else BuildRiverSolids();
             BuildGates();
-            progress?.Invoke(0.4f, forest ? "キノコと岩を並べています" : park ? "砂場をならしています" : mountain ? "岩と雪をのせています" : hut ? "家具を運びこんでいます" : coast ? "貝がらをひろっています" : "川石を並べています");
+            progress?.Invoke(0.4f, forest ? "キノコと岩を並べています" : park ? "砂場をならしています" : mountain ? "岩と雪をのせています" : hut ? "家具を運びこんでいます" : coast ? "貝がらをひろっています" : shrine ? "石灯籠をならべています" : "川石を並べています");
             yield return null;
             if (forest)
             {
@@ -172,6 +173,11 @@ namespace Shakutori
                 ScatterCoastProps();
                 BuildCoastWater();
             }
+            else if (shrine)
+            {
+                ScatterShrineProps();
+                BuildShrineWater();
+            }
             else
             {
                 ScatterRiverProps();
@@ -180,7 +186,7 @@ namespace Shakutori
             Physics.SyncTransforms();
             progress?.Invoke(0.6f, "草花を植えています");
             yield return null;
-            if (forest) BuildForestFoliage(); else if (park) BuildParkFoliage(); else if (mountain) BuildMountainFoliage(); else if (coast) BuildCoastFoliage(); else if (!hut) BuildRiverFoliage();
+            if (forest) BuildForestFoliage(); else if (park) BuildParkFoliage(); else if (mountain) BuildMountainFoliage(); else if (coast) BuildCoastFoliage(); else if (shrine) BuildShrineFoliage(); else if (!hut) BuildRiverFoliage();
             progress?.Invoke(0.8f, "しずくを置いています");
             yield return null;
             if (forest) PlaceForestDewdrops();
@@ -188,6 +194,7 @@ namespace Shakutori
             else if (mountain) PlaceMountainDewdrops();
             else if (hut) PlaceHutDewdrops();
             else if (coast) PlaceCoastDewdrops();
+            else if (shrine) PlaceShrineDewdrops();
             else PlaceRiverDewdrops();
             // しずくを置いたあとに、泉や水たまりの土手を盛る（しずくの場所は変えない）
             AreaLayout.LateGround = true;
@@ -219,6 +226,12 @@ namespace Shakutori
             {
                 PlaceCoastCreatures();      // 海辺はひらけた空なので、木もれ日の光の筋はない
                 FixCreaturesForPlay();
+            }
+            else if (shrine)
+            {
+                PlaceShrineCreatures();
+                FixCreaturesForPlay();
+                BuildLightShafts(ShrineShaftSpots);   // 鎮守の森の、木もれ日の光の筋
             }
             else
             {
@@ -286,6 +299,7 @@ namespace Shakutori
             ClearMountain();
             ClearHut();
             ClearCoast();
+            ClearShrine();
             _specialCap = Vector3.zero;
             DewdropPoints.Clear();
             FlowerPoints.Clear();
@@ -679,7 +693,33 @@ namespace Shakutori
                 });
                 if (removed > 0) Count("lateGate", g.targetArea, c);
                 if (loose != null) loose.PushOut(c + Vector3.up * 1.5f, 5f, 4f);
+                // 公園の神社へのトンネル：うしろのさくを 1 まい、はずす（トンネルの奥が、さくでふさがれて見えないように）
+                if (Area.Id == "park" && g.targetArea == "shrine") RemoveSolidsNear("Park_Fence", g.position, 6.5f);
             }
+        }
+
+        /// <summary>
+        /// しずくを置いたあとに、ある物（名前）を、場所 p のまわり r から取りのぞく（見た目と当たり判定）。
+        /// あとから足したトンネルのうしろの、さくなど。
+        /// </summary>
+        void RemoveSolidsNear(string meshName, Vector2 p, float r)
+        {
+            int removed = instanced.Edit((mesh, mat, m) =>
+            {
+                if (mesh.name != meshName) return m;
+                Vector3 q = m.GetColumn(3);
+                return (new Vector2(q.x, q.z) - p).sqrMagnitude < r * r ? (Matrix4x4?)null : m;
+            });
+            for (int i = _colliderRoot.childCount - 1; i >= 0; i--)
+            {
+                var t = _colliderRoot.GetChild(i);
+                if (t.name != meshName || (new Vector2(t.position.x, t.position.z) - p).sqrMagnitude >= r * r) continue;
+                t.gameObject.SetActive(false);
+                if (Application.isPlaying) Destroy(t.gameObject);
+                else DestroyImmediate(t.gameObject);
+            }
+            Physics.SyncTransforms();
+            if (removed > 0) Count("lateGateClear", meshName, new Vector3(p.x, 0f, p.y));
         }
 
         void BuildGate(GateDef g)
@@ -709,7 +749,8 @@ namespace Shakutori
                 mpb.SetColor("_TintColor", g.targetArea == "river" ? new Color(0.55f, 0.95f, 1.4f, 0.55f)
                     : g.targetArea == "park" ? new Color(1.4f, 1.15f, 0.55f, 0.55f)
                     : g.targetArea == "mountain" ? new Color(1.2f, 1.15f, 1.5f, 0.55f)
-                    : g.targetArea == "coast" ? new Color(0.6f, 1.2f, 1.45f, 0.55f) : new Color(0.75f, 1.3f, 0.6f, 0.55f));
+                    : g.targetArea == "coast" ? new Color(0.6f, 1.2f, 1.45f, 0.55f)
+                    : g.targetArea == "shrine" ? new Color(1.45f, 0.75f, 0.5f, 0.55f) : new Color(0.75f, 1.3f, 0.6f, 0.55f));
                 mr.SetPropertyBlock(mpb);
                 Gates.Add(new GateInstance { def = g, position = ground, inward = inward });
             }
@@ -869,7 +910,7 @@ namespace Shakutori
         public const float ViewLaneRadius = 2.4f;
 
         // 花は見せたいものなので、よけない
-        static readonly string[] TallFoliage = { "Grass_", "Fern_", "Clover_", "Sprout", "Reed", "Iris", "Horsetail", "Coast_Grass" };
+        static readonly string[] TallFoliage = { "Grass_", "Fern_", "Clover_", "Sprout", "Reed", "Iris", "Horsetail", "Coast_Grass", "Shrine_Sasa" };
 
         static bool IsTallFoliage(string meshName)
         {
@@ -1226,6 +1267,7 @@ namespace Shakutori
             else if (area.Id == "mountain") DrawMountainMap(px, size, generated);
             else if (area.Id == "hut") DrawHutMap(px, size);
             else if (area.Id == "coast") DrawCoastMap(px, size, generated);
+            else if (area.Id == "shrine") DrawShrineMap(px, size);
             else DrawRiverMap(px, size, generated);
             tex.SetPixels32(px);
             tex.Apply(false, false);   // 読めるままにしておく（地図の絵を確かめられるように。256×256 なので小さい）

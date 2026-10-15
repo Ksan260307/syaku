@@ -229,6 +229,7 @@ namespace Shakutori
             else if (_area.Id == "mountain") MountainFX(world);
             else if (_area.Id == "hut") HutFX(world);
             else if (_area.Id == "coast") { }
+            else if (_area.Id == "shrine") ShrineFX(world);
             else ParkFX(world);
         }
 
@@ -457,6 +458,15 @@ namespace Shakutori
                 new Vector2(6f, 7f), new Vector2(4f, 5f), Vector2.zero, 0f, 0f, 0f);
         }
 
+        void ShrineFX(WorldGenerator world)
+        {
+            ShaftMotes(WorldGenerator.ShrineShaftSpots);
+            // 石灯籠のあかりの、やわらかな光
+            for (int i = 0; i < world.LanternLights.Count; i++)
+                Motes("LanternHalo" + i, world.LanternLights[i], new Vector3(0.2f, 0.2f, 0.2f), 3, 0.6f, new Color(1f, 0.78f, 0.45f, 0.24f),
+                    new Vector2(3.2f, 4f), new Vector2(4f, 5f), Vector2.zero, 0f, 0f, 0f);
+        }
+
         void ParkFX(WorldGenerator world)
         {
             var spots = new List<Vector2> { ParkLayout.FlowerBed, ParkLayout.Sandbox };
@@ -599,6 +609,18 @@ namespace Shakutori
                         Vector3 side = Vector3.Cross(Vector3.up, back) * FR(-1f, 1f);
                         EmitAt(_wake, new Vector3(p.x, RiverLayout.WaterLevel(p.z) + 0.03f, p.z) + back * 2.4f + side, back * 0.3f + side * 0.4f, 1, 0.05f);
                     }
+                }
+            }
+            else if (_area.Id == "shrine")
+            {
+                // 手水舎の竹の筧から、水盤へ、ぽたぽた
+                if (t > _lilyHopNext)
+                {
+                    _lilyHopNext = t + FR(0.3f, 0.7f);
+                    Vector3 tip = WorldGenerator.SpoutTip;
+                    float fall = Mathf.Sqrt(2f * Mathf.Max(0.2f, tip.y - ShrineLayout.BasinWater) / 9.81f);
+                    TapDrip(tip, fall);
+                    Splashlet(new Vector3(tip.x, ShrineLayout.BasinWater + 0.02f, tip.z));
                 }
             }
             else if (_area.Id == "coast")

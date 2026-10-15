@@ -222,6 +222,9 @@ namespace Shakutori
         {
             new GateDef { position = ParkLayout.Gate, targetArea = "forest", label = "森へ",
                 arrival = new ArrivalView(ParkLayout.Spawn, new Vector3(0f, 6f, 4f), 2f, 4.4f, clear: 30f) },   // 公園に出ると、遊具が見わたせる
+            // 神社へ（北東のさくの所。あとから足した。しずくの場所は変えない）。神社からもどると、ブランコの方を見る
+            new GateDef { position = ParkLayout.ShrineGate, targetArea = "shrine", label = "神社へ", late = true,
+                arrival = new ArrivalView(ParkLayout.ShrineGate + new Vector2(-3.5f, -5.5f), new Vector3(ParkLayout.Swing.x, 4f, ParkLayout.Swing.y), 4f, 4.6f) },
         };
 
         public override string Id => "park";
@@ -353,6 +356,39 @@ namespace Shakutori
         public override bool InPlayArea(Vector3 p) => CoastLayout.InPlayArea(p);
     }
 
+    public class ShrineArea : AreaLayout
+    {
+        readonly List<GateDef> _gates = new List<GateDef>
+        {
+            // 神社に出ると、参道の先に大鳥居と、石段の上のお社が見える
+            new GateDef { position = ShrineLayout.Gate, targetArea = "park", label = "公園へ",
+                arrival = new ArrivalView(ShrineLayout.Spawn, new Vector3(ShrineLayout.Hall.x, ShrineLayout.PlatformY, ShrineLayout.Hall.y), 4f, 4.6f, clear: 40f) },
+        };
+
+        public override string Id => "shrine";
+        public override string DisplayName => "神社";
+        public override string Subtitle => "鎮守の森のお社";
+        public override string Tagline => "朱色の鳥居と、苔むした石灯籠の、しずかなお社";
+        public override string DropName => "神社のしずく";
+        public override float PlayRadius => ShrineLayout.PlayRadius;
+        public override float TerrainHalf => ShrineLayout.TerrainHalf;
+        public override float MaxClimbHeight => ShrineLayout.MaxClimbHeight;
+        public override int DropIdOffset => 6000;
+        public override int DropCount => 30;
+        public override Vector2 Spawn => ShrineLayout.Spawn;
+        public override Vector3 SpawnForward => Vector3.forward;
+        public override List<LandmarkDef> Landmarks => ShrineLayout.Landmarks;
+        public override List<GateDef> Gates => _gates;
+        public override float Height(float x, float z) => ShrineLayout.Height(x, z);
+        public override Vector3 Normal(float x, float z) => ShrineLayout.Normal(x, z);
+        public override Color GroundColor(float x, float z, float h, Vector3 n) => ShrineLayout.GroundColor(x, z, h, n);
+        public override float TrailMask(float x, float z) => ShrineLayout.TrailMask(x, z);
+        public override List<Vector2[]> TrailLines => ShrineLayout.Trails;
+        public override float WaterLevelAt(float x, float z) => ShrineLayout.WaterLevelAt(x, z);
+        public override bool IsUnderwater(Vector3 p) => ShrineLayout.IsUnderwater(p);
+        public override bool InPlayArea(Vector3 p) => ShrineLayout.InPlayArea(p);
+    }
+
     /// <summary>エリアの一覧と、いまいるエリア。</summary>
     public static class Areas
     {
@@ -362,7 +398,8 @@ namespace Shakutori
         public static readonly MountainArea Mountain = new MountainArea();
         public static readonly HutArea Hut = new HutArea();
         public static readonly CoastArea Coast = new CoastArea();
-        public static readonly AreaLayout[] All = { Forest, River, Park, Mountain, Hut, Coast };
+        public static readonly ShrineArea Shrine = new ShrineArea();
+        public static readonly AreaLayout[] All = { Forest, River, Park, Mountain, Hut, Coast, Shrine };
 
         public static AreaLayout Current { get; set; } = Forest;
 

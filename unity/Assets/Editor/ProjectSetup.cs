@@ -744,6 +744,8 @@ namespace Shakutori.EditorTools
             audio.hutAmbience = Clip("ambience_hut");
             audio.musicCoast = Clip("music_coast");
             audio.coastAmbience = Clip("ambience_coast");
+            audio.musicShrine = Clip("music_shrine");
+            audio.shrineAmbience = Clip("ambience_shrine");
             audio.areaClips = new[]
             {
                 Clip("loop_waterfall"), Clip("loop_shallows"), Clip("loop_frogs"), Clip("loop_cave_drip"), Clip("loop_canopy"),
@@ -752,6 +754,7 @@ namespace Shakutori.EditorTools
                 Clip("loop_spring"), Clip("loop_ridge_wind"), Clip("higurashi"), Clip("pika"),
                 Clip("loop_stove"), Clip("loop_clock"), Clip("loop_buzz"), Clip("swallow"), Clip("squeak"),
                 Clip("loop_surf"), Clip("gull"),
+                Clip("owl"), Clip("suzu"),
             };
             var creatures = game.AddComponent<Creatures>();
             creatures.assets = assets;

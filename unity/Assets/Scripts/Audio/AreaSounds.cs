@@ -103,6 +103,13 @@ namespace Shakutori
                 foreach (var (c, r) in CoastLayout.Pools)
                     AddLoop("loop_shallows", new Vector3(c.x, CoastLayout.PoolLevel, c.y), 1.5f, 10f, 0.25f);   // 潮だまりの、ちゃぷちゃぷ
             }
+            else if (_area == "shrine")
+            {
+                Vector3 spout = WorldGenerator.SpoutTip;
+                AddLoop("loop_spring", spout, 1.5f, 16f, 0.55f);                                                                  // 手水舎の筧の水音
+                AddLoop("loop_frogs", new Vector3(ShrineLayout.Pond.x, ShrineLayout.PondLevel, ShrineLayout.Pond.y), 6f, 30f, 0.4f);   // 池のカエル
+                _canopy = AddLoop("loop_canopy", Vector3.zero, 0f, 0f, 0.3f, global: true);                                      // 鎮守の森の葉ずれ
+            }
             else if (_area == "hut")
             {
                 AddLoop("loop_stove", new Vector3(HutLayout.Stove.x + 6f, 16f, HutLayout.Stove.y), 6f, 70f, 0.7f);   // まきストーブの、ぱちぱち

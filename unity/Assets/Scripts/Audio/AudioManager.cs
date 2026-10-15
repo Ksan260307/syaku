@@ -35,6 +35,8 @@ namespace Shakutori
         public AudioClip hutAmbience;        // 山小屋の中の空気（しずかな部屋・かべごしの風）
         public AudioClip musicCoast;         // 海辺の BGM
         public AudioClip coastAmbience;      // 海辺の環境音（遠くの波・海風・カモメ）
+        public AudioClip musicShrine;        // 神社の BGM
+        public AudioClip shrineAmbience;     // 神社の環境音（杉の森の風・ヒグラシ・スズムシ・遠くのカラス）
         /// <summary>エリアの音（場所で聞こえるループと、できごとの音）。名前でさがす。</summary>
         public AudioClip[] areaClips = new AudioClip[0];
 
@@ -54,7 +56,7 @@ namespace Shakutori
         float _waterNear = 1f;
         float _duckUntil;
 
-        AudioSource _music, _amb, _amb2, _amb3, _amb4, _amb5, _amb6;
+        AudioSource _music, _amb, _amb2, _amb3, _amb4, _amb5, _amb6, _amb7;
         AudioSource _musicOut;        // 前のエリアの曲（ゆっくり小さくなって止まる）
         string _area = "forest";
         float _ambMix;   // 0 = 森, 1 = 川
@@ -63,6 +65,7 @@ namespace Shakutori
         float _mtnMix, _mtnMixTarget;     // 1 = 山
         float _hutMix, _hutMixTarget;     // 1 = 山小屋
         float _coastMix, _coastMixTarget; // 1 = 海辺
+        float _shrineMix, _shrineMixTarget; // 1 = 神社
         AudioSource[] _sfx;
         int _next;
         float _musicTarget, _ambTarget;
@@ -103,6 +106,10 @@ namespace Shakutori
             _amb6.loop = true;
             _amb6.playOnAwake = false;
             _amb6.volume = 0f;
+            _amb7 = gameObject.AddComponent<AudioSource>();
+            _amb7.loop = true;
+            _amb7.playOnAwake = false;
+            _amb7.volume = 0f;
             _sfx = new AudioSource[8];
             for (int i = 0; i < _sfx.Length; i++)
             {
@@ -124,13 +131,14 @@ namespace Shakutori
             if (mountainAmbience != null) { _amb4.clip = mountainAmbience; _amb4.Play(); }
             if (hutAmbience != null) { _amb5.clip = hutAmbience; _amb5.Play(); }
             if (coastAmbience != null) { _amb6.clip = coastAmbience; _amb6.Play(); }
+            if (shrineAmbience != null) { _amb7.clip = shrineAmbience; _amb7.Play(); }
         }
 
         /// <summary>エリアの BGM（なければ森の曲）。</summary>
         public AudioClip MusicFor(string areaId)
         {
             AudioClip c = areaId == "river" ? musicRiver : areaId == "park" ? musicPark : areaId == "mountain" ? musicMountain : areaId == "hut" ? musicHut
-                        : areaId == "coast" ? musicCoast : null;
+                        : areaId == "coast" ? musicCoast : areaId == "shrine" ? musicShrine : null;
             return c != null ? c : music;
         }
 
@@ -146,6 +154,7 @@ namespace Shakutori
             _mtnMixTarget = areaId == "mountain" ? 1f : 0f;
             _hutMixTarget = areaId == "hut" ? 1f : 0f;
             _coastMixTarget = areaId == "coast" ? 1f : 0f;
+            _shrineMixTarget = areaId == "shrine" ? 1f : 0f;
             var clip = MusicFor(areaId);
             if (_music == null || clip == null || _music.clip == clip) return;
             if (!_started)
@@ -179,7 +188,9 @@ namespace Shakutori
             _mtnMix = Mathf.MoveTowards(_mtnMix, _mtnMixTarget, Time.unscaledDeltaTime * 0.5f);
             _hutMix = Mathf.MoveTowards(_hutMix, _hutMixTarget, Time.unscaledDeltaTime * 0.5f);
             _coastMix = Mathf.MoveTowards(_coastMix, _coastMixTarget, Time.unscaledDeltaTime * 0.5f);
-            _amb.volume = Mathf.Lerp(_amb.volume, _started ? _ambTarget * (1f - _ambMix) * (1f - _parkMix) * (1f - _mtnMix) * (1f - _hutMix) * (1f - _coastMix) : 0f, k);
+            _shrineMix = Mathf.MoveTowards(_shrineMix, _shrineMixTarget, Time.unscaledDeltaTime * 0.5f);
+            _amb.volume = Mathf.Lerp(_amb.volume, _started ? _ambTarget * (1f - _ambMix) * (1f - _parkMix) * (1f - _mtnMix) * (1f - _hutMix) * (1f - _coastMix) * (1f - _shrineMix) : 0f, k);
+            _amb7.volume = Mathf.Lerp(_amb7.volume, _started ? _ambTarget * 1.05f * _shrineMix : 0f, k);
             _amb6.volume = Mathf.Lerp(_amb6.volume, _started ? _ambTarget * 1.05f * _coastMix : 0f, k);
             _amb5.volume = Mathf.Lerp(_amb5.volume, _started ? _ambTarget * 0.9f * _hutMix : 0f, k);
             _amb4.volume = Mathf.Lerp(_amb4.volume, _started ? _ambTarget * 1.05f * _mtnMix : 0f, k);

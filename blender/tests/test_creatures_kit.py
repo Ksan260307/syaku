@@ -112,6 +112,16 @@ MAKERS = {
     "Manta_Fin": cr.make_manta_fin,
     "Kamome_Body": lambda: cr.make_bird_body("Kamome_Body", 19.0, "gull"),
     "Kamome_Wing": lambda: cr.make_bird_wing("Kamome_Wing", 19.0, "gull"),
+    "Kitsune": cr.make_kitsune,
+    "Tanuki": cr.make_tanuki,
+    "Fukurou_Body": cr.make_fukurou_body,
+    "Fukurou_Head": cr.make_fukurou_head,
+    "Fukurou_WingFolded": cr.make_fukurou_wing_folded,
+    "Fukurou_Wing": lambda: cr.make_bird_wing("Fukurou_Wing", 20.0, "owl"),
+    "Ga_Body": cr.make_ga_body,
+    "Ga_Wing": cr.make_ga_wing,
+    "Kanabun": cr.make_kanabun,
+    "Kanabun_Wing": cr.make_kanabun_wing,
 }
 
 
@@ -130,10 +140,12 @@ class CreatureKitTests(unittest.TestCase):
             self.assertEqual(len(col.data), len(ob.data.loops), name)
 
     def test_portrait_list_covers_all_species(self):
-        # ふつうの 52 種と、レアの 7 種
+        # ふつうの 57 種と、レアの 7 種
         ids = [c[0] for c in cr.CREATURES]
-        self.assertEqual(len(ids), 59)
-        self.assertEqual(len(set(ids)), 59)
+        self.assertEqual(len(ids), 64)
+        self.assertEqual(len(set(ids)), 64)
+        for need in ("kitsune", "fukurou", "tanuki", "ga", "kanabun"):
+            self.assertIn(need, ids)
         for need in ("yadokari", "shiomaneki", "kamome", "hitode", "uni", "funamushi", "manta"):
             self.assertIn(need, ids)
         for need in ("yamori", "mukade", "hasamimushi", "hae", "tsubame", "nezumi"):
@@ -232,6 +244,36 @@ class CreatureKitTests(unittest.TestCase):
         self.assertGreater(kamome, max(size(cr.make_bird_body("Sparrow_Body", 5.5, False))) * 2.5)
         fin = size(cr.make_manta_fin())[0]
         self.assertGreater(2 * (fin + cr.MANTA_FIN.x), 14.0, "マンタは、むなびれを広げると大きい")
+
+    def test_shrine_creatures_have_real_sizes(self):
+        # 1 単位 = 2.5cm：キツネは体 60cm としっぽで 1m ほど、タヌキは 55cm、フクロウは 50cm、
+        # オオミズアオは、はねを広げて 10cm（尾まで、もっと長い）、カナブンは 2.5cm
+        fox = size(cr.make_kitsune())
+        self.assertTrue(34.0 < fox[1] < 48.0, fox)
+        self.assertTrue(14.0 < fox[2] < 24.0, fox)
+        tanuki = size(cr.make_tanuki())
+        self.assertTrue(20.0 < tanuki[1] < 32.0, tanuki)
+        self.assertLess(tanuki[2], fox[2], "タヌキは、キツネより足が短い")
+        owl = size(cr.make_fukurou_body())
+        self.assertTrue(12.0 < owl[2] < 20.0, owl)   # 頭は別（首でまわる）
+        wing = size(cr.make_ga_wing())
+        self.assertTrue(1.4 < wing[0] < 2.6 and wing[1] > 3.0, ("はねと、長い尾", wing))
+        self.assertTrue(0.8 < size(cr.make_kanabun())[1] < 1.4)
+
+    def test_shrine_walkers_have_limbs_and_the_owl_turns_its_head(self):
+        for name in ("Kitsune", "Tanuki", "Fukurou_Body"):
+            reset()
+            cr.split_legs(MAKERS[name], name)
+            self.assertEqual(len(cr.LIMBS[name]), 2 if name != "Fukurou_Body" else 1, f"{name} の右の手足")
+        reset()
+        cr.split_legs(MAKERS["Kanabun"], "Kanabun")
+        self.assertEqual(len(cr.RIG["Kanabun"]), 3, "カナブンの右の脚")
+        # フクロウの頭は、首（原点）のまわりでまわる：顔の盤は前（+Y）
+        head = cr.make_fukurou_head()
+        ys = [v.co.y for v in head.data.vertices]
+        self.assertGreater(max(ys), 3.0, "顔は前")
+        zs = [v.co.z for v in head.data.vertices]
+        self.assertLess(min(zs), 1.0, "首のところから")
 
     def test_coast_walkers_have_leg_rigs(self):
         for name, n in (("Yadokari", 2), ("Shiomaneki", 4), ("Funamushi", 7)):

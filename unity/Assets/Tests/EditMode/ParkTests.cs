@@ -32,7 +32,7 @@ namespace Shakutori.Tests
         [Test]
         public void Park_IsTheThirdArea_ConnectedToTheForest()
         {
-            Assert.AreEqual(6, Areas.All.Length);
+            Assert.AreEqual(7, Areas.All.Length);
             Assert.AreSame(Areas.Park, Areas.All[2]);
             Assert.AreSame(Areas.Park, Areas.Get("park"));
             Assert.IsTrue(Areas.Forest.Gates.Any(g => g.targetArea == "park"), "森から公園へのトンネル");
@@ -107,7 +107,7 @@ namespace Shakutori.Tests
             var ids = _gen.Mobs.Select(m => m.species).ToList();
             foreach (var id in new[] { "kamikiri", "kuwagata", "kamemushi", "tokage", "monshiro" })
                 CollectionAssert.Contains(ids, id, $"{id} が公園にいる");
-            Assert.AreEqual(52, SpeciesCatalog.Count, "図鑑は 52 種");
+            Assert.AreEqual(57, SpeciesCatalog.Count, "図鑑は 57 種");
             foreach (var id in new[] { "hato", "mogura", "okera", "hanakamakiri" })
                 CollectionAssert.Contains(ids, id, $"{id} が公園にいる");
             foreach (var id in new[] { "kamikiri", "kuwagata", "kamemushi", "tokage", "monshiro" })
@@ -126,7 +126,22 @@ namespace Shakutori.Tests
         public void Map_IsDrawn()
         {
             Assert.IsNotNull(_gen.MapTexture);
-            Assert.AreEqual(1, _gen.Gates.Count);
+            Assert.AreEqual(2, _gen.Gates.Count, "森へのトンネルと、神社へのトンネル");
+        }
+
+        [Test]
+        public void ShrineTunnel_StandsAtTheParkEdge_WithTheFenceOpenedBehindIt()
+        {
+            var gate = _gen.Gates.Single(g => g.def.targetArea == "shrine");
+            Assert.IsTrue(gate.def.late, "あとから作る（公園のしずくは変えない）");
+            Vector2 at = new Vector2(gate.position.x, gate.position.z);
+            // うしろのさくは、はずしてある（トンネルの奥が、さくでふさがれない）
+            foreach (var c in Object.FindObjectsByType<MeshCollider>(FindObjectsSortMode.None).Where(c => c.name == "Park_Fence"))
+                Assert.Greater(Vector2.Distance(new Vector2(c.transform.position.x, c.transform.position.z), at), 6.5f, "トンネルのうしろに、さくがない");
+            Assert.Greater(_gen.instanced.Instances().Count(i => i.mesh != null && i.mesh.name == "Park_Fence"), 30, "ほかのさくは、そのまま");
+            // トンネルの前は、歩ける（物でふさがれていない）
+            Vector3 front = gate.position + gate.inward * 4f + Vector3.up * 0.8f;
+            Assert.IsFalse(Physics.CheckSphere(front, 0.6f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore), "トンネルの前が、あいている");
         }
     }
 }

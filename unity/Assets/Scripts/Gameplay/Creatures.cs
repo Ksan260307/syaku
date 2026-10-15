@@ -210,6 +210,12 @@ namespace Shakutori
             // ---- 海岸 ----
             public bool leaping;                       // マンタが、海の上へジャンプしている
             public float leapT;
+            // ---- 神社 ----
+            public float headYaw, headPitch;           // フクロウの首の向き
+            public float shrineK;                      // タヌキの死んだふり（横になる度合い）
+            public bool wasDead;
+            public bool circling;                      // オオミズアオが、あかりのまわりを回っている
+            public int lampIdx = -1;                   // オオミズアオが集まる灯籠
         }
 
         public struct MobInfo
@@ -1169,6 +1175,7 @@ namespace Shakutori
                         m.curSpeed = 0f;
                     }
                     else if (m.bid == "ladybug") m.deadUntil = m.anim + 3f;   // てんとうむしは死んだふり
+                    else if (m.bid == "tanuki" && m.anim >= m.deadUntil && m.anim > m.hopNext) StartPlayDead(m);   // タヌキも、大きな音で死んだふり
                     else if (m.sp.id == "shiomaneki" && !m.digDown)
                     {
                         // シオマネキ：巣穴にさっともぐる
@@ -1542,6 +1549,10 @@ namespace Shakutori
                 case "pillbug":
                     if (m.sp.id == "harinezumi") return r < 0.4f ? ActGroom : r < 0.7f ? ActLook : 0;   // ハリネズミ：うしろ足で体をかく・鼻を上げてにおいをかぐ
                     return r < 0.5f ? ActGroom : 0;                                                     // だんごむし：前脚で触角の手入れ
+                case "kitsune": return r < 0.35f ? ActSpecial : r < 0.65f ? ActLook : r < 0.8f ? ActGroom : 0;   // キツネ：ネズミとりジャンプ・においをかぐ・毛づくろい
+                case "tanuki": return r < 0.4f ? ActGroom : r < 0.75f ? ActLook : 0;                          // タヌキ：毛づくろい・地面のにおいをかぐ
+                case "fukurou": return r < 0.45f ? ActLook : r < 0.75f ? ActGroom : 0;                        // フクロウ：首をぐるりとまわす・羽づくろい
+                case "kanabun": return r < 0.45f ? ActSpecial : r < 0.75f ? ActGroom : 0;                     // カナブン：後ろばねを出して、ブーン
                 default: return 0;
             }
         }
@@ -1553,7 +1564,7 @@ namespace Shakutori
             {
                 case ActGroom: return m.sp.kind == MobKind.Bird ? 1.4f : 1.2f;
                 case ActStretch: return m.bid == "snail" || m.bid == "riversnail" ? 2.2f : 1.2f;
-                case ActLook: return 0.9f;
+                case ActLook: return m.bid == "fukurou" ? 3f : m.bid == "kitsune" || m.bid == "tanuki" ? 1.8f : 0.9f;
                 case ActShake: return 1.6f;
                 case ActSpecial:
                     switch (m.bid)
@@ -1566,6 +1577,8 @@ namespace Shakutori
                         case "crab": return 2.6f;     // シオマネキは、何回もはさみをふる
                         case "hitode": return 3f;
                         case "uni": return 2.2f;
+                        case "kitsune": return 1.7f;
+                        case "kanabun": return 2.2f;
                         default: return 1.2f;
                     }
                 default: return 1f;
@@ -1658,6 +1671,7 @@ namespace Shakutori
         void UpdateCrawler(Mob m, float dt, bool near, int index)
         {
             string id = m.bid;
+            if (UpdateShrineCrawler(m, dt, near, index)) return;   // キツネ・タヌキ
             if ((id == "mogura" || id == "okera") && UpdateDigger(m, dt)) return;
             if (id == "nanafushi" && (_head - m.pos).sqrMagnitude < 2.2f * 2.2f)
             {
@@ -2317,6 +2331,11 @@ namespace Shakutori
         // ------------------------------------------------------------------
         void UpdateFlutter(Mob m, float dt)
         {
+            if (m.sp.id == "ga")
+            {
+                UpdateMoth(m, dt);   // オオミズアオは、灯籠のあかりのまわり
+                return;
+            }
             float t = m.anim + m.phase;
             m.timer -= dt;
             // 休んでいるときにしゃくとりむしが近づくと、ぱっと飛び立つ
@@ -2932,6 +2951,11 @@ namespace Shakutori
                 UpdateManta(m, dt);
                 return;
             }
+            if (m.sp.id == "fukurou")
+            {
+                UpdateOwl(m, dt);
+                return;
+            }
             bool crow = m.bid == "crow";
             m.turnHop = Mathf.MoveTowards(m.turnHop, 0f, dt * 5f);
             if (m.airborne)
@@ -3080,7 +3104,7 @@ namespace Shakutori
                 m.flare = 0f;
                 m.wingSettleUntil = m.anim + 0.35f;   // 広げた羽を、少しずつとじる
                 m.wantFwd = m.fwd;
-                m.timer = R(25f, 50f);
+                m.timer = m.sp.id == "fukurou" ? R(70f, 130f) : R(25f, 50f);   // フクロウは、長くじっとしている
                 m.t = 0f;
                 m.crouch = 0.6f;
                 SnapToSurface(m, 3f, 6f);
@@ -3920,6 +3944,7 @@ namespace Shakutori
             }
             else if (m.bid == "okera") bob -= m.up * (0.45f * m.dig * s);   // 土にもぐる
             else if (m.sp.id == "shiomaneki") bob -= m.up * (0.75f * m.dig * s);   // 巣穴にもぐる
+            ShrinePose(m, f, right, s, ref rot, ref scale3, ref bob);
             MotionPose(m, f, right, s, moving, walker, ref rot, ref scale3, ref bob);
             Vector3 drawAt = m.drawPos + bob;
             ball = m.bid == "pillbug" && m.curled > 0.35f && m.curlK > 0.5f;   // 体をちぢめてから、くるんと玉になる
@@ -4839,6 +4864,7 @@ namespace Shakutori
                         continue;
                     }
                     if (DrawCoastPart(m, part, pm, body, moving)) continue;
+                    if (DrawShrinePart(m, part, pm, body)) continue;
                     if (part.onlyCarrying)
                     {
                         // 運んでいる食べものは、歩くたびに少しゆれる

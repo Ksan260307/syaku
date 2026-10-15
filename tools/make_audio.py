@@ -1271,6 +1271,158 @@ def make_coast_sounds():
     write("gull.wav", buf)
 
 
+def koto(freq, dur=2.6):
+    """琴（はじいた絹の弦）：はじいた直後は明るく、少し音が下がりながら、やわらかく消える"""
+    t = t_axis(dur)
+    bend = 1.0 + 0.012 * np.exp(-t * 18.0)
+    s = np.zeros_like(t)
+    for k in range(1, 8):
+        f = freq * k * (1 + 0.0006 * k * k)
+        ph = 2 * np.pi * f * np.cumsum(bend) / SR
+        s += (1.0 / k ** 1.1) * np.sin(ph + rng.uniform(0, 0.3)) * np.exp(-t * (0.9 + 1.4 * k))
+    att = np.minimum(t / 0.003, 1.0)
+    return s * att * 0.4
+
+
+def shakuhachi(freq, dur):
+    """尺八：息のまじった、ゆれる笛の音（はじめに少し下から入る）"""
+    t = t_axis(dur)
+    slide = 1.0 - 0.03 * np.exp(-t * 6.0)
+    vib = 1 + 0.01 * np.sin(2 * np.pi * 4.6 * t) * np.clip((t - 0.4) / 0.5, 0, 1)
+    ph = 2 * np.pi * freq * np.cumsum(slide * vib) / SR
+    s = np.sin(ph) + 0.25 * np.sin(2 * ph) + 0.08 * np.sin(3 * ph)
+    breath = shaped_noise(len(t), 0.2, 800, 5000) * (0.12 + 0.1 * np.exp(-t * 3.0))
+    e = env_adsr(len(t), 0.18, 0.3, 0.75, min(0.6, dur * 0.4))
+    return (s + breath) * e * 0.3
+
+
+def rin(freq, dur=4.0):
+    """お寺のりん（小さなかね）：長くひびく、少しうなる音"""
+    t = t_axis(dur)
+    s = np.zeros_like(t)
+    for k, (m, a, d) in enumerate(((1.0, 1.0, 0.7), (2.76, 0.5, 1.2), (5.4, 0.25, 2.2), (8.9, 0.12, 3.5))):
+        s += a * np.sin(2 * np.pi * freq * m * t) * (1 + 0.15 * np.sin(2 * np.pi * (1.5 + k) * t)) * np.exp(-t * d)
+    return s * np.minimum(t / 0.002, 1.0) * 0.3
+
+
+def make_music_shrine():
+    """神社：しずかな夕ぐれ（66BPM・ニ調の陽音階）。琴のアルペジオ・尺八のメロディ・やわらかい和音・ときどき、りん"""
+    r = np.random.default_rng(66)
+    bpm = 66
+    beat = 60 / bpm
+    bar = beat * 4
+    roots = [0, 0, 5, 7, 0, 9, 5, 7, 0, 0, 5, 7, 9, 5, 7, 0]
+    total = bar * len(roots)
+    buf = np.zeros((int(total * SR), 2))
+    yo = [0, 2, 5, 7, 9]   # 陽音階（ド・レ・ファ・ソ・ラ）
+    key = 62
+    mel_prev = 74
+    for i, rt in enumerate(roots):
+        start = int(i * bar * SR)
+        tones = [rt, rt + 7, rt + 12]
+        add(buf, start, pad([midi(key - 12 + t) for t in tones], bar + 1.2), gain=0.1)
+        # 琴：上がって下がる、ゆっくりのアルペジオ
+        arp = [rt, rt + 7, rt + 12, rt + 14, rt + 12, rt + 7]
+        for k, a in enumerate(arp):
+            add(buf, start + int((k * 0.66 * beat) * SR), koto(midi(key + a), 2.4), pan=0.35, gain=0.22)
+        # 尺八：2 小節に 1 つの、長い音のメロディ
+        if i % 2 == 0:
+            cands = [key + 12 + p for p in yo] + [key + p for p in yo if key + p >= 69]
+            note = min(cands, key=lambda n: abs(n - mel_prev) + r.uniform(0, 6))
+            mel_prev = note
+            add(buf, start + int(0.5 * beat * SR), shakuhachi(midi(note), bar * 1.6), pan=-0.25, gain=0.32)
+        if i % 4 == 3:
+            add(buf, start + int(3 * beat * SR), rin(midi(key + 24 + 7), 4.0), pan=0.1, gain=0.18)
+    buf = circular_reverb(buf, seconds=3.0, mix=0.38)
+    write("music_shrine.wav", buf)
+
+
+def owl_hoot():
+    """フクロウの「ホーホー、ゴロッホー」：ひくい、まるい声"""
+    parts = []
+    for f0, dur, gap in ((390, 0.5, 0.35), (370, 0.22, 0.12), (360, 0.22, 0.1), (380, 0.55, 0.0)):
+        t = t_axis(dur)
+        f = f0 * (1 - 0.06 * (t / dur))
+        ph = 2 * np.pi * np.cumsum(f) / SR
+        env = np.sin(np.pi * np.clip(t / dur, 0, 1)) ** 0.8
+        s = (np.sin(ph) + 0.2 * np.sin(2 * ph) + 0.05 * np.sin(3 * ph)) * env
+        s += shaped_noise(len(t), 0.5, 200, 1500) * env * 0.06   # 息
+        parts.append(s)
+        parts.append(np.zeros(int(gap * SR)))
+    return np.concatenate(parts)
+
+
+def suzu_ring(dur=1.6):
+    """神社の鈴：中の玉がころがって、しゃらん、からんと鳴る（金属の、うなる高い音を、何回か）"""
+    n = int(dur * SR)
+    out = np.zeros(n)
+    hits = [0.0, 0.07, 0.15, 0.26, 0.4, 0.58]
+    for k, h in enumerate(hits):
+        t = t_axis(dur - h)
+        g = 1.0 / (1 + 0.5 * k)
+        s = np.zeros_like(t)
+        for m, a, d in ((1.0, 1.0, 5.0), (1.51, 0.6, 7.0), (2.32, 0.4, 9.0), (3.1, 0.25, 12.0)):
+            f = 1350 * m * (1 + rng.uniform(-0.01, 0.01))
+            s += a * np.sin(2 * np.pi * f * t + rng.uniform(0, 1)) * np.exp(-t * d)
+        s += shaped_noise(len(t), 0.0, 3000, 12000) * np.exp(-t * 60) * 0.3   # 玉が当たる音
+        i0 = int(h * SR)
+        out[i0:i0 + len(s)] += s * g
+    # ひもを引いたときの、ひくい「がらん」
+    t = t_axis(dur)
+    out += 0.25 * np.sin(2 * np.pi * 420 * t) * np.exp(-t * 4.0) * np.minimum(t / 0.004, 1)
+    return out * 0.45
+
+
+def cricket_trill(dur=1.6, f0=4300.0):
+    """スズムシの「リーン」：高い、すんだ声が、ふるえながら"""
+    t = t_axis(dur)
+    am = 0.5 + 0.5 * np.sin(2 * np.pi * 34 * t)
+    env = np.minimum(t / 0.05, 1.0) * np.clip((dur - t) / 0.2, 0, 1)
+    return np.sin(2 * np.pi * f0 * t) * am * env * 0.35
+
+
+def make_shrine_sounds():
+    global rng
+    rng = np.random.default_rng(7070)   # 神社の音は、自分の乱数で
+    make_music_shrine()
+    # 神社の夕ぐれ：杉の森の風・遠くのヒグラシ・足もとのスズムシ・遠くのカラス
+    total = 52.0
+    n = int(total * SR)
+    t = np.arange(n) / SR
+    buf = np.zeros((n, 2))
+    for ch in range(2):
+        buf[:, ch] += shaped_noise(n, 1.6, 60, 1400) * (0.16 + 0.08 * np.sin(2 * np.pi * t * (3 / total) + ch * 1.3))
+    calls = np.zeros((n, 2))
+    time = 2.0
+    while time < total - 4.0:
+        add(calls, int(time * SR), higurashi_call(rng.uniform(2.6, 3.6)), pan=rng.uniform(-0.9, 0.9), gain=rng.uniform(0.05, 0.1))
+        time += rng.uniform(5.0, 10.0)
+    time = 0.5
+    while time < total - 2.0:
+        add(calls, int(time * SR), cricket_trill(rng.uniform(0.8, 1.8), rng.uniform(4000, 4600)), pan=rng.uniform(-0.6, 0.6), gain=rng.uniform(0.03, 0.06))
+        time += rng.uniform(1.5, 3.5)
+    time = 9.0
+    while time < total - 2.0:
+        add(calls, int(time * SR), crow_caw(), pan=rng.uniform(-0.9, 0.9), gain=rng.uniform(0.03, 0.05))
+        time += rng.uniform(14.0, 22.0)
+    buf += circular_reverb(calls, seconds=2.2, mix=0.45)
+    write("ambience_shrine.wav", buf)
+    # フクロウの声
+    call = owl_hoot()
+    out = np.zeros((len(call) + int(0.6 * SR), 2))
+    add(out, 0, call, pan=0.0, gain=0.8, wrap=False)
+    out = circular_reverb(out, seconds=1.6, mix=0.4)
+    out[-int(0.1 * SR):] *= np.linspace(1, 0, int(0.1 * SR))[:, None]
+    write("owl.wav", out)
+    # 鈴
+    ring = suzu_ring()
+    out = np.zeros((len(ring) + int(0.5 * SR), 2))
+    add(out, 0, ring, pan=0.0, gain=0.9, wrap=False)
+    out = circular_reverb(out, seconds=1.4, mix=0.3)
+    out[-int(0.1 * SR):] *= np.linspace(1, 0, int(0.1 * SR))[:, None]
+    write("suzu.wav", out)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     make_sfx()
@@ -1286,3 +1438,4 @@ if __name__ == "__main__":
     make_mountain_sounds()
     make_hut_sounds()
     make_coast_sounds()
+    make_shrine_sounds()

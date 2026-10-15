@@ -45,6 +45,7 @@ namespace Shakutori
             "carry", "antgreet", "dig", "popup", "sniff", "dive", "surface", "row", "dart", "sideways", "watch", "mimic",
             "climb", "ride", "glow", "hover", "swoop", "zigzag", "walk", "run",
             "creep", "swim", "leap", "turn",
+            "circle",
         };
 
         readonly System.Random _friendRng = new System.Random(4242);
@@ -121,6 +122,7 @@ namespace Shakutori
                 case "swim": return m.sp.id == "manta" && !m.leaping;
                 case "leap": return m.leaping;
                 case "turn": return m.sp.id == "manta" && !m.leaping && Mathf.Abs(m.turnRate) > 14f;
+                case "circle": return m.sp.id == "ga" && m.circling;                                // オオミズアオが、あかりのまわりを回る
                 default: return false;
             }
         }

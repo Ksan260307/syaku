@@ -169,6 +169,20 @@ MonoBehaviour:
     mesh: {fileID: -4778640171728460850, guid: acec384fe848ba54aa51fd5d0b966501, type: 3}
   - name: Frog_Limb2U
     mesh: {fileID: -5883960418941743906, guid: ae27e76f33e840b4188893b6184a8dab, type: 3}
+  - name: Fukurou_Body
+    mesh: {fileID: 1128260017964262901, guid: bfbaf5af4c1a6584f8a71c35d1d2fe10, type: 3}
+  - name: Fukurou_Body_Limb1F
+    mesh: {fileID: -5961811722908867718, guid: 644bf5698f81e6b48be06b67c32fda13, type: 3}
+  - name: Fukurou_Body_Limb1L
+    mesh: {fileID: 6277054734033300386, guid: f6e3f9f9935ea1d42ba3bd2b2d79b5f8, type: 3}
+  - name: Fukurou_Body_Limb1U
+    mesh: {fileID: 1224375903655651037, guid: 7988672d227870f4dac0fab2fc5a6953, type: 3}
+  - name: Fukurou_Head
+    mesh: {fileID: -1006576432967971385, guid: 8c06713807c1fe6479885879de9b20e8, type: 3}
+  - name: Fukurou_Wing
+    mesh: {fileID: 3757451889626128092, guid: ea04e2a8f2291b847aa33b4d2c5f1c41, type: 3}
+  - name: Fukurou_WingFolded
+    mesh: {fileID: 8820183063148540719, guid: 8e6c73dc35162ff4eab519af0d9e05bd, type: 3}
   - name: Funamushi
     mesh: {fileID: 4439546218427516490, guid: c8a216efd85a59f45a92e22d743edde3, type: 3}
   - name: Funamushi_Leg1
@@ -185,6 +199,10 @@ MonoBehaviour:
     mesh: {fileID: -7801804520176178211, guid: 58a71b56c96325e428429121fe33566b, type: 3}
   - name: Funamushi_Leg7
     mesh: {fileID: 6419295772318745594, guid: 38a62b88da9503a4b9fdb47a7076557d, type: 3}
+  - name: Ga_Body
+    mesh: {fileID: 4233616379451230979, guid: 314da189e389e784188f74d7971c552c, type: 3}
+  - name: Ga_Wing
+    mesh: {fileID: 2835095926371335694, guid: 31687a701a816db40981d5138775974a, type: 3}
   - name: Gengorou
     mesh: {fileID: -249514128375062826, guid: 1089d032da64f464a8e4a19218c5bdc4, type: 3}
   - name: Gengorou_Leg1
@@ -401,6 +419,30 @@ MonoBehaviour:
     mesh: {fileID: 1255542108347270075, guid: 07d195a30a60fd642b90b6babdffcbf0, type: 3}
   - name: Kamome_WingFolded
     mesh: {fileID: -6148311865120917465, guid: 408a0a6ad6217c144a94098bc27c32fd, type: 3}
+  - name: Kanabun
+    mesh: {fileID: 7510834655630994541, guid: f3c09b6d4c3b8bd4a843c5c110ab03ca, type: 3}
+  - name: Kanabun_Leg1
+    mesh: {fileID: 7924786452807393542, guid: 9d172c34c69c3be4e8d3fc2459ab1ba1, type: 3}
+  - name: Kanabun_Leg2
+    mesh: {fileID: -8064115997954577367, guid: 6973b4862d8cb9d42b360405840743df, type: 3}
+  - name: Kanabun_Leg3
+    mesh: {fileID: -5514180785453555574, guid: 23ca151c2bc8c684898f055281e34370, type: 3}
+  - name: Kanabun_Wing
+    mesh: {fileID: 2479301515964779776, guid: c0e889086ab0d9a40b7927c1a02f7482, type: 3}
+  - name: Kitsune
+    mesh: {fileID: -363337977944850369, guid: b9b2947c1c94ca44eb789514c7e7d692, type: 3}
+  - name: Kitsune_Limb1F
+    mesh: {fileID: -5180532785121540325, guid: 154737aa50b17694f8b66d4767f00621, type: 3}
+  - name: Kitsune_Limb1L
+    mesh: {fileID: -8267935248805782051, guid: 2d9e260744ed9bf43b42a8d3d1a35b7d, type: 3}
+  - name: Kitsune_Limb1U
+    mesh: {fileID: -6995804819419409013, guid: 0c40733fac9de4047be83281686ff844, type: 3}
+  - name: Kitsune_Limb2F
+    mesh: {fileID: -103563642634741593, guid: fdddf5eb721c96244b046b20378376d7, type: 3}
+  - name: Kitsune_Limb2L
+    mesh: {fileID: 5883962193453972526, guid: b3c886d995845b64e93b245feda859d1, type: 3}
+  - name: Kitsune_Limb2U
+    mesh: {fileID: 8652784466345978137, guid: c2ba359e4d4b6034e81e5b880eb1e6d3, type: 3}
   - name: Koumori_Body
     mesh: {fileID: -8248474982827443127, guid: 71e58970a8c6eb743840d9ab5255ded1, type: 3}
   - name: Koumori_Wing
@@ -743,6 +785,44 @@ MonoBehaviour:
     mesh: {fileID: 4324907800828235815, guid: d1d716da9ce81994883002e76a818f35, type: 3}
   - name: Shiomaneki_Leg4
     mesh: {fileID: -3054696851868400881, guid: d90935e56156c68498aa5a5cbf0e08f7, type: 3}
+  - name: Shrine_Bridge
+    mesh: {fileID: -915092408893844354, guid: eb116d9989f13fb4ea0b992f9098b481, type: 3}
+  - name: Shrine_Chozuya
+    mesh: {fileID: 6051316757203343451, guid: bf1c17f82d8f635438b4d01b974165ee, type: 3}
+  - name: Shrine_Ema
+    mesh: {fileID: -6370129628652320811, guid: 37c3ec93631e3b1439eeff892cfa6763, type: 3}
+  - name: Shrine_Fence
+    mesh: {fileID: -932272220209832648, guid: 3b644fb6d86a56643b4cd5b0ba804828, type: 3}
+  - name: Shrine_Fox_A
+    mesh: {fileID: -5910104573717291463, guid: c6f156cc1de933743a2108757305056e, type: 3}
+  - name: Shrine_Fox_B
+    mesh: {fileID: 7134841434270813090, guid: 7bd97e8c32592b846889c9eb2d80d4be, type: 3}
+  - name: Shrine_Ginkgo
+    mesh: {fileID: 9056620380632324225, guid: e914875abdc5cee4b9824379d368c55c, type: 3}
+  - name: Shrine_Hall
+    mesh: {fileID: 7869949797461085142, guid: 0d76c241eaaf3484c8b87465eaed9b18, type: 3}
+  - name: Shrine_Higanbana
+    mesh: {fileID: -441420908949836263, guid: f3515905d7ca8534d8cf32012085d7a6, type: 3}
+  - name: Shrine_Hokora
+    mesh: {fileID: 7317197984851375483, guid: 1777f3586f0c38440b174ed897d624b9, type: 3}
+  - name: Shrine_Lantern
+    mesh: {fileID: -7789976733265239382, guid: 2c035c0ebf8624e4baf91fbfd0cf9450, type: 3}
+  - name: Shrine_Omikuji
+    mesh: {fileID: 4891312670114633807, guid: 8eefc9570b52b4f46b5e89cc6c735920, type: 3}
+  - name: Shrine_Saisen
+    mesh: {fileID: 1852928056571812800, guid: 5bf3e555ce33e7d43a20334051df22a8, type: 3}
+  - name: Shrine_Sasa
+    mesh: {fileID: 1600306850000726032, guid: 4644925f59ee3654fb757c1e77445335, type: 3}
+  - name: Shrine_Slab
+    mesh: {fileID: -3502037749841397996, guid: 635a6c2b2ec5ae14cb5d14daeb29e9ca, type: 3}
+  - name: Shrine_Step
+    mesh: {fileID: 8845432738726718376, guid: abcb54fc4415f534c96810e2cf1b6962, type: 3}
+  - name: Shrine_Torii
+    mesh: {fileID: -5825599438607359692, guid: 4852a6415c2287741b1393b54100f556, type: 3}
+  - name: Shrine_ToriiSmall
+    mesh: {fileID: -6025961789316423648, guid: 88edf0cf8742bb74e92f6951485408ca, type: 3}
+  - name: Shrine_Tree
+    mesh: {fileID: 8597223093207011952, guid: 112fd2e2371580747a447307fa4636f8, type: 3}
   - name: Snail
     mesh: {fileID: 2833990666634714160, guid: 2f673947adb625540a5092c2408d0fb1, type: 3}
   - name: Sparrow_Body
@@ -781,6 +861,20 @@ MonoBehaviour:
     mesh: {fileID: 3840383602836954559, guid: 15080bed2a2c1dc42933d2ce094f121d, type: 3}
   - name: Stump
     mesh: {fileID: -3727755857921736763, guid: 4a85af426b8ef424890624be9f699061, type: 3}
+  - name: Tanuki
+    mesh: {fileID: -4519277900439107094, guid: 84dcd6e3e1ee5e4469cead12e594e862, type: 3}
+  - name: Tanuki_Limb1F
+    mesh: {fileID: -6323982004833668148, guid: be0ca46ea564a4c48aa847414cf0b3b1, type: 3}
+  - name: Tanuki_Limb1L
+    mesh: {fileID: 5015132936267792374, guid: 01a14c4bd5d25484788c8a25618fe38f, type: 3}
+  - name: Tanuki_Limb1U
+    mesh: {fileID: 8924666220904728226, guid: 6163ff3aa04f67d4aab67c95f4cc5605, type: 3}
+  - name: Tanuki_Limb2F
+    mesh: {fileID: 5205108310623427241, guid: dac9e590a51eb3e40bddabf739276c47, type: 3}
+  - name: Tanuki_Limb2L
+    mesh: {fileID: -7397455996883193508, guid: 320af9014ff69ff48b092bd981302211, type: 3}
+  - name: Tanuki_Limb2U
+    mesh: {fileID: -4076103861690125480, guid: b612d1a6f44218342ba339a179533f86, type: 3}
   - name: Tokage
     mesh: {fileID: -1723738705104999810, guid: 6879b237a23be21458df025fdec20793, type: 3}
   - name: Tokage_Leg1
@@ -894,8 +988,12 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 11a9cadc8d0da404fb1b4ea2c5999c8f, type: 3}
   - name: frog
     texture: {fileID: 2800000, guid: 8fcaf1b260f3bf949a6ee7132e70a1d3, type: 3}
+  - name: fukurou
+    texture: {fileID: 2800000, guid: 61d64cc797f23e14388d2fa9d56518ca, type: 3}
   - name: funamushi
     texture: {fileID: 2800000, guid: 5c472f5bdcc6bc44faa1296ace7b4140, type: 3}
+  - name: ga
+    texture: {fileID: 2800000, guid: 167cedb14a107714180f3989e18db7c9, type: 3}
   - name: gengorou
     texture: {fileID: 2800000, guid: 9a8df336b305196458ae7332c9152280, type: 3}
   - name: grasshopper
@@ -924,6 +1022,10 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 6d202447e8d59b74e960fd16b08221c8, type: 3}
   - name: kamome
     texture: {fileID: 2800000, guid: 3cf1f59475cda614db739df27fea423d, type: 3}
+  - name: kanabun
+    texture: {fileID: 2800000, guid: e6206274597c8a941a09b1585750260c, type: 3}
+  - name: kitsune
+    texture: {fileID: 2800000, guid: ec06f2f8c9d73f94e840e857e914c007, type: 3}
   - name: koumori
     texture: {fileID: 2800000, guid: 99c26dc65f5ca3a4991cf73b27005d84, type: 3}
   - name: kuwagata
@@ -978,6 +1080,8 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 91244354b71478441bef3ad86421a2ce, type: 3}
   - name: spider_sneaker
     texture: {fileID: 2800000, guid: 6c1dbaba024a27f4eb92594b2b6913a3, type: 3}
+  - name: tanuki
+    texture: {fileID: 2800000, guid: 03439a01652317e45931d232db961e62, type: 3}
   - name: tokage
     texture: {fileID: 2800000, guid: 22bb01cfbb059cb42888fe5cd993a7f8, type: 3}
   - name: tsubame

@@ -228,6 +228,7 @@ namespace Shakutori
             else if (_area.Id == "mountain") BuildMountain();
             else if (_area.Id == "hut") { }   // 小屋の中の演出は、BuildAreaExtras（HutFX）で
             else if (_area.Id == "coast") { }  // 海辺のきらめきは、UpdateArea で
+            else if (_area.Id == "shrine") BuildShrine();
             else BuildRiver();
             foreach (var g in world.Gates) GateMotes(g);
             BuildAreaExtras(world);   // エリアの改善：ただよう物
@@ -292,6 +293,16 @@ namespace Shakutori
             }
         }
 
+
+        void BuildShrine()
+        {
+            // ご神木から舞い落ちる、イチョウとモミジの葉
+            Vector2 t = ShrineLayout.Tree;
+            FallingLeaves(new Vector3(t.x + 12f, ShrineLayout.Height(t.x, t.y) + 46f, t.y), new Vector3(64f, 2f, 60f), 1.5f,
+                new Color(1f, 0.82f, 0.28f), new Color(0.95f, 0.36f, 0.22f));
+            // 夕ぐれの池のまわりの、ホタル
+            Fireflies(_areaRoot, new Vector3(ShrineLayout.Pond.x, 0f, ShrineLayout.Pond.y), 12f, 26, new Color(0.9f, 1f, 0.5f));
+        }
 
         void BuildPark()
         {
@@ -369,7 +380,8 @@ namespace Shakutori
                 : g.def.targetArea == "park" ? new Color(1f, 0.9f, 0.55f, 1f)
                 : g.def.targetArea == "mountain" ? new Color(0.92f, 0.9f, 1f, 1f)
                 : g.def.targetArea == "hut" ? new Color(1f, 0.82f, 0.5f, 1f)
-                : g.def.targetArea == "coast" ? new Color(0.6f, 1f, 1f, 1f) : new Color(0.8f, 1f, 0.6f, 1f));
+                : g.def.targetArea == "coast" ? new Color(0.6f, 1f, 1f, 1f)
+                : g.def.targetArea == "shrine" ? new Color(1f, 0.72f, 0.5f, 1f) : new Color(0.8f, 1f, 0.6f, 1f));
             ps.transform.position = g.position + Vector3.up * 0.4f;
             var main = ps.main;
             main.startLifetime = new ParticleSystem.MinMaxCurve(2.5f, 4.5f);

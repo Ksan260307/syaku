@@ -53,6 +53,14 @@ namespace Shakutori
                         sun = new Color(1f, 0.97f, 0.88f), sunIntensity = 1.65f,
                         sky = new Color(0.62f, 0.8f, 0.98f), equator = new Color(0.68f, 0.77f, 0.78f), ground = new Color(0.62f, 0.57f, 0.44f),
                     };
+                case "shrine":
+                    // 神社：鎮守の森の、夕ぐれ。こもれびは金色で、木かげは青みのある緑。霧は少しあたたかい
+                    return new Look
+                    {
+                        fog = new Color(0.64f, 0.62f, 0.52f), fogStart = 26f, fogEnd = 165f,
+                        sun = new Color(1f, 0.8f, 0.56f), sunIntensity = 1.38f,
+                        sky = new Color(0.7f, 0.66f, 0.6f), equator = new Color(0.55f, 0.56f, 0.46f), ground = new Color(0.34f, 0.3f, 0.22f),
+                    };
                 case "park":
                     return new Look
                     {
@@ -107,12 +115,12 @@ namespace Shakutori
         public static Color DiscoverTint(string areaId) =>
             areaId == "river" ? new Color(0.55f, 0.9f, 1f) : areaId == "park" ? new Color(1f, 0.86f, 0.42f)
             : areaId == "mountain" ? new Color(0.85f, 0.88f, 1f) : areaId == "hut" ? new Color(1f, 0.78f, 0.5f)
-            : areaId == "coast" ? new Color(0.5f, 0.95f, 0.95f) : new Color(0.7f, 1f, 0.45f);
+            : areaId == "coast" ? new Color(0.5f, 0.95f, 0.95f) : areaId == "shrine" ? new Color(1f, 0.62f, 0.4f) : new Color(0.7f, 1f, 0.45f);
 
         /// <summary>しずくを取ったときのきらめきに、まぜる色。</summary>
         public static Color DropTint(string areaId) =>
             areaId == "river" ? new Color(0.6f, 0.92f, 1f) : areaId == "park" ? new Color(1f, 0.9f, 0.55f)
             : areaId == "mountain" ? new Color(0.88f, 0.9f, 1f) : areaId == "hut" ? new Color(1f, 0.82f, 0.58f)
-            : areaId == "coast" ? new Color(0.62f, 0.96f, 0.95f) : new Color(0.72f, 1f, 0.55f);
+            : areaId == "coast" ? new Color(0.62f, 0.96f, 0.95f) : areaId == "shrine" ? new Color(1f, 0.72f, 0.5f) : new Color(0.72f, 1f, 0.55f);
     }
 }

@@ -141,6 +141,13 @@ namespace Shakutori
                 "干潟の巣穴のそばで、じっと待っていると、シオマネキが顔を出します。",
                 "岬の先の大岩のてっぺんからは、沖の小島の灯台が見えます。",
             },
+            ["shrine"] = new[]
+            {
+                "お社の前の鈴緒（紅白のひも）にさわると、鈴が「しゃらん」と鳴ります。",
+                "千本鳥居をくぐりぬけると、小さな奥の宮があります。",
+                "フクロウは、ご神木の高い枝の上。近づくと、鳥居やお社の屋根へ、音もなく飛んでいきます。",
+                "タヌキは、びっくりすると、ころんと死んだふり。しばらく待つと、起きあがります。",
+            },
         };
 
         /// <summary>読み込み画面の行き先のエリア（そのエリアのヒントを出す）。</summary>
@@ -1277,7 +1284,7 @@ namespace Shakutori
             // すみかでしぼりこむ
             var filters = new VisualElement();
             filters.AddToClassList("zukan-filters");
-            foreach (var (label, key) in new[] { ("すべて", ""), ("森", "森"), ("川辺", "川辺"), ("公園", "公園"), ("山", "山"), ("山小屋", "山小屋"), ("海岸", "海岸") })
+            foreach (var (label, key) in new[] { ("すべて", ""), ("森", "森"), ("川辺", "川辺"), ("公園", "公園"), ("山", "山"), ("山小屋", "山小屋"), ("海岸", "海岸"), ("神社", "神社") })
             {
                 var chip = new Button { text = label };
                 chip.AddToClassList("chip");
@@ -2215,7 +2222,7 @@ namespace Shakutori
             return false;
         }
 
-        /// <summary>地図の下のエリアのボタンを押す（テスト用。index は 森・川辺・公園・山・山小屋・海岸 の順）。</summary>
+        /// <summary>地図の下のエリアのボタンを押す（テスト用。index は 森・川辺・公園・山・山小屋・海岸・神社 の順）。</summary>
         public bool PressAreaChip(int index)
         {
             if (_mapAreas == null || index < 0 || index >= _mapAreas.childCount || !(_mapAreas[index] is Button b)) return false;
