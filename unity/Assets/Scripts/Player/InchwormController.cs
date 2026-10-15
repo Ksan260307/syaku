@@ -470,10 +470,41 @@ namespace Shakutori
             }
             else if (!airborne && Vector3.Angle(n, _stickNormal) > 30f)
             {
-                Vector3 straight = ShakuMath.ProjectOnPlaneSafe(Heading, n, d);
-                if (straight.sqrMagnitude > 1e-4f && Vector3.Angle(straight, d) > 60f) d = straight.normalized;
+                Vector3 straight = BodyDir(Heading, n, d);
+                if (Vector3.Angle(straight, d) > 60f) d = straight;
             }
             return d;
+        }
+
+        /// <summary>
+        /// 体の向き v（尾から頭へ）を、面 n に沿った向きにする。床と壁にまたがっていて（頭だけ壁に正面からついた・尾だけ壁に残った）、
+        /// 体が n の面から大きく立っているときは、投影すると横向きのぶれになるので、体がよく沿っている方の端の面から折り返す。
+        /// </summary>
+        Vector3 BodyDir(Vector3 v, Vector3 n, Vector3 fallback)
+        {
+            Vector3 m = Mathf.Abs(Vector3.Dot(v, _tail.normal)) <= Mathf.Abs(Vector3.Dot(v, _head.normal)) ? _tail.normal : _head.normal;
+            return AlongPlane(v, m, n, fallback);
+        }
+
+        /// <summary>
+        /// スティックの向き（頭の面で決めたもの）を、尾の面に沿った向きにする。頭だけ壁についているときに投影すると、
+        /// 壁を上る向きが、床の上では横向きに、少し張り出した壁では後ろ向き（壁からはなれる向き）になるので、折り目で折り返す。
+        /// </summary>
+        Vector3 OnTailPlane(Vector3 dir, Vector3 fallback)
+        {
+            if (Mathf.Abs(Vector3.Dot(dir.normalized, _head.normal)) < 0.25f) return AlongPlane(dir, _head.normal, _tail.normal, fallback);
+            return ShakuMath.ProjectOnPlaneSafe(dir, _tail.normal, fallback);
+        }
+
+        /// <summary>
+        /// 面 from に沿った向き v を、面 to に沿った向きにする。ふつうは投影するだけ。v が to の面から 60 度より立っていて、
+        /// 投影すると短くなりすぎる（向きがぶれる・逆になる）ときは、折り目で to の面へ折り返す。
+        /// </summary>
+        static Vector3 AlongPlane(Vector3 v, Vector3 from, Vector3 to, Vector3 fallback)
+        {
+            Vector3 p = Vector3.ProjectOnPlane(v, to);
+            if (p.sqrMagnitude >= 0.25f * v.sqrMagnitude || Vector3.Dot(from, to) <= -0.5f) return ShakuMath.ProjectOnPlaneSafe(v, to, fallback);
+            return ShakuMath.ProjectOnPlaneSafe(Quaternion.FromToRotation(from, to) * Vector3.ProjectOnPlane(v, from), to, fallback);
         }
 
         // ------------------------------------------------------------------
@@ -737,8 +768,8 @@ namespace Shakutori
                 if (_rear < 0.35f && !WaitForSmallCreature())
                 {
                     float D = Vector3.Distance(_tail.point, _head.point);
-                    Vector3 hf = ShakuMath.ProjectOnPlaneSafe(_head.point - _tail.point, _tail.normal, Heading);
-                    float off = Vector3.Angle(hf, ShakuMath.ProjectOnPlaneSafe(desired, _tail.normal, hf));
+                    Vector3 hf = BodyDir(_head.point - _tail.point, _tail.normal, Heading);
+                    float off = Vector3.Angle(hf, OnTailPlane(desired, hf));
                     // 後ろへ歩きだすときは、まずその場で頭をふり向けてから
                     if (D < L * 0.55f || off > 100f) StartReach(desired, false, sprint);
                     else StartPull(sprint);
@@ -1000,19 +1031,31 @@ namespace Shakutori
 
         void StartPull(bool sprint)
         {
-            Vector3 hf = ShakuMath.ProjectOnPlaneSafe(_head.point - _tail.point, _head.normal, Heading);
+            Vector3 hf = BodyDir(_head.point - _tail.point, _head.normal, Heading);
             // はやいときは尾を頭のすぐそばまで引き寄せて、Ω を高く
             float loop = Mathf.Lerp(loopRatio, 0.24f, _sprintBlend) * L;
-            SurfacePoint tgt = default;
-            bool found = false;
+            SurfacePoint tgt = default, dropped = default;
+            bool found = false, hasDropped = false;
             // 足場の小さい所（とびいしのふちなど）でも止まらないよう、とどかなければ短くして試す
             foreach (float k in PullTry)
             {
-                if (SurfaceProbe.Walk(_head, -hf, loop * k, out tgt, out _))
+                if (!SurfaceProbe.Walk(_head, -hf, loop * k, out var t, out _)) continue;
+                // 頭が登った張り出し（下がえぐれた根のふくらみなど）から、ふちを飛び下りて、尾のすぐそばの地面へもどった：
+                // 尾がほとんど進まず、その場で頭をつきなおしつづけるので、短くして頭と同じ面の上に尾をつく
+                if (Vector3.Distance(t.point, _head.point) > loop * k + 0.15f && Vector3.Distance(t.point, _tail.point) < 0.2f * L)
                 {
-                    found = true;
-                    break;
+                    if (!hasDropped) dropped = t;
+                    hasDropped = true;
+                    continue;
                 }
+                tgt = t;
+                found = true;
+                break;
+            }
+            if (!found && hasDropped)
+            {
+                tgt = dropped;
+                found = true;
             }
             if (!found)
             {
@@ -1093,10 +1136,10 @@ namespace Shakutori
         bool StartReach(Vector3 desired, bool settle, bool sprint)
         {
             Vector3 n = _tail.normal;
-            Vector3 heading = ShakuMath.ProjectOnPlaneSafe(_head.point - _tail.point, n, ShakuMath.ProjectOnPlaneSafe(Heading, n, ShakuMath.AnyPerpendicular(n)));
+            Vector3 heading = BodyDir(_head.point - _tail.point, n, ShakuMath.ProjectOnPlaneSafe(Heading, n, ShakuMath.AnyPerpendicular(n)));
             if (Vector3.Distance(_head.point, _tail.point) < 0.05f)
                 heading = ShakuMath.ProjectOnPlaneSafe(Heading, n, ShakuMath.AnyPerpendicular(n));
-            Vector3 want = desired.sqrMagnitude > 0.01f ? ShakuMath.ProjectOnPlaneSafe(desired, n, heading) : heading;
+            Vector3 want = desired.sqrMagnitude > 0.01f ? OnTailPlane(desired, heading) : heading;
             float dropFit = -1f;
             // 近くのしずくへ頭を向け、とどく所なら、ちょうどそこに頭を下ろす歩幅にする
             var col = Collectibles.Instance;

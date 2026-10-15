@@ -115,6 +115,58 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
+        public IEnumerator StumpRoot_ClimbsOntoTheRootInsteadOfWrigglingAtItsFoot()
+        {
+            // 切り株の西の張り出した根（下が少しえぐれている）と切り株の壁のあいだの角へ、北北東へ歩いていく。
+            // ・頭を根にかけても、尾を引き寄せる一歩が根のふくらみから地面へ飛び下りて元の所にもどり、その場で頭をつきなおしつづけていた
+            // ・頭が根に正面から当たると、体の向きが横向きになって、根のつけ根や切り株の壁にそって歩いていった
+            //   （カメラが根の向こうにあると、壁を上る向きが床の上では後ろ向きになり、はね返されることもあった）
+            bool autoCam = SaveSystem.Settings.autoCamera;
+            SaveSystem.Settings.autoCamera = false;
+            try
+            {
+                Vector3 want = new Vector3(0.5f, 0f, 0.866f);
+                Vector2 corner = ForestLayout.Stump + new Vector2(-8.7f, 1.0f);
+                Vector2 from = corner - new Vector2(want.x, want.z) * 1.6f;
+                foreach (bool camBehindRoot in new[] { false, true })
+                {
+                    Vector3 start = Place(from, want);
+                    Assert.IsTrue(Physics.Raycast(start + Vector3.up * 0.25f, want, out var ahead, 3f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)
+                                  && ahead.collider.name.StartsWith("Stump"), "前に切り株の根がある");
+                    // カメラが根の向こうにあるときは、手前（下）に倒して根へ向かう
+                    yield return FaceCamera(camBehindRoot ? -want : want);
+                    yield return Seconds(0.3f);
+                    bool fell = false;
+                    System.Action onFell = () => fell = true;
+                    Worm.Fell += onFell;
+                    GameInput.VirtualMove = camBehindRoot ? Vector2.down : Vector2.up;
+                    float t = 0f, onRootAt = -1f, gone = 0f;
+                    while (t < 7f && !fell)
+                    {
+                        yield return null;
+                        t += Time.deltaTime;
+                        Vector3 tail = Worm.TailPoint;
+                        if (onRootAt < 0f && tail.y - ForestLayout.Height(tail.x, tail.z) > 0.5f
+                            && Physics.OverlapSphere(tail, 0.06f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore).Any(c => c.name.StartsWith("Stump")))
+                            onRootAt = t;
+                        gone = Vector3.Dot(Vector3.ProjectOnPlane(Worm.CenterPosition - start, Vector3.up), want);
+                    }
+                    ResetInput();
+                    Worm.Fell -= onFell;
+                    string where = $"（カメラが根の{(camBehindRoot ? "向こう" : "手前")}）";
+                    Assert.IsFalse(fell, "落ちない" + where);
+                    Assert.Greater(onRootAt, 0f, "根に乗る" + where);
+                    Assert.Less(onRootAt, 4f, "根のつけ根でくねくねせず、すぐに根に乗る" + where);
+                    Assert.Greater(gone, 2.5f, $"根をこえて、倒した向きへ進んでいく{where} {start} → {Worm.CenterPosition}");
+                }
+            }
+            finally
+            {
+                SaveSystem.Settings.autoCamera = autoCam;
+            }
+        }
+
+        [UnityTest]
         public IEnumerator LogTunnel_EchoesFootsteps_AndMossIsSoft()
         {
             var log = ForestLayout.Landmarks.Find(l => l.useCapsule);
