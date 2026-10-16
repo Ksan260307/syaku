@@ -161,16 +161,23 @@ class ShrineKitTests(unittest.TestCase):
                     hit = tree.ray_cast(shrine.U(10.0, y, dz), shrine.U(-1.0, 0.0, 0.0), 20.0)
                     self.assertIsNotNone(hit[0], f"高さ {y:.1f}")
                     self.assertGreater(unity(hit[0]).x, inner - 0.01, f"高さ {y:.1f} で、台座のすき間に入る")
-            # 台座の上の石の高さには、台座の外へはみ出す形がない（しっぽの下に、見えない天井ができない）
+            # 台座の上の面のふちのすぐ上には、像がかぶさらない（台座の横を登ってきて、ふちを回りこめる）
             cap = shrine.FOX_PEDESTAL[-1]
             for v in ob.data.vertices:
                 u = unity(v.co)
-                if shrine.FOX_TOP - 0.8 < u.y < shrine.FOX_TOP - 0.01:
+                if shrine.FOX_TOP - 0.8 < u.y < shrine.FOX_TOP + 3.0:
                     self.assertTrue(abs(u.x) < cap[0] + 0.01 and abs(u.z) < cap[1] + 0.01, f"{tuple(u)} が台座の外")
             # 体の形は、台座に重ならない（台座の中の点から上へ光線を出すと、まず台座の上の面に当たる）
             for x, z in ((0.0, 0.0), (1.0, -1.5), (-1.5, 1.0)):
                 hit = tree.ray_cast(shrine.U(x, shrine.FOX_TOP - 0.5, z), shrine.U(0.0, 1.0, 0.0), 20.0)
                 self.assertAlmostEqual(unity(hit[0]).y, shrine.FOX_TOP, delta=0.01, msg="台座の中から上は、台座の上の面")
+            # 台座の上の面のまわりには、像のかからない床がある（ふちを回りこんで、そのまま上の面に乗れる。像の底との間に入りこまない）
+            hx, hz = cap[0] - shrine.FOX_RIM + 0.05, cap[1] - shrine.FOX_RIM + 0.05
+            for k in range(40):
+                t = k / 40.0
+                for x, z in ((-hx + 2 * hx * t, hz), (-hx + 2 * hx * t, -hz), (hx, -hz + 2 * hz * t), (-hx, -hz + 2 * hz * t)):
+                    y = ray_down(tree, x, z, shrine.FOX_TOP + 0.6)
+                    self.assertAlmostEqual(y, shrine.FOX_TOP, delta=0.01, msg=f"({x:.1f}, {z:.1f})：ふちのまわりの床に、像がかかっている")
             # 台座の上の面から上へ：すぐ上に、下を向いた面（こしの下のくさび）がない
             top = shrine.FOX_TOP
             for i in range(-30, 31):
@@ -180,12 +187,18 @@ class ShrineKitTests(unittest.TestCase):
                     if hit[0] is not None:
                         n = hit[1]
                         self.assertGreater(n.z, -0.1, f"({x:.1f}, {z:.1f}) の上に、かぶさる面がある")
-        # 見た目の台座にも、すき間はない
+        # 見た目の台座にも、すき間はない。上へ行くほど細くなるだけで、張り出し（下を向いたくぼみ）がない
         reset()
         vis = bvh(shrine.make_fox_statue("Shrine_Fox_T", "jewel"))
-        for i in range(73):
-            hit = vis.ray_cast(shrine.U(10.0, i * 0.1, 0.0), shrine.U(-1.0, 0.0, 0.0), 20.0)
-            self.assertGreater(unity(hit[0]).x, shrine.FOX_PEDESTAL[2][0] - 0.01, f"見た目の台座の高さ {i * 0.1:.1f}")
+        for dz in (-1.5, 0.0, 1.5):
+            prev = None
+            for i in range(73):
+                hit = vis.ray_cast(shrine.U(10.0, i * 0.1, dz), shrine.U(-1.0, 0.0, 0.0), 20.0)
+                x = unity(hit[0]).x
+                self.assertGreater(x, shrine.FOX_PEDESTAL[2][0] - 0.01, f"見た目の台座の高さ {i * 0.1:.1f}")
+                if prev is not None:
+                    self.assertLessEqual(x, prev + 0.005, f"高さ {i * 0.1:.1f} で、台座が上の方へ張り出している")
+                prev = x
 
     def test_parts_are_joined_without_open_ends(self):
         # 筒の口があいたまま見える所や、宙に浮いた部品がない（前はキツネの像の首が胴からはなれ、鍵が鼻先に浮き、

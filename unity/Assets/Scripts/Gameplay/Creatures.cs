@@ -1117,11 +1117,14 @@ namespace Shakutori
                 var kind = m.sp.kind;
                 bool jumper = kind == MobKind.Hopper || kind == MobKind.Pouncer;
                 if (jumper && m.launchAt >= 0f && (m.launchTo - ClosestOnSegment(m.launchTo, tail, seg)).sqrMagnitude < clear * clear) m.launchAt = -1f;
-                if (m.airborne || m.carryingWorm || m.sp.rideable || m.up.y < 0.5f) continue;
+                // 跳んでいる最中のものは、着く所で考える（着く所が体のそばなら、横へ着地させる。画面が明るくなったとたんに、体の上に下りてこない）
+                bool leaping = jumper && m.airborne;
+                if ((m.airborne && !leaping) || m.carryingWorm || m.sp.rideable || (!leaping && m.up.y < 0.5f)) continue;
                 if (kind != MobKind.Crawler && kind != MobKind.Pouncer && kind != MobKind.Hopper && kind != MobKind.Bird && kind != MobKind.Stalker) continue;
-                Vector3 near = ClosestOnSegment(m.pos, tail, seg);
-                if ((m.pos - near).sqrMagnitude >= clear * clear) continue;
-                Vector3 away = Vector3.ProjectOnPlane(m.pos - near, Vector3.up);
+                Vector3 at = leaping ? m.to : m.pos;
+                Vector3 near = ClosestOnSegment(at, tail, seg);
+                if ((at - near).sqrMagnitude >= clear * clear) continue;
+                Vector3 away = Vector3.ProjectOnPlane(at - near, Vector3.up);
                 if (away.sqrMagnitude < 1e-6f) away = Vector3.Cross(Vector3.up, seg);
                 if (away.sqrMagnitude < 1e-6f) away = Vector3.right;
                 away.Normalize();
@@ -1130,10 +1133,12 @@ namespace Shakutori
                 {
                     Vector3 dir = Quaternion.AngleAxis((k + 1) / 2 * 45f * (k % 2 == 0 ? 1f : -1f), Vector3.up) * away;
                     Vector3 spot = near + dir * (clear + 0.1f);
-                    if (!Physics.Raycast(new Vector3(spot.x, m.pos.y + 1f, spot.z), Vector3.down, out var hit, 2f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)
-                        || hit.normal.y < 0.5f || Mathf.Abs(hit.point.y - m.pos.y) > 0.4f || _area.IsUnderwater(hit.point)
+                    if (!Physics.Raycast(new Vector3(spot.x, at.y + 1f, spot.z), Vector3.down, out var hit, 2f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)
+                        || hit.normal.y < 0.5f || Mathf.Abs(hit.point.y - at.y) > 0.4f || _area.IsUnderwater(hit.point)
                         || (hit.point - ClosestOnSegment(hit.point, tail, seg)).sqrMagnitude < clear * clear) continue;
                     m.pos = m.prevPos = m.drawPos = m.startPos = hit.point;
+                    m.airborne = false;
+                    m.fallVel = 0f;
                     m.up = hit.normal;
                     m.vel = m.skidVel = Vector3.zero;
                     m.curSpeed = 0f;

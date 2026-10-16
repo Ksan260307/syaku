@@ -352,8 +352,9 @@ def sliced_hull(mb, src, col, step=0.2, n=32, skirt=None, floor=None, clip=None,
         for i in range(len(levels) - 1, -1, -1):
             if levels[i] <= skirt:
                 own = hulls[i]
-                above = _clip_rect(acc, *clip) if clip else acc
-                hulls[i] = hull2(own + above)
+                hulls[i] = hull2(own + acc)
+                if clip:
+                    hulls[i] = _clip_rect(hulls[i], *clip)   # 根もとは、台の上の面の中だけ
                 acc = hull2(acc + own)
     # 輪の点は、まん中から決まった向きへ。まん中が高さごとにずれると、面が小さく波うつ（しゃくとりむしが、つまずく）ので、
     # 上からつつむ所は同じまん中にして、ほかも上下でならす（凸包の外へ出たら、その切り口のまん中）
@@ -420,22 +421,23 @@ def rect_stack(mb, prof, col):
 # キツネの石像（お稲荷さんのお使い）：台座の上にすわり、赤い前かけ。A は玉、B は鍵をくわえる
 # ---------------------------------------------------------------------------
 FOX_TOP = 7.4   # 台座の上の面
-# 台座（はばの半分・おくゆきの半分・高さ）：下の石（上は斜め）・まん中の石・上の石（裏は斜め）。段のあいだにすき間はない。
-# 段は平らな細い棚にしない（しゃくとりむしの体より細い棚と壁のあいだの角で、つかえる）
-FOX_PEDESTAL = [(3.8, 3.4, -0.2), (3.8, 3.4, 1.0), (3.1, 2.7, 1.7), (3.1, 2.7, 6.2), (3.5, 3.1, 6.6), (3.5, 3.1, FOX_TOP)]
+FOX_RIM = 0.3   # 台座の上の面の、まわりの床のはば（像がかからない）
+# 台座（はばの半分・おくゆきの半分・高さ）：下の石（上は斜め）と、まっすぐな柱の石（上の石は色の帯でわける）。
+# 段のあいだのすき間・上の石の張り出し（下の面のくぼみ）は作らない（しゃくとりむしがはさまって、登れなかった）
+FOX_PEDESTAL = [(3.8, 3.4, -0.2), (3.8, 3.4, 1.0), (3.5, 3.1, 1.3), (3.5, 3.1, 6.6), (3.5, 3.1, FOX_TOP)]
 
 
 def fox_statue_parts(holds):
     """キツネの像の部品：台座・体（しっぽまで）・頭・耳 2 つ・くわえた物（当たり判定は、部品ごとになめらかにつつむ）"""
     ped, body, head, item = MB(), MB(), MB(), MB()
     ears = [MB(), MB()]
-    cols = [stone_col(2.0, 0.35, STONE_DARK), stone_col(2.0, 0.35, STONE_DARK), stone_col(3.0, 0.15), stone_col(3.0, 0.15),
-            stone_col(4.0, 0.25, STONE_LIGHT)]
+    cols = [stone_col(2.0, 0.35, STONE_DARK), stone_col(2.0, 0.35, STONE_DARK), stone_col(3.0, 0.15), stone_col(4.0, 0.25, STONE_LIGHT)]
     rect_stack(ped, FOX_PEDESTAL, lambda i, n: cols[i](n))
     y0 = FOX_TOP
     fur = lambda t, a, p, d: mixc(FOX_STONE, STONE, 0.12 + 0.12 * noise.noise(p * 0.8))
     # すわった体：うしろのこし（台座にどっしりすわる）・むね・首
-    usphere(body, (0, y0 + 0.9, -0.9), 1.0, lambda n: mixc(FOX_STONE, STONE, 0.15), scale=(2.1, 2.0, 2.3), seg=18, rings=12)
+    # こしは、台座のふちまでは来ない（台座の横から登ってきたしゃくとりむしが、ふちの上に乗れる床をのこす）
+    usphere(body, (0, y0 + 0.9, -0.55), 1.0, lambda n: mixc(FOX_STONE, STONE, 0.15), scale=(2.1, 2.0, 1.95), seg=18, rings=12)
     # 首は頭の中までのばして、とじる（筒の口が頭の下に出ると、胴と首がはなれて見える）
     utube(body, [(0, y0 + 1.6, -0.6), (0, y0 + 3.4, -0.1), (0, y0 + 5.2, 0.5), (0, y0 + 6.6, 0.9), (0, y0 + 7.4, 1.1), (0, y0 + 7.9, 1.15)],
           [1.75, 1.6, 1.25, 0.95, 0.75, 0.0], 18, fur)
@@ -457,8 +459,9 @@ def fox_statue_parts(holds):
     # 赤い前かけ
     usphere(body, (0.0, y0 + 5.0, 1.45), 1.0, BIB, scale=(1.45, 1.2, 0.5), seg=16, rings=10)   # むねの前に出す（むねにうもれない）
     # ふさふさのしっぽ（せなかにそって、上へはね上がる）
-    utube(body, [(0.0, y0 + 0.9, -2.0), (0.0, y0 + 2.2, -3.5), (0.0, y0 + 4.4, -2.6), (0.0, y0 + 6.6, -1.1), (0.0, y0 + 7.9, -0.5)],
-          [0.7, 1.15, 1.15, 0.9, 0.0], 14, fur)   # しっぽの根もとは、こしの中から
+    # しっぽは、台座の上の面からはみ出さない（はみ出すと、台座のうしろを登ってきたしゃくとりむしが、ふちでつかえる）
+    utube(body, [(0.0, y0 + 0.7, -1.4), (0.0, y0 + 2.2, -2.15), (0.0, y0 + 4.4, -2.1), (0.0, y0 + 6.4, -1.2), (0.0, y0 + 7.7, -0.5)],
+          [0.65, 0.85, 0.9, 0.8, 0.0], 14, fur)   # しっぽの根もとは、こしの中から
     # くわえている物
     mouth = (0.0, y0 + 7.05, 3.1)   # 鼻先の、口のところ（くわえた物が、鼻先からはなれない）
     if holds == "jewel":
@@ -491,8 +494,9 @@ def make_fox_statue_col(name, holds):
     mb.add(ped)
     top = FOX_PEDESTAL[-1]
     # 体の底は、台座の上の面のすぐ上（台座の中に重ねない：中から上へ光線を出すと、台座の上の面のうらに当たる＝中だとわかる）
-    sliced_hull(mb, body, STONE, skirt=FOX_TOP + 1.0, floor=FOX_TOP + 0.002, clip=(top[0] - 0.01, top[1] - 0.01),
-                flare=(FOX_TOP + 0.4, 0.4))   # こしのいちばん太い所まで。台の上の面とは、すそ広がりでつなぐ
+    # 台座のふちから FOX_RIM までは、像の形を入れない（ふちを回りこんだしゃくとりむしが、像の底と台座のあいだへ入りこまない）
+    sliced_hull(mb, body, STONE, skirt=FOX_TOP + 1.0, floor=FOX_TOP + 0.002, clip=(top[0] - FOX_RIM, top[1] - FOX_RIM),
+                flare=(FOX_TOP + 0.25, 0.25))   # こしのいちばん太い所まで。台の上の面とは、すそ広がりでつなぐ
     sliced_hull(mb, head, STONE)
     for e in ears:
         sliced_hull(mb, e, STONE, step=0.15, n=12)
