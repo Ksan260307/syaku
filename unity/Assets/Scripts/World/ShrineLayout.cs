@@ -36,7 +36,7 @@ namespace Shakutori
         };
 
         /// <summary>キツネの石像（基壇の前のかど。西は玉、東は鍵）。</summary>
-        public static readonly Vector2[] FoxStatues = { new Vector2(-11f, 20.5f), new Vector2(11f, 20.5f) };
+        public static readonly Vector2[] FoxStatues = { new Vector2(-11f, 21.2f), new Vector2(11f, 21.2f) };   // 台座の前のかどが、基壇のふちからはみ出さない
 
         /// <summary>絵馬かけ（基壇の東）・おみくじかけ（基壇の西）。お社の横で、まん中を向く。</summary>
         public static readonly Vector2 Ema = new Vector2(20.5f, 44f);
@@ -277,7 +277,7 @@ namespace Shakutori
                     _landmarks[2].travel = new ArrivalView(new Vector2(0f, -32f), new Vector3(0f, 0f, 0f), 10f, 6f);                          // 灯籠のならぶ参道
                     _landmarks[3].travel = new ArrivalView(new Vector2(-12f, 2f), new Vector3(Chozuya.x, 0f, Chozuya.y), 10f, 5.5f);          // 北の広場から、手水舎
                     _landmarks[5].travel = new ArrivalView(new Vector2(0f, -12f), new Vector3(0f, 0f, 70f), 2f, 5f);                         // 参道の先、灯籠のあいだから、石段の上のお社
-                    _landmarks[6].travel = new ArrivalView(new Vector2(-14f, 19.4f), new Vector3(-11f, 0f, 20.5f), 4f, 6.5f, onTop: true);    // 西のキツネの像の台座の上（キツネと同じ高さ）
+                    _landmarks[6].travel = new ArrivalView(new Vector2(-14f, 20.1f), new Vector3(-11f, 0f, 21.2f), 4f, 6.5f, onTop: true);    // 西のキツネの像の台座の上（キツネと同じ高さ）
                 }
                 return _landmarks;
             }

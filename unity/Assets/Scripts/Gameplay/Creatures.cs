@@ -388,8 +388,12 @@ namespace Shakutori
         /// <summary>しゃくとりむしの重さ（いきものとの、ぶつかった勢いの分け方に使う）。</summary>
         public const float WormMass = 0.1f;
 
-        /// <summary>いきものの重さ（体の大きさの 3 乗）。</summary>
-        static float MobMass(Mob m) => 0.1f * m.scale * m.scale * m.scale;
+        /// <summary>いきものの重さ（体の大きさの 3 乗）。ちぢめて描いている動物は、ちぢめる前の大きさで（キツネをしゃくとりむしが押せない）。</summary>
+        static float MobMass(Mob m)
+        {
+            float k = m.sp.scale < 1f ? m.scale / m.sp.scale : m.scale;
+            return 0.1f * k * k * k;
+        }
 
         /// <summary>ぶつかったとき、m が押される割合（同じ重さなら 1。重い相手には大きく押され、軽い相手にはあまり押されない）。</summary>
         static float MassShare(Mob other, Mob m) => 2f * MobMass(other) / (MobMass(other) + MobMass(m));
@@ -1405,7 +1409,7 @@ namespace Shakutori
             // 前を横切る仲間がいたら、ゆずる
             if (Crossing(m)) wantSpeed *= 0.3f;
             // 強い風のときは、小さないきものは止まってしがみつく
-            if (!m.sp.rideable && m.scale < 1.35f && Wind.Gust(Time.time) > 0.85f) wantSpeed *= 0.2f;
+            if (ClingsInWind(m) && Wind.Gust(Time.time) > 0.85f) wantSpeed *= 0.2f;
             // 前の安全確認（0.3 秒ごと）。危なければ、大きく向きを変える
             if (m.anim > m.probeNext && wantSpeed > 0f)
             {
@@ -4327,7 +4331,7 @@ namespace Shakutori
                 if (Mathf.Abs(m.turnRate) > 5f && m.moveSpeed > 0.02f) rot = Quaternion.AngleAxis(Mathf.Clamp(m.turnRate * 0.05f, -7f, 7f), m.up) * rot;
                 // 強い風のときは、止まっている小さないきものが体を低くして、風上へ少しかたむく
                 float gust = Wind.Gust(Time.time);
-                if (gust > 0.7f && m.moveSpeed < 0.05f && !m.sp.rideable && m.scale < 1.35f)
+                if (gust > 0.7f && m.moveSpeed < 0.05f && ClingsInWind(m))
                 {
                     float g = Mathf.Clamp01((gust - 0.7f) / 0.3f);
                     Vector3 w = Vector3.ProjectOnPlane(Wind.At(m.pos), m.up);

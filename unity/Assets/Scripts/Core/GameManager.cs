@@ -198,12 +198,14 @@ namespace Shakutori
         /// <summary>エリアを作り直し、しずく・いきもの・演出・UI をそのエリアに合わせる。</summary>
         IEnumerator BuildArea(AreaLayout area, Action<float, string> progress)
         {
+            LoadClock.Start();
             Areas.Current = area;
             worm.ClearSafeHistory();
             if (creatures != null) creatures.Clear();
             yield return world.Generate(area, progress);
             collectibles.Build(world.DewdropPoints, area);
             if (creatures != null) creatures.Build(world);
+            LoadClock.Lap("mobs");
             Habitats.Record(area, world.Mobs);   // 図鑑で見られるように、いきもののすみかを記録
             fx.BuildArea(world);
             AreaAtmosphere.Apply(area, world.sun);   // エリアの空気と光
@@ -215,8 +217,11 @@ namespace Shakutori
             AudioManager.Instance?.SetArea(area.Id);
             if (!SaveSystem.Data.visited.Contains(area.Id)) SaveSystem.Data.visited.Add(area.Id);
             AreaChanged?.Invoke(area);
+            LoadClock.Lap("fxUi");
             // 読み込み画面のあいだに、エリアの物をひととおり描いておく（はじめて画面に入ったときに止まらない）
             yield return RenderWarmup.Run(Camera.main, world, creatures);
+            LoadClock.Lap("warmup");
+            Debug.Log(LoadClock.Stop(area.Id));
         }
 
         void PlaceWorm(bool fromSave)

@@ -187,14 +187,18 @@ def by_normal(top, side, bottom=None):
 # ---------------------------------------------------------------------------
 # 鳥居
 # ---------------------------------------------------------------------------
+BURY = 4.0   # 地面にうめる深さ（坂に置いても、根もとが浮かない）
+
+
 def torii(mb, half, pr, ph, nuki_y, nuki_ext, shimaki_y, kasagi_half, kasagi_y, rise, kw, kh, base_r, plaque=True):
     """明神鳥居：2 本の柱（根もとは黒）・貫・島木・反りのある黒い笠木・額束と額・柱の下の亀腹"""
     for sx in (-1, 1):
         x = half * sx
         ucyl(mb, (x, 0.0, 0.0), pr, ph, SHU, seg=18)
         ucyl(mb, (x, -0.2, 0.0), pr * 1.1, ph * 0.08 + 0.2, LACQ, seg=18)                    # 根巻き
-        ulathe(mb, (x, -0.3, 0.0), [(0.0, 0.0), (base_r, 0.0), (base_r * 0.92, base_r * 0.25), (base_r * 0.7, base_r * 0.45),
-                                    (pr * 1.15, base_r * 0.52), (0.0, base_r * 0.52)], 20, PLASTER)   # 亀腹
+        # 亀腹（柱の下の、しっくいのまるい台）。坂に立っても低い方が浮かないよう、下は地面の中までのばす
+        ulathe(mb, (x, -0.3, 0.0), [(0.0, -BURY), (base_r, -BURY), (base_r, 0.0), (base_r * 0.92, base_r * 0.25), (base_r * 0.7, base_r * 0.45),
+                                    (pr * 1.15, base_r * 0.52), (0.0, base_r * 0.52)], 20, PLASTER)
     sh = by_normal(SHU, SHU, SHU_DARK)
     beam(mb, (-half - nuki_ext, nuki_y, 0.0), (half + nuki_ext, nuki_y, 0.0), pr * 0.95, pr * 1.4, sh)       # 貫
     beam(mb, (-kasagi_half + 1.0, shimaki_y, 0.0), (kasagi_half - 1.0, shimaki_y, 0.0), pr * 1.5, pr * 1.15, sh)  # 島木
@@ -512,7 +516,7 @@ def make_saisen():
     wood = by_normal(HINOKI, HINOKI_DARK)
     ubox(mb, (0, 2.0, 0), (9.0, 4.0, 4.6), wood)
     for sx in (-1, 1):
-        ubox(mb, (sx * 4.2, 0.3, 0), (0.9, 0.6, 4.9), HINOKI_DARK)                  # 足
+        ubox(mb, (sx * 4.2, 0.05, 0), (0.9, 1.1, 4.9), HINOKI_DARK)                 # 足（下は少し地面の中まで）
         ubox(mb, (sx * 4.45, 2.2, 0), (0.2, 4.2, 4.8), GOLD)                         # 金具
     # 上の、ななめの板（お金が落ちる、すきま）
     for k in range(6):
@@ -564,6 +568,17 @@ def shimenawa(mb, a, b, sag, r, n_shide=4, facing=(0.0, 0.0, 1.0)):
         p = a.lerp(b, t)
         p.y -= sag * math.sin(math.pi * t) + r * 0.7
         shide(mb, (p.x, p.y, p.z), 0.9, facing)
+
+
+def ridge_cap(mb, x0, x1, z, top_y, top_hw, roof_y, slopes, base_hw, col, embed=0.3):
+    """むねの木：上は平ら（top_y、はばの半分 top_hw）で、横はななめに屋根の面へおりる台形の柱（x0 から x1 へ）。
+    横がまっすぐ立った四角い木だと、むねにのぼったしゃくとりむしが、反対がわを「がけ」と見て、おりられなかった。
+    roof_y はむねでの屋根の上の面の高さ、slopes は（前 +z、うしろ -z）の屋根の勾配。
+    embed だけ屋根の面より下まで入れる（屋根の板はたわんでいるので、むねの木の下のふちと屋根のあいだに、すき間をつくらない）"""
+    yf = roof_y - slopes[0] * base_hw - embed
+    yb = roof_y - slopes[1] * base_hw - embed
+    poly = [(x0, yb, z - base_hw), (x0, yf, z + base_hw), (x0, top_y, z + top_hw), (x0, top_y, z - top_hw)]
+    prism(mb, poly, (x1 - x0, 0.0, 0.0), col)
 
 
 def roof_slope(mb, x0, x1, ridge, eave, sag, thick, top_col, under_col, n=7):
@@ -635,7 +650,8 @@ def make_hall():
     x0, x1 = -14.5, 14.5
     roof_slope(mb, x0, x1, (ridge_y, ridge_z), (18.6, 17.5), 1.6, 1.3, COPPER, HINOKI_DARK, n=9)
     roof_slope(mb, x0, x1, (ridge_y, ridge_z), (24.0, -12.5), 0.9, 1.3, COPPER, HINOKI_DARK, n=6)
-    beam(mb, (x0 - 0.4, ridge_y + 1.6, ridge_z), (x1 + 0.4, ridge_y + 1.6, ridge_z), 2.4, 1.8, by_normal(COPPER_DARK, COPPER_DARK))
+    ridge_cap(mb, x0 - 0.4, x1 + 0.4, ridge_z, ridge_y + 2.5, 1.0, ridge_y + 1.3, ((ridge_y - 18.6) / (17.5 - ridge_z), (ridge_y - 24.0) / (ridge_z + 12.5)),
+              2.6, by_normal(COPPER_DARK, COPPER_DARK), embed=1.1)
     for sx in (-1, 1):
         x = (x1 + 0.2) * sx
         beam(mb, (x, ridge_y - 1.0, ridge_z - 3.2), (x, ridge_y + 6.2, ridge_z + 2.8), 0.5, 1.3, HINOKI_DARK, up=(1, 0, 0))   # 千木
@@ -694,7 +710,8 @@ def make_chozuya():
         beam(mb, (-8.0, 16.8, sz * 4.5), (8.0, 16.8, sz * 4.5), 0.8, 0.9, HINOKI_DARK)
     for sz in (-1, 1):
         roof_slope(mb, -10.0, 10.0, (21.6, 0.0), (16.2, 8.2 * sz), 0.5, 0.9, BARK_ROOF, HINOKI_DARK, n=5)
-    beam(mb, (-10.3, 22.6, 0.0), (10.3, 22.6, 0.0), 1.4, 1.2, by_normal(scalec(BARK_ROOF, 0.8), scalec(BARK_ROOF, 0.8)))
+    ridge_cap(mb, -10.3, 10.3, 0.0, 23.2, 0.3, 22.5, ((21.6 - 16.2) / 8.2, (21.6 - 16.2) / 8.2), 2.0, by_normal(scalec(BARK_ROOF, 0.8), scalec(BARK_ROOF, 0.8)),
+              embed=0.7)   # 横は 50 度くらい
     for sx in (-1, 1):
         prism(mb, [(sx * 6.75, 17.3, -4.6), (sx * 6.75, 17.3, 4.6), (sx * 6.75, 21.2, 0.0)], (0.5 * sx, 0, 0), HINOKI)   # 妻板（左右とも、柱の上に）
     # 竹の筧（うしろの竹から、水盤の上へ）
@@ -848,7 +865,7 @@ def make_hokora():
     ubox(mb, (0.0, 5.2, 2.07), (0.2, 3.8, 0.1), GOLD)
     for sz in (-1, 1):
         roof_slope(mb, -3.8, 3.8, (10.4, -0.3), (7.6, -0.3 + 3.6 * sz), 0.25, 0.6, COPPER, HINOKI_DARK, n=3)
-    beam(mb, (-4.0, 11.0, -0.3), (4.0, 11.0, -0.3), 1.0, 0.8, COPPER_DARK)
+    ridge_cap(mb, -4.0, 4.0, -0.3, 11.4, 0.35, 11.0, ((10.4 - 7.6) / 3.6, (10.4 - 7.6) / 3.6), 1.9, COPPER_DARK, embed=0.6)   # 横は 50 度くらい
     for sx in (-1, 1):
         prism(mb, [(sx * 2.4, 8.0, -2.5), (sx * 2.4, 8.0, 1.9), (sx * 2.4, 10.3, -0.3)], (0.4 * sx, 0, 0), HINOKI)   # 妻板（左右とも、かべの上に）
     shimenawa(mb, (-2.7, 7.9, 2.25), (2.7, 7.9, 2.25), 0.4, 0.3, n_shide=2)
@@ -933,7 +950,7 @@ def make_slab():
 def make_step():
     mb = MB()
     st = stone_col(9.0, 0.12)
-    ubox(mb, (0.0, -0.5, 0.0), (16.0, 1.3, 1.9), st)
+    ubox(mb, (0.0, -1.675, 0.0), (16.0, 3.65, 1.9), st)   # 下は地面の中まで（石段のはしで、坂の横の低い地面から浮かない）
     ubox(mb, (0.0, 0.2, -0.05), (15.6, 0.2, 1.8), stone_col(10.0, 0.18, STONE_LIGHT))
     return build(mb, "Shrine_Step", smooth=False)
 

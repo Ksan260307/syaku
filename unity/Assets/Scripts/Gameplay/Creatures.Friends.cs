@@ -169,8 +169,13 @@ namespace Shakutori
             Mesh mesh = M(sp.body);
             if (mesh == null) return 0f;
             Vector3 s = mesh.bounds.size;
+            // 大きないきものは、まわりの物に合わせて小さく描いている（sp.scale < 1）。はかる大きさは、本物の大きさ（一匹ずつのばらつきだけ）
+            if (sp.scale < 1f) scale /= sp.scale;
             return Mathf.Max(s.x, s.z) * scale * Friends.MmPerUnit;
         }
+
+        /// <summary>強い風でしがみつく、小さないきもの（虫など。ちぢめて描いている動物は、本当は大きいのでふくめない）。</summary>
+        static bool ClingsInWind(Mob m) => !m.sp.rideable && m.sp.scale >= 1f && m.scale < 1.35f;
 
         /// <summary>一匹ずつの大きさのばらつき（ほとんどはふつう。ときどき大物や、小さいもの）。乗れるいきものは、少しひかえめ。</summary>
         public static float SizeFactor(System.Random r, bool rideable)

@@ -51,8 +51,9 @@ SNOW_SHADE = hexc("#d9e3ef")
 # ---------------------------------------------------------------------------
 # 岩（花こう岩：灰色に、白い点と地衣類）
 # ---------------------------------------------------------------------------
-def rock_blob(mb, center, size, seed, cuts=7, flat_top=None, lichen=0.35, floor=-0.3, m=None):
-    """けずった岩のかたまり（make_rock と同じ作り方）。flat_top を指定すると、上を平らに切る（段の岩）"""
+def rock_blob(mb, center, size, seed, cuts=7, flat_top=None, lichen=0.35, floor=-0.3, m=None, skirt=0.0):
+    """けずった岩のかたまり（make_rock と同じ作り方）。flat_top を指定すると、上を平らに切る（段の岩）。
+    skirt > 0 なら、底をさらに skirt だけ下へのばす（坂に置いても、低い方のふちの下にすき間ができない）"""
     rnd = random.Random(seed)
     bm = bmesh.new()
     bmesh.ops.create_icosphere(bm, subdivisions=3, radius=1.0)
@@ -71,7 +72,7 @@ def rock_blob(mb, center, size, seed, cuts=7, flat_top=None, lichen=0.35, floor=
             if k > d:
                 p -= nrm * (k - d) * (1.0 if nrm.z > 0.99 else 0.92)
         if p.z < floor:
-            p.z = floor + (p.z - floor) * 0.3
+            p.z = floor + (p.z - floor) * 0.3 - skirt
         v.co = p
     bm.normal_update()
     idx = {}
@@ -94,10 +95,14 @@ def rock_blob(mb, center, size, seed, cuts=7, flat_top=None, lichen=0.35, floor=
     bm.free()
 
 
-def make_slab(name, seed, size):
-    """平たい岩（岩の階段の段）：上は平らで少しかたむき、ふちは丸い"""
+STAIR_SKIRT = 2.5   # 坂に置く段の岩は、底をこれだけ下へのばす（低い方のふちの下にすき間ができない）
+
+
+def make_slab(name, seed, size, skirt=0.0):
+    """平たい岩（岩の階段の段）：上は平らで少しかたむき、ふちは丸い。
+    skirt > 0 は坂に置く段（底が下へのびる）。つみ重ねるケルンには、のばさない岩を使う（のばした底が、下の石の横から出てしまう）"""
     mb = MB()
-    rock_blob(mb, (0, 0, size[2] * 0.25), size, seed, cuts=6, flat_top=0.55, lichen=0.6, floor=-0.45)
+    rock_blob(mb, (0, 0, size[2] * 0.25), size, seed, cuts=6, flat_top=0.55, lichen=0.6, floor=-0.45, skirt=skirt)
     return build(mb, name, smooth=True, sharp_deg=40)
 
 
@@ -261,9 +266,20 @@ def make_hut():
         for k in range(12):
             x = -hw - over + (HUT_W + over * 2) * (k + 0.5) / 12
             box(mb, (x, 0, 0.3), (0.12, length * 0.98, 0.12), lambda nn: ROOF_DARK, m=m)
-    # むねの木
-    tube(mb, [Vector((-hw - over, 0, HUT_RIDGE + 0.35)), Vector((hw + over, 0, HUT_RIDGE + 0.35))], [0.35, 0.35], 8,
-         lambda t, a, p, d: ROOF_DARK)
+    # むねの木：三角の柱（まるい木だと、むねの向こうがわを「がけ」と見て、しゃくとりむしがおりられなかった）
+    top = HUT_RIDGE + 0.7
+    for sx in (-1, 1):
+        x = (hw + over) * sx
+        ring = [mb.v((x, -0.9, HUT_RIDGE - 0.4), ROOF_DARK), mb.v((x, 0.9, HUT_RIDGE - 0.4), ROOF_DARK), mb.v((x, 0.0, top), ROOF_DARK)]
+        if sx < 0:
+            ends_l = ring
+        else:
+            ends_r = ring
+    mb.f(ends_l[0], ends_l[2], ends_l[1])
+    mb.f(ends_r[0], ends_r[1], ends_r[2])
+    for i in range(3):
+        j = (i + 1) % 3
+        mb.f(ends_l[i], ends_l[j], ends_r[j], ends_r[i])
     # とびら（正面 -Y）と窓
     box(mb, (-3.0, -hd - 0.45, 2.8), (2.6, 0.3, 4.0), lambda n: mixc(hexc("#6a3e22"), hexc("#8a5a34"), 0.5 + 0.5 * n.z))
     uv_sphere(mb, Vector((-2.0, -hd - 0.65, 2.8)), 0.18, lambda n: hexc("#d8b85a"), seg=8, rings=5)
@@ -668,6 +684,9 @@ def main():
         lambda: make_slab("Mtn_Slab_A", 41, (3.4, 2.8, 1.5)),
         lambda: make_slab("Mtn_Slab_B", 42, (2.8, 2.3, 1.3)),
         lambda: make_slab("Mtn_Slab_C", 43, (4.2, 3.2, 1.8)),
+        lambda: make_slab("Mtn_StairSlab_A", 41, (3.4, 2.8, 1.5), STAIR_SKIRT),
+        lambda: make_slab("Mtn_StairSlab_B", 42, (2.8, 2.3, 1.3), STAIR_SKIRT),
+        lambda: make_slab("Mtn_StairSlab_C", 43, (4.2, 3.2, 1.8), STAIR_SKIRT),
         lambda: make_snow_mound("Mtn_SnowMound_A", 51, (3.2, 2.6, 1.3)),
         lambda: make_snow_mound("Mtn_SnowMound_B", 52, (2.2, 1.9, 0.9)),
         make_haimatsu, make_cloud_puff,

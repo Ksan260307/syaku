@@ -586,7 +586,7 @@ def make_fence():
     white = hexc("#f2efe6")
     for k in range(6):
         x = -3.5 + k * 1.4
-        box(mb, (x, 0, 2.2), (0.55, 0.3, 4.4), lit(white, 0.1))
+        box(mb, (x, 0, 0.95), (0.55, 0.3, 6.9), lit(white, 0.1))   # 板の下は、地面の中まで（くぼみの上でも、浮かない）
         # とがった頭
         tip = MB()
         tip.f(tip.v((x - 0.275, -0.15, 4.4), white), tip.v((x + 0.275, -0.15, 4.4), white), tip.v((x, -0.15, 4.9), white))

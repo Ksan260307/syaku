@@ -106,7 +106,7 @@ namespace Shakutori
             Occupy(new Vector2(0f, 12f), 8.5f);
 
             // 基壇の前の玉垣（石段とキツネの像の前はあける：像の台座とのあいだに、しゃくとりむしがはさまるすき間ができない）
-            foreach (float x in new[] { -22.5f, 22.5f })
+            foreach (float x in new[] { -20.0f, 20.0f })
                 Place("Shrine_Fence", prop, new Vector3(x, plat - 0.1f, ShrineLayout.PlatformMin.y + 0.35f), Quaternion.identity, 1f, true, true, 220f);
 
             // お社（南の石段の方を向く）と、さい銭箱。鈴緒を引くと、鈴が鳴る
@@ -392,13 +392,30 @@ namespace Shakutori
                 if (Vector2.Distance(p, ShrineLayout.Spawn) < 3f) return false;
                 return true;
             }
+            // 根もとのまわりの地面の高さが大きくちがう（基壇の石がきのふち）：草の根もとが、石がきの面から宙にとび出してしまう。
+            // 乱数は、置かないときも同じだけ使う（しずくの場所を変えない）
+            bool OverEdge(Vector2 p, float r)
+            {
+                float h0 = ShrineLayout.Height(p.x, p.y), lo = h0, hi = h0;
+                for (int k = 0; k < 8; k++)
+                {
+                    float a = k * Mathf.PI / 4f;
+                    float h = ShrineLayout.Height(p.x + Mathf.Cos(a) * r, p.y + Mathf.Sin(a) * r);
+                    lo = Mathf.Min(lo, h);
+                    hi = Mathf.Max(hi, h);
+                }
+                return hi - lo > Mathf.Max(0.6f, r * 0.6f);
+            }
             // 苔のじゅうたん（ご神木のまわりと、森のすそ）
             int moss = Mathf.RoundToInt(900 * dens);
             for (int i = 0; i < moss; i++)
             {
                 Vector2 p = i % 3 == 0 ? RandomInCircle(ShrineLayout.Tree, 22f) : RandomInRing(10f, 66f);
                 if (!Clear(p, 0.5f)) continue;
-                Place("Moss", fol, SG(p) + Vector3.down * 0.02f, GroundRotation(p, R(0, 360), 0.9f, 3f), R(0.7f, 1.3f), false, false, 60f);
+                var rot = GroundRotation(p, R(0, 360), 0.9f, 3f);
+                float sc = R(0.7f, 1.3f);
+                if (OverEdge(p, 1.2f * sc)) continue;
+                Place("Moss", fol, SG(p) + Vector3.down * 0.02f, rot, sc, false, false, 60f);
             }
             // シダと草（森のすそほど、こい）
             int ferns = Mathf.RoundToInt(520 * dens);
@@ -407,14 +424,22 @@ namespace Shakutori
                 Vector2 p = RandomInRing(12f, 72f);
                 float edge = ShakuMath.SmoothStep(30f, 58f, p.magnitude);
                 if (R01() > 0.25f + 0.75f * edge || !Clear(p)) continue;
-                Place(R01() < 0.5f ? "Fern_A" : "Fern_B", fol, SG(p), GroundRotation(p, R(0, 360), 0.6f, 5f), R(0.5f, 0.95f), false, false, 80f);
+                string mesh = R01() < 0.5f ? "Fern_A" : "Fern_B";
+                var rot = GroundRotation(p, R(0, 360), 0.6f, 5f);
+                float sc = R(0.5f, 0.95f);
+                if (OverEdge(p, 1.6f * sc)) continue;
+                Place(mesh, fol, SG(p), rot, sc, false, false, 80f);
             }
             int grass = Mathf.RoundToInt(1600 * dens);
             for (int i = 0; i < grass; i++)
             {
                 Vector2 p = RandomInRing(6f, 74f);
                 if (!Clear(p)) continue;
-                Place(Pick(Grass), fol, SG(p), GroundRotation(p, R(0, 360), 0.5f, 5f), R(0.45f, 0.9f), false, false, 55f);
+                string mesh = Pick(Grass);
+                var rot = GroundRotation(p, R(0, 360), 0.5f, 5f);
+                float sc = R(0.45f, 0.9f);
+                if (OverEdge(p, 1.0f * sc)) continue;
+                Place(mesh, fol, SG(p), rot, sc, false, false, 55f);
             }
             // ササのしげみ（森のすそと、池の東）
             int sasa = Mathf.RoundToInt(220 * dens);
@@ -422,7 +447,10 @@ namespace Shakutori
             {
                 Vector2 p = i % 4 == 0 ? RandomInCircle(ShrineLayout.Pond + new Vector2(14f, 4f), 9f) : RandomInRing(46f, 70f);
                 if (!Clear(p, 0.2f) || ShrineLayout.InPond(p.x, p.y, 1.5f)) continue;
-                Place("Shrine_Sasa", fol, SG(p), GroundRotation(p, R(0, 360), 0.4f, 6f), R(0.8f, 1.3f), false, false, 90f);
+                var rot = GroundRotation(p, R(0, 360), 0.4f, 6f);
+                float sc = R(0.8f, 1.3f);
+                if (OverEdge(p, 1.8f * sc)) continue;
+                Place("Shrine_Sasa", fol, SG(p), rot, sc, false, false, 90f);
             }
             // ヒガンバナ（参道のわきの土手と、池のまわり）
             for (int i = 0; i < 70; i++)
@@ -431,7 +459,10 @@ namespace Shakutori
                           : i < 50 ? ShrineLayout.Pond + new Vector2(Mathf.Cos(i) * (ShrineLayout.PondRadii.x + R(2.5f, 5f)), Mathf.Sin(i) * (ShrineLayout.PondRadii.y + R(2.5f, 5f)))
                           : RandomInRing(30f, 60f);
                 if (!Clear(p) || ShrineLayout.InPond(p.x, p.y, 1.5f)) continue;
-                Place("Shrine_Higanbana", flw, SG(p) + Vector3.down * 0.05f, GroundRotation(p, R(0, 360), 0.2f, 5f), R(0.8f, 1.15f), false, true, 120f);
+                var rot = GroundRotation(p, R(0, 360), 0.2f, 5f);
+                float sc = R(0.8f, 1.15f);
+                if (OverEdge(p, 1.0f * sc)) continue;
+                Place("Shrine_Higanbana", flw, SG(p) + Vector3.down * 0.05f, rot, sc, false, true, 120f);
             }
             // 落ち葉（イチョウとモミジ。押すと動く）
             int leaves = Mathf.RoundToInt(170 * dens);

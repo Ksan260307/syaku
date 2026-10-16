@@ -102,6 +102,14 @@ class MountainKitTests(unittest.TestCase):
         top = [v.co for v in ob.data.vertices if v.co.z > z1 - 0.05]
         self.assertGreater(len(top), 8, "段の上は平ら（乗りやすい）")
 
+    def test_stair_slab_reaches_down(self):
+        flat = mtn.make_slab("Mtn_Slab_T2", 41, (3.4, 2.8, 1.5))
+        deep = mtn.make_slab("Mtn_StairSlab_T", 41, (3.4, 2.8, 1.5), mtn.STAIR_SKIRT)
+        (_, _, fz0), (_, _, fz1) = bounds(flat)
+        (_, _, dz0), (_, _, dz1) = bounds(deep)
+        self.assertAlmostEqual(fz1, dz1, delta=1e-3, msg="上の面は同じ高さ")
+        self.assertLess(dz0, fz0 - mtn.STAIR_SKIRT + 0.1, "坂に置く段は、底が下へのびる")
+
     def test_spout_tip_reaches_out(self):
         ob = mtn.make_spout()
         (_, y0, _), (_, _, _) = bounds(ob)

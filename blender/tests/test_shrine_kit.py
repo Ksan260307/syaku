@@ -69,7 +69,7 @@ class ShrineKitTests(unittest.TestCase):
         ob = shrine.make_torii()
         lo, hi = size(ob)
         self.assertGreater(hi.z, 34.0, "1m ほどの大鳥居（しゃくとりむしの 30 倍より高い）")
-        self.assertAlmostEqual(lo.z, -0.3, delta=0.2, msg="根もとは地面につく")
+        self.assertAlmostEqual(lo.z, -0.3 - shrine.BURY, delta=0.2, msg="根もとは地面の中までのびる")
         col = ob.data.color_attributes["Col"]
         reds = sum(1 for d in col.data if d.color[0] > 0.45 and d.color[1] < 0.12 and d.color[2] < 0.08)
         self.assertGreater(reds, 100, "朱色")
@@ -82,6 +82,13 @@ class ShrineKitTests(unittest.TestCase):
         self.assertTrue(18.0 < hi2.z < 23.0)
         self.assertIsNone(bvh(small).ray_cast(shrine.U(-3.5, 1.5, 0.0), Vector((-1, 0, 0)), 7.0)[0], "小さな鳥居も、くぐれる")
 
+
+    def test_torii_bases_go_below_the_ground(self):
+        # 千本鳥居は坂に立つので、柱の下の亀腹は地面の中までのびる（低い方の根もとが浮かない）
+        for mk in (shrine.make_torii, shrine.make_torii_small):
+            reset()
+            lo, hi = size(mk())
+            self.assertLess(lo.z, -shrine.BURY + 0.5, "根もとは地面の中へ")
     def test_hall_has_a_raised_floor_steps_and_a_bell_rope(self):
         ob = shrine.make_hall()
         lo, hi = size(ob)

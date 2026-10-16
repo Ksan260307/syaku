@@ -377,7 +377,7 @@ namespace Shakutori
             var hut = HutTransform();
             if (hut == null) return;
             float bottom = hut.position.y - 0.3f;
-            Mesh slab = assets.TryGet("Mtn_Slab_A");
+            Mesh slab = assets.TryGet("Mtn_StairSlab_A");   // 底が下へのびた岩（坂の下がわにも、すき間ができない）
             if (slab == null) return;
             float top1 = slab.bounds.max.y;
             for (int side = 0; side < 4; side++)
@@ -389,7 +389,7 @@ namespace Shakutori
                     if (gap < 0.45f) continue;
                     if (DewNear(new Vector2(w.x, w.z), 1.5f)) continue;
                     float s = Mathf.Clamp((gap + 0.4f) / (top1 + 0.35f), 0.35f, 0.9f);
-                    Place("Mtn_Slab_A", assets.prop, new Vector3(w.x, bottom + 0.45f - top1 * s, w.z), hut.rotation * Quaternion.Euler(0f, 90f * (side % 2) + 10f * u, 0f), s, true, true, 220f);
+                    Place("Mtn_StairSlab_A", assets.prop, new Vector3(w.x, bottom + 0.45f - top1 * s, w.z), hut.rotation * Quaternion.Euler(0f, 90f * (side % 2) + 10f * u, 0f), s, true, true, 220f);
                     Fixed("fix_hutbase", w);
                 }
         }

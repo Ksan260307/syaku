@@ -567,6 +567,12 @@ MonoBehaviour:
     mesh: {fileID: 7478911809569354056, guid: 2df92149ec6dcfe4eabbc30c61534baf, type: 3}
   - name: Mtn_Spout
     mesh: {fileID: -4566346059369971368, guid: cce5593598678d541b0c619b7fc0cd66, type: 3}
+  - name: Mtn_StairSlab_A
+    mesh: {fileID: 8170116544321515810, guid: 30ccbb17c5cf8064f96f11dc2e633b94, type: 3}
+  - name: Mtn_StairSlab_B
+    mesh: {fileID: 2310731960726230350, guid: 31f3dbef3536dc646934d886307e5b2a, type: 3}
+  - name: Mtn_StairSlab_C
+    mesh: {fileID: -2883736581530100607, guid: ce213b0f8c9afd54f81e0477845f6fd1, type: 3}
   - name: Mtn_StepPillar
     mesh: {fileID: -7262869336311475268, guid: 6c795259fa1e4c14c8a6804bfc8f9776, type: 3}
   - name: Mtn_SummitPost

@@ -90,7 +90,7 @@ namespace Shakutori.Tests
         public void WalkingTrails_AreClear()
         {
             // 歩く小道のまん中に、岩・小枝・雪・平たい岩・すみかの石・道しるべ・立てかけた物がない（山小屋の入り口と、松の根は道のはし）
-            string[] blockers = { "Rock_", "RiverStone_", "Twig_", "Mtn_Slab", "Okojo_Rocks", "Mtn_SnowMound", "Mtn_Sign", "Mtn_Plank", "Mtn_Log", "Mtn_StepPillar", "Mtn_Haimatsu" };
+            string[] blockers = { "Rock_", "RiverStone_", "Twig_", "Mtn_Slab", "Mtn_StairSlab", "Okojo_Rocks", "Mtn_SnowMound", "Mtn_Sign", "Mtn_Plank", "Mtn_Log", "Mtn_StepPillar", "Mtn_Haimatsu" };
             foreach (var t in MountainLayout.Trails)
                 for (int s = 0; s < t.Length - 1; s++)
                 {

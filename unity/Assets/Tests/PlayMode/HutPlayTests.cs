@@ -105,7 +105,7 @@ namespace Shakutori.Tests
             // ツバメは、近づくと、巣から飛び立つ
             Assert.Greater(C.PositionOf("tsubame").y, HutLayout.BeamTop - 1f, "ツバメは、はりの上");
             Vector3 nest = C.PositionOf("tsubame");
-            Worm.Spawn(TopSurface(new Vector2(nest.x + 2.5f, nest.z)), Vector3.left);
+            Worm.Spawn(TopSurface(new Vector2(nest.x, nest.z + 2.5f)), Vector3.back);   // はりにそって（はりは南北。横へずらすと、はりからはずれて床に落ちる）
             yield return WaitUntil(() => C.IsAirborne("tsubame"), 10f, "ツバメが飛び立つ");
             yield return WaitUntil(() => !C.IsAirborne("tsubame"), 20f, "ツバメが下りる");
             Vector3 landed = C.PositionOf("tsubame");

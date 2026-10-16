@@ -89,6 +89,7 @@ namespace Shakutori
                     for (int j = 0; j <= k; j++)
                     {
                         string sj = j == k ? slab : Slabs[(k + j + 1) % Slabs.Length];
+                        if (j == 0) sj = sj.Replace("Mtn_Slab", "Mtn_StairSlab");   // いちばん下は、底が下へのびた岩（坂でも、低い方のふちが浮かない）
                         Place(sj, prop, new Vector3(p.x, g - 0.4f + j * 0.85f, p.y), Quaternion.Euler(R(-2f, 2f), yaw + j * 23f, R(-2f, 2f)), j == k ? 1f : 1.08f, true, true, 220f);
                     }
                     _stairTops.Add(new Vector3(p.x, g - 0.4f + k * 0.85f + top, p.y));

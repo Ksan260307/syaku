@@ -142,13 +142,16 @@ namespace Shakutori
 
             progress?.Invoke(0.05f, "地面をならしています");
             yield return null;
+            LoadClock.Lap("start");
             BuildTerrain();
+            LoadClock.Lap("terrain");
             BuildViewLanes();
             progress?.Invoke(0.25f, forest ? "大きな木を育てています" : park ? "遊具を組み立てています" : mountain ? "山を高く積み上げています" : hut ? "丸太のかべを積んでいます" : coast ? "砂浜をならしています" : shrine ? "鳥居を立てています" : "川の水を流しています");
             yield return null;
             if (!hut) BuildOuterRing();   // 小屋の中は、かべの外が見えない
             if (forest) BuildForestSolids(); else if (park) BuildParkSolids(); else if (mountain) BuildMountainSolids(); else if (hut) BuildHutSolids(); else if (coast) BuildCoastSolids(); else if (shrine) BuildShrineSolids(); else BuildRiverSolids();
             BuildGates();
+            LoadClock.Lap("solids");
             progress?.Invoke(0.4f, forest ? "キノコと岩を並べています" : park ? "砂場をならしています" : mountain ? "岩と雪をのせています" : hut ? "家具を運びこんでいます" : coast ? "貝がらをひろっています" : shrine ? "石灯籠をならべています" : "川石を並べています");
             yield return null;
             if (forest)
@@ -184,9 +187,11 @@ namespace Shakutori
                 BuildRiverWater();
             }
             Physics.SyncTransforms();
+            LoadClock.Lap("props");
             progress?.Invoke(0.6f, "草花を植えています");
             yield return null;
             if (forest) BuildForestFoliage(); else if (park) BuildParkFoliage(); else if (mountain) BuildMountainFoliage(); else if (coast) BuildCoastFoliage(); else if (shrine) BuildShrineFoliage(); else if (!hut) BuildRiverFoliage();
+            LoadClock.Lap("foliage");
             progress?.Invoke(0.8f, "しずくを置いています");
             yield return null;
             if (forest) PlaceForestDewdrops();
@@ -197,8 +202,10 @@ namespace Shakutori
             else if (shrine) PlaceShrineDewdrops();
             else PlaceRiverDewdrops();
             // しずくを置いたあとに、泉や水たまりの土手を盛る（しずくの場所は変えない）
+            LoadClock.Lap("dews");
             AreaLayout.LateGround = true;
             ApplyLateGround();
+            LoadClock.Lap("lateGround");
             if (forest)
             {
                 PlaceForestCreatures();
@@ -239,16 +246,23 @@ namespace Shakutori
                 FixCreaturesForPlay();
                 BuildLightShafts(RiverShaftSpots());
             }
+            LoadClock.Lap("creatures");
             BuildLateGates();   // あとから足したトンネル（しずくの場所は変えない）
             BuildExtras();   // エリアの改善：小物・道・遠景（しずくの場所は変えない）
+            LoadClock.Lap("extras");
             SettleFloatingRocks();   // 坂で宙にういた岩・流木を、地面になじませる
             FillUnderDewRocks();     // しずくをのせた岩などの下にのこるすき間は、石でうめる
             PinLeavesUnderDew();
+            LoadClock.Lap("settle");
             TidyPlacements();   // 置き方の仕上げ：つきぬけ・重なり・うき（草花と苔だけ）
+            LoadClock.Lap("tidy");
             ClearTravelLanes();   // 名所へ移動したときに見る景色の前の、背の高い草をどける（しずくを置いたあと）
             FixCreaturesForPlay(again: true);   // あとから置いた小物の中に、いきものが入っていないか、もう一度
+            LoadClock.Lap("lanes");
             BuildMap();
+            LoadClock.Lap("map");
             instanced.Build();
+            LoadClock.Lap("instances");
             ComputeSpawn();
             IsGenerated = true;
             progress?.Invoke(1f, "準備完了");
