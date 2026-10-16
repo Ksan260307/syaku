@@ -342,9 +342,10 @@ def make_sandal():
     # 鼻緒（つま先の柱から、左右のふちへ）
     post = Vector((L * 0.24, 0, H))
     for sy in (-1, 1):
-        sp = [post + Vector((0, 0, 0.9)), post + Vector((-1.6, 0.9 * sy, 1.05)), Vector((-0.6, (W * 0.5 - 0.1) * sy, H + 0.05))]
+        sp = [post + Vector((0, 0, 0.9)), post + Vector((-1.6, 0.9 * sy, 1.05)), Vector((-0.6, (W * 0.5 - 0.35) * sy, H - 0.12))]   # はしは底の中へ
         tube(mb, quad_bezier(sp[0], sp[1], sp[2], 9), [0.28] * 9, 8, lambda t, a, p, d: hexc("#3c8fa0"))
-    tube(mb, [post, post + Vector((0, 0, 0.95))], [0.22, 0.24], 8, lambda t, a, p, d: hexc("#3c8fa0"))
+    tube(mb, [post + Vector((0, 0, -0.2)), post + Vector((0, 0, 0.95))], [0.22, 0.24], 8, lambda t, a, p, d: hexc("#3c8fa0"))
+    uv_sphere(mb, post + Vector((0, 0, 0.95)), 0.34, lambda n: hexc("#3c8fa0"), seg=10, rings=6)   # 鼻緒のむすび目（ひもの口をつつむ）
     return build(mb, "Coast_Sandal")
 
 

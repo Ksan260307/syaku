@@ -6,7 +6,8 @@ namespace Shakutori
     /// 神社のいきもの：キツネ（近づくと首をかしげて見つめ、近すぎると、すっとはなれる。高くジャンプして、とびかかる）・
     /// タヌキ（びっくりすると、ころんと死んだふり）・フクロウ（高い所にとまり、首をまわしてしゃくとりむしを見る。音もなく飛ぶ。ホーホー）・
     /// オオミズアオ（石灯籠のあかりのまわりを、くるくる飛ぶ。とまると、はねを平らに広げる）・
-    /// カナブン（ご神木の幹にいて、ときどき、前ばねをとじたまま後ろばねを出して、ブーン）。
+    /// カナブン（ご神木の幹にいて、ときどき、前ばねをとじたまま後ろばねを出して、ブーン）・
+    /// スズムシとエンマコオロギ（草むらで、前ばねを立てて鳴く。しゃくとりむしが近づくと、鳴きやむ）。
     /// </summary>
     public partial class Creatures
     {
@@ -130,6 +131,32 @@ namespace Shakutori
             Camera cam = Camera.main;
             float vol = cam != null ? Mathf.Clamp01(1f - Vector3.Distance(cam.transform.position, m.pos) / 90f) : 0.5f;
             if (vol > 0.05f) AreaSounds.Instance?.PlayAt("owl", m.pos, 0.8f * vol + 0.2f);
+        }
+
+        // ------------------------------------------------------------------
+        // スズムシ・コオロギ
+        // ------------------------------------------------------------------
+        /// <summary>しゃくとりむしがこれより近づくと、鳴きやむ（見つけられる近さよりは、少し近い）。</summary>
+        public const float CricketHush = 2.6f;
+
+        static bool IsCricket(Mob m) => m.sp.id == "suzumushi" || m.sp.id == "korogi";
+
+        /// <summary>
+        /// スズムシ・コオロギ：じっとしているとき、前ばねを立てて鳴く（「リーン、リーン」「コロコロリー」）。
+        /// しゃくとりむしが近づいたり、歩いたり跳んだりすると、鳴きやむ。
+        /// </summary>
+        void UpdateCricketSong(Mob m, float sdt, float vol)
+        {
+            bool close = (m.pos - _head).sqrMagnitude < CricketHush * CricketHush;
+            if (close || m.airborne || m.curSpeed > 0.03f)
+            {
+                if (m.callUntil > m.anim) m.callUntil = m.anim;
+                return;
+            }
+            bool suzu = m.sp.id == "suzumushi";
+            if (m.anim < m.callUntil + (suzu ? 1.0f : 1.4f) || R(0f, 1f) > sdt * 0.8f) return;
+            m.callUntil = m.anim + (suzu ? 2.2f : 1.8f);
+            AreaSounds.Instance?.PlayAt(m.sp.id, m.pos, 0.25f + 0.55f * vol);
         }
 
         // ------------------------------------------------------------------
@@ -357,6 +384,21 @@ namespace Shakutori
                     float roll = m.airborne
                         ? part.restRoll + part.flapAmp * Mathf.Sin((m.anim + m.phase) * part.flapHz * (1f + 0.5f * m.flapBoost) * Mathf.PI * 2f)
                         : 6f + 2f * Mathf.Sin(m.anim * 1.4f + m.phase) + 7f * m.openWings * Mathf.Sin(m.anim * 38f);
+                    for (int k = 0; k < 2; k++)
+                    {
+                        float side = k == 0 ? 1f : -1f;
+                        var local = Matrix4x4.TRS(new Vector3(part.offset.x * side, part.offset.y, part.offset.z), Quaternion.Euler(0f, 0f, roll * side), new Vector3(side, 1f, 1f));
+                        Add(pm, assets.creatureWing, body * local);
+                    }
+                    return true;
+                }
+                case "Suzumushi_Wing":
+                case "Korogi_Wing":
+                {
+                    // スズムシ・コオロギの前ばね：ふだんはせなかに重ねてたたみ、鳴くときは立てて、こまかくふるわせる（こすりあわせる）
+                    float dt = Mathf.Min(Time.deltaTime, 0.05f);
+                    m.wingLift = Mathf.MoveTowards(m.wingLift, m.anim < m.callUntil && !m.airborne ? 1f : 0f, dt * 5f);
+                    float roll = -m.wingLift * (part.flapAmp + 3f * Mathf.Sin((m.anim + m.phase) * part.flapHz * Mathf.PI * 2f));
                     for (int k = 0; k < 2; k++)
                     {
                         float side = k == 0 ? 1f : -1f;

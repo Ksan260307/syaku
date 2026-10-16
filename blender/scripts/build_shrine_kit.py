@@ -254,53 +254,250 @@ def make_lantern():
 
 
 # ---------------------------------------------------------------------------
+# 当たり判定用：うすく切った切り口の凸包をつないだ、すき間のない形
+# ---------------------------------------------------------------------------
+def _tris(mb):
+    for fc in mb.F:
+        for i in range(1, len(fc) - 1):
+            yield mb.V[fc[0]], mb.V[fc[i]], mb.V[fc[i + 1]]
+
+
+def _section(tris, z):
+    """高さ z（Blender）の面で切った、切り口の点（x, y）"""
+    pts = []
+    for a, b, c in tris:
+        for p, q in ((a, b), (b, c), (c, a)):
+            if (p.z - z) * (q.z - z) < 0.0:
+                t = (z - p.z) / (q.z - p.z)
+                pts.append((p.x + (q.x - p.x) * t, p.y + (q.y - p.y) * t))
+    return pts
+
+
+def hull2(pts):
+    """平面の点の凸包（反時計回り）"""
+    pts = sorted(set((round(x, 5), round(y, 5)) for x, y in pts))
+    if len(pts) < 3:
+        return pts
+
+    def cross(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    lo, hi = [], []
+    for q in pts:
+        while len(lo) >= 2 and cross(lo[-2], lo[-1], q) <= 0:
+            lo.pop()
+        lo.append(q)
+    for q in reversed(pts):
+        while len(hi) >= 2 and cross(hi[-2], hi[-1], q) <= 0:
+            hi.pop()
+        hi.append(q)
+    return lo[:-1] + hi[:-1]
+
+
+def _ray_hull(h, c, d):
+    """凸包の中の点 c から、向き d へのばした線が、ふちに当たるまでの長さ"""
+    best = 0.0
+    for i in range(len(h)):
+        a, b = h[i], h[(i + 1) % len(h)]
+        ex, ey = b[0] - a[0], b[1] - a[1]
+        den = d[0] * ey - d[1] * ex
+        if abs(den) < 1e-12:
+            continue
+        wx, wy = a[0] - c[0], a[1] - c[1]
+        t = (wx * ey - wy * ex) / den
+        u = (wx * d[1] - wy * d[0]) / den
+        if t > best and -1e-6 <= u <= 1.0 + 1e-6:
+            best = t
+    return best
+
+
+def _clip_rect(h, hx, hy):
+    """凸の多角形を、まん中が原点の長方形（はばの半分 hx・おくゆきの半分 hy）の中に切りとる"""
+    for ax, lim in ((0, hx), (0, -hx), (1, hy), (1, -hy)):
+        if len(h) < 3:
+            return h
+        inside = (lambda q, ax=ax, lim=lim: q[ax] <= lim) if lim > 0 else (lambda q, ax=ax, lim=lim: q[ax] >= lim)
+        out = []
+        for i in range(len(h)):
+            a, b = h[i], h[(i + 1) % len(h)]
+            if inside(a):
+                out.append(a)
+            if inside(a) != inside(b):
+                t = (lim - a[ax]) / (b[ax] - a[ax])
+                out.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
+        h = out
+    return h
+
+
+def sliced_hull(mb, src, col, step=0.2, n=32, skirt=None, floor=None, clip=None, flare=None):
+    """src を、たての軸（Blender の z）に沿ってうすく切り、切り口ごとの凸包をつないだ、閉じた形を mb に足す。
+    見た目の形は部品（球・チューブ）が重なり、すき間やくさびのようなくぼみがあって、しゃくとりむしが中へ入りこむ。
+    この形は、どの高さでも外側をなめらかにつつむ（上下のへこみ＝首のくびれなどは、そのまま）。
+    skirt（Blender の高さ）より下の切り口は、そこまでの上の切り口もいっしょにつつむ（下ほど細くならず、台との間にくさびのすき間ができない）。
+    clip = (はばの半分, おくゆきの半分) なら、上からつつんだ分は、台の上の面の中だけにする（台の外へ、見えない天井がはみ出さない）。
+    floor より下は作らない（台の中にうまる所）。
+    flare = (根もとの高さ, 広げる長さ) なら、根もとをすそ広がりにする（台の上の面から体へ、直角の角でつかえずに登れる）"""
+    tris = list(_tris(src))
+    z0 = min(p.z for p in src.V) if floor is None else max(floor, min(p.z for p in src.V))
+    z1 = max(p.z for p in src.V)
+    k = max(2, int(math.ceil((z1 - z0) / step)))
+    levels = [z0 + (z1 - z0) * (0.002 + 0.996 * i / k) for i in range(k + 1)]
+    if floor is not None:
+        levels[0] = z0   # 底は、ちょうど floor の高さ（台の上の面とのあいだに、すき間をつくらない）
+    hulls = [hull2(_section(tris, z)) for z in levels]
+    keep = [i for i, h in enumerate(hulls) if len(h) >= 3]
+    levels = [levels[i] for i in keep]
+    hulls = [hulls[i] for i in keep]
+    if skirt is not None:
+        acc = []
+        for i in range(len(levels) - 1, -1, -1):
+            if levels[i] <= skirt:
+                own = hulls[i]
+                above = _clip_rect(acc, *clip) if clip else acc
+                hulls[i] = hull2(own + above)
+                acc = hull2(acc + own)
+    # 輪の点は、まん中から決まった向きへ。まん中が高さごとにずれると、面が小さく波うつ（しゃくとりむしが、つまずく）ので、
+    # 上からつつむ所は同じまん中にして、ほかも上下でならす（凸包の外へ出たら、その切り口のまん中）
+    cs = [(sum(q[0] for q in h) / len(h), sum(q[1] for q in h) / len(h)) for h in hulls]
+    if skirt is not None:
+        top = max((i for i, z in enumerate(levels) if z <= skirt), default=None)
+        if top is not None:
+            cs = [cs[top] if i <= top else c for i, c in enumerate(cs)]
+    smooth = []
+    for i in range(len(cs)):
+        win = cs[max(0, i - 4):i + 5]
+        smooth.append((sum(c[0] for c in win) / len(win), sum(c[1] for c in win) / len(win)))
+    rings = []
+    for z, h, c0, c1 in zip(levels, hulls, cs, smooth):
+        inside = all((h[(k + 1) % len(h)][0] - h[k][0]) * (c1[1] - h[k][1]) - (h[(k + 1) % len(h)][1] - h[k][1]) * (c1[0] - h[k][0]) > 1e-4
+                     for k in range(len(h)))
+        cx, cy = c1 if inside else c0
+        ring = []
+        for j in range(n):
+            a = TAU * j / n
+            d = (math.cos(a), math.sin(a))
+            r = _ray_hull(h, (cx, cy), d)
+            if flare is not None and z < flare[0]:
+                r += flare[1] * min(1.0, (flare[0] - z) / flare[1])   # 45 度のすそ
+            px, py = cx + d[0] * r, cy + d[1] * r
+            if clip:
+                px, py = max(-clip[0], min(clip[0], px)), max(-clip[1], min(clip[1], py))
+            ring.append(mb.v(Vector((px, py, z)), col))
+        rings.append(ring)
+    # 反時計回りの輪をつなぐ：横の面は外向き、下のふたは下向き、上のふたは上向き
+    mb.f(*reversed(rings[0]))
+    mb.f(*rings[-1])
+    for a, b in zip(rings, rings[1:]):
+        for j in range(n):
+            jj = (j + 1) % n
+            mb.f(a[j], a[jj], b[jj], b[j])
+
+
+def rect_stack(mb, prof, col):
+    """たての軸のまわりに、四角い輪を下から上へ重ねた、すき間のない閉じた形（石の台座）。
+    prof = [(はばの半分, おくゆきの半分, 高さ), ...]（Unity の座標）。col(i, n) は i 番目の輪から上の面の色"""
+    corners = ((-1, -1), (1, -1), (1, 1), (-1, 1))
+    outs = (Vector((0, 0, -1)), Vector((1, 0, 0)), Vector((0, 0, 1)), Vector((-1, 0, 0)))   # 辺ごとの、外への向き
+    rings = [[Vector((sx * hx, y, sz * hz)) for sx, sz in corners] for hx, hz, y in prof]
+    up = Vector((0, 1, 0))
+
+    def face(ps, n, c):
+        b = [UV(q) for q in ps]
+        fc = sum(b, Vector((0, 0, 0))) / len(b)
+        _face(mb, b, fc - UV(n), c)
+    face(rings[0], -up, lambda nn: col(0, nn))
+    face(rings[-1], up, lambda nn: col(len(prof) - 2, nn))
+    for i in range(len(prof) - 1):
+        a, b = rings[i], rings[i + 1]
+        dy = prof[i + 1][2] - prof[i][2]
+        for j in range(4):
+            jj = (j + 1) % 4
+            dr = (prof[i + 1][0] - prof[i][0]) if j % 2 == 1 else (prof[i + 1][1] - prof[i][1])
+            n = outs[j] * dy - up * dr        # 輪郭の向き (dr, dy) を、外へ 90 度まわした向き
+            face([a[j], a[jj], b[jj], b[j]], n, lambda nn, i=i: col(i, nn))
+
+
+# ---------------------------------------------------------------------------
 # キツネの石像（お稲荷さんのお使い）：台座の上にすわり、赤い前かけ。A は玉、B は鍵をくわえる
 # ---------------------------------------------------------------------------
 FOX_TOP = 7.4   # 台座の上の面
+# 台座（はばの半分・おくゆきの半分・高さ）：下の石（上は斜め）・まん中の石・上の石（裏は斜め）。段のあいだにすき間はない。
+# 段は平らな細い棚にしない（しゃくとりむしの体より細い棚と壁のあいだの角で、つかえる）
+FOX_PEDESTAL = [(3.8, 3.4, -0.2), (3.8, 3.4, 1.0), (3.1, 2.7, 1.7), (3.1, 2.7, 6.2), (3.5, 3.1, 6.6), (3.5, 3.1, FOX_TOP)]
+
+
+def fox_statue_parts(holds):
+    """キツネの像の部品：台座・体（しっぽまで）・頭・耳 2 つ・くわえた物（当たり判定は、部品ごとになめらかにつつむ）"""
+    ped, body, head, item = MB(), MB(), MB(), MB()
+    ears = [MB(), MB()]
+    cols = [stone_col(2.0, 0.35, STONE_DARK), stone_col(2.0, 0.35, STONE_DARK), stone_col(3.0, 0.15), stone_col(3.0, 0.15),
+            stone_col(4.0, 0.25, STONE_LIGHT)]
+    rect_stack(ped, FOX_PEDESTAL, lambda i, n: cols[i](n))
+    y0 = FOX_TOP
+    fur = lambda t, a, p, d: mixc(FOX_STONE, STONE, 0.12 + 0.12 * noise.noise(p * 0.8))
+    # すわった体：うしろのこし（台座にどっしりすわる）・むね・首
+    usphere(body, (0, y0 + 0.9, -0.9), 1.0, lambda n: mixc(FOX_STONE, STONE, 0.15), scale=(2.1, 2.0, 2.3), seg=18, rings=12)
+    # 首は頭の中までのばして、とじる（筒の口が頭の下に出ると、胴と首がはなれて見える）
+    utube(body, [(0, y0 + 1.6, -0.6), (0, y0 + 3.4, -0.1), (0, y0 + 5.2, 0.5), (0, y0 + 6.6, 0.9), (0, y0 + 7.4, 1.1), (0, y0 + 7.9, 1.15)],
+          [1.75, 1.6, 1.25, 0.95, 0.75, 0.0], 18, fur)
+    # 頭と、細長い鼻先・とがった耳
+    hc = (0.0, y0 + 7.6, 1.15)
+    usphere(head, hc, 1.15, lambda n: mixc(FOX_STONE, STONE, 0.1), scale=(1.0, 0.95, 1.1), seg=18, rings=12)
+    utube(head, [(0, y0 + 7.45, 1.8), (0, y0 + 7.2, 2.9), (0, y0 + 7.0, 3.5)], [0.7, 0.42, 0.0], 14, fur)
+    for k, sx in enumerate((-1, 1)):
+        utube(ears[k], [(0.5 * sx, y0 + 8.0, 0.98), (0.55 * sx, y0 + 8.4, 0.95), (0.75 * sx, y0 + 9.4, 0.85), (0.85 * sx, y0 + 10.3, 0.75)],
+              [0.45, 0.48, 0.3, 0.0], 10, lambda t, a, p, d: FOX_STONE if t < 0.75 else STONE)   # 耳の根もとは、頭の中から
+        # 朱の目のふち
+        usphere(head, (0.62 * sx, y0 + 7.85, 1.95), 0.16, BIB, scale=(1.0, 0.45, 1.6), seg=8, rings=5)
+        # 前足（まっすぐ立てて、台座につく）
+        utube(body, [(0.55 * sx, y0 + 4.6, 0.6), (0.7 * sx, y0 + 4.0, 0.95), (0.75 * sx, y0 + 2.2, 1.25), (0.75 * sx, y0 + 0.25, 1.45)],
+              [0.5, 0.5, 0.42, 0.38], 12, fur)   # つけ根は、むねの中から
+        usphere(body, (0.75 * sx, y0 + 0.25, 1.75), 0.42, FOX_STONE, scale=(1.0, 0.6, 1.3), seg=10, rings=6)
+        # うしろ足（こしの下から、前へ出る）
+        usphere(body, (1.5 * sx, y0 + 0.3, 0.6), 0.6, FOX_STONE, scale=(0.9, 0.6, 1.6), seg=10, rings=6)
+    # 赤い前かけ
+    usphere(body, (0.0, y0 + 5.0, 1.45), 1.0, BIB, scale=(1.45, 1.2, 0.5), seg=16, rings=10)   # むねの前に出す（むねにうもれない）
+    # ふさふさのしっぽ（せなかにそって、上へはね上がる）
+    utube(body, [(0.0, y0 + 0.9, -2.0), (0.0, y0 + 2.2, -3.5), (0.0, y0 + 4.4, -2.6), (0.0, y0 + 6.6, -1.1), (0.0, y0 + 7.9, -0.5)],
+          [0.7, 1.15, 1.15, 0.9, 0.0], 14, fur)   # しっぽの根もとは、こしの中から
+    # くわえている物
+    mouth = (0.0, y0 + 7.05, 3.1)   # 鼻先の、口のところ（くわえた物が、鼻先からはなれない）
+    if holds == "jewel":
+        usphere(item, (mouth[0], mouth[1] - 0.1, mouth[2] + 0.2), 0.62, lambda n: mixc(GOLD, FOX_STONE, 0.4), seg=14, rings=9)
+        utube(item, [(0.0, mouth[1] + 0.3, mouth[2] + 0.2), (0.0, mouth[1] + 1.0, mouth[2] + 0.15)], [0.25, 0.0], 8, mixc(GOLD, FOX_STONE, 0.4))   # 宝珠のとがり
+    else:
+        utube(item, [(-1.3, mouth[1], mouth[2]), (-1.2, mouth[1], mouth[2]), (1.4, mouth[1], mouth[2]), (1.5, mouth[1], mouth[2])], [0.0, 0.22, 0.22, 0.0], 8,
+              mixc(GOLD, STONE_DARK, 0.3))   # 鍵のじく（両はしはとじる）
+        utube(item, [(-0.85, mouth[1] - 0.3, mouth[2]), (-1.2, mouth[1] - 0.6, mouth[2]), (-1.9, mouth[1], mouth[2]), (-1.2, mouth[1] + 0.6, mouth[2]),
+                     (-0.5, mouth[1], mouth[2]), (-1.2, mouth[1] - 0.6, mouth[2]), (-1.55, mouth[1] - 0.3, mouth[2])], [0.0] + [0.2] * 5 + [0.0], 8,
+              mixc(GOLD, STONE_DARK, 0.3))                                                                                     # 鍵の輪（はしはとじる）
+        for k in range(2):
+            ubox(item, (1.1 - 0.5 * k, mouth[1] - 0.4, mouth[2]), (0.22, 0.6, 0.22), mixc(GOLD, STONE_DARK, 0.3))              # 鍵の歯
+    return ped, body, head, ears, item
 
 
 def make_fox_statue(name, holds):
+    ped, body, head, ears, item = fox_statue_parts(holds)
     mb = MB()
-    base = stone_col(2.0, 0.35, STONE_DARK)
-    ubox(mb, (0, 0.6, 0), (7.6, 1.6, 6.8), base)
-    ubox(mb, (0, 3.9, 0), (6.2, 5.0, 5.4), stone_col(3.0, 0.15))
-    ubox(mb, (0, FOX_TOP - 0.4, 0), (7.0, 0.8, 6.2), stone_col(4.0, 0.25, STONE_LIGHT))
-    y0 = FOX_TOP
-    fur = lambda t, a, p, d: mixc(FOX_STONE, STONE, 0.12 + 0.12 * noise.noise(p * 0.8))
-    # すわった体：うしろのこし・むね・首
-    usphere(mb, (0, y0 + 1.7, -0.9), 1.0, lambda n: mixc(FOX_STONE, STONE, 0.15), scale=(2.1, 1.8, 2.3), seg=18, rings=12)
-    utube(mb, [(0, y0 + 1.6, -0.6), (0, y0 + 3.4, -0.1), (0, y0 + 5.2, 0.5), (0, y0 + 6.6, 0.9)], [1.75, 1.6, 1.25, 0.95], 18, fur)
-    # 頭と、細長い鼻先・とがった耳
-    hc = (0.0, y0 + 7.6, 1.15)
-    usphere(mb, hc, 1.15, lambda n: mixc(FOX_STONE, STONE, 0.1), scale=(1.0, 0.95, 1.1), seg=18, rings=12)
-    utube(mb, [(0, y0 + 7.45, 1.8), (0, y0 + 7.2, 2.9), (0, y0 + 7.0, 3.5)], [0.7, 0.42, 0.0], 14, fur)
-    for sx in (-1, 1):
-        utube(mb, [(0.55 * sx, y0 + 8.4, 0.95), (0.75 * sx, y0 + 9.4, 0.85), (0.85 * sx, y0 + 10.3, 0.75)], [0.48, 0.3, 0.0], 10,
-              lambda t, a, p, d: FOX_STONE if t < 0.7 else STONE)
-        # 朱の目のふち
-        usphere(mb, (0.62 * sx, y0 + 7.85, 1.95), 0.16, BIB, scale=(1.0, 0.45, 1.6), seg=8, rings=5)
-        # 前足（まっすぐ立てて、台座につく）
-        utube(mb, [(0.7 * sx, y0 + 4.4, 0.9), (0.75 * sx, y0 + 2.2, 1.25), (0.75 * sx, y0 + 0.25, 1.45)], [0.5, 0.42, 0.38], 12, fur)
-        usphere(mb, (0.75 * sx, y0 + 0.25, 1.75), 0.42, FOX_STONE, scale=(1.0, 0.6, 1.3), seg=10, rings=6)
-        # うしろ足
-        usphere(mb, (1.35 * sx, y0 + 0.5, -0.1), 0.6, FOX_STONE, scale=(0.9, 0.7, 1.6), seg=10, rings=6)
-    # 赤い前かけ
-    usphere(mb, (0.0, y0 + 5.1, 1.0), 1.0, BIB, scale=(1.55, 1.25, 0.45), seg=16, rings=10)
-    # ふさふさのしっぽ（うしろで、上へはね上がる）
-    utube(mb, [(0.0, y0 + 0.7, -2.6), (0.0, y0 + 2.2, -3.7), (0.0, y0 + 4.8, -3.6), (0.0, y0 + 7.2, -2.7), (0.0, y0 + 8.4, -1.9)],
-          [0.7, 1.15, 1.2, 0.95, 0.0], 14, fur)
-    # くわえている物
-    mouth = (0.0, y0 + 7.0, 3.55)
-    if holds == "jewel":
-        usphere(mb, (mouth[0], mouth[1] - 0.1, mouth[2] + 0.2), 0.62, lambda n: mixc(GOLD, FOX_STONE, 0.4), seg=14, rings=9)
-        utube(mb, [(0.0, mouth[1] + 0.5, mouth[2] + 0.2), (0.0, mouth[1] + 1.0, mouth[2] + 0.15)], [0.25, 0.0], 8, mixc(GOLD, FOX_STONE, 0.4))   # 宝珠のとがり
-    else:
-        utube(mb, [(-1.2, mouth[1], mouth[2]), (1.4, mouth[1], mouth[2])], [0.22, 0.22], 8, mixc(GOLD, STONE_DARK, 0.3))   # 鍵のじく
-        utube(mb, [(-1.2, mouth[1] - 0.6, mouth[2]), (-1.9, mouth[1], mouth[2]), (-1.2, mouth[1] + 0.6, mouth[2]), (-0.5, mouth[1], mouth[2]),
-                   (-1.2, mouth[1] - 0.6, mouth[2])], [0.2] * 5, 8, mixc(GOLD, STONE_DARK, 0.3))                                 # 鍵の輪
-        for k in range(2):
-            ubox(mb, (1.1 - 0.5 * k, mouth[1] - 0.4, mouth[2]), (0.22, 0.6, 0.22), mixc(GOLD, STONE_DARK, 0.3))              # 鍵の歯
+    for part in (ped, body, head, ears[0], ears[1], item):
+        mb.add(part)
     return build(mb, name, smooth=True, sharp_deg=60)
+
+
+def make_fox_statue_col(name, holds):
+    """キツネの像の当たり判定：台座はそのまま（すき間のない段）。体・頭・耳・くわえた物は、それぞれ切り口の凸包でなめらかにつつむ
+    （見た目のままだと、球やチューブの重なりのくさびや、細い足のすき間に、しゃくとりむしが入りこんで、体がみだれる）"""
+    ped, body, head, ears, item = fox_statue_parts(holds)
+    mb = MB()
+    mb.add(ped)
+    top = FOX_PEDESTAL[-1]
+    # 体の底は、台座の上の面のすぐ上（台座の中に重ねない：中から上へ光線を出すと、台座の上の面のうらに当たる＝中だとわかる）
+    sliced_hull(mb, body, STONE, skirt=FOX_TOP + 1.0, floor=FOX_TOP + 0.002, clip=(top[0] - 0.01, top[1] - 0.01),
+                flare=(FOX_TOP + 0.4, 0.4))   # こしのいちばん太い所まで。台の上の面とは、すそ広がりでつなぐ
+    sliced_hull(mb, head, STONE)
+    for e in ears:
+        sliced_hull(mb, e, STONE, step=0.15, n=12)
+    sliced_hull(mb, item, GOLD, step=0.1, n=16)
+    return build(mb, name, smooth=False)
 
 
 # ---------------------------------------------------------------------------
@@ -354,7 +551,9 @@ def shimenawa(mb, a, b, sag, r, n_shide=4, facing=(0.0, 0.0, 1.0)):
         p = a.lerp(b, t)
         p.y -= sag * math.sin(math.pi * t)
         pts.append(p)
-    utube(mb, pts, [r * (0.55 + 0.45 * math.sin(math.pi * (i / 16)) ** 0.5) for i in range(17)], 12,
+    radii = [r * (0.55 + 0.45 * math.sin(math.pi * (i / 16)) ** 0.5) for i in range(17)]
+    ea, eb = (pts[0] - pts[1]).normalized(), (pts[-1] - pts[-2]).normalized()
+    utube(mb, [pts[0] + ea * r * 0.3] + pts + [pts[-1] + eb * r * 0.3], [0.0] + radii + [0.0], 12,    # 両はしは、むすんでとじる
           lambda t, ang, p, d: mixc(STRAW, STRAW_DARK, 0.5 + 0.5 * math.sin(ang * 2 + t * 70)))
     for k in range(n_shide):
         t = (k + 1) / (n_shide + 1)
@@ -438,8 +637,8 @@ def make_hall():
         beam(mb, (x, ridge_y - 1.0, ridge_z - 3.2), (x, ridge_y + 6.2, ridge_z + 2.8), 0.5, 1.3, HINOKI_DARK, up=(1, 0, 0))   # 千木
         beam(mb, (x, ridge_y - 1.0, ridge_z + 3.2), (x, ridge_y + 6.2, ridge_z - 2.8), 0.5, 1.3, HINOKI_DARK, up=(1, 0, 0))
     for x in (-7.5, 0.0, 7.5):
-        utube(mb, [(x, ridge_y + 3.1, ridge_z - 2.4), (x, ridge_y + 3.1, ridge_z + 2.4)], [0.9, 0.9], 12,
-              lambda t, a, p, d: GOLD if t < 0.06 or t > 0.94 else HINOKI_DARK)                                                   # 鰹木
+        utube(mb, [(x, ridge_y + 3.1, ridge_z - 2.45), (x, ridge_y + 3.1, ridge_z - 2.4), (x, ridge_y + 3.1, ridge_z + 2.4), (x, ridge_y + 3.1, ridge_z + 2.45)],
+              [0.0, 0.9, 0.9, 0.0], 12, lambda t, a, p, d: GOLD if t < 0.06 or t > 0.94 else HINOKI_DARK)                         # 鰹木（両はしはとじる）
     # 正面の木の階段（高床へ）と、朱の手すり
     for k in range(6):
         top = (k + 1) * F / 6
@@ -453,8 +652,8 @@ def make_hall():
     ubox(mb, (bx, by + 2.2, bz), (0.6, 2.2, 0.6), HINOKI_DARK)
     usphere(mb, (bx, by, bz), 1.25, lambda n: mixc(GOLD, hexc("#fff1b0"), 0.4 * max(0.0, n.y)), seg=18, rings=12)
     ubox(mb, (bx, by - 0.55, bz), (1.6, 0.18, 0.18), LACQ)                             # 鈴の口
-    rope = [(bx, by - 1.2, bz), (bx + 0.1, by - 5.0, bz + 0.1), (bx - 0.05, by - 9.5, bz), (bx, 7.6, bz + 0.1)]
-    utube(mb, rope, [0.42, 0.42, 0.42, 0.42], 10,
+    rope = [(bx, by - 0.5, bz), (bx, by - 1.2, bz), (bx + 0.1, by - 5.0, bz + 0.1), (bx - 0.05, by - 9.5, bz), (bx, 7.6, bz + 0.1)]
+    utube(mb, rope, [0.0, 0.42, 0.42, 0.42, 0.42], 10,   # 上のはしは、鈴の中でとじる
           lambda t, a, p, d: [hexc("#d23a2a"), PAPER, hexc("#6b3f8f")][int((t * 26 + a * 0.6) % 3)])
     usphere(mb, (bx, 7.2, bz + 0.1), 0.65, hexc("#d23a2a"), scale=(1, 1.4, 1), seg=10, rings=6)
     # 正面のしめ縄
@@ -493,16 +692,22 @@ def make_chozuya():
         roof_slope(mb, -10.0, 10.0, (21.6, 0.0), (16.2, 8.2 * sz), 0.5, 0.9, BARK_ROOF, HINOKI_DARK, n=5)
     beam(mb, (-10.3, 22.6, 0.0), (10.3, 22.6, 0.0), 1.4, 1.2, by_normal(scalec(BARK_ROOF, 0.8), scalec(BARK_ROOF, 0.8)))
     for sx in (-1, 1):
-        prism(mb, [(sx * 7.0 - 0.25, 17.3, -4.6), (sx * 7.0 - 0.25, 17.3, 4.6), (sx * 7.0 - 0.25, 21.2, 0.0)], (0.5 * sx, 0, 0), HINOKI)
+        prism(mb, [(sx * 6.75, 17.3, -4.6), (sx * 6.75, 17.3, 4.6), (sx * 6.75, 21.2, 0.0)], (0.5 * sx, 0, 0), HINOKI)   # 妻板（左右とも、柱の上に）
     # 竹の筧（うしろの竹から、水盤の上へ）
     bb = lambda t, a, p, d: mixc(BAMBOO, BAMBOO_DARK, 0.3 + 0.3 * math.sin(a * 2)) if (t * 6) % 1 > 0.08 else BAMBOO_DARK
-    utube(mb, [(4.6, 0.0, -3.9), (4.6, 9.0, -3.9)], [0.42, 0.42], 10, bb)
-    utube(mb, [(4.6, 8.4, -3.9), (3.2, 8.2, -2.2), (SPOUT_TIP[0], SPOUT_TIP[1], SPOUT_TIP[2])], [0.32, 0.32, 0.3], 10, bb)
+    # 竹の上は節でふさがり、筧の先は切り口（中は暗い）。筒の口があいたままだと、むこうがすけて見える
+    utube(mb, [(4.6, 0.0, -3.9), (4.6, 9.0, -3.9), (4.6, 9.03, -3.9)], [0.42, 0.42, 0.0], 10, bb)
+    tip = Vector(SPOUT_TIP)
+    tip_d = (tip - Vector((3.2, 8.2, -2.2))).normalized()
+    utube(mb, [(4.6, 8.4, -3.9), (3.2, 8.2, -2.2), tuple(tip), tuple(tip + tip_d * 0.03)], [0.32, 0.32, 0.3, 0.0], 10,
+          lambda t, a, p, d: hexc("#2a2f1c") if t > 0.995 else bb(t, a, p, d))
     # ひしゃく：うしろのふちにお椀、前のふちに柄をかける
     for k, x in enumerate((-3.2, -1.2, 0.8)):
         cup = (x, BASIN_RIM + 0.05, -2.75)
         ulathe(mb, cup, [(0.0, 0.0), (0.62, 0.0), (0.66, 0.9), (0.58, 0.9), (0.54, 0.12), (0.0, 0.12)], 14, HINOKI)
-        utube(mb, [(x, BASIN_RIM + 0.55, -2.15), (x + 0.15 * (k - 1), BASIN_RIM + 0.35, 2.9)], [0.13, 0.11], 6, HINOKI_DARK)
+        a, b = Vector((x, BASIN_RIM + 0.55, -2.15)), Vector((x + 0.15 * (k - 1), BASIN_RIM + 0.35, 2.9))
+        e = (b - a).normalized()
+        utube(mb, [tuple(a - e * 0.05), tuple(a), tuple(b), tuple(b + e * 0.05)], [0.0, 0.13, 0.11, 0.0], 6, HINOKI_DARK)   # 柄の両はしはとじる
     return build(mb, "Shrine_Chozuya", smooth=False)
 
 
@@ -534,6 +739,8 @@ def make_tree():
             pts.append(d * r + side * (math.sin(t * 4 + k) * 1.4) + Vector((0, 0, z)))
         radii = [lerp(2.6, 0.3, t ** 0.7) for t in (i / (n - 1) for i in range(n))]
         radii[-1] = 0.0
+        pts.insert(0, d * TREE_R * 0.55 + Vector((0, 0, 3.0)))   # つけ根は幹の中から（筒の口が、幹の外に出ない）
+        radii.insert(0, 2.6)
         tube(mb, pts, radii, 14, lambda t, a2, p, dd: bark_color(p * 0.5, a2, 0.3 * sstep(0.7, 1.0, abs(math.sin(a2 * 4))), 5.0 + k, 0.5, 0.2))
     # しめ縄（幹をぐるりと）と紙垂（前の方）
     ring = []
@@ -588,6 +795,10 @@ def make_ema():
     beam(mb, (-7.5, 12.8, 0.0), (7.5, 12.8, 0.0), 0.9, 0.8, HINOKI_DARK)
     for sz in (-1, 1):
         roof_slope(mb, -8.5, 8.5, (15.0, 0.0), (13.2, 2.4 * sz), 0.2, 0.5, BARK_ROOF, HINOKI_DARK, n=3)
+    for sx in (-1, 1):
+        # 屋根を、はりの上でささえる三角の妻板
+        xx = sx * 6.5 - 0.2
+        prism(mb, [(xx, 13.0, -2.35), (xx, 13.0, 2.35), (xx, 13.5, 2.35), (xx, 15.3, 0.0), (xx, 13.5, -2.35)], (0.4, 0, 0), HINOKI_DARK)
     for y in (6.8, 10.3):
         beam(mb, (-6.5, y, 0.0), (6.5, y, 0.0), 0.35, 0.35, HINOKI_DARK)
         x = -5.6
@@ -635,13 +846,13 @@ def make_hokora():
         roof_slope(mb, -3.8, 3.8, (10.4, -0.3), (7.6, -0.3 + 3.6 * sz), 0.25, 0.6, COPPER, HINOKI_DARK, n=3)
     beam(mb, (-4.0, 11.0, -0.3), (4.0, 11.0, -0.3), 1.0, 0.8, COPPER_DARK)
     for sx in (-1, 1):
-        prism(mb, [(sx * 2.6 - 0.2, 8.0, -2.5), (sx * 2.6 - 0.2, 8.0, 1.9), (sx * 2.6 - 0.2, 10.3, -0.3)], (0.4 * sx, 0, 0), HINOKI)
+        prism(mb, [(sx * 2.4, 8.0, -2.5), (sx * 2.4, 8.0, 1.9), (sx * 2.4, 10.3, -0.3)], (0.4 * sx, 0, 0), HINOKI)   # 妻板（左右とも、かべの上に）
     shimenawa(mb, (-2.7, 7.9, 2.25), (2.7, 7.9, 2.25), 0.4, 0.3, n_shide=2)
     # 小さなキツネの像が 2 ひき、祠のわきに
     for sx in (-1, 1):
         x = sx * 3.3
         usphere(mb, (x, 3.6, 2.2), 0.55, FOX_STONE, scale=(1.0, 1.0, 1.2), seg=10, rings=7)
-        utube(mb, [(x, 3.6, 2.3), (x, 4.6, 2.6)], [0.42, 0.32], 8, FOX_STONE)
+        utube(mb, [(x, 3.6, 2.3), (x, 4.6, 2.6), (x, 4.95, 2.72)], [0.42, 0.32, 0.0], 8, FOX_STONE)   # 首は頭の中でとじる
         usphere(mb, (x, 5.0, 2.75), 0.38, FOX_STONE, seg=10, rings=7)
         for ex in (-1, 1):
             utube(mb, [(x + 0.18 * ex, 5.25, 2.7), (x + 0.24 * ex, 5.75, 2.65)], [0.13, 0.0], 6, FOX_STONE)
@@ -697,7 +908,7 @@ def make_fence():
     mb = MB()
     for k in range(5):
         x = -5.0 + k * 2.5
-        beam(mb, (x, 0.0, 0.0), (x, 5.6, 0.0), 0.6, 0.6, SHU, up=(0, 0, 1))
+        beam(mb, (x, -4.0, 0.0), (x, 5.6, 0.0), 0.6, 0.6, SHU, up=(0, 0, 1))   # 柱の根もとは、基壇のふちの坂の中までうめる
         ulathe(mb, (x, 5.6, 0.0), [(0.0, 0.0), (0.45, 0.0), (0.35, 0.35), (0.0, 0.55)], 4, SHU_DARK, phase=math.pi / 4)
     beam(mb, (-5.3, 4.9, 0.0), (5.3, 4.9, 0.0), 0.7, 0.5, SHU)
     beam(mb, (-5.3, 2.0, 0.0), (5.3, 2.0, 0.0), 0.5, 0.4, SHU)
@@ -798,6 +1009,8 @@ MAKERS = [
     make_torii, make_torii_small, make_lantern,
     lambda: make_fox_statue("Shrine_Fox_A", "jewel"),
     lambda: make_fox_statue("Shrine_Fox_B", "key"),
+    lambda: make_fox_statue_col("Shrine_Fox_A_Col", "jewel"),
+    lambda: make_fox_statue_col("Shrine_Fox_B_Col", "key"),
     make_saisen, make_hall, make_chozuya, make_tree, make_ema, make_omikuji, make_hokora, make_bridge,
     make_fence, make_slab, make_step,
     lambda: make_higanbana("Shrine_Higanbana", 901),

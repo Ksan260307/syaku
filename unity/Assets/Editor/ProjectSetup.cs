@@ -754,7 +754,7 @@ namespace Shakutori.EditorTools
                 Clip("loop_spring"), Clip("loop_ridge_wind"), Clip("higurashi"), Clip("pika"),
                 Clip("loop_stove"), Clip("loop_clock"), Clip("loop_buzz"), Clip("swallow"), Clip("squeak"),
                 Clip("loop_surf"), Clip("gull"),
-                Clip("owl"), Clip("suzu"),
+                Clip("owl"), Clip("suzu"), Clip("suzumushi"), Clip("korogi"),
             };
             var creatures = game.AddComponent<Creatures>();
             creatures.assets = assets;

@@ -386,9 +386,12 @@ namespace Shakutori
         /// <summary>トンネルの近くのヒント。行ったことがあれば、行き先で集めた数も出す。</summary>
         public static string GateHintText(AreaLayout target, bool door = false)
         {
+            // まだ行ったことがない場所は、名前を出さない
+            if (!SaveSystem.Data.visited.Contains(target.Id))
+                return door ? (target.Id == "hut" ? "とびらのすき間から、まだ入ったことがない場所へ" : "とびらを出ると、まだ行ったことがない場所へ")
+                    : "トンネルを抜けると、まだ行ったことがない場所へ";
             string text = door ? (target.Id == "hut" ? $"とびらのすき間から「{target.Subtitle}」の中へ" : $"とびらを出ると「{target.Subtitle}」へ")
                 : $"トンネルを抜けると「{target.Subtitle}」へ";
-            if (!SaveSystem.Data.visited.Contains(target.Id)) return text + "（まだ行ったことがない場所）";
             if (SaveSystem.Data.completedAreas.Contains(target.Id)) return text + "（★ めぐり終えた）";
             return text + $"（{target.DropName} {Collectibles.CollectedIn(target)} / {target.DropCount}）";
         }
@@ -441,7 +444,7 @@ namespace Shakutori
             yield return new WaitForSecondsRealtime(0.7f);
             ui.CloseAllOverlays();
             ui.LoadingAreaId = to.Id;   // 読み込み画面に、行き先のエリアのヒント
-            ui.ShowLoading(to.Subtitle + "へ向かっています");
+            ui.ShowLoading((AreaNames.Visited(to) ? to.Subtitle : "まだ行ったことがない場所") + "へ向かっています");
             worm.enabled = false;
             yield return BuildArea(to, (p, t) => ui.SetLoading(p, t));
 

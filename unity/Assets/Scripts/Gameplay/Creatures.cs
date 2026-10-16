@@ -212,6 +212,7 @@ namespace Shakutori
             public float leapT;
             // ---- 神社 ----
             public float headYaw, headPitch;           // フクロウの首の向き
+            public float wingLift;                     // スズムシ・コオロギの前ばねの立ちぐあい（鳴くとき 1）
             public float shrineK;                      // タヌキの死んだふり（横になる度合い）
             public bool wasDead;
             public bool circling;                      // オオミズアオが、あかりのまわりを回っている
@@ -223,7 +224,8 @@ namespace Shakutori
             public Vector3 pos, up, fwd, vel;
             public bool airborne, carrying, curled, resting, perched, carryingWorm;
             public float raise, gait, moveSpeed, curSpeed, crouch, strike, bank, retreat, glow, display, turnRate, alert;
-            public bool playingDead, hurrying;
+            public bool playingDead, hurrying, calling;
+            public float wingLift;
             public string species;
             public Vector3 rollVel, skidVel;
             public float spin, landSpeed, fallVel, pitch;
@@ -368,7 +370,7 @@ namespace Shakutori
                 resting = m.resting, perched = m.perched, carryingWorm = m.carryingWorm,
                 raise = m.raise, gait = m.gait, moveSpeed = m.moveSpeed, curSpeed = m.curSpeed, crouch = m.crouch, strike = m.strike,
                 bank = m.bank, retreat = m.retreat, glow = FireflyGlow(m), display = m.display, turnRate = m.turnRate, species = m.sp.id,
-                alert = m.alertK, playingDead = m.anim < m.deadUntil, hurrying = m.anim < m.hurryUntil,
+                alert = m.alertK, playingDead = m.anim < m.deadUntil, hurrying = m.anim < m.hurryUntil, calling = m.anim < m.callUntil, wingLift = m.wingLift,
                 rollVel = m.rollVel, skidVel = m.skidVel, spin = m.spin, landSpeed = m.landSpeed, fallVel = m.fallVel, pitch = m.pitch,
                 act = m.act, flinch = m.flinch, curlK = m.curlK,
             };
@@ -987,6 +989,7 @@ namespace Shakutori
                         AudioManager.Instance?.Higurashi(0.5f * vol);
                         m.callUntil = m.anim + 3.2f;   // 「カナカナカナ…」と鳴くあいだ、おなかをふるわせる
                     }
+                    else if (IsCricket(m)) UpdateCricketSong(m, sdt, vol);
                 }
 
                 // 位置や速さがこわれた数（NaN など）になったら、前の場所（なければ、すみか）へもどす

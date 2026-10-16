@@ -199,6 +199,7 @@ namespace Shakutori.Tests
             UI.ShowCollection(true, "zukan");
             yield return null;
             Assert.AreEqual(SpeciesCatalog.All.Count, UI.ZukanCardCount);
+            SaveSystem.Data.visited.Add("river");   // まだ行ったことがないエリアでは、しぼりこめない
             UI.SetZukanFilter("川辺");
             int river = SpeciesCatalog.All.Count(sp => sp.areaLabel.Contains("川辺"));
             Assert.AreEqual(river, UI.ZukanCardCount);

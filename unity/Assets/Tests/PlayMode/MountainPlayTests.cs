@@ -54,7 +54,8 @@ namespace Shakutori.Tests
             Assert.AreEqual(0f, Shader.GetGlobalFloat("_SkyOpen"), "川辺は、樹冠の空");
             Place(new Vector2(gate.position.x + gate.inward.x * 4f, gate.position.z + gate.inward.z * 4f), -gate.inward);
             yield return Frames(3);
-            StringAssert.Contains("雲の見える山", UI.PromptText, "トンネルの近くでヒントが出る");
+            StringAssert.Contains("まだ行ったことがない場所", UI.PromptText, "トンネルの近くでヒントが出る");
+            StringAssert.DoesNotContain("雲の見える山", UI.PromptText, "まだ行ったことがない場所の名前は出さない");
             yield return WalkInto(gate);
 
             Assert.AreSame(Areas.Mountain, Areas.Current);

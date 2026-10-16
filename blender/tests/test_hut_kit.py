@@ -11,9 +11,11 @@ import bpy
 from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
 import build_forest_kit as kit  # noqa: E402
 import build_hut_kit as hut  # noqa: E402
+from parts_check import floating_parts, open_ends  # noqa: E402
 
 
 def reset():
@@ -43,6 +45,12 @@ class HutKitTests(unittest.TestCase):
     def setUp(self):
         reset()
 
+
+    def test_parts_are_joined_without_open_ends(self):
+        # 筒の口があいたまま見える所や、宙に浮いた部品がない（前は、リュックのかたひもが、体からはなれて浮いていた）
+        ob = hut.make_backpack()
+        self.assertEqual(open_ends(ob, 0.3), [], "Hut_Backpack に、口があいたまま見える筒")
+        self.assertEqual(floating_parts(ob, 0.05), [], "Hut_Backpack に、浮いた部品")
     def test_every_asset_builds_with_vertex_colors(self):
         names = set()
         for mk in hut.MAKERS:

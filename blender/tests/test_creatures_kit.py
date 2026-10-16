@@ -11,9 +11,11 @@ import unittest
 import bpy
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
 import build_forest_kit as kit  # noqa: E402
 import build_creatures as cr  # noqa: E402
+from parts_check import floating_parts, open_ends  # noqa: E402
 
 
 def reset():
@@ -142,8 +144,8 @@ class CreatureKitTests(unittest.TestCase):
     def test_portrait_list_covers_all_species(self):
         # ふつうの 57 種と、レアの 7 種
         ids = [c[0] for c in cr.CREATURES]
-        self.assertEqual(len(ids), 64)
-        self.assertEqual(len(set(ids)), 64)
+        self.assertEqual(len(ids), 66)
+        self.assertEqual(len(set(ids)), 66)
         for need in ("kitsune", "fukurou", "tanuki", "ga", "kanabun"):
             self.assertIn(need, ids)
         for need in ("yadokari", "shiomaneki", "kamome", "hitode", "uni", "funamushi", "manta"):
@@ -263,8 +265,19 @@ class CreatureKitTests(unittest.TestCase):
     def test_shrine_walkers_have_limbs_and_the_owl_turns_its_head(self):
         for name in ("Kitsune", "Tanuki", "Fukurou_Body"):
             reset()
-            cr.split_legs(MAKERS[name], name)
+            parts = {o.name: o for o in cr.split_legs(MAKERS[name], name)}
             self.assertEqual(len(cr.LIMBS[name]), 2 if name != "Fukurou_Body" else 1, f"{name} の右の手足")
+            if name == "Fukurou_Body":
+                continue
+            # けものの手足は、体の中から生える：太ももの上の端は、その前後のおなかの下の面より上（前は脚が体の下にぶら下がって、はなれて見えた）
+            from mathutils import Vector
+            from mathutils.bvhtree import BVHTree
+            tree = BVHTree.FromObject(parts[name], bpy.context.evaluated_depsgraph_get())
+            for up, lo, ft, hip, knee, ankle in cr.LIMBS[name]:
+                top = hip.z + max(v.co.z for v in parts[up].data.vertices)
+                hit = tree.ray_cast(Vector((hip.x * 0.6, hip.y, -50.0)), Vector((0, 0, 1)), 200.0)
+                self.assertIsNotNone(hit[0], f"{up} の上に体がない")
+                self.assertGreater(top, hit[0].z + 1.5, f"{up} の付け根が、体の中に入っていない（おなか {hit[0].z:.1f}）")
         reset()
         cr.split_legs(MAKERS["Kanabun"], "Kanabun")
         self.assertEqual(len(cr.RIG["Kanabun"]), 3, "カナブンの右の脚")
@@ -334,6 +347,46 @@ class CreatureKitTests(unittest.TestCase):
             # 体だけのメッシュには、手足が残っていない（鳥の体は、足の分だけ地面からはなれる）
             if name == "Sparrow_Body":
                 self.assertGreater(zmin(body), 0.5, "スズメの体に足が残っている")
+
+    def test_crickets_walk_on_legs_and_raise_their_wings_to_sing(self):
+        # スズムシ・エンマコオロギ：脚は 3 対（Unity で歩く）。前ばねは別のメッシュで、付け根が原点。
+        # うしろへのび、外のへりは体のわきへ下がる（ふだんはせなかに重ね、鳴くときは付け根でまわして立てる）
+        for name, mk, wmk, root in (("Suzumushi", cr.make_suzumushi, cr.make_suzumushi_wing, cr.SUZUMUSHI_WING_ROOT),
+                                    ("Korogi", cr.make_korogi, cr.make_korogi_wing, cr.KOROGI_WING_ROOT)):
+            reset()
+            parts = {o.name: o for o in cr.split_legs(mk, name)}
+            self.assertEqual(len(cr.RIG[name]), 3, f"{name} の右の脚")
+            body = parts[name]
+            ys = [v.co.y for v in body.data.vertices]
+            self.assertLess(min(ys), root.y - 0.4, f"{name} のおなかは、はねの付け根よりうしろへ")
+            reset()
+            w = wmk()
+            vs = [v.co for v in w.data.vertices]
+            self.assertAlmostEqual(min(v.x for v in vs), 0.0, delta=0.01, msg="付け根が原点")
+            self.assertLess(min(v.y for v in vs), -0.4, "はねは、うしろへのびる")
+            self.assertGreater(max(v.x for v in vs), 0.12, "はばの広いはね")
+            self.assertLess(max(v.z for v in vs), 0.01, "外のへりは下がる（せなかに重なる）")
+            reset()
+            ob = mk()
+            self.assertEqual(open_ends(ob, 0.015), [], f"{name} に、口があいたまま見える筒")
+            self.assertEqual(floating_parts(ob, 0.005), [], f"{name} に、浮いた部品")
+        # スズムシは小さく、コオロギは大きい（触角はのぞいて、体の長さ）
+        reset()
+        suzu = max(v.co.y for v in cr.make_suzumushi().data.vertices if v.co.z < 0.25 and abs(v.co.x) < 0.2)
+        self.assertGreater(suzu, 0.2)
+
+    def test_parts_are_joined_without_open_ends(self):
+        # 筒の口があいたまま見える所や、宙に浮いた部品がない（前は足首のつなぎ目にくさび形のすき間があり、
+        # ハリネズミの鼻先・マイマイカブリの首の口が見え、モグラ塚の土のかたまりが浮いていた）
+        for name, mk, r, tol in (("Maimaikaburi", cr.make_maimaikaburi, 0.04, 0.01), ("Harinezumi", cr.make_harinezumi, 0.04, 0.01),
+                                 ("Mogura_Hill", cr.make_mogura_hill, 0.05, 0.02), ("AntHill", cr.make_anthill, 0.02, 0.005),
+                                 ("Kitsune", cr.make_kitsune, 0.3, 0.05), ("Tanuki", cr.make_tanuki, 0.3, 0.05),
+                                 ("Risu", cr.make_risu, 0.08, 0.02), ("Nezumi", cr.make_nezumi, 0.05, 0.01),
+                                 ("Nakiusagi", cr.make_nakiusagi, 0.05, 0.01)):
+            reset()
+            ob = mk()
+            self.assertEqual(open_ends(ob, r), [], f"{name} に、口があいたまま見える筒")
+            self.assertEqual(floating_parts(ob, tol), [], f"{name} に、浮いた部品")
 
     def test_closed_parts_face_outward(self):
         # とじた部品（体・目・脚）の面は外向き。内向きだと、ゲームでは体が黒く見える（前は鳥の体が裏返っていた）

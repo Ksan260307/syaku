@@ -36,7 +36,8 @@ namespace Shakutori.Tests
             Place(new Vector2(start.x, start.z), outward);
             yield return FaceCamera(outward);
             yield return Frames(3);
-            StringAssert.Contains("せせらぎの小川", UI.PromptText, "トンネルの近くでヒントが出る");
+            StringAssert.Contains("まだ行ったことがない場所", UI.PromptText, "トンネルの近くでヒントが出る");
+            StringAssert.DoesNotContain("せせらぎの小川", UI.PromptText, "まだ行ったことがない場所の名前は出さない");
 
             GameInput.VirtualMove = Vector2.up;
             yield return WaitUntil(() => GM.State == GameManager.GameState.Traveling, 20f, "トンネルに入る");
@@ -386,6 +387,49 @@ namespace Shakutori.Tests
             Assert.IsFalse(UI.IsCollectionOpen);
             yield return Frames(2);
             Assert.IsTrue(Worm.InputEnabled);
+        }
+
+        [UnityTest]
+        public IEnumerator Zukan_AndRecords_HideAreaNamesNotYetVisited()
+        {
+            // はじめは森だけ。行ったことがないエリアの名前は、図鑑のしぼりこみ・すみか・ヒント・記録に出さない
+            UI.ShowCollection(true, "zukan");
+            yield return Frames(3);
+            var chips = UI.Root.Query<Button>(className: "zukan-filter").ToList();
+            Assert.AreEqual(8, chips.Count, "すべて・森・（7 エリア）");
+            Assert.AreEqual("森", chips[1].text);
+            for (int i = 2; i < chips.Count; i++)
+            {
+                Assert.AreEqual("？？？", chips[i].text, $"{i} 番めのエリアの名前は出さない");
+                Assert.IsFalse(chips[i].enabledSelf, "えらべない");
+            }
+            UI.SelectSpecies("crow");
+            Assert.AreEqual("すみか：森・？？？", UI.ZukanHabitatText, "カラス（森・川辺・公園・山・神社）");
+            UI.SelectSpecies("monshiro");
+            string hint = UI.Root.Q<Label>("zukan-desc").text;
+            StringAssert.DoesNotContain("公園", hint, "ヒントの中の名前もかくす");
+            StringAssert.Contains("？？？の花だん", hint);
+            UI.SelectTab("record");
+            yield return Frames(2);
+            string records = string.Join("|", UI.Root.Q("record-list").Query<Label>().ToList().Select(l => l.text));
+            StringAssert.Contains("森の達成度", records);
+            StringAssert.Contains("？？？の達成度", records);
+            foreach (var a in Areas.All)
+            {
+                if (a == Areas.Forest) continue;
+                StringAssert.DoesNotContain(a.DisplayName + "の", records, a.Id);
+                StringAssert.DoesNotContain(a.DropName, records, a.Id);
+            }
+            // 公園へ行ったら、公園の名前が出る
+            SaveSystem.Data.visited.Add("park");
+            UI.SelectTab("zukan");
+            yield return Frames(2);
+            chips = UI.Root.Query<Button>(className: "zukan-filter").ToList();
+            Assert.AreEqual("公園", chips[3].text);
+            Assert.IsTrue(chips[3].enabledSelf);
+            UI.SelectSpecies("crow");
+            Assert.AreEqual("すみか：森・公園・？？？", UI.ZukanHabitatText);
+            UI.ShowCollection(false);
         }
 
         [UnityTest]

@@ -26,6 +26,12 @@ namespace Shakutori
         /// しずくを置いたら、正しい向きの当たり判定にもどす（しずくの場所を変えない）。
         /// </summary>
         static readonly HashSet<string> WasInsideOut = new HashSet<string> { "Park_Tire_Red", "Park_Tire_Blue", "Park_Tire_Yellow" };
+        /// <summary>
+        /// しずくを置いたあとで、登りやすい当たり判定（名前_Col）を作った物（神社のキツネの像：見た目のままだと、台座の段のすき間や、
+        /// こしの下のくさびに、しゃくとりむしが入りこんでいた）。しずくを置くまでは、前と同じ見た目のとおりの当たり判定にしておく。
+        /// </summary>
+        static readonly HashSet<string> ColAfterDews = new HashSet<string> { "Shrine_Fox_A", "Shrine_Fox_B" };
+        /// <summary>しずくを置いたら入れかえる当たり判定（当たり判定と、しずくのあとの形）。</summary>
         readonly List<(MeshCollider col, Mesh mesh)> _insideOut = new List<(MeshCollider, Mesh)>();
         static readonly Dictionary<Mesh, Mesh> s_insideOut = new Dictionary<Mesh, Mesh>();
 
@@ -42,7 +48,7 @@ namespace Shakutori
             return m;
         }
 
-        /// <summary>しずくを置いたあと：うら返しにしておいた当たり判定を、正しい向きにもどす。</summary>
+        /// <summary>しずくを置いたあと：うら返しや、見た目のとおりにしておいた当たり判定を、ほんとうの形にする。</summary>
         void RestoreTrueColliders()
         {
             foreach (var (col, mesh) in _insideOut)

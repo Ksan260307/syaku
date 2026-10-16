@@ -53,7 +53,8 @@ namespace Shakutori.Tests
             var gate = GM.world.Gates.Single(g => g.def.targetArea == "shrine");
             Place(new Vector2(gate.position.x + gate.inward.x * 4f, gate.position.z + gate.inward.z * 4f), -gate.inward);
             yield return Frames(3);
-            StringAssert.Contains("鎮守の森のお社", UI.PromptText, "トンネルの近くでヒントが出る");
+            StringAssert.Contains("まだ行ったことがない場所", UI.PromptText, "トンネルの近くでヒントが出る");
+            StringAssert.DoesNotContain("鎮守の森のお社", UI.PromptText, "まだ行ったことがない場所の名前は出さない");
             yield return WalkInto(gate);
 
             Assert.AreSame(Areas.Shrine, Areas.Current);
@@ -177,6 +178,94 @@ namespace Shakutori.Tests
             }
             Assert.Less(far, 10f, "灯籠から灯籠へ飛ぶときも、遠くへは行かない");
             Assert.Greater(near, samples * 0.6f, "たいてい、灯籠のあかりのそば");
+        }
+
+        [UnityTest, Timeout(240000)]
+        public IEnumerator Crickets_SingWithRaisedWings_AndHushWhenTheWormComesNear()
+        {
+            yield return GoTo(Areas.Shrine);
+            foreach (var id in new[] { "suzumushi", "korogi" })
+            {
+                Assert.Greater(C.CountOf(id), 0, id + " が神社にいる");
+                // 鳴きやむ近さより遠くで待つと、前ばねを立てて鳴く
+                Vector3 p = C.Info(id).pos;
+                Worm.Spawn(SurfaceNear(p, 6f), Vector3.left);
+                yield return WaitUntil(() => C.Info(id).calling, 40f, id + " が鳴く");
+                yield return Seconds(0.4f);
+                if (C.Info(id).calling) Assert.Greater(C.Info(id).wingLift, 0.5f, id + "：前ばねを立てる");
+                // しゃくとりむしが、すぐそばへ来ると、鳴きやんで、前ばねをたたむ
+                Worm.Spawn(SurfaceNear(C.Info(id).pos, 1.2f), Vector3.left);
+                yield return WaitUntil(() => !C.Info(id).calling, 3f, id + " が鳴きやむ");
+                yield return Seconds(0.5f);
+                if (!C.Info(id).calling) Assert.Less(C.Info(id).wingLift, 0.5f, id + "：鳴きやむと、前ばねをたたむ");
+                for (float t = 0f; t < 3f; t += Time.deltaTime)
+                {
+                    var info = C.Info(id);
+                    if ((info.pos - Worm.HeadPosition).magnitude < Creatures.CricketHush - 0.3f)
+                        Assert.IsFalse(info.calling, id + "：しゃくとりむしが近くにいるあいだは、鳴かない");
+                    yield return null;
+                }
+            }
+        }
+
+        static readonly Vector3[] Dirs6 = { Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back };
+
+        /// <summary>p がキツネの像の中なら（横と上のどの向きへも、像の面のうらに当たる）、いちばん近い面までの深さ。</summary>
+        static float InsideFoxStatue(Vector3 p)
+        {
+            Physics.queriesHitBackfaces = true;
+            try
+            {
+                Collider fox = null;
+                float best = 20f;
+                foreach (var d in new[] { Vector3.up, Vector3.left, Vector3.right, Vector3.forward, Vector3.back })
+                {
+                    if (!Physics.Raycast(p, d, out var h, 20f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)) return 0f;
+                    if (!h.collider.name.StartsWith("Shrine_Fox") || Vector3.Dot(h.normal, d) <= 0f) return 0f;
+                    fox = h.collider;
+                    best = Mathf.Min(best, h.distance);
+                }
+                foreach (var d in Dirs6)
+                    if (fox.Raycast(new Ray(p, d), out var e, 20f)) best = Mathf.Min(best, e.distance);
+                return best;
+            }
+            finally { Physics.queriesHitBackfaces = false; }
+        }
+
+        [UnityTest, Timeout(300000)]
+        public IEnumerator FoxStatue_CanBeClimbedFromThePlatform_WithoutTheBodyGoingInside()
+        {
+            // 前は、台座の段のすき間や、こしの下のくさびにはさまって登れず、体が像の中に入って、みだれた
+            yield return GoTo(Areas.Shrine);
+            for (int i = 0; i < 2; i++)
+            {
+                Vector2 f = ShrineLayout.FoxStatues[i];
+                Vector2 dir = i == 0 ? Vector2.right : Vector2.left;   // 参道のがわから
+                Vector2 s = f + dir * 6f;
+                Assert.IsTrue(Physics.Raycast(new Vector3(s.x, ShrineLayout.PlatformY + 2f, s.y), Vector3.down, out var gh, 6f, ShakuConst.SurfaceMask));
+                Vector3 target = new Vector3(f.x, gh.point.y, f.y);
+                Vector3 heading = (target - gh.point).normalized;
+                Worm.Spawn(gh.point, heading);
+                yield return FaceCamera(heading);
+                GameInput.VirtualMove = Vector2.up;
+                float pedestalTop = ShrineLayout.PlatformY - 0.1f + 7.4f;
+                float maxY = 0f, worst = 0f;
+                for (float t = 0f; t < 40f && maxY < pedestalTop + 4f; t += Time.deltaTime)
+                {
+                    Vector3 c = Worm.CenterPosition;
+                    Vector3 to = target - c;
+                    if (new Vector2(to.x, to.z).magnitude > 0.5f) Cam.yaw = Mathf.Atan2(to.x, to.z) * Mathf.Rad2Deg;
+                    yield return null;
+                    maxY = Mathf.Max(maxY, Worm.HeadPosition.y);
+                    if (Worm.State == InchwormController.Mode.Fall || Worm.State == InchwormController.Mode.Hang) continue;
+                    var curve = Worm.Curve;
+                    for (int k = 1; k < curve.Count - 1; k++) worst = Mathf.Max(worst, InsideFoxStatue(curve.pos[k]));
+                }
+                ResetInput();
+                Assert.Greater(maxY, pedestalTop + 4f, $"キツネの像 {i} の、台座の上の体まで登れる");
+                Assert.Less(worst, 0.35f, $"キツネの像 {i}：体が像の中に深く入らない");
+                yield return Seconds(0.3f);
+            }
         }
 
         [UnityTest]

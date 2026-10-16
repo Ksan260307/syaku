@@ -1423,6 +1423,49 @@ def make_shrine_sounds():
     write("suzu.wav", out)
 
 
+def suzumushi_call():
+    """スズムシの「リーン、リーン」：すんだ高い声（約 4.4kHz）が、こまかくふるえながら 3 回"""
+    parts = []
+    for k in range(3):
+        dur = 0.42 + 0.06 * (k == 2)
+        t = t_axis(dur)
+        f = 4400.0 * (1 + 0.004 * np.sin(2 * np.pi * 3 * t))
+        ph = 2 * np.pi * np.cumsum(f) / SR
+        am = 0.55 + 0.45 * np.sin(2 * np.pi * 38 * t)          # はねをこする、こまかいふるえ
+        env = np.minimum(t / 0.03, 1.0) * np.clip((dur - t) / 0.08, 0, 1)
+        parts.append((np.sin(ph) + 0.12 * np.sin(2 * ph)) * am * env)
+        parts.append(np.zeros(int(0.28 * SR)))
+    return np.concatenate(parts) * 0.5
+
+
+def korogi_call():
+    """エンマコオロギの「コロコロリー」：みじかい「コロ」をいくつか、だんだんはやく。さいごに、のびる「リー」"""
+    out = []
+    gaps = [0.11, 0.1, 0.09, 0.08, 0.07, 0.065]
+    for g in gaps:
+        dur = 0.045
+        t = t_axis(dur)
+        env = np.sin(np.pi * np.clip(t / dur, 0, 1)) ** 0.7
+        out.append(np.sin(2 * np.pi * 3900 * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 180 * t)) * env)
+        out.append(np.zeros(int(g * SR)))
+    dur = 0.55
+    t = t_axis(dur)
+    am = 0.55 + 0.45 * np.sin(2 * np.pi * 30 * t)
+    env = np.minimum(t / 0.03, 1.0) * np.clip((dur - t) / 0.15, 0, 1)
+    out.append(np.sin(2 * np.pi * 4000 * t * (1 - 0.01 * t)) * am * env)
+    return np.concatenate(out) * 0.55
+
+
+def make_cricket_sounds():
+    """スズムシとエンマコオロギの鳴き声（神社の草むら）"""
+    for name, call in (("suzumushi.wav", suzumushi_call()), ("korogi.wav", korogi_call())):
+        out = np.zeros((len(call) + int(0.5 * SR), 2))
+        add(out, 0, call, pan=0.0, gain=0.8, wrap=False)
+        out = circular_reverb(out, seconds=1.2, mix=0.3)
+        out[-int(0.1 * SR):] *= np.linspace(1, 0, int(0.1 * SR))[:, None]
+        write(name, out)
+
+
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     make_sfx()
@@ -1439,3 +1482,4 @@ if __name__ == "__main__":
     make_hut_sounds()
     make_coast_sounds()
     make_shrine_sounds()
+    make_cricket_sounds()

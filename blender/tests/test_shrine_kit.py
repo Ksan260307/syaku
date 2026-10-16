@@ -12,9 +12,11 @@ from mathutils import Vector
 from mathutils.bvhtree import BVHTree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
 import build_forest_kit as kit  # noqa: E402
 import build_shrine_kit as shrine  # noqa: E402
+from parts_check import floating_parts, open_ends  # noqa: E402
 
 
 def reset():
@@ -138,6 +140,64 @@ class ShrineKitTests(unittest.TestCase):
             col = ob.data.color_attributes["Col"]
             reds = sum(1 for d in col.data if d.color[0] > 0.45 and d.color[1] < 0.1)
             self.assertGreater(reds, 30, "赤い前かけ")
+
+    def test_fox_statue_collider_has_no_gaps_to_crawl_into(self):
+        # 像に登ると、しゃくとりむしが台座の段のすき間や、こしの下のくさびに入りこんで、体がみだれていた
+        import bmesh
+        for holds in ("jewel", "key"):
+            reset()
+            ob = shrine.make_fox_statue_col("Shrine_Fox_T_Col", holds)
+            bm = bmesh.new()
+            bm.from_mesh(ob.data)
+            bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)   # 台座の面は、色ごとに頂点が別
+            self.assertTrue(all(len(e.link_faces) == 2 for e in bm.edges), "どの部品も、すき間のない閉じた形")
+            bm.free()
+            tree = bvh(ob)
+            # 台座の横から、まっすぐ中へ：まん中の石の面より奥へは入らない（段と段のあいだに、すき間がない）
+            inner = shrine.FOX_PEDESTAL[2][0]
+            for i in range(73):
+                y = 0.0 + i * 0.1
+                for dz in (-1.5, 0.0, 1.5):
+                    hit = tree.ray_cast(shrine.U(10.0, y, dz), shrine.U(-1.0, 0.0, 0.0), 20.0)
+                    self.assertIsNotNone(hit[0], f"高さ {y:.1f}")
+                    self.assertGreater(unity(hit[0]).x, inner - 0.01, f"高さ {y:.1f} で、台座のすき間に入る")
+            # 台座の上の石の高さには、台座の外へはみ出す形がない（しっぽの下に、見えない天井ができない）
+            cap = shrine.FOX_PEDESTAL[-1]
+            for v in ob.data.vertices:
+                u = unity(v.co)
+                if shrine.FOX_TOP - 0.8 < u.y < shrine.FOX_TOP - 0.01:
+                    self.assertTrue(abs(u.x) < cap[0] + 0.01 and abs(u.z) < cap[1] + 0.01, f"{tuple(u)} が台座の外")
+            # 体の形は、台座に重ならない（台座の中の点から上へ光線を出すと、まず台座の上の面に当たる）
+            for x, z in ((0.0, 0.0), (1.0, -1.5), (-1.5, 1.0)):
+                hit = tree.ray_cast(shrine.U(x, shrine.FOX_TOP - 0.5, z), shrine.U(0.0, 1.0, 0.0), 20.0)
+                self.assertAlmostEqual(unity(hit[0]).y, shrine.FOX_TOP, delta=0.01, msg="台座の中から上は、台座の上の面")
+            # 台座の上の面から上へ：すぐ上に、下を向いた面（こしの下のくさび）がない
+            top = shrine.FOX_TOP
+            for i in range(-30, 31):
+                for k in range(-26, 27):
+                    x, z = i * 0.1, k * 0.1
+                    hit = tree.ray_cast(shrine.U(x, top + 0.01, z), shrine.U(0.0, 1.0, 0.0), 1.5)
+                    if hit[0] is not None:
+                        n = hit[1]
+                        self.assertGreater(n.z, -0.1, f"({x:.1f}, {z:.1f}) の上に、かぶさる面がある")
+        # 見た目の台座にも、すき間はない
+        reset()
+        vis = bvh(shrine.make_fox_statue("Shrine_Fox_T", "jewel"))
+        for i in range(73):
+            hit = vis.ray_cast(shrine.U(10.0, i * 0.1, 0.0), shrine.U(-1.0, 0.0, 0.0), 20.0)
+            self.assertGreater(unity(hit[0]).x, shrine.FOX_PEDESTAL[2][0] - 0.01, f"見た目の台座の高さ {i * 0.1:.1f}")
+
+    def test_parts_are_joined_without_open_ends(self):
+        # 筒の口があいたまま見える所や、宙に浮いた部品がない（前はキツネの像の首が胴からはなれ、鍵が鼻先に浮き、
+        # 絵馬かけの屋根がはりの上に浮いていた）
+        makers = [lambda: shrine.make_fox_statue("Shrine_Fox_A", "jewel"), lambda: shrine.make_fox_statue("Shrine_Fox_B", "key"),
+                  shrine.make_hokora, shrine.make_hall, shrine.make_chozuya, shrine.make_ema, shrine.make_omikuji, shrine.make_saisen,
+                  shrine.make_torii, shrine.make_torii_small, shrine.make_lantern, shrine.make_bridge, shrine.make_fence]
+        for mk in makers:
+            reset()
+            ob = mk()
+            self.assertEqual(open_ends(ob, 0.08), [], f"{ob.name} に、口があいたまま見える筒")
+            self.assertEqual(floating_parts(ob, 0.05), [], f"{ob.name} に、浮いた部品")
 
     def test_small_things_are_small(self):
         lo, hi = size(shrine.make_ginkgo_leaf())

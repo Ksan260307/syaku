@@ -67,7 +67,7 @@ namespace Shakutori.Tests
             // 同じエリアを作り直すと、記録は入れかわる（ふえない）
             Habitats.Record(forest, groups);
             Assert.AreEqual(2, Habitats.Of("ant").Count);
-            Assert.AreEqual(SpeciesCatalog.Get("crab").areaLabel, Habitats.Describe("crab"), "記録がなければ、エリアの名前");
+            Assert.AreEqual(AreaNames.Label(SpeciesCatalog.Get("crab").areaLabel), Habitats.Describe("crab"), "記録がなければ、エリアの名前（行ったことがないエリアは ？？？）");
             // 「最初から」でセーブを消しても、この起動で作ったエリアのすみかは残る
             SaveSystem.ResetAllInMemoryForTests();
             Assert.AreEqual(2, Habitats.Of("ant").Count);

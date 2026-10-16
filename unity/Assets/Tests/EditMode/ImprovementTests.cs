@@ -106,8 +106,9 @@ namespace Shakutori.Tests
         {
             var d = SaveSystem.Data;
             StringAssert.Contains("まだ行ったことがない", GameManager.GateHintText(Areas.River));
-            StringAssert.Contains("せせらぎの小川", GameManager.GateHintText(Areas.River));
+            StringAssert.DoesNotContain("せせらぎの小川", GameManager.GateHintText(Areas.River), "まだ行ったことがない場所の名前は出さない");
             d.visited.Add("river");
+            StringAssert.Contains("せせらぎの小川", GameManager.GateHintText(Areas.River), "行ったことがあれば、名前を出す");
             StringAssert.Contains($"0 / {Areas.River.DropCount}", GameManager.GateHintText(Areas.River));
             d.completedAreas.Add("river");
             StringAssert.Contains("めぐり終えた", GameManager.GateHintText(Areas.River));

@@ -622,10 +622,12 @@ def make_backpack():
     uv_sphere(tmp, Vector((0, 0, 14.0)), 1.0, lambda n: scalec(canvas, 0.85 + 0.15 * n.z), seg=18, rings=12, scale=Vector((10.0, 6.5, 14.0)))
     uv_sphere(tmp, Vector((0, -5.2, 20.0)), 1.0, lambda n: dark, seg=14, rings=8, scale=Vector((9.0, 3.2, 6.0)))   # 上のふた
     uv_sphere(tmp, Vector((0, -6.2, 8.0)), 1.0, lambda n: dark, seg=14, rings=8, scale=Vector((6.5, 2.4, 5.0)))    # 前のポケット
+    # かたひもとバンドは、体の面にそわせ、両はしは体の中へ（前は体からはなれて、うかんで見えた）
     for sx in (-1, 1):
-        tube(tmp, [Vector((sx * 5.0, 5.5, 24.0)), Vector((sx * 6.0, 8.0, 14.0)), Vector((sx * 5.0, 6.0, 3.0))], [0.8, 0.8, 0.8], 6,
-             lambda t, a, p, d: hexc("#2a2a2a"))
-    tube(tmp, [Vector((-6.0, -6.6, 15.0)), Vector((6.0, -6.6, 15.0))], [0.5, 0.5], 5, lambda t, a, p, d: hexc("#e8c040"))
+        tube(tmp, [Vector((sx * 5.0, 2.6, 24.0)), Vector((sx * 5.8, 5.6, 19.0)), Vector((sx * 6.0, 6.0, 14.0)), Vector((sx * 5.6, 5.4, 8.0)),
+                   Vector((sx * 5.0, 1.8, 3.0))], [0.8] * 5, 6, lambda t, a, p, d: hexc("#2a2a2a"))
+    tube(tmp, [Vector((-5.5, -4.8, 15.0)), Vector((-3.0, -6.4, 15.0)), Vector((0.0, -6.8, 15.0)), Vector((3.0, -6.4, 15.0)), Vector((5.5, -4.8, 15.0))],
+         [0.5] * 5, 5, lambda t, a, p, d: hexc("#e8c040"))
     # かべ（せなか）の方へ、少しかたむける
     mb.add(tmp, Matrix.Rotation(math.radians(-10), 4, "X"))
     return build(mb, "Hut_Backpack", smooth=True)

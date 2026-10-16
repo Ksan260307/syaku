@@ -57,7 +57,8 @@ namespace Shakutori.Tests
             var gate = GM.world.Gates.Single(g => g.def.targetArea == "coast");
             Place(new Vector2(gate.position.x + gate.inward.x * 4f, gate.position.z + gate.inward.z * 4f), -gate.inward);
             yield return Frames(3);
-            StringAssert.Contains("潮風の海辺", UI.PromptText, "トンネルの近くでヒントが出る");
+            StringAssert.Contains("まだ行ったことがない場所", UI.PromptText, "トンネルの近くでヒントが出る");
+            StringAssert.DoesNotContain("潮風の海辺", UI.PromptText, "まだ行ったことがない場所の名前は出さない");
             yield return WalkInto(gate);
 
             Assert.AreSame(Areas.Coast, Areas.Current);

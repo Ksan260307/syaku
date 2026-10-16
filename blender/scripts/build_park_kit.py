@@ -591,9 +591,14 @@ def make_fence():
         tip = MB()
         tip.f(tip.v((x - 0.275, -0.15, 4.4), white), tip.v((x + 0.275, -0.15, 4.4), white), tip.v((x, -0.15, 4.9), white))
         tip.f(tip.v((x + 0.275, 0.15, 4.4), white), tip.v((x - 0.275, 0.15, 4.4), white), tip.v((x, 0.15, 4.9), white))
+        # ななめの 2 まいの面（前は、前とうしろの三角だけで、横からすけて見えた）
+        for sx in (-1, 1):
+            q = [tip.v((x + sx * 0.275, -0.15, 4.4), white), tip.v((x + sx * 0.275, 0.15, 4.4), white),
+                 tip.v((x, 0.15, 4.9), white), tip.v((x, -0.15, 4.9), white)]
+            tip.f(*(q if sx > 0 else list(reversed(q))))
         mb.add(tip)
     for z in (1.2, 3.4):
-        box(mb, (0, -0.3, z), (8.2, 0.25, 0.45), lit(white, 0.1))
+        box(mb, (0, -0.27, z), (8.2, 0.25, 0.45), lit(white, 0.1))   # 横木は、板にくっつける（前は板から少し浮いていた）
     return build(mb, "Park_Fence", smooth=False)
 
 

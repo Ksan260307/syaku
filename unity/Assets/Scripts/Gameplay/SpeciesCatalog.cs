@@ -68,7 +68,7 @@ namespace Shakutori
         public string BehaviorId => IsRare ? rareOf : behavesLike ?? id;
     }
 
-    /// <summary>いきもの図鑑にのる 57 しゅと、めったに会えないレア 7 しゅ。</summary>
+    /// <summary>いきもの図鑑にのる 59 しゅと、めったに会えないレア 7 しゅ。</summary>
     public static class SpeciesCatalog
     {
         static List<SpeciesDef> _all;
@@ -404,6 +404,16 @@ namespace Shakutori
                     parts = new[] { new PartMount { mesh = "Kanabun_Wing", offset = CreatureRig.KanabunWingRoot, flapAmp = 40f, flapHz = 34f } },
                     description = "金属のようにかがやく、緑と銅色のコガネムシのなかま。木の樹液が大好き。かたい前ばねをとじたまま、すきまから後ろばねを出して飛ぶ。",
                     hint = "ご神木の幹の、樹液が出ている所。" },
+                new SpeciesDef { id = "suzumushi", name = "スズムシ", areaLabel = "神社", kind = MobKind.Hopper, body = "Suzumushi", scale = 1.5f, speed = 0.25f, discoverRadius = 4f,
+                    rig = "Suzumushi", stride = 0.12f, legSwing = 16f,
+                    parts = new[] { new PartMount { mesh = "Suzumushi_Wing", offset = CreatureRig.SuzumushiWingRoot, flapAmp = 58f, flapHz = 22f } },
+                    description = "黒くて平たい体に、白い帯のある長い触角。オスは、はばの広いすきとおった前ばねを立ててこすりあわせ、「リーン、リーン」と、すんだ声で鳴く。",
+                    hint = "手水舎のわきの草むら。夕ぐれに「リーン」と聞こえたら、そっと近づこう。近づきすぎると、鳴きやんでしまう。" },
+                new SpeciesDef { id = "korogi", name = "エンマコオロギ", areaLabel = "神社", kind = MobKind.Hopper, body = "Korogi", scale = 1.3f, speed = 0.35f, discoverRadius = 4f,
+                    rig = "Korogi", stride = 0.16f, legSwing = 18f,
+                    parts = new[] { new PartMount { mesh = "Korogi_Wing", offset = CreatureRig.KorogiWingRoot, flapAmp = 42f, flapHz = 18f } },
+                    description = "つやのある黒茶色の、大きなコオロギ。まるい顔に、白っぽい「まゆ」があって、えんま様のよう。前ばねを立てて「コロコロリー」と鳴く。",
+                    hint = "池の南の草むら。「コロコロリー」という声のする方へ。近づきすぎると、鳴きやんでしまう。" },
                 // ---- レア ----
                 new SpeciesDef { id = "ant_helmet", name = "ヘルメットアリ", areaLabel = "？？？（とてもめずらしい）", kind = MobKind.Marcher, body = "Ant", speed = 0.9f, discoverRadius = 2.8f,
                     climbs = true, rig = "Ant", stride = 0.11f, legSwing = 26f, legLift = 18f, rareOf = "ant", rareChance = 0.05f,

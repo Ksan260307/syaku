@@ -12,7 +12,7 @@ namespace Shakutori.Tests
     {
         static WorldGenerator _gen;
 
-        static readonly string[] ShrineSpecies = { "kitsune", "fukurou", "tanuki", "ga", "kanabun" };
+        static readonly string[] ShrineSpecies = { "kitsune", "fukurou", "tanuki", "ga", "kanabun", "suzumushi", "korogi" };
 
         [OneTimeSetUp]
         public void Generate()

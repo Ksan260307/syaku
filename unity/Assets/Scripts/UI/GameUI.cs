@@ -1284,11 +1284,16 @@ namespace Shakutori
             // すみかでしぼりこむ
             var filters = new VisualElement();
             filters.AddToClassList("zukan-filters");
+            if (!string.IsNullOrEmpty(_zukanFilter) && !AreaNames.Known(AreaNames.ByName(_zukanFilter))) _zukanFilter = "";
             foreach (var (label, key) in new[] { ("すべて", ""), ("森", "森"), ("川辺", "川辺"), ("公園", "公園"), ("山", "山"), ("山小屋", "山小屋"), ("海岸", "海岸"), ("神社", "神社") })
             {
-                var chip = new Button { text = label };
+                // まだ行ったことがないエリアは、名前を出さず、えらべない
+                bool locked = key != "" && !AreaNames.Known(AreaNames.ByName(key));
+                var chip = new Button { text = locked ? AreaNames.Unknown : label };
                 chip.AddToClassList("chip");
                 chip.AddToClassList("zukan-filter");
+                chip.EnableInClassList("zukan-filter--locked", locked);
+                chip.SetEnabled(!locked);
                 chip.EnableInClassList("chip--on", _zukanFilter == key);
                 string k = key;
                 chip.clicked += () =>
@@ -1442,8 +1447,9 @@ namespace Shakutori
                 if (_zukanCards.TryGetValue(id, out var card)) card.Q<Label>(className: "zukan-new")?.RemoveFromHierarchy();
             }
             // すみか：見つけたいきものは、どの名所のまわりにいるかと、地図の上の場所を見せる
-            _zukanArea.text = "すみか：" + (known ? Habitats.Describe(id) : sp.areaLabel);
-            _zukanDesc.text = known ? sp.description : "ヒント：" + sp.hint;
+            // まだ行ったことがないエリアの名前は出さない
+            _zukanArea.text = "すみか：" + (known ? Habitats.Describe(id) : AreaNames.Label(sp.areaLabel));
+            _zukanDesc.text = known ? AreaNames.Mask(sp.description) : "ヒント：" + AreaNames.Mask(sp.hint);
             ShowFriendNotes(id, known);
             ShowHabitatMap(id, known);
             ShowHabitatTravel(id, known);
@@ -1673,11 +1679,13 @@ namespace Shakutori
             AddRecord("あそんだ時間", PlayTimeText(d.playTime));
             foreach (var area in Areas.All)
             {
+                // まだ行ったことがないエリアは、名前を「？？？」に
+                string name = AreaNames.Name(area);
                 int got = Collectibles.CollectedIn(area) + Collectibles.DiscoveredIn(area);
                 int all = area.DropCount + area.Landmarks.Count;
-                AddRecord(area.DisplayName + "の達成度", $"{(all > 0 ? 100 * got / all : 0)}%" + (d.completedAreas.Contains(area.Id) ? " ★" : ""));
-                AddRecord(area.DropName, $"{Collectibles.CollectedIn(area)} / {area.DropCount}");
-                AddRecord(area.DisplayName + "の名所", $"{Collectibles.DiscoveredIn(area)} / {area.Landmarks.Count}");
+                AddRecord(name + "の達成度", $"{(all > 0 ? 100 * got / all : 0)}%" + (d.completedAreas.Contains(area.Id) ? " ★" : ""));
+                AddRecord(AreaNames.Known(area) ? area.DropName : AreaNames.Unknown + "のしずく", $"{Collectibles.CollectedIn(area)} / {area.DropCount}");
+                AddRecord(name + "の名所", $"{Collectibles.DiscoveredIn(area)} / {area.Landmarks.Count}");
             }
             AddRecord("見つけたいきもの", $"{Creatures.DiscoveredCount} / {SpeciesCatalog.Count}");
             AddRecord("レアないきもの", $"{Creatures.RareDiscoveredCount} / {SpeciesCatalog.RareCount}");

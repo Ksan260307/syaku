@@ -55,7 +55,8 @@ namespace Shakutori.Tests
             var door = GM.world.Gates.Single(g => g.def.targetArea == "hut");
             Place(new Vector2(door.position.x + door.inward.x * 4f, door.position.z + door.inward.z * 4f), -door.inward);
             yield return Frames(3);
-            StringAssert.Contains("あたたかい山小屋", UI.PromptText, "とびらの近くでヒントが出る");
+            StringAssert.Contains("まだ入ったことがない場所", UI.PromptText, "とびらの近くでヒントが出る");
+            StringAssert.DoesNotContain("あたたかい山小屋", UI.PromptText, "まだ行ったことがない場所の名前は出さない");
             StringAssert.Contains("とびら", UI.PromptText, "トンネルではなく、とびら");
             yield return WalkInto(door);
 

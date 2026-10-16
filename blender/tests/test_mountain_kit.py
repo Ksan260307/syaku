@@ -10,9 +10,11 @@ import unittest
 import bpy
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "..", "scripts"))
 import build_forest_kit as kit  # noqa: E402
 import build_mountain_kit as mtn  # noqa: E402
+from parts_check import floating_parts, open_ends  # noqa: E402
 
 
 def reset():
@@ -55,6 +57,12 @@ class MountainKitTests(unittest.TestCase):
     def setUp(self):
         reset()
 
+
+    def test_parts_are_joined_without_open_ends(self):
+        # 筒の口があいたまま見える所や、宙に浮いた部品がない（前は、道しるべの矢の先が、前の面 1 まいだけで、板からはなれて見えた）
+        ob = mtn.make_sign()
+        self.assertEqual(open_ends(ob, 0.1), [], "Mtn_Sign に、口があいたまま見える筒")
+        self.assertEqual(floating_parts(ob, 0.02), [], "Mtn_Sign に、浮いた部品")
     def test_every_asset_builds_with_vertex_colors(self):
         for name, mk in MAKERS.items():
             ob = mk()

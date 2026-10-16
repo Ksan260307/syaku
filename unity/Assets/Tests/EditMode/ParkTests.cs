@@ -107,7 +107,7 @@ namespace Shakutori.Tests
             var ids = _gen.Mobs.Select(m => m.species).ToList();
             foreach (var id in new[] { "kamikiri", "kuwagata", "kamemushi", "tokage", "monshiro" })
                 CollectionAssert.Contains(ids, id, $"{id} が公園にいる");
-            Assert.AreEqual(57, SpeciesCatalog.Count, "図鑑は 57 種");
+            Assert.AreEqual(59, SpeciesCatalog.Count, "図鑑は 59 種");
             foreach (var id in new[] { "hato", "mogura", "okera", "hanakamakiri" })
                 CollectionAssert.Contains(ids, id, $"{id} が公園にいる");
             foreach (var id in new[] { "kamikiri", "kuwagata", "kamemushi", "tokage", "monshiro" })

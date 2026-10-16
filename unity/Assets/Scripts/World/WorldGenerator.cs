@@ -634,6 +634,12 @@ namespace Shakutori
                     _insideOut.Add((mc, mc.sharedMesh));
                     mc.sharedMesh = InsideOut(mc.sharedMesh);
                 }
+                else if (!AreaLayout.LateGround && col != null && ColAfterDews.Contains(meshName))
+                {
+                    // しずくを置くまでは、前の（見た目のとおりの）当たり判定で（しずくの場所を変えない）
+                    _insideOut.Add((mc, col));
+                    mc.sharedMesh = DetailMeshes.ForCollision(m);
+                }
             }
             return go;
         }

@@ -259,11 +259,11 @@ namespace Shakutori.Tests
     public class SpeciesCatalogTests
     {
         [Test]
-        public void Catalog_Has57SpeciesAnd7RaresWithTexts()
+        public void Catalog_Has59SpeciesAnd7RaresWithTexts()
         {
-            Assert.AreEqual(57, SpeciesCatalog.Count, "図鑑のコンプリートに必要なのは 57 しゅ");
+            Assert.AreEqual(59, SpeciesCatalog.Count, "図鑑のコンプリートに必要なのは 59 しゅ");
             Assert.AreEqual(7, SpeciesCatalog.RareCount);
-            Assert.AreEqual(64, SpeciesCatalog.All.Select(s => s.id).Distinct().Count());
+            Assert.AreEqual(66, SpeciesCatalog.All.Select(s => s.id).Distinct().Count());
             foreach (var s in SpeciesCatalog.All)
             {
                 Assert.IsFalse(string.IsNullOrEmpty(s.name), s.id);
@@ -853,7 +853,7 @@ namespace Shakutori.Tests
             var mountain = new[] { "raichou", "risu", "okojo", "nakiusagi", "sanshouuo", "asagimadara", "maruhanabachi", "oniyanma", "higurashi", "maimaikaburi" };   // 山のいきもの（MountainTests で確かめる）
             var hut = new[] { "yamori", "mukade", "hasamimushi", "hae", "tsubame", "nezumi" };   // 山小屋のいきもの（HutTests で確かめる）
             var coast = new[] { "yadokari", "shiomaneki", "kamome", "hitode", "uni", "funamushi" };   // 海岸のいきもの（CoastTests で確かめる）
-            var shrine = new[] { "kitsune", "fukurou", "tanuki", "ga", "kanabun" };   // 神社のいきもの（ShrineTests で確かめる）
+            var shrine = new[] { "kitsune", "fukurou", "tanuki", "ga", "kanabun", "suzumushi", "korogi" };   // 神社のいきもの（ShrineTests で確かめる）
             foreach (var s in SpeciesCatalog.Regular)
                 Assert.IsTrue(forest.Contains(s.id) || river.Contains(s.id) || park.Contains(s.id) || mountain.Contains(s.id) || hut.Contains(s.id) || coast.Contains(s.id)
                     || shrine.Contains(s.id), $"{s.id} がどこにもいない");

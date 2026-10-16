@@ -299,13 +299,21 @@ def make_sign():
         x1 = sx * 4.0
         box(mb, ((x0 + x1) / 2 - sx * 0.3, -0.45, z), (abs(x1 - x0) - 0.6, 0.18, 0.85), lambda n: mixc(hexc("#efe4c8"), wood, 0.2))
         # 矢の先（三角）
-        a = mb.v((x1 - sx * 0.6, -0.55, z + 0.55), hexc("#efe4c8"))
-        b = mb.v((x1 - sx * 0.6, -0.55, z - 0.55), hexc("#efe4c8"))
-        c = mb.v((x1 + sx * 0.3, -0.55, z), hexc("#efe4c8"))
+        # 板と同じ厚みの三角の柱（前は前の面 1 まいだけで、うしろからは見えず、板からはなれて見えた）
+        cream = mixc(hexc("#efe4c8"), wood, 0.2)
+        tri = [(x1 - sx * 0.6, z + 0.425), (x1 - sx * 0.6, z - 0.425), (x1 + sx * 0.3, z)]
+        fr = [mb.v((tx, -0.54, tz), cream) for tx, tz in tri]
+        bk = [mb.v((tx, -0.36, tz), cream) for tx, tz in tri]
         if sx > 0:
-            mb.f(a, b, c)
+            mb.f(fr[0], fr[1], fr[2])
+            mb.f(bk[2], bk[1], bk[0])
         else:
-            mb.f(b, a, c)
+            mb.f(fr[1], fr[0], fr[2])
+            mb.f(bk[2], bk[0], bk[1])
+        for i in range(3):
+            j = (i + 1) % 3
+            q = [fr[j], fr[i], bk[i], bk[j]]
+            mb.f(*(q if sx > 0 else list(reversed(q))))
         # 文字のかわりの、黒い線
         for k in range(3):
             xs = x0 + sx * (0.7 + k * 0.9)

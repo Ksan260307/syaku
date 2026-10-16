@@ -106,7 +106,7 @@ namespace Shakutori
         {
             var spots = Of(species);
             var sp = SpeciesCatalog.Get(species);
-            if (spots.Count == 0) return sp != null ? sp.areaLabel : "";
+            if (spots.Count == 0) return sp != null ? AreaNames.Label(sp.areaLabel) : "";
             var byArea = new List<string>();
             var names = new Dictionary<string, List<string>>();
             foreach (var h in spots)

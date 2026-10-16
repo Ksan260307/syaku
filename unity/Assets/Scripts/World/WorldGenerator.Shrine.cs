@@ -105,8 +105,8 @@ namespace Shakutori
             }
             Occupy(new Vector2(0f, 12f), 8.5f);
 
-            // 基壇の前の玉垣（石段の所はあける）
-            foreach (float x in new[] { -22.5f, -13.5f, 13.5f, 22.5f })
+            // 基壇の前の玉垣（石段とキツネの像の前はあける：像の台座とのあいだに、しゃくとりむしがはさまるすき間ができない）
+            foreach (float x in new[] { -22.5f, 22.5f })
                 Place("Shrine_Fence", prop, new Vector3(x, plat - 0.1f, ShrineLayout.PlatformMin.y + 0.35f), Quaternion.identity, 1f, true, true, 220f);
 
             // お社（南の石段の方を向く）と、さい銭箱。鈴緒を引くと、鈴が鳴る
@@ -538,6 +538,9 @@ namespace Shakutori
             AddMob("dragonfly", SG(ShrineLayout.Pond) + Vector3.up * 1.5f, 2, 9f, 2.5f);
             AddMob("spider", SG(new Vector2(10.5f, -22f)), 1, 2f);
             AddMob("ladybug", SG(new Vector2(-30f, 12f)), 2, 3f);
+            // スズムシ（手水舎のわきの草むら）・エンマコオロギ（池の南の草むら）。夕ぐれに鳴く
+            AddMob("suzumushi", SG(new Vector2(-30f, -10f)), 2, 2.5f);
+            AddMob("korogi", SG(new Vector2(16f, -38f)), 2, 2.5f);
         }
 
         // ------------------------------------------------------------------
