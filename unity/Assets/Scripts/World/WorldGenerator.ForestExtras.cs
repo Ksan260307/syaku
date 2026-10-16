@@ -443,53 +443,7 @@ namespace Shakutori
                     PutDeco("Moss", fol, top.point + Vector3.down * 0.08f, Quaternion.FromToRotation(Vector3.up, top.normal) * Quaternion.Euler(0f, XR(0f, 360f), 0f), XR(1.2f, 2f), false, 260f);
             }
 
-            // 100. 丸太の横腹に立てかけた倒木（いちばん最後に置く。乱数は使わない）
-            LogRamps();
-        }
-
-        /// <summary>
-        /// 中が空洞の丸太は、横腹の下半分がせり出していて、地面からは登れない（歩いて行っても、もぞもぞするだけ）。
-        /// 両がわに 1 本ずつ、細い倒木を立てかけて、横からも丸太の上へ登れるようにする。
-        /// しずく・小道・いきもののすみか・景色の通り道・ほかの物をよけて、丸太のまん中から、はしの方へ順にさがす。
-        /// </summary>
-        void LogRamps()
-        {
-            Vector2 dir = ForestLayout.LogDir, perp = new Vector2(dir.y, -dir.x);
-            const float scale = 0.85f, len = 11.6f;   // Mtn_Log は長さ 14（0.85 倍で 12）。上のはしが少し丸太の上に出る
-            foreach (float side in new[] { 1f, -1f })
-                foreach (float t in new[] { 1f, -3f, 5f, -7f, 9f, -11f, 13f })
-                {
-                    Vector2 c = ForestLayout.LogCenter + dir * (t * side);
-                    if (!TopOf("HollowLog", c + perp * side * 2.2f, out var top)) continue;
-                    Vector3 outward = new Vector3(perp.x, 0f, perp.y) * side;
-                    Vector3 bottom = Lean(top + Vector3.down * 0.15f, outward, len);
-                    Vector2 bxz = new Vector2(bottom.x, bottom.z);
-                    if (!ExtraOk(bxz, 1.2f, true) || Area.DistToTrail(bxz) < 1.8f) continue;
-                    bool clear = true;
-                    for (int k = 1; k <= 3 && clear; k++)
-                    {
-                        Vector3 q = Vector3.Lerp(bottom, top, k / 7f);
-                        if (DewNear(new Vector2(q.x, q.z), 2f)) clear = false;
-                    }
-                    // 倒木が通る所（丸太にふれる手前まで）に、岩・小枝などの動かない物がない（めりこませない）
-                    Vector3 axis = (top - bottom).normalized;
-                    foreach (var c2 in Physics.OverlapCapsule(bottom + axis * 0.6f + Vector3.up * 0.5f, Vector3.Lerp(bottom, top, 0.85f) + Vector3.up * 0.5f, 1.0f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
-                        if (!c2.name.StartsWith("Terrain_") && !c2.name.StartsWith("HollowLog") && c2.attachedRigidbody == null) clear = false;
-                    if (!clear) continue;
-                    var go = Place("Mtn_Log", assets.bark, bottom + Vector3.down * 0.25f, Quaternion.LookRotation((top - bottom).normalized, Vector3.up), scale, true, true, 300f);
-                    Physics.SyncTransforms();
-                    if (go != null) ClearUnder(go.GetComponent<Collider>());
-                    // 倒木は長い（Place の「下の小石をよける」は小さな物だけ）ので、通る所の押せる小石を、ふしごとによける
-                    if (loose != null)
-                        for (int k = 0; k <= 8; k++)
-                        {
-                            Vector3 q = Vector3.Lerp(bottom, top, k / 8f);
-                            loose.PushOut(q, 1.0f, 1.2f);
-                        }
-                    OccupyLine(bottom, top, 1.3f);
-                    Mark("logramp", (top + bottom) * 0.5f);
-                    break;
-                }
+            // （丸太の横腹は、丸太の形の苔の土手から登れる。前は倒木を立てかけていた）
         }
 
         Vector2 RandomXInCircle(Vector2 c, float r)

@@ -406,17 +406,60 @@ def make_kettle():
     return build(mb, "Hut_Kettle", smooth=True)
 
 
+FIREWOOD_Y0 = 1.95   # いちばん下の段の丸太の軸の高さ（丸太は床にのる）
+FIREWOOD_CHIPS = 1.9  # 木くずの山の、丸太の横腹からのはば
+
+
+def firewood_chips(mb, s, xo, r, L):
+    """まきの山の横（s = -1 / 1）に、木くずの山を盛る：床から、丸太の横腹のいちばん出た所の少し上まで"""
+    y0 = FIREWOOD_Y0
+    nz = 12
+    rings = []
+    for i in range(nz + 1):
+        z = -L / 2 + 0.6 + (L - 1.2) * i / nz
+        k = sstep(0.0, 1.0, min(1.0, (z + L / 2 - 0.6) / 2.0, (L / 2 - 0.6 - z) / 2.0))
+        yt = 0.15 + (y0 + 0.45 - 0.15) * (0.4 + 0.6 * k)                 # てっぺん（丸太の面の上）
+        xt = xo + s * (math.sqrt(max(r * r - (yt - y0) ** 2, 0.0)) - 0.06)
+        xf = xo + s * (r + FIREWOOD_CHIPS * (0.3 + 0.7 * k))              # すそ（床）
+        wob = [0.12 * noise.noise(Vector((z * 0.4, jj * 2.3, s * 1.7))) for jj in range(3)]
+        prof = [(xf + s * 0.2, -0.4), (xf + s * wob[0], 0.08), (xt + (xf - xt) * 0.5 + s * wob[1], 0.08 + (yt - 0.08) * 0.45),
+                (xt + (xf - xt) * 0.16 + s * wob[2], 0.08 + (yt - 0.08) * 0.8), (xt, yt), (xo, yt - 0.3), (xo, -0.4)]
+        ring = []
+        for (px, py) in prof:
+            q = U(px, py, z)
+            c = mixc(hexc("#9a7348"), hexc("#d1a46e"), 0.5 + 0.5 * noise.noise(q * 1.7))   # 木くず
+            ring.append(mb.v(q, c))
+        rings.append(ring)
+    n = 7
+
+    def face(*ids):
+        mb.f(*(ids if s < 0 else ids[::-1]))   # 右と左で、面の向きをそろえる（外向き）
+    for i in range(nz):
+        A, B = rings[i], rings[i + 1]
+        for j in range(n):
+            j2 = (j + 1) % n
+            face(A[j], A[j2], B[j2], B[j])
+    for ring in (rings[0], rings[-1]):
+        for j in range(1, n - 1):
+            face(ring[0], ring[j], ring[j + 1])
+
+
 def make_firewood():
-    """まきの山：割った丸太を、3 段に積む（前は +z。木口が前とうしろ）"""
+    """まきの山：割った丸太を、3 段に積む（前は +z。木口が前とうしろ）。
+    いちばん下の段は床にのせ、丸太のあいだのすき間は奥でふさぐ（前は床とのすき間にもぐりこんで、出られなくなった）。
+    両がわには木くずの山を盛って、横からも登れるように（丸太の下半分はせり出していて、床からは登れなかった）"""
     mb = MB()
     rnd = random.Random(7)
     L = 18.0
+    sides = {}
     for row in range(3):
         n = 5 - row
         for i in range(n):
             x = (i - (n - 1) / 2) * 4.6 + rnd.uniform(-0.3, 0.3)
-            y = 2.3 + row * 4.0
+            y = FIREWOOD_Y0 + row * 4.0
             r = rnd.uniform(1.9, 2.4)
+            if row == 0 and i in (0, n - 1):
+                sides[-1 if i == 0 else 1] = (x, r)
             bark_c = mixc(hexc("#5e4632"), hexc("#7d6044"), rnd.random())
             cut = mixc(hexc("#e2c08c"), hexc("#c99a62"), rnd.random())
 
@@ -429,6 +472,11 @@ def make_firewood():
             zz = rnd.uniform(-0.8, 0.8)
             tube(mb, [U(x, y, -L / 2 + zz), U(x, y, -L / 2 + zz + 0.01), U(x, y, L / 2 + zz - 0.01), U(x, y, L / 2 + zz)],
                  [0.0, r, r, 0.0], 10, col)
+    # 下の段の丸太のあいだ（奥の暗いところ）：すき間にもぐりこまない
+    ubox(mb, (0.0, (FIREWOOD_Y0 + 0.6) / 2, 0.0), (18.4, FIREWOOD_Y0 + 0.6, L - 2.4), hexc("#3a2a1e"))
+    # 両がわの木くずの山
+    for s, (xo, r) in sides.items():
+        firewood_chips(mb, s, xo, r, L)
     return build(mb, "Hut_Firewood", smooth=True, sharp_deg=50)
 
 

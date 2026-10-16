@@ -965,7 +965,60 @@ def make_hollow_log():
             else:
                 mb.f(o0, m0, m1, o1)
                 mb.f(m0, i0, i1, m1)
+    log_berms(mb, Ro, L)
     return build(mb, "HollowLog")
+
+
+LOG_GROUND = -3.35   # 丸太の軸から、地面までの高さ（ゲームでは、地面の 3.35 上に軸を置く）
+LOG_BERM_W = 2.3     # 苔の土手の、丸太の横腹からのはば
+
+
+def log_berms(mb, Ro, L):
+    """丸太の両がわの横腹に、苔と落ち葉の土手を盛る。
+    丸太の下半分はせり出していて、地面からは登れなかった（ななめから歩いて行くと、横腹の下で止まる）。
+    土手は地面から、丸太の横腹のいちばん出た所の少し上まで。両はしのトンネルの口は、ふさがない"""
+    g = LOG_GROUND
+    x0, x1, taper = 3.5, L - 3.5, 5.0
+    nx = 28
+    n = 8
+    for s in (-1, 1):
+        rings = []
+        for i in range(nx + 1):
+            x = lerp(x0, x1, i / nx)
+            k = sstep(0.0, 1.0, min(1.0, (x - x0) / taper, (x1 - x) / taper))   # はしは、低く細くして、丸太にとけこませる
+            h, w = 0.35 + 0.65 * k, 0.25 + 0.75 * k
+            zt = g + (0.5 - g) * h                          # 土手のてっぺん（丸太の横腹の、いちばん出た所の少し上）
+            yt = math.sqrt(max(Ro * Ro - zt * zt, 0.0)) - 0.08
+            yf, zf = Ro + LOG_BERM_W * w, g + 0.12          # すそ（地面）
+            wob = [0.18 * noise.noise(Vector((x * 0.2, jj * 1.7, s * 3.1))) for jj in range(3)]
+            # すそは、地面より下へもつづける（丸太のまわりの地面が、丸太の下より低い所でも、土手が浮かない）
+            prof = [(yf + 1.3, g - 2.4), (yf + 0.85, g - 1.5), (yf + wob[0], zf),
+                    (yt + (yf - yt) * 0.5 + wob[1], zf + (zt - zf) * 0.45),
+                    (yt + (yf - yt) * 0.18 + wob[2] * 0.5, zf + (zt - zf) * 0.8),
+                    (yt, zt), (Ro - 1.0, min(zt - 0.2, 0.3)), (Ro - 1.0, g - 2.4)]
+            ring = []
+            for py, pz in prof:
+                p = Vector((x, s * py, pz))
+                top = sstep(g + 0.5, g + 2.5, pz)
+                c = mixc(hexc("#6b5236"), hexc("#8a6a44"), 0.5 + 0.5 * noise.noise(p * 0.9))   # 土と落ち葉
+                c = mixc(c, mixc(MOSS_A, MOSS_B, 0.5 + 0.5 * noise.noise(p * 1.3)), 0.35 + 0.55 * top)
+                ring.append(mb.v(p, c))
+            rings.append(ring)
+        for i in range(nx):
+            A, B = rings[i], rings[i + 1]
+            for j in range(n):
+                j2 = (j + 1) % n
+                if s > 0:
+                    mb.f(A[j], A[j2], B[j2], B[j])
+                else:
+                    mb.f(A[j], B[j], B[j2], A[j2])
+        # 両はしのふた
+        for ring, front in ((rings[0], True), (rings[-1], False)):
+            ids = list(range(n))
+            if (s > 0) == front:
+                ids.reverse()
+            for j in range(1, n - 1):
+                mb.f(ring[ids[0]], ring[ids[j]], ring[ids[j + 1]])
 
 
 # ---------------------------------------------------------------------------

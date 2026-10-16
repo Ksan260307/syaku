@@ -168,14 +168,8 @@ namespace Shakutori
             AddDewFromAbove(new Vector2(36f, 30f), 100f);
             // ネズミの穴の前
             AddDewFromAbove(new Vector2(64f, 40f), 20f);
-            // とどかなかった分は、床に（数をそろえる）
-            int guard = 0;
-            while (DewdropPoints.Count < Area.DropCount && guard++ < 400)
-            {
-                Vector2 p = new Vector2(R(-62f, 62f), R(-44f, 44f));
-                if (!IsFree(p, 2f)) continue;
-                AddDewFromAbove(p, 20f);
-            }
+            // のこりは、部屋の中の、探索が楽しくなる所へ（家具の上・テーブルやベッドの下のかげ。はりより下）
+            FillDewsToExplore(() => new Vector2(R(-60f, 60f), R(-42f, 42f)), p => true, 70f, 60f);
             foreach (var d in DewdropPoints)
                 if (d.y > 1f) HutTops.Add(d);
         }

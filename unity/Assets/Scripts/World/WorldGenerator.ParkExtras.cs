@@ -351,7 +351,7 @@ namespace Shakutori
         void Marbles(Vector2 center, float radius, int count)
         {
             int n = 0;
-            for (int i = 0; i < count * 14 && n < count; i++)
+            for (int i = 0; i < count * 40 && n < count; i++)   // しずくのそばはよけるので、何度かさがす
             {
                 Vector2 p = RandomXInCircle(center, radius);
                 if (!IsLand(p, 0.05f) || !ExtraOk(p, 0.6f, true) || NearSandboxFrame(p, 1.4f)) continue;   // 砂場の枠にめりこまない

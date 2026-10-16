@@ -560,7 +560,7 @@ namespace Shakutori
             AddDewFromAbove(MountainLayout.Summit + new Vector2(1f, -3.5f));
             AddDewFromAbove(MountainLayout.Ridge + new Vector2(0f, 2f));
             foreach (var d in _okojoDens) AddDewFromAbove(d + new Vector2(3.6f, 0f));
-            FillDewdrops(8f, 58f);
+            FillDewsToExplore(8f, 58f);   // 残りは、探索が楽しくなる所へ
         }
 
         void PlaceMountainCreatures()

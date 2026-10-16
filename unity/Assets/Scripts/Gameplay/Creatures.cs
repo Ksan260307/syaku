@@ -633,6 +633,7 @@ namespace Shakutori
                         float b = R(0f, Mathf.PI * 2f);
                         m.pos = g.center + new Vector3(Mathf.Cos(b), 0f, Mathf.Sin(b)) * d;
                     }
+                    if (g.count > 1 && sp.kind != MobKind.Marcher && sp.kind != MobKind.Skater) SpaceOut(m, members, g);   // 大きめのいきものは、仲間と間をあけて
                     if (g.up.sqrMagnitude > 0.5f)
                     {
                         // かべにいる（ヤモリ）：体の上を、かべの面の向きに。前は、かべにそった横向き
@@ -1276,7 +1277,8 @@ namespace Shakutori
         {
             if (!_groups.TryGetValue(m.group, out var list) || list.Count < 2) return Vector3.zero;
             Vector3 push = Vector3.zero;
-            float r = 0.35f * m.scale + 0.12f;
+            float reach = BodyReach(m);
+            float r = Mathf.Max(0.35f * m.scale + 0.12f, reach >= SpacedReach ? reach * 1.8f : 0f);   // 大きめのいきものは、体の長さくらい、はなれている
             foreach (var o in list)
             {
                 if (o == m || o.airborne) continue;
@@ -4850,11 +4852,20 @@ namespace Shakutori
                 {
                     Mesh spark = M("Firefly_Glow");
                     float ring = m.sp.id == "manta" ? 6f : 1f;
+                    // 輪の大きさと高さは、体に合わせる（フラミンゴやカメレオンは、足もとではなく体のまわりを回る）
+                    float rr = 0.35f * ring * m.scale, rh = 0.25f * ring * m.scale, rs = 0.45f * Mathf.Sqrt(ring);
+                    Mesh rb = ring > 1f ? null : M(m.sp.body);
+                    if (rb != null)
+                    {
+                        rr = Mathf.Max(rr, BodyReach(m) * 1.15f);
+                        rh = Mathf.Max(rh, rb.bounds.center.y * m.scale);
+                        rs = Mathf.Min(1.4f, rs * Mathf.Sqrt(rr / (0.35f * m.scale)));
+                    }
                     for (int k = 0; k < 3; k++)
                     {
                         float a = m.anim * 2.2f / Mathf.Sqrt(ring) + k * 2.094f;
-                        Vector3 o = new Vector3(Mathf.Cos(a) * 0.35f, 0.25f + 0.08f * Mathf.Sin(a * 1.7f), Mathf.Sin(a) * 0.35f) * ring;
-                        Add(spark, assets.creatureGlow, Matrix4x4.TRS(m.drawPos + o * m.scale, Quaternion.identity, Vector3.one * (0.45f * Mathf.Sqrt(ring))));
+                        Vector3 o = new Vector3(Mathf.Cos(a) * rr, rh + 0.08f * ring * m.scale * Mathf.Sin(a * 1.7f), Mathf.Sin(a) * rr);
+                        Add(spark, assets.creatureGlow, Matrix4x4.TRS(m.drawPos + o, Quaternion.identity, Vector3.one * rs));
                     }
                 }
                 bool farParts = d2 > (m.sp.id == "manta" ? 110f : 75f) * (m.sp.id == "manta" ? 110f : 75f);   // 大きなマンタは、遠くからもむなびれが見える
@@ -5040,13 +5051,14 @@ namespace Shakutori
                     worldBounds = kv.Value.bounds,
                 };
                 var mesh = DetailMeshes.Get(kv.Key.Item1, kv.Key.Item3);   // 小さく見える物は、三角形の少ない形
-                for (int start = 0; start < list.Count; start += 1023)
+                int per = InstanceBatch.MaxPerCall;
+                for (int start = 0; start < list.Count; start += per)
                 {
-                    int n = Mathf.Min(1023, list.Count - start);
+                    int n = Mathf.Min(per, list.Count - start);
                     if (pool >= _pool.Count) _pool.Add(new Matrix4x4[1023]);
                     var arr = _pool[pool++];
                     list.CopyTo(start, arr, 0, n);
-                    Graphics.RenderMeshInstanced(rp, mesh, 0, arr, n);
+                    InstanceBatch.Draw(rp, mesh, arr, n);   // 描く数をそろえる（WebGL）
                 }
             }
         }

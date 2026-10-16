@@ -841,6 +841,23 @@
     opacity: 0;
 }
 
+/* タイトルのうしろのデモ映像（映像が出るまでは、うしろのエリアがそのまま見える） */
+.title-demo {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    -unity-background-scale-mode: scale-and-crop;
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: 1.2s;
+}
+
+.title-demo--on {
+    opacity: 1;
+}
+
 .title-vignette {
     position: absolute;
     left: 0;
@@ -932,12 +949,6 @@
     height: 100%;
     background-color: rgb(170, 220, 110);
     border-radius: 6px;
-}
-
-.loading-text {
-    margin-top: 16px;
-    font-size: 20px;
-    color: rgb(210, 230, 200);
 }
 
 .fade {

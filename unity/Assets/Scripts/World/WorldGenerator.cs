@@ -111,9 +111,9 @@ namespace Shakutori
             while (e.MoveNext()) { }
         }
 
-        public IEnumerator Generate(Action<float, string> progress) => Generate(Areas.Current, progress);
+        public IEnumerator Generate(Action<float> progress) => Generate(Areas.Current, progress);
 
-        public IEnumerator Generate(AreaLayout area, Action<float, string> progress)
+        public IEnumerator Generate(AreaLayout area, Action<float> progress)
         {
             Instance = this;
             if (loose == null)
@@ -140,19 +140,19 @@ namespace Shakutori
             _colliderRoot = new GameObject("PropColliders").transform;
             _colliderRoot.SetParent(Root, false);
 
-            progress?.Invoke(0.05f, "地面をならしています");
+            progress?.Invoke(0.05f);
             yield return null;
             LoadClock.Lap("start");
             BuildTerrain();
             LoadClock.Lap("terrain");
             BuildViewLanes();
-            progress?.Invoke(0.25f, forest ? "大きな木を育てています" : park ? "遊具を組み立てています" : mountain ? "山を高く積み上げています" : hut ? "丸太のかべを積んでいます" : coast ? "砂浜をならしています" : shrine ? "鳥居を立てています" : "川の水を流しています");
+            progress?.Invoke(0.25f);
             yield return null;
             if (!hut) BuildOuterRing();   // 小屋の中は、かべの外が見えない
             if (forest) BuildForestSolids(); else if (park) BuildParkSolids(); else if (mountain) BuildMountainSolids(); else if (hut) BuildHutSolids(); else if (coast) BuildCoastSolids(); else if (shrine) BuildShrineSolids(); else BuildRiverSolids();
             BuildGates();
             LoadClock.Lap("solids");
-            progress?.Invoke(0.4f, forest ? "キノコと岩を並べています" : park ? "砂場をならしています" : mountain ? "岩と雪をのせています" : hut ? "家具を運びこんでいます" : coast ? "貝がらをひろっています" : shrine ? "石灯籠をならべています" : "川石を並べています");
+            progress?.Invoke(0.4f);
             yield return null;
             if (forest)
             {
@@ -188,11 +188,11 @@ namespace Shakutori
             }
             Physics.SyncTransforms();
             LoadClock.Lap("props");
-            progress?.Invoke(0.6f, "草花を植えています");
+            progress?.Invoke(0.6f);
             yield return null;
             if (forest) BuildForestFoliage(); else if (park) BuildParkFoliage(); else if (mountain) BuildMountainFoliage(); else if (coast) BuildCoastFoliage(); else if (shrine) BuildShrineFoliage(); else if (!hut) BuildRiverFoliage();
             LoadClock.Lap("foliage");
-            progress?.Invoke(0.8f, "しずくを置いています");
+            progress?.Invoke(0.8f);
             yield return null;
             if (forest) PlaceForestDewdrops();
             else if (park) PlaceParkDewdrops();
@@ -265,7 +265,7 @@ namespace Shakutori
             LoadClock.Lap("instances");
             ComputeSpawn();
             IsGenerated = true;
-            progress?.Invoke(1f, "準備完了");
+            progress?.Invoke(1f);
         }
 
         public void Clear()
@@ -295,6 +295,9 @@ namespace Shakutori
             _owned.Clear();
             Root = null;
             MapTexture = null;
+            _gridH = null;
+            _gridC = null;
+            _gridCSet = null;
             _occupied.Clear();
             _terrainChunks.Clear();
             _insideOut.Clear();
@@ -343,6 +346,13 @@ namespace Shakutori
             for (int j = 0; j < verts; j++)
             for (int i = 0; i < verts; i++)
                 heights[i, j] = Area.Height(origin + i * spacing, origin + j * spacing);
+            // 地図の絵を描くときにも使う（はかりなおさない）
+            _gridH = heights;
+            _gridC = new Color[verts * verts];
+            _gridCSet = new bool[verts * verts];
+            _gridOrigin = origin;
+            _gridSpacing = spacing;
+            _gridVerts = verts;
 
             const int chunkCells = 32;
             int chunks = cells / chunkCells;
@@ -380,6 +390,8 @@ namespace Shakutori
                     pos[k] = new Vector3(x, h, z);
                     nrm[k] = normal;
                     col[k] = Area.GroundColor(x, z, h, normal);
+                    _gridC[gj * verts + gi] = col[k];
+                    _gridCSet[gj * verts + gi] = true;
                 }
                 var tris = new int[chunkCells * chunkCells * 6];
                 int t = 0;
@@ -1057,20 +1069,6 @@ namespace Shakutori
             }
         }
 
-        void FillDewdrops(float rMin, float rMax)
-        {
-            int guard = 0;
-            int target = Area.DropCount;
-            while (DewdropPoints.Count < target && guard++ < 3000)
-            {
-                int sector = DewdropPoints.Count % 8;
-                float a = (sector + R01()) / 8f * Mathf.PI * 2f;
-                Vector2 p = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * R(rMin, rMax);
-                if (!IsLand(p, 0.2f)) continue;
-                AddDewFromAbove(p);
-            }
-        }
-
         MobGroup AddMob(string species, Vector3 center, int count, float radius, float height = 0f)
         {
             var g = new MobGroup { species = species, center = center, count = count, radius = radius, height = height };
@@ -1253,6 +1251,41 @@ namespace Shakutori
                 }
         }
 
+        // 地形の高さと色の格子（地形を作ったときのもの。地図の絵を、すばやく描くのに使う）
+        float[,] _gridH;
+        Color[] _gridC;
+        bool[] _gridCSet;
+        float _gridOrigin, _gridSpacing;
+        int _gridVerts;
+
+        /// <summary>地形の格子から、その場所の高さ・向き・色をとる（まわりの 4 点をまぜる）。</summary>
+        void GridSample(Vector2 p, out float h, out Vector3 n, out Color c)
+        {
+            float gx = (p.x - _gridOrigin) / _gridSpacing, gz = (p.y - _gridOrigin) / _gridSpacing;
+            int x0 = Mathf.Clamp(Mathf.FloorToInt(gx), 1, _gridVerts - 3), z0 = Mathf.Clamp(Mathf.FloorToInt(gz), 1, _gridVerts - 3);
+            float fx = Mathf.Clamp01(gx - x0), fz = Mathf.Clamp01(gz - z0);
+            h = 0f;
+            n = Vector3.zero;
+            c = Color.clear;
+            for (int dz = 0; dz < 2; dz++)
+            for (int dx = 0; dx < 2; dx++)
+            {
+                float w = (dx == 0 ? 1f - fx : fx) * (dz == 0 ? 1f - fz : fz);
+                int gi = x0 + dx, gj = z0 + dz;
+                h += _gridH[gi, gj] * w;
+                Vector3 vn = new Vector3(_gridH[gi - 1, gj] - _gridH[gi + 1, gj], 2f * _gridSpacing, _gridH[gi, gj - 1] - _gridH[gi, gj + 1]).normalized;
+                n += vn * w;
+                int k = gj * _gridVerts + gi;
+                if (!_gridCSet[k])
+                {
+                    _gridC[k] = Area.GroundColor(_gridOrigin + gi * _gridSpacing, _gridOrigin + gj * _gridSpacing, _gridH[gi, gj], vn);
+                    _gridCSet[k] = true;
+                }
+                c += _gridC[k] * w;
+            }
+            n.Normalize();
+        }
+
         void BuildMap()
         {
             MapTexture = Own(RenderMap(Area, true));
@@ -1266,13 +1299,27 @@ namespace Shakutori
             var px = new Color32[size * size];
             Vector3 light = new Vector3(-0.5f, 0.75f, 0.45f).normalized;
             ColorUtility.TryParseHtmlString("#5aa9d6", out var water);
+            // いま作ったエリアは、地形の格子から（あとから土手を盛った所だけは、その場ではかる）
+            bool fromGrid = generated && area == Area && _gridH != null;
+            var late = fromGrid ? new List<(Vector2 center, float radius)>(area.LateGroundZones) : null;
             for (int j = 0; j < size; j++)
             for (int i = 0; i < size; i++)
             {
                 Vector2 p = MapToWorld(i, j, size);
-                float h = area.Height(p.x, p.y);
-                Vector3 n = area.Normal(p.x, p.y);
-                Color c = area.GroundColor(p.x, p.y, h, n);
+                float h;
+                Vector3 n;
+                Color c;
+                bool exact = !fromGrid;
+                if (fromGrid)
+                    foreach (var (zc, zr) in late)
+                        if ((p - zc).sqrMagnitude < (zr + 1f) * (zr + 1f)) { exact = true; break; }
+                if (exact)
+                {
+                    h = area.Height(p.x, p.y);
+                    n = area.Normal(p.x, p.y);
+                    c = area.GroundColor(p.x, p.y, h, n);
+                }
+                else GridSample(p, out h, out n, out c);
                 float shade = Mathf.Clamp01(Vector3.Dot(n, light)) * 0.35f + 0.75f;
                 c *= shade;
                 float wl = area.WaterLevelAt(p.x, p.y);

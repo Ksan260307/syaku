@@ -114,9 +114,10 @@
 
         <!-- ===== タイトル（ウィンドウより下に置き、あそびかた・確認を上に重ねる） ===== -->
         <ui:VisualElement name="title-overlay" class="title-overlay hidden">
+            <ui:VisualElement name="title-demo" class="title-demo" picking-mode="Ignore" />
             <ui:VisualElement class="title-vignette" picking-mode="Ignore" />
             <ui:VisualElement class="title-box" picking-mode="Ignore">
-                <ui:Label text="しゃくとりの森" name="logo" class="logo" picking-mode="Ignore" />
+                <ui:Label text="しゃくとりの森" name="logo" class="logo" />
                 <ui:Label text="— INCHWORM FOREST —" class="logo-sub" picking-mode="Ignore" />
                 <ui:VisualElement class="title-buttons" picking-mode="Ignore">
                     <ui:Button name="btn-continue" text="つづきから" class="btn btn-primary btn-large" />
@@ -247,7 +248,7 @@
                 <ui:Label text="あそびかた" class="window-title" picking-mode="Ignore" />
                 <ui:Label class="howto-lead" text="あなたは小さなしゃくとりむし。体を「Ω」の字に曲げては伸ばして、少しずつ進みます。&#10;森のしずくを集め、名所をめぐり、いろんないきものに会いに行こう。戦いはありません。" picking-mode="Ignore" />
                 <ui:ScrollView name="howto-grid" class="howto-grid" mode="Vertical" horizontal-scroller-visibility="Hidden" />
-                <ui:Label class="howto-tip" text="ヒント：森の東のはしにある木の根のトンネルを抜けると、川辺に行けます。川辺の滝の上の奥には、山へのトンネルがあります。いきものに近づくと図鑑に登録され、集めた数できせかえが増えます。" picking-mode="Ignore" />
+                <ui:Label class="howto-tip" text="ヒント：森のはしのトンネルを抜けると、となりの場所へ行けます。その先にも、まだ知らない場所が。いきものに近づくと図鑑に登録され、しずく・名所・いきものを集めるほど、きせかえが増えます。" picking-mode="Ignore" />
                 <ui:Button name="howto-close" text="わかった！" class="btn btn-primary" />
             </ui:VisualElement>
         </ui:VisualElement>
@@ -292,7 +293,6 @@
             <ui:VisualElement class="loading-bar" picking-mode="Ignore">
                 <ui:VisualElement name="loading-fill" class="loading-fill" picking-mode="Ignore" />
             </ui:VisualElement>
-            <ui:Label name="loading-text" text="森を準備しています" class="loading-text" picking-mode="Ignore" />
             <ui:Label name="loading-tip" text="" class="loading-tip" picking-mode="Ignore" />
         </ui:VisualElement>
 

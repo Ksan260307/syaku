@@ -473,14 +473,8 @@ namespace Shakutori
             AddDewFromAbove(new Vector2(-52f, -9f));
             AddDewFromAbove(new Vector2(CoastLayout.Surf.x - 6f, CoastLayout.ShoreZ(CoastLayout.Surf.x - 6f) + 1.4f));
             AddDewFromAbove(new Vector2(CoastLayout.Surf.x + 9f, CoastLayout.ShoreZ(CoastLayout.Surf.x + 9f) + 1.6f));
-            // のこりは、陸の上のどこかへ（南は海なので、方角ごとに分けずに、陸だけからえらぶ）
-            int guard = 0;
-            while (DewdropPoints.Count < Area.DropCount && guard++ < 4000)
-            {
-                Vector2 p = RandomInRing(8f, 60f);
-                if (!IsLand(p, 0.3f) || CoastLayout.PoolAt(p.x, p.y, 1f) >= 0) continue;
-                AddDewFromAbove(p);
-            }
+            // のこりは、陸の上の、探索が楽しくなる所へ（潮だまりはよける）
+            FillDewsToExplore(8f, 60f, p => IsLand(p, 0.3f) && CoastLayout.PoolAt(p.x, p.y, 1f) < 0);
         }
 
         void PlaceCoastCreatures()

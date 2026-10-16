@@ -509,14 +509,8 @@ namespace Shakutori
             AddDewFromAbove(ShrineLayout.Pond + new Vector2(-ShrineLayout.PondRadii.x - 1.8f, 6f));
             Vector2 tp = ShrineLayout.ToriiPath[2] + new Vector2(0.6f, -0.4f);
             AddDewFromAbove(tp, ShrineLayout.Height(tp.x, tp.y) + 4f);   // 千本鳥居の下の道（鳥居の上ではなく）
-            // のこりは、陸の上のどこかへ（池と水盤はよける）
-            int guard = 0;
-            while (DewdropPoints.Count < Area.DropCount && guard++ < 4000)
-            {
-                Vector2 p = RandomInRing(8f, 60f);
-                if (!IsLand(p, 0.3f) || ShrineLayout.InPond(p.x, p.y, 1.5f)) continue;
-                AddDewFromAbove(p);
-            }
+            // のこりは、陸の上の、探索が楽しくなる所へ（池と水盤はよける）
+            FillDewsToExplore(8f, 60f, p => IsLand(p, 0.3f) && !ShrineLayout.InPond(p.x, p.y, 1.5f));
         }
 
         void PlaceShrineCreatures()

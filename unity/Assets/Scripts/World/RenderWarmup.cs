@@ -14,8 +14,12 @@ namespace Shakutori
     /// </summary>
     public static class RenderWarmup
     {
-        /// <summary>WebGL でまとめ描きのシェーダーが用意される、まとめる数のきざみ（これより多いと、この数ずつに分けて描く）。</summary>
-        static readonly int[] InstanceSteps = { 2, 32, 64, 96, 128, 160, 192, 224 };
+        /// <summary>
+        /// まとめ描きで、1 回に描く数のきざみ（WebGL では、きざみごとに別の描き方が用意される）。
+        /// 描く数は InstanceBatch で 2 とおり（2〜32・224）にそろえるので、その数だけ（前は 32・64・…・224 の 8 つで、森の読み込みで 25 秒ほどかかっていた）。
+        /// そろえないとき（エディタなど）は、ぜんぶ。
+        /// </summary>
+        static int[] InstanceSteps => InstanceBatch.Enabled ? new[] { 2, InstanceBatch.Small, InstanceBatch.Full } : new[] { 2, 32, 64, 96, 128, 160, 192, 224 };
 
         /// <summary>先に用意した形と材質の組の数（テスト用）。</summary>
         public static int LastCount { get; private set; }
@@ -47,7 +51,7 @@ namespace Shakutori
             // 1 つだけだと、まとめ描き（インスタンシング）をしない描き方になることがあるので、同じ所に 2 つ描く
             var two = new Matrix4x4[2];
             // まとめ描きのシェーダーは、まとめる数（32 きざみ）ごとに別に用意されるので、材質ごとに、どの数でも 1 回ずつ描く
-            var many = new Matrix4x4[InstanceSteps[InstanceSteps.Length - 1]];
+            var many = new Matrix4x4[224];
             var firstOf = new Dictionary<Material, Mesh>();
             foreach (var it in list)
                 if (it.instanced && it.material.enableInstancing && !firstOf.ContainsKey(it.material)) firstOf[it.material] = it.mesh;
@@ -84,6 +88,12 @@ namespace Shakutori
                         else Graphics.RenderMesh(rp, it.mesh, 0, m);
                     }
                     if (f == 0)
+                    {
+                        // （ここまでの、ふつうの描き方の用意にかかった時間を、べつに数える）
+                        yield return null;
+                        LoadClock.Lap("warmBase");
+                    }
+                    if (f == 0)
                         foreach (var kv in firstOf)
                         {
                             float size = Mathf.Max(0.01f, kv.Value.bounds.extents.magnitude);
@@ -93,6 +103,7 @@ namespace Shakutori
                             foreach (int n in InstanceSteps) Graphics.RenderMeshInstanced(rp, kv.Value, 0, many, n);
                         }
                     yield return null;
+                    LoadClock.Lap(f == 0 ? "warmSteps" : f == 1 ? "warmNoShadow" : "warmLast");
                 }
             }
             finally

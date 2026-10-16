@@ -548,7 +548,7 @@ namespace Shakutori
             // 大きな川石の上
             for (int i = 0; i < Mathf.Min(4, _riverStones.Count); i++)
                 AddDewFromAbove(new Vector2(_riverStones[i].x, _riverStones[i].z));
-            FillDewdrops(8f, 60f);
+            FillDewsToExplore(8f, 60f);   // 残りは、探索が楽しくなる所へ
         }
 
         void PlaceRiverCreatures()

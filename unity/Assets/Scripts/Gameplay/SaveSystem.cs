@@ -7,9 +7,10 @@ namespace Shakutori
     [Serializable]
     public class SaveData
     {
-        public const int CurrentVersion = 2;
+        public const int CurrentVersion = 3;   // 3：しずくの場所が新しくなった
         public int version = CurrentVersion;
         public List<int> drops = new List<int>();
+        public int legacyDrops;                                    // しずくを置きなおす前に集めた数（きせかえは、そのまま使える）
         public List<int> places = new List<int>();
         public float playTime;
         public bool hasPosition;
@@ -177,8 +178,20 @@ namespace Shakutori
                     if (!d.seenCreatures.Contains(c)) d.seenCreatures.Add(c);
                 if (d.highest < -900f) d.highest = -999f;
             }
+            if (d.version < WorldGenerator.DewLayout && d.drops.Count > 0)
+            {
+                // v3 で、しずくを探索が楽しくなる所へ置きなおした：前の場所で集めた印は使えないので、集めなおす。
+                // 集めた数で使えるようになったきせかえは、そのまま（前の数をおぼえておく）。めぐり終えたエリアも、もう一度
+                d.legacyDrops = Mathf.Max(d.legacyDrops, d.drops.Count);
+                d.drops.Clear();
+                d.completedAreas.Clear();
+                DewsMoved = true;
+            }
             d.version = SaveData.CurrentVersion;
         }
+
+        /// <summary>読みこんだセーブの、しずくの場所が新しくなった（つづきから始めたときに、一度だけ知らせる）。</summary>
+        public static bool DewsMoved;
 
         /// <summary>
         /// 設定の値がこわれていたり（NaN など）、範囲の外だったりしたら、ふつうの値にもどす（書きかえられた保存データなど）。

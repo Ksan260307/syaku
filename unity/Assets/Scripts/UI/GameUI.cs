@@ -16,6 +16,8 @@ namespace Shakutori
         public Font titleFont;
 
         public event Action ContinuePressed;
+        /// <summary>タイトルの「しゃくとりの森」の文字をタップした（ひみつの操作）。</summary>
+        public event Action LogoTapped;
         public event Action NewGamePressed;
         public event Action ResumePressed;
         public event Action ToTitlePressed;
@@ -41,7 +43,7 @@ namespace Shakutori
         VisualElement _banner, _toasts, _prompt, _help, _touch, _joystick, _knob, _moveZone;
         VisualElement _minimapMask, _minimapImage, _minimapPlayer, _bigmap, _bigmapPlayer, _mapAreas;
         VisualElement _creatureCard, _creatureCardImg, _zukanImg, _skinGrid, _recordList;
-        Label _dropCount, _placeCount, _creatureCount, _dropLabel, _areaTitle, _areaName, _loadingText;
+        Label _dropCount, _placeCount, _creatureCount, _dropLabel, _areaTitle, _areaName;
         Label _bannerSub, _bannerTitle, _bannerDesc, _promptKey, _promptText, _helpHint, _rotateHint;
         Label _mapTitle, _mapSummary, _confirmText, _completeTitle, _completeText;
         Label _creatureCardName, _creatureCardDesc, _zukanName, _zukanArea, _zukanDesc;
@@ -67,7 +69,6 @@ namespace Shakutori
         float _bannerShownAt, _cardShownAt;
         int _cardExtra;
         string _continueBase = "つづきから";
-        string _loadingBase = "";
         string _zukanFilter = "";
         bool _photoMode;
         float _lastTapTime = -9f;
@@ -84,15 +85,22 @@ namespace Shakutori
             "高いところで糸を出すと、ぶら下がってゆっくりおりられます。",
             "「ねらう」で好きな場所に糸を飛ばして、たぐり寄せられます。",
             "背伸び中にスティックをたおすと、上半身だけで見まわせます。",
-            "見つけた名所へは、地図の名所をタップするか「ここへ」で、すぐ移動できます。",
-            "動けなくなったら、メニューの「動けなくなったら」で安全な場所へもどれます。",
-            "いきものに近づくと、図鑑に登録されます。",
-            "めったに会えないいきものは、光のつぶをまとっています。",
-            "しずくを集めると、新しいきせかえが使えるようになります。",
-            "木の根のトンネルを抜けると、別のエリアへ行けます。",
-            "カタツムリやカブトムシの背中に乗ると、いっしょに運んでもらえます。",
             "スティックを少しだけたおすと、ゆっくり進みます。",
-            "F2 キーで写真モード。景色をゆっくりながめられます。",
+            "見つけた名所へは、地図の名所の「ここへ」で、すぐ移動できます。前に行った場所の名所へも行けます。",
+            "地図の下のボタンで、前に行った場所の地図も見られます。",
+            "動けなくなったら、メニューの「動けなくなったら」で安全な場所へもどれます。",
+            "トンネルやとびらをくぐると、となりの場所へ行けます。行った先にも、まだ先へつづく道があるかも。",
+            "しずくは、登った先や、葉っぱやベンチの下のかげにもかくれています。",
+            "しずく・名所・いきもの・観察したしぐさの数で、きせかえがふえていきます。",
+            "いきものに近づくと、図鑑に登録されます。",
+            "見つけたいきものに、しずかに近づくと、あいさつしてくれます。会うたびに、なかよしに。",
+            "なかよし ★2 のいきものは、しずくのある方へ、あんないしてくれることがあります。",
+            "近くでじっと見ていると、いきもののしぐさを観察できます。図鑑にスタンプがつきます。",
+            "はじめて会った一匹は、大きさをはかって図鑑に記録します。ときどき、大物や小さな一匹も。",
+            "めったに会えないいきものは、まわりに光のつぶがくるくる回っています。",
+            "カタツムリやカブトムシの背中に乗ると、いっしょに運んでもらえます。",
+            "写真モード（F2）で、景色をゆっくりながめられます。メニューからも使えます。",
+            "設定で、文字の大きさや、カメラの動き方を変えられます。",
         };
 
         /// <summary>行き先のエリアのヒント（読み込み画面に、ふつうのヒントとまぜて出す）。</summary>
@@ -338,8 +346,10 @@ namespace Shakutori
             _look = Q<VisualElement>("look-area");
             _loading = Q<VisualElement>("loading");
             _loadingFill = Q<VisualElement>("loading-fill");
-            _loadingText = Q<Label>("loading-text");
             _title = Q<VisualElement>("title-overlay");
+            TitleDemoView = Q<VisualElement>("title-demo");
+            var logo = Q<Label>("logo");
+            logo?.RegisterCallback<PointerDownEvent>(_ => LogoTapped?.Invoke());
             _fade = Q<VisualElement>("fade");
             _mapOverlay = Q<VisualElement>("map-overlay");
             _pauseOverlay = Q<VisualElement>("pause-overlay");
@@ -666,13 +676,10 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // 画面の切り替え
         // ------------------------------------------------------------------
-        public void SetLoading(float progress, string text)
+        public void SetLoading(float progress)
         {
             if (!EnsureBound()) return;
             _loadingFill.style.width = Length.Percent(Mathf.Clamp01(progress) * 100f);
-            if (!string.IsNullOrEmpty(text)) _loadingBase = text;
-            int pct = ShakuMath.RoundToIntSafe(Mathf.Clamp01(progress) * 100f);
-            _loadingText.text = pct > 0 && pct < 100 ? $"{_loadingBase}　{pct}%" : _loadingBase;
         }
 
         void NextTip()
@@ -684,14 +691,14 @@ namespace Shakutori
         }
 
         /// <summary>エリア移動のときにもう一度読み込み画面を出す。</summary>
-        public void ShowLoading(string text)
+        public void ShowLoading()
         {
             if (!EnsureBound()) return;
             _loading.RemoveFromClassList("hidden");
             _loading.RemoveFromClassList("loading--out");
             _loading.pickingMode = PickingMode.Position;
             NextTip();
-            SetLoading(0f, text);
+            SetLoading(0f);
         }
 
         public bool IsLoadingVisible => _loading != null && !_loading.ClassListContains("hidden") && !_loading.ClassListContains("loading--out");
@@ -760,6 +767,9 @@ namespace Shakutori
             int got = Collectibles.AllCollectedDrops + Collectibles.AllDiscoveredPlaces + Creatures.DiscoveredCount;
             return total > 0 ? Mathf.Clamp(Mathf.FloorToInt(100f * got / total), 0, 100) : 0;
         }
+
+        /// <summary>タイトルのうしろの、デモ映像を出す所。</summary>
+        public VisualElement TitleDemoView { get; private set; }
 
         public bool IsTitleVisible => !_title.ClassListContains("hidden") && !_title.ClassListContains("title-overlay--out");
 

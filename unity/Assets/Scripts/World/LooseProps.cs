@@ -546,9 +546,10 @@ namespace Shakutori
                 for (int l = 0; l < 4; l++)
                 {
                     var list = b.lists[l];
-                    for (int start = 0; start < list.Count; start += MaxPerCall)
+                    int per = InstanceBatch.MaxPerCall;
+                    for (int start = 0; start < list.Count; start += per)
                     {
-                        int n = Mathf.Min(MaxPerCall, list.Count - start);
+                        int n = Mathf.Min(per, list.Count - start);
                         if (pool >= _pool.Count) _pool.Add(new Matrix4x4[MaxPerCall]);
                         var arr = _pool[pool++];
                         list.CopyTo(start, arr, 0, n);
@@ -567,7 +568,7 @@ namespace Shakutori
                 receiveShadows = true,
                 worldBounds = c.bounds,
             };
-            Graphics.RenderMeshInstanced(rp, c.mesh, 0, c.buffer, c.count);
+            InstanceBatch.Draw(rp, c.mesh, c.buffer, c.count);   // 描く数をそろえる（WebGL）
         }
     }
 

@@ -49,22 +49,18 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
-        public IEnumerator HollowLog_CanBeClimbedFromTheSide_ByTheLeaningLogs()
+        public IEnumerator HollowLog_CanBeClimbedFromTheSide_UpTheMossyBerm()
         {
-            // 丸太の横腹はせり出していて、地面からは登れないので、両がわに倒木を立てかけてある
-            var ramps = GM.world.ExtraSpots("logramp");
-            Assert.AreEqual(2, ramps.Count, "両がわに 1 本ずつ：" + GM.world.ExtraSummary());
+            // 丸太の横腹の下半分はせり出しているので、両がわに苔の土手を盛ってある：まん中・はしの近く・ななめから歩いても、上へ登れる
             bool autoCam = SaveSystem.Settings.autoCamera;
             SaveSystem.Settings.autoCamera = false;
             try
             {
-                Vector2 ax = ForestLayout.LogCenter, dir = ForestLayout.LogDir;
-                foreach (var mid in ramps)
+                Vector2 ax = ForestLayout.LogCenter, dir = ForestLayout.LogDir, perp = new Vector2(dir.y, -dir.x);
+                foreach (var (side, along, slant) in new[] { (1f, 0f, 0f), (-1f, 0f, 0f), (1f, -12f, 35f), (-1f, 12f, -35f), (-1f, -8f, 30f) })
                 {
-                    // 倒木のある側の、丸太から 13 はなれた地面から、丸太へ向かって歩く
-                    Vector2 m = new Vector2(mid.x, mid.z);
-                    Vector2 onAxis = ax + dir * Vector2.Dot(m - ax, dir);
-                    Vector2 outward = (m - onAxis).normalized;
+                    Vector2 onAxis = ax + dir * along;
+                    Vector2 outward = (Vector2)(Quaternion.Euler(0f, 0f, slant) * (perp * side));
                     Vector2 from = onAxis + outward * 13f;
                     Vector3 face = new Vector3(-outward.x, 0f, -outward.y);
                     Place(from, face);
@@ -87,7 +83,7 @@ namespace Shakutori.Tests
                                 && hit.collider.name.StartsWith("HollowLog");
                     }
                     ResetInput();
-                    Assert.IsTrue(onLog, $"倒木を登って、丸太の上へ（{mid} の側。いちばん高く {best:0.0}）");
+                    Assert.IsTrue(onLog, $"土手を登って、丸太の上へ（{(side > 0 ? "東" : "西")}がわ・まん中から {along}・ななめ {slant} 度。いちばん高く {best:0.0}）");
                 }
             }
             finally

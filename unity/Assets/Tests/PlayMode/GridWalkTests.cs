@@ -11,7 +11,7 @@ using static Shakutori.Tests.GameHarness;
 namespace Shakutori.Tests
 {
     /// <summary>
-    /// 総合テスト（遊びやすさ）：どのエリアも、地図を上から見て網の目のように（東西・南北の線にそって）
+    /// 総合テスト（遊びやすさ）：どのエリアも、地図を上から見て網の目のように（東西・南北の線にそって。…Diagonal は、ななめ 45 度の線にそって）
     /// 画面スティックと同じ操作で歩いてみる。止まった所はわけ（水・がけ・登れる物・見えないかべ・引っかかり）を分けて数え、
     /// 引っかかったときは、どの向きにも動けない「とじこめ」になっていないかを確かめる。
     /// 地面の下へぬける・数がこわれる（NaN）・とじこめは、あってはいけない。
@@ -88,8 +88,16 @@ namespace Shakutori.Tests
         [UnityTest, Timeout(14400000)] public IEnumerator Hut_GridWalk() => Walk("hut");
         [UnityTest, Timeout(14400000)] public IEnumerator Coast_GridWalk() => Walk("coast");
         [UnityTest, Timeout(14400000)] public IEnumerator Shrine_GridWalk() => Walk("shrine");
+        // 斜めの網の目（北東・南東へ向かう 45 度の線）。東西・南北の線では、いつも同じ向きから物に当たるので、ななめからも
+        [UnityTest, Timeout(14400000)] public IEnumerator Forest_GridWalkDiagonal() => Walk("forest", true);
+        [UnityTest, Timeout(14400000)] public IEnumerator River_GridWalkDiagonal() => Walk("river", true);
+        [UnityTest, Timeout(14400000)] public IEnumerator Park_GridWalkDiagonal() => Walk("park", true);
+        [UnityTest, Timeout(14400000)] public IEnumerator Mountain_GridWalkDiagonal() => Walk("mountain", true);
+        [UnityTest, Timeout(14400000)] public IEnumerator Hut_GridWalkDiagonal() => Walk("hut", true);
+        [UnityTest, Timeout(14400000)] public IEnumerator Coast_GridWalkDiagonal() => Walk("coast", true);
+        [UnityTest, Timeout(14400000)] public IEnumerator Shrine_GridWalkDiagonal() => Walk("shrine", true);
 
-        IEnumerator Walk(string areaId)
+        IEnumerator Walk(string areaId, bool diagonal = false)
         {
             if (Areas.Current.Id != areaId)
             {
@@ -107,19 +115,38 @@ namespace Shakutori.Tests
             // 線は ±8, ±24, ±40 … を通る（16 ごとの線を、すべてふくむ）
             float first = -ext + 8f;
             while (first - Spacing > -ext) first -= Spacing;
-            for (float c = first; c < ext; c += Spacing)
+            var ids = new List<string>();
+            if (!diagonal)
             {
-                lines.Add((new Vector2(-ext, c), new Vector2(ext, c)));   // 東西
-                lines.Add((new Vector2(c, -ext), new Vector2(c, ext)));   // 南北
-            }
-            string only = Environment.GetEnvironmentVariable("SHAKU_GRID_ONLY");   // 調べる用：たとえば "z40" で z=40 の線だけ
-            foreach (var (a, b) in lines)
-            {
-                if (!string.IsNullOrEmpty(only))
+                for (float c = first; c < ext; c += Spacing)
                 {
-                    string id = a.y == b.y ? $"z{a.y:0.#}" : $"x{a.x:0.#}";
-                    if (id != only) continue;
+                    lines.Add((new Vector2(-ext, c), new Vector2(ext, c)));   // 東西
+                    ids.Add($"z{c:0.#}");
+                    lines.Add((new Vector2(c, -ext), new Vector2(c, ext)));   // 南北
+                    ids.Add($"x{c:0.#}");
                 }
+            }
+            else
+            {
+                // 斜めの線：線どうしの間かくは、東西・南北と同じ（線にそってはかる長さで）。
+                // u = 北東へ（x - z = 一定）、v = 南東へ（x + z = 一定）
+                float r = ext * 1.4143f;
+                Vector2 u = new Vector2(1f, 1f).normalized, v = new Vector2(1f, -1f).normalized;
+                Vector2 nu = new Vector2(1f, -1f).normalized, nv = new Vector2(1f, 1f).normalized;
+                float firstD = -r + Spacing * 0.5f;
+                for (float c = firstD; c < r; c += Spacing)
+                {
+                    lines.Add((nu * c - u * r, nu * c + u * r));
+                    ids.Add($"d{c:0.#}");
+                    lines.Add((nv * c - v * r, nv * c + v * r));
+                    ids.Add($"e{c:0.#}");
+                }
+            }
+            string only = Environment.GetEnvironmentVariable("SHAKU_GRID_ONLY");   // 調べる用：たとえば "z40" で z=40 の線だけ（斜めは d・e）
+            for (int li = 0; li < lines.Count; li++)
+            {
+                var (a, b) = lines[li];
+                if (!string.IsNullOrEmpty(only) && ids[li] != only) continue;
                 ClipToPlay(area, a, b, out var ca, out var cb);
                 if (Vector2.Distance(ca, cb) < 2f) continue;
                 yield return WalkLine(area, ca, cb);
@@ -130,12 +157,12 @@ namespace Shakutori.Tests
             float real = Time.realtimeSinceStartup - realStart, game = Time.time - gameStart;
             var counts = Enum.GetValues(typeof(Kind)).Cast<Kind>().ToDictionary(k => k, k => _events.Count(e => e.kind == k));
             var sb = new StringBuilder();
-            sb.Append($"GRID area={areaId} lines={_lineLength:0}m covered={_covered:0}m ({100f * _covered / Mathf.Max(1f, _lineLength):0}% 歩けた) skipped={_skipped:0}m moved={_walked:0}m game={game:0}s real={real:0}s");
+            sb.Append($"GRID area={areaId}{(diagonal ? " diagonal" : "")} lines={_lineLength:0}m covered={_covered:0}m ({100f * _covered / Mathf.Max(1f, _lineLength):0}% 歩けた) skipped={_skipped:0}m moved={_walked:0}m game={game:0}s real={real:0}s");
             foreach (var kv in counts) sb.Append($" {kv.Key}={kv.Value}");
             Debug.Log(sb.ToString());
             foreach (var e in _events.Where(e => e.kind != Kind.Splash))
-                Debug.Log($"GRIDEV area={areaId} {e.kind} x={e.pos.x:0.0} y={e.pos.y:0.0} z={e.pos.z:0.0} {e.note}");
-            SaveImage(area);
+                Debug.Log($"GRIDEV area={areaId}{(diagonal ? "/diag" : "")} {e.kind} x={e.pos.x:0.0} y={e.pos.y:0.0} z={e.pos.z:0.0} {e.note}");
+            SaveImage(area, diagonal);
 
             Assert.AreEqual(0, counts[Kind.Broken], "数がこわれない（NaN）");
             Assert.AreEqual(0, counts[Kind.Under], "地面の下へぬけない");
@@ -417,7 +444,7 @@ namespace Shakutori.Tests
         // ------------------------------------------------------------------
         // 上から見た絵
         // ------------------------------------------------------------------
-        void SaveImage(AreaLayout area)
+        void SaveImage(AreaLayout area, bool diagonal)
         {
             string dir = Environment.GetEnvironmentVariable("SHAKU_GRID_OUT");
             if (string.IsNullOrEmpty(dir)) return;
@@ -491,7 +518,7 @@ namespace Shakutori.Tests
             var tex = new Texture2D(N, N, TextureFormat.RGBA32, false);
             tex.SetPixels32(px);
             System.IO.Directory.CreateDirectory(dir);
-            System.IO.File.WriteAllBytes(System.IO.Path.Combine(dir, $"grid_{area.Id}.png"), tex.EncodeToPNG());
+            System.IO.File.WriteAllBytes(System.IO.Path.Combine(dir, $"grid_{area.Id}{(diagonal ? "_diag" : "")}.png"), tex.EncodeToPNG());
             UnityEngine.Object.Destroy(tex);
         }
     }

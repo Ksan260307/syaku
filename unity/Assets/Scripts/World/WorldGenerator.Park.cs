@@ -493,7 +493,11 @@ namespace Shakutori
             }
             AddDewFromAbove(ParkLayout.Seesaw + new Vector2(0f, 3f));
             AddDewFromAbove(ParkLayout.Swing + new Vector2(-10f, 4f));
-            FillDewdrops(8f, 58f);
+            // 残りは、探索が楽しくなる所へ（ベンチの前の、上がるための平たい石の所と、砂の城を建てる砂場の中はあけておく）
+            Vector2 rest = ParkLayout.Bench + new Vector2(0.3f, -5f);
+            Vector2 sandHalf = ParkLayout.SandboxSize * 0.5f + new Vector2(1f, 1f);
+            FillDewsToExplore(8f, 58f, p => IsLand(p, 0.2f) && Vector2.Distance(p, rest) > 4f
+                && (Mathf.Abs(p.x - ParkLayout.Sandbox.x) > sandHalf.x || Mathf.Abs(p.y - ParkLayout.Sandbox.y) > sandHalf.y));
         }
 
         void PlaceParkCreatures()

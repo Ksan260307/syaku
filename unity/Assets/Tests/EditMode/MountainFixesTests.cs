@@ -10,12 +10,12 @@ namespace Shakutori.Tests
     {
         static WorldGenerator _gen;
 
-        /// <summary>山のしずくの場所（セーブの ID と合うように、変えてはいけない）。</summary>
+        /// <summary>山のしずくの場所（しずくの置き方の版 3。セーブの ID と合うように、版を上げずに変えてはいけない）。</summary>
         static readonly Vector3[] Dews =
         {
             new Vector3(-2.500f, 0.222f, -48.000f),
             new Vector3(4.500f, 0.407f, -45.000f),
-            new Vector3(10.490f, 9.443f, -20.388f),
+            new Vector3(10.491f, 9.443f, -20.388f),
             new Vector3(8.929f, 7.020f, -27.417f),
             new Vector3(34.000f, 30.190f, 28.000f),
             new Vector3(4.400f, 33.958f, 46.400f),
@@ -39,20 +39,20 @@ namespace Shakutori.Tests
             new Vector3(-16.000f, 22.296f, 48.000f),
             new Vector3(2.100f, 4.560f, -21.000f),
             new Vector3(43.600f, 2.939f, -25.000f),
-            new Vector3(-0.847f, 14.326f, 8.800f),
-            new Vector3(-36.177f, 10.691f, 4.597f),
-            new Vector3(-39.217f, 2.053f, -31.306f),
-            new Vector3(-17.986f, 1.724f, -34.269f),
-            new Vector3(5.897f, 1.934f, -34.994f),
-            new Vector3(29.626f, 7.699f, -6.338f),
-            new Vector3(13.510f, 13.281f, 4.126f),
-            new Vector3(23.562f, 19.778f, 25.196f),
-            new Vector3(-33.707f, 17.924f, 42.437f),
-            new Vector3(-40.803f, 14.920f, 36.307f),
-            new Vector3(-17.889f, 5.463f, -16.586f),
-            new Vector3(-10.652f, 5.628f, -18.023f),
-            new Vector3(15.539f, 2.277f, -32.018f),
-            new Vector3(23.617f, 7.683f, -7.712f)
+            new Vector3(-16.413f, 35.361f, 11.219f),
+            new Vector3(3.669f, 22.890f, 14.733f),
+            new Vector3(-15.298f, 6.347f, -18.085f),
+            new Vector3(39.596f, 17.990f, 30.517f),
+            new Vector3(21.225f, 25.999f, 50.642f),
+            new Vector3(-53.044f, 7.485f, -9.340f),
+            new Vector3(33.268f, 9.204f, -3.549f),
+            new Vector3(-37.634f, 15.456f, 35.072f),
+            new Vector3(-11.883f, 0.872f, -41.539f),
+            new Vector3(-4.463f, 7.075f, -12.736f),
+            new Vector3(-15.642f, 14.414f, 9.465f),
+            new Vector3(23.074f, 7.932f, -7.040f),
+            new Vector3(32.344f, 15.083f, 13.581f),
+            new Vector3(2.825f, 25.319f, 57.916f)
         };
 
         [OneTimeSetUp]

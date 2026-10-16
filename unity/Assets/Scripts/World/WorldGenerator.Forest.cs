@@ -541,17 +541,9 @@ namespace Shakutori
             AddDewFromAbove(ForestLayout.Meadow + new Vector2(2f, 1f));
             AddDewFromAbove(ForestLayout.Meadow + new Vector2(-6f, 5f));
             AddDewFromAbove(ForestLayout.Meadow + new Vector2(5f, -7f));
-            // 残りは方角ごとに均等に散らす
-            int guard = 0;
-            int target = Area.DropCount;
-            while (DewdropPoints.Count < target && guard++ < 2000)
-            {
-                int sector = DewdropPoints.Count % 8;
-                float a = (sector + R01()) / 8f * Mathf.PI * 2f;
-                Vector2 p = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * R(6f, 60f);
-                if (!IsLand(p, 0.2f)) continue;
-                AddDewFromAbove(p);
-            }
+            // 残りは、探索が楽しくなる所へ（登った先・物のかげ・名所のそば。方角ごとにかたよらない）
+            // （赤キノコの森のまん中の、大きな赤キノコの根もとは、かたつむりがまわる輪なので、かさの下のかげには置かない）
+            FillDewsToExplore(6f, 60f, p => IsLand(p, 0.2f) && Vector2.Distance(p, ForestLayout.MushroomGrove) > 7f);
         }
 
         // ------------------------------------------------------------------

@@ -140,7 +140,7 @@ namespace Shakutori.Tests
         public IEnumerator Climb_UpTheStumpWall()
         {
             Vector2 s = ForestLayout.Stump;
-            Vector2 from = s + new Vector2(-12.5f, 0f);
+            Vector2 from = s + new Vector2(-9.5f, 0f);   // 切り株の根もとの近くから（遠くからだと、とちゅうの大きな落ち葉の上を通ることがある）
             Place(from, Vector3.right);
             yield return FaceCamera(Vector3.right);
             float ground = ForestLayout.Height(s.x, s.y);

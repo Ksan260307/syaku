@@ -68,6 +68,43 @@ namespace Shakutori
             return Mathf.Max(e.x, e.z) * m.scale;
         }
 
+        /// <summary>仲間と間をあけるいきものの大きさ（体のまん中から、はしまで。体の長さ 1.8 くらいから：バッタ・コオロギ・ナキウサギなど）。</summary>
+        const float SpacedReach = 0.9f;
+
+        /// <summary>
+        /// 群れで出る、ある程度大きないきもの（バッタ・スズムシ・コオロギ・フナムシ・ナキウサギなど）は、仲間と少しずつ間をあけて出す（重ねて出さない）。
+        /// 間あいは体の長さから。ほかの乱数の流れは変えない（ずらす場所は、群れの場所と順番から決める）。
+        /// </summary>
+        void SpaceOut(Mob m, List<Mob> members, MobGroup g)
+        {
+            float reach = BodyReach(m);
+            if (reach < SpacedReach || members.Count == 0) return;
+            float gap = reach * 2.3f;   // 体と体のあいだに、少しすき間
+            float Nearest(Vector3 q)
+            {
+                float best = float.MaxValue;
+                foreach (var o in members) best = Mathf.Min(best, Vector2.Distance(new Vector2(q.x, q.z), new Vector2(o.pos.x, o.pos.z)));
+                return best;
+            }
+            float bestD = Nearest(m.pos);
+            if (bestD >= gap) return;
+            Vector3 c = m.sp.kind == MobKind.Bird && g.path.Count > 0 ? g.path[0] : g.center;
+            float spread = Mathf.Max(g.radius * 0.8f, gap * Mathf.Sqrt(g.count) * 0.75f);
+            var rng = new System.Random(members.Count * 7919 + Mathf.RoundToInt(c.x * 13f) * 31 + Mathf.RoundToInt(c.z * 17f));
+            Vector3 best = m.pos;
+            float y0 = _area.Height(m.pos.x, m.pos.z);
+            for (int t = 0; t < 40 && bestD < gap; t++)
+            {
+                float a = (float)rng.NextDouble() * Mathf.PI * 2f, d = Mathf.Sqrt((float)rng.NextDouble()) * spread;
+                Vector3 q = c + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * d;
+                q.y = m.pos.y + _area.Height(q.x, q.z) - y0;   // 地面からの高さは、そのまま
+                if (!_area.IsLand(q.x, q.z, 0.3f) || _area.IsUnderwater(q + Vector3.up * 0.05f) || !_area.InPlayArea(q + Vector3.up * 0.2f)) continue;
+                float nd = Nearest(q);
+                if (nd > bestD) { best = q; bestD = nd; }
+            }
+            m.pos = best;
+        }
+
         /// <summary>いま、そのしぐさをしているか。</summary>
         bool Doing(Mob m, string key)
         {

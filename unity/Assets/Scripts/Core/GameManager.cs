@@ -61,6 +61,9 @@ namespace Shakutori
         static void ShakuVibrate(int ms) { }
 #endif
         bool _starting;
+        TitleDemo _demo;
+        readonly TitleSecret _secret = new TitleSecret();
+        bool _travelAll;   // タイトルのひみつの操作をした（「はじめる」でやりなおしても、そのまま）
         ProgressStats _stats;
         AreaProps _areaProps;
         AreaSounds _areaSounds;
@@ -97,7 +100,7 @@ namespace Shakutori
 
             var area = SaveSystem.HasSave ? Areas.Get(SaveSystem.Data.area) ?? Areas.Forest : Areas.Forest;
             ui.LoadingAreaId = area.Id;
-            ui.SetLoading(0f, area.DisplayName + "を準備しています");
+            ui.SetLoading(0f);
             yield return null;
 
             fx.followTarget = followCamera.transform;
@@ -107,7 +110,7 @@ namespace Shakutori
             if (_areaProps == null) _areaProps = gameObject.AddComponent<AreaProps>();
             _areaSounds = GetComponent<AreaSounds>();
             if (_areaSounds == null) _areaSounds = gameObject.AddComponent<AreaSounds>();
-            yield return BuildArea(area, (p, t) => ui.SetLoading(p * 0.95f, t));
+            yield return BuildArea(area, p => ui.SetLoading(p * 0.95f));
             PlaceWorm(SaveSystem.HasSave);
             followCamera.target = worm;
             followCamera.SnapToTarget();
@@ -188,20 +191,32 @@ namespace Shakutori
                 worm.Cheer();
             };
 
-            ui.SetLoading(1f, "準備ができました");
+            // タイトルのデモ映像と、ひみつの操作
+            _demo = gameObject.AddComponent<TitleDemo>();
+            _demo.Bind(ui.TitleDemoView);
+            _secret.Unlocked += OnTitleSecret;
+            ui.LogoTapped += () => { if (State == GameState.Title) _secret.Tap(Time.unscaledTime); };
+
+            ui.SetLoading(1f);
             yield return new WaitForSecondsRealtime(0.3f);
             ui.HideLoading();
             ui.ShowTitle(true);
+            _demo.Show(true);
             State = GameState.Title;
         }
 
         /// <summary>エリアを作り直し、しずく・いきもの・演出・UI をそのエリアに合わせる。</summary>
-        IEnumerator BuildArea(AreaLayout area, Action<float, string> progress)
+        IEnumerator BuildArea(AreaLayout area, Action<float> progress)
         {
             LoadClock.Start();
             Areas.Current = area;
             worm.ClearSafeHistory();
             if (creatures != null) creatures.Clear();
+            // 読み込み画面のあいだは、うしろのエリアを描かない（作っているとちゅうのフレームが軽くなる。画面は読み込み画面でかくれている）
+            var cam = Camera.main;
+            int mask = cam != null ? cam.cullingMask : ~0;
+            bool hide = cam != null && ui.IsLoadingVisible;
+            if (hide) cam.cullingMask = 0;
             yield return world.Generate(area, progress);
             collectibles.Build(world.DewdropPoints, area);
             if (creatures != null) creatures.Build(world);
@@ -218,6 +233,7 @@ namespace Shakutori
             if (!SaveSystem.Data.visited.Contains(area.Id)) SaveSystem.Data.visited.Add(area.Id);
             AreaChanged?.Invoke(area);
             LoadClock.Lap("fxUi");
+            if (hide && cam != null) cam.cullingMask = mask;
             // 読み込み画面のあいだに、エリアの物をひととおり描いておく（はじめて画面に入ったときに止まらない）
             yield return RenderWarmup.Run(Camera.main, world, creatures);
             LoadClock.Lap("warmup");
@@ -252,13 +268,14 @@ namespace Shakutori
             if (!continueGame)
             {
                 SaveSystem.ResetProgress();
+                if (_travelAll) TitleSecret.UnlockAll();   // タイトルのひみつの操作は、はじめからでも
                 _stats = ProgressStats.FromSave();
                 if (Areas.Current != Areas.Forest)
                 {
                     // 森から始めなおす
                     ui.LoadingAreaId = "forest";
-                    ui.ShowLoading("森を準備しています");
-                    yield return BuildArea(Areas.Forest, (p, t) => ui.SetLoading(p, t));
+                    ui.ShowLoading();
+                    yield return BuildArea(Areas.Forest, ui.SetLoading);
                     ui.HideLoading();
                 }
                 else
@@ -269,10 +286,19 @@ namespace Shakutori
                 SaveSystem.Data.area = Areas.Current.Id;
                 PlaceWorm(false);
             }
-            else PlaceWorm(true);
+            else
+            {
+                PlaceWorm(true);
+                if (SaveSystem.DewsMoved)
+                {
+                    SaveSystem.DewsMoved = false;
+                    ui.Toast("しずくの場所が新しくなりました。もう一度さがしてみよう", "icon-drop", 4.5f);
+                }
+            }
             ApplySkin();
             ui.RefreshCounts(true);
             ui.ShowTitle(false);
+            _demo?.Show(false);
             followCamera.titleMode = false;
             followCamera.pitch = 20f;
             // 前に合わせたカメラの距離を使う
@@ -317,6 +343,7 @@ namespace Shakutori
             {
                 case GameState.Title:
                     if (GameInput.AnyKeyPressed) AudioManager.Instance?.StartMusic();
+                    _secret.Poll();   // ↑↑↓↓←→←→
                     if (GameInput.PausePressed) ui.Back();
                     break;
                 case GameState.Playing:
@@ -449,9 +476,9 @@ namespace Shakutori
             yield return new WaitForSecondsRealtime(0.7f);
             ui.CloseAllOverlays();
             ui.LoadingAreaId = to.Id;   // 読み込み画面に、行き先のエリアのヒント
-            ui.ShowLoading((AreaNames.Visited(to) ? to.Subtitle : "まだ行ったことがない場所") + "へ向かっています");
+            ui.ShowLoading();
             worm.enabled = false;
-            yield return BuildArea(to, (p, t) => ui.SetLoading(p, t));
+            yield return BuildArea(to, ui.SetLoading);
 
             bool viaGate = to.ArrivalFrom(from.Id, out Vector2 xz, out Vector3 fwd);
             var view = to.ArrivalViewFrom(from.Id);
@@ -526,12 +553,26 @@ namespace Shakutori
             AudioManager.Instance?.Click();
         }
 
+        /// <summary>タイトルのひみつの操作：ファストトラベルを、ぜんぶ使えるようにする（どのエリアへも・どの名所へも、地図から行ける）。</summary>
+        void OnTitleSecret()
+        {
+            _travelAll = true;
+            int opened = TitleSecret.UnlockAll();
+            collectibles.ApplySave();
+            ui.RefreshCounts(true);
+            ui.RefreshTitleProgress();
+            SaveSystem.Save();
+            AudioManager.Instance?.Unlock();
+            ui.Toast(opened > 0 ? "すべての場所と名所へ、地図から行けるようになりました" : "すべての場所と名所へ、もう地図から行けます", "icon-place", 3.5f);
+        }
+
         public void GoToTitle()
         {
             SaveProgress();
             Time.timeScale = 1f;
             ui.CloseAllOverlays();
             ui.ShowTitle(true);
+            _demo?.Show(true);
             followCamera.titleMode = true;
             worm.InputEnabled = false;
             collectibles.Active = false;
@@ -716,7 +757,7 @@ namespace Shakutori
             else if (worm.IsBlocked && worm.CanDropSilk)
                 shown = ui.Tip("cliff", "がけの上では、糸を出してぶら下がればおりられます");
             else if (!string.IsNullOrEmpty(ui.GateHint))
-                shown = ui.Tip("tunnel", "木の根のトンネルを抜けると、別のエリアへ行けます");
+                shown = ui.Tip("tunnel", "トンネルやとびらをくぐると、となりの場所へ行けます");
             else if (creatures != null && creatures.UndiscoveredNear(c, 12f, _tipNear, 1) > 0)
                 shown = ui.Tip("creature", "ミニマップの「？」は、まだ図鑑にのっていないいきもの。近づいてみよう");
             else if (collectibles.DiscoveredPlaces >= 2)

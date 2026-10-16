@@ -15,7 +15,7 @@ namespace Shakutori
         public static ProgressStats FromSave()
         {
             var d = SaveSystem.Data;
-            return new ProgressStats { drops = d.drops.Count, places = d.places.Count, species = Creatures.DiscoveredCount,
+            return new ProgressStats { drops = Mathf.Max(d.drops.Count, d.legacyDrops), places = d.places.Count, species = Creatures.DiscoveredCount,
                 observed = Friends.TotalObserved, bestFriends = Friends.BestFriendCount };
         }
 

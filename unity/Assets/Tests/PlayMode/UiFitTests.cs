@@ -155,7 +155,7 @@ namespace Shakutori.Tests
                 yield return Settle();
                 Check(c, "あそびかた");
                 UI.ShowHowto(false);
-                UI.ShowLoading("森を準備しています");
+                UI.ShowLoading();
                 UI.Root.Q<Label>("loading-tip").text = longestTip;
                 yield return Settle();
                 Check(c, "読み込み");

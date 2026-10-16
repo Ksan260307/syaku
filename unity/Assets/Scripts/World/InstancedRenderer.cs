@@ -333,7 +333,7 @@ namespace Shakutori
             {
                 int lod = lods > 1 ? LodFor(items[start].d, b.meshRadius, lods) : 0;
                 int end = start + 1;
-                while (end < items.Count && end - start < MaxPerCall
+                while (end < items.Count && end - start < InstanceBatch.MaxPerCall
                        && (lods <= 1 || LodFor(items[end].d, b.meshRadius, lods) == lod)) end++;
                 EmitRange(b, items, start, end - start, mode, lods > 1 ? lod : -1);
                 start = end;
@@ -366,7 +366,7 @@ namespace Shakutori
                 layer = 0,
                 worldBounds = c.bounds,
             };
-            Graphics.RenderMeshInstanced(rp, DetailMeshes.Get(c.batch.mesh, c.lod), 0, c.buffer, c.count);
+            InstanceBatch.Draw(rp, DetailMeshes.Get(c.batch.mesh, c.lod), c.buffer, c.count);   // 描く数をそろえる（WebGL）
         }
     }
 }
