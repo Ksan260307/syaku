@@ -6,7 +6,7 @@ using UnityEngine;
 namespace Shakutori.Tests
 {
     /// <summary>
-    /// 物と地面のなじみ：水のふちが地面からうかない（泉・水たまりの土手）、しずくがうまらない、
+    /// 物と地面のなじみ：水のふちが地面からうかない（泉・水たまり・夜の森の池とぬた場の土手。山小屋には水がない）、しずくがうまらない、
     /// 松の根が地面にとどく、オコジョのすみかの土が坂にそう、坂の岩の下に大きなすき間がない。
     /// </summary>
     public class GroundFitTests
@@ -52,7 +52,7 @@ namespace Shakutori.Tests
         }
 
         [Test]
-        public void WaterEdges_StayUnderTheGround([Values("forest", "river", "park", "mountain")] string id)
+        public void WaterEdges_StayUnderTheGround([Values("forest", "river", "park", "mountain", "coast", "shrine", "night")] string id)
         {
             var gen = Make(id);
             try
@@ -94,7 +94,7 @@ namespace Shakutori.Tests
         }
 
         [Test]
-        public void Dewdrops_AreNotBuriedByLaterGroundOrRocks([Values("forest", "river", "park", "mountain")] string id)
+        public void Dewdrops_AreNotBuriedByLaterGroundOrRocks([Values("forest", "river", "park", "mountain", "coast", "shrine", "night")] string id)
         {
             var gen = Make(id);
             try

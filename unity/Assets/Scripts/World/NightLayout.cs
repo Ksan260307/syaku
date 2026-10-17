@@ -117,9 +117,29 @@ namespace Shakutori
                 float bed = Mathf.Lerp(WallowLevel + 0.12f, WallowBed, SmoothStep(WallowR * 0.85f, WallowR * 0.25f, wd));
                 h = Mathf.Lerp(h, bed, SmoothStep(WallowR + 1.6f, WallowR - 0.4f, wd));
             }
+            // 池とぬた場のふちの土手（しずくを置いたあとに盛る。水面のふちが、まわりの低い地面から宙にうかない）
+            if (AreaLayout.LateGround) h = Mathf.Max(h, Mathf.Max(PondRim(pk), WallowRim(wd)));
             // 外周はせり上がる（雑木林の土手）
             h += 12f * Mathf.Pow(SmoothStep(60f, 96f, r), 1.4f);
             return h;
+        }
+
+        /// <summary>月見の池のまわりの土手の高さ（池のだ円の度合い pk。水面の板は pk = -0.12 まで）。土手のない所は、とても低い値。</summary>
+        public static float PondRim(float pk)
+        {
+            if (pk > 0.08f || pk < -0.6f) return -999f;
+            float top = PondLevel + 0.12f;
+            if (pk > 0f) return Mathf.Lerp(top, PondLevel - 0.15f, SmoothStep(0f, 0.08f, pk));   // 水ぎわへ、なだらかに下りる
+            return top - 0.6f * SmoothStep(-0.24f, -0.5f, pk);                                   // 外へ、なだらかに下りる
+        }
+
+        /// <summary>ぬた場のまわりの土手の高さ（まん中からの距離 wd。どろ水の板は、半径の 1.13 倍まで）。</summary>
+        public static float WallowRim(float wd)
+        {
+            if (wd < WallowR * 0.95f || wd > WallowR * 1.7f) return -999f;
+            float top = WallowLevel + 0.1f;
+            if (wd < WallowR) return Mathf.Lerp(WallowLevel - 0.05f, top, SmoothStep(WallowR * 0.95f, WallowR, wd));
+            return top - 0.5f * SmoothStep(WallowR * 1.2f, WallowR * 1.55f, wd);
         }
 
         public static Vector3 Normal(float x, float z)

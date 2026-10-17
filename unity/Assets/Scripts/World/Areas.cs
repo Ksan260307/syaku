@@ -423,6 +423,15 @@ namespace Shakutori
         public override float WaterLevelAt(float x, float z) => NightLayout.WaterLevelAt(x, z);
         public override bool IsUnderwater(Vector3 p) => NightLayout.IsUnderwater(p);
         public override bool InPlayArea(Vector3 p) => NightLayout.InPlayArea(p);
+        // 池とぬた場のふちの土手は、しずくを置いたあとに盛る（しずくの場所は変えない）
+        public override IEnumerable<(Vector2 center, float radius)> LateGroundZones
+        {
+            get
+            {
+                yield return (NightLayout.Pond, NightLayout.PondRadii.x * 1.6f + 2f);
+                yield return (NightLayout.Wallow, NightLayout.WallowR * 1.7f + 2f);
+            }
+        }
     }
 
     /// <summary>エリアの一覧と、いまいるエリア。</summary>

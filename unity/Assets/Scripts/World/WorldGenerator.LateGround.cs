@@ -116,6 +116,37 @@ namespace Shakutori
                 for (int i = 0; i < g.path.Count; i++) g.path[i] += Vector3.up * Rise(g.path[i]);
             }
             for (int i = 0; i < FlowerPoints.Count; i++) FlowerPoints[i] += Vector3.up * Rise(FlowerPoints[i]);
+            // しずくが土手の下にうまったら、同じ場所のまま、土手の上へ。しずくをのせた物（池のふちの岩など）も、いっしょに持ち上げる。
+            // ほかのエリアの土手は、しずくをうめない（0.03 より深くうまるしずくはないので、そこのしずくと物は、まったく動かさない）
+            Physics.SyncTransforms();
+            var lifted = new Dictionary<Collider, float>();
+            for (int i = 0; i < DewdropPoints.Count; i++)
+            {
+                Vector3 d = DewdropPoints[i];
+                if (!InZone(d)) continue;
+                float ground = -999f;
+                foreach (var h in Physics.RaycastAll(new Vector3(d.x, d.y + 40f, d.z), Vector3.down, 80f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
+                    if (h.collider.name.StartsWith("Terrain_")) ground = Mathf.Max(ground, h.point.y);
+                if (ground - d.y <= 0.03f) continue;
+                float up = ground - d.y;
+                if (Physics.Raycast(d + Vector3.up * 0.05f, Vector3.down, out var under, 0.2f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)
+                    && !under.collider.name.StartsWith("Terrain_"))
+                {
+                    // 物の上のしずく：物の上の面が、土手から少し出るまで、物ごと持ち上げる
+                    up += 0.15f;
+                    if (!lifted.TryGetValue(under.collider, out float done))
+                    {
+                        var go = under.collider.gameObject;
+                        RePlace(go, go.transform.position + Vector3.up * up, go.transform.rotation);
+                        lifted[under.collider] = up;
+                        Count("lateGroundDewHolder", go.name, d);
+                    }
+                    else up = done;
+                }
+                DewdropPoints[i] = d + Vector3.up * up;
+                Count("lateGroundDew", i.ToString(), d);
+            }
+            Physics.SyncTransforms();
             for (int i = 0; i < _bigRocks.Count; i++) _bigRocks[i] = (_bigRocks[i].pos + Vector3.up * Rise(_bigRocks[i].pos), _bigRocks[i].scale);
             Physics.SyncTransforms();
         }
