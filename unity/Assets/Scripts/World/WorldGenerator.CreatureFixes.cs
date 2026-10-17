@@ -48,7 +48,7 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // しらべる道具
         // ------------------------------------------------------------------
-        public enum CreatureHome { Ground, OnObject, Bird, Flyer, Water, AntLine, Den, Pool }
+        public enum CreatureHome { Ground, OnObject, Bird, Flyer, Water, AntLine, Den, Pool, Hanging }
 
         public CreatureHome HomeOf(MobGroup g)
         {
@@ -59,6 +59,7 @@ namespace Shakutori
             if (sp.kind == MobKind.Skater) return CreatureHome.Water;
             if (sp.kind == MobKind.Marcher && g.path.Count > 1) return CreatureHome.AntLine;
             if (g.species == "okojo") return CreatureHome.Den;
+            if (g.species == "minomushi") return CreatureHome.Hanging;   // 枝から糸でぶらさがる：決めた所のまま
             if (sp.aquatic) return CreatureHome.Pool;   // 潮だまりの中（ヒトデ・ウニ）：決めた所のまま
             float above = g.center.y - Area.Height(g.center.x, g.center.z);
             if (above > 0.5f) return CreatureHome.OnObject;

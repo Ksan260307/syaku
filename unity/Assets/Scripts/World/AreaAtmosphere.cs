@@ -61,6 +61,14 @@ namespace Shakutori
                         sun = new Color(1f, 0.8f, 0.56f), sunIntensity = 1.38f,
                         sky = new Color(0.7f, 0.66f, 0.6f), equator = new Color(0.55f, 0.56f, 0.46f), ground = new Color(0.34f, 0.3f, 0.22f),
                     };
+                case "night":
+                    // 夜の森：青い月あかり。暗すぎない（足もとと、いきものが見える）。霧は、こい藍色
+                    return new Look
+                    {
+                        fog = new Color(0.1f, 0.14f, 0.24f), fogStart = 22f, fogEnd = 150f,
+                        sun = new Color(0.62f, 0.72f, 1f), sunIntensity = 0.95f,
+                        sky = new Color(0.26f, 0.32f, 0.52f), equator = new Color(0.2f, 0.25f, 0.36f), ground = new Color(0.12f, 0.13f, 0.17f),
+                    };
                 case "park":
                     return new Look
                     {
@@ -79,6 +87,10 @@ namespace Shakutori
         }
 
         static readonly int SkyOpenId = Shader.PropertyToID("_SkyOpen");
+        static readonly int NightId = Shader.PropertyToID("_Night");
+
+        /// <summary>夜のエリアか（空に月と星。水の照り返しも夜の色）。</summary>
+        public static bool IsNight(string areaId) => areaId == "night";
         static Texture s_cookie;
         static bool s_cookieSaved;
 
@@ -100,6 +112,8 @@ namespace Shakutori
             RenderSettings.ambientGroundColor = l.ground;
             // 山と海辺は、樹冠のない、ひらけた空（白い雲）
             Shader.SetGlobalFloat(SkyOpenId, area != null && (area.Id == "mountain" || area.Id == "coast") ? 1f : 0f);
+            // 夜の森は、月と星の夜空（木の葉は、空にうかぶ黒いかげ）
+            Shader.SetGlobalFloat(NightId, area != null && IsNight(area.Id) ? 1f : 0f);
             if (sun != null)
             {
                 sun.color = l.sun;
@@ -115,12 +129,14 @@ namespace Shakutori
         public static Color DiscoverTint(string areaId) =>
             areaId == "river" ? new Color(0.55f, 0.9f, 1f) : areaId == "park" ? new Color(1f, 0.86f, 0.42f)
             : areaId == "mountain" ? new Color(0.85f, 0.88f, 1f) : areaId == "hut" ? new Color(1f, 0.78f, 0.5f)
-            : areaId == "coast" ? new Color(0.5f, 0.95f, 0.95f) : areaId == "shrine" ? new Color(1f, 0.62f, 0.4f) : new Color(0.7f, 1f, 0.45f);
+            : areaId == "coast" ? new Color(0.5f, 0.95f, 0.95f) : areaId == "shrine" ? new Color(1f, 0.62f, 0.4f)
+            : areaId == "night" ? new Color(0.6f, 0.75f, 1f) : new Color(0.7f, 1f, 0.45f);
 
         /// <summary>しずくを取ったときのきらめきに、まぜる色。</summary>
         public static Color DropTint(string areaId) =>
             areaId == "river" ? new Color(0.6f, 0.92f, 1f) : areaId == "park" ? new Color(1f, 0.9f, 0.55f)
             : areaId == "mountain" ? new Color(0.88f, 0.9f, 1f) : areaId == "hut" ? new Color(1f, 0.82f, 0.58f)
-            : areaId == "coast" ? new Color(0.62f, 0.96f, 0.95f) : areaId == "shrine" ? new Color(1f, 0.72f, 0.5f) : new Color(0.72f, 1f, 0.55f);
+            : areaId == "coast" ? new Color(0.62f, 0.96f, 0.95f) : areaId == "shrine" ? new Color(1f, 0.72f, 0.5f)
+            : areaId == "night" ? new Color(0.7f, 0.85f, 1f) : new Color(0.72f, 1f, 0.55f);
     }
 }

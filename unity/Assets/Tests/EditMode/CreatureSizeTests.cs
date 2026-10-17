@@ -48,10 +48,11 @@ namespace Shakutori.Tests
                 Assert.Less(s.y, torii * 0.16f, $"{id} の高さは、大鳥居の 1/6 より低い");
             }
             // ちぢめても、大きい順はそのまま。小さな動物も、見えにくいほどは小さくしない
-            string[] order = { "kitsune", "tanuki", "crow", "hato", "nezumi" };
+            string[] order = { "inoshishi", "kitsune", "tanuki", "crow", "hato", "nezumi" };
             for (int k = 1; k < order.Length; k++)
                 Assert.Greater(Length(order[k - 1]), Length(order[k]), $"{order[k - 1]} は {order[k]} より大きい");
             Assert.Greater(Length("risu"), Length("sparrow"), "リスはスズメより大きい");
+            Assert.Greater(Length("inoshishi"), Length("uribou") * 1.4f, "イノシシは、ウリボウよりずっと大きい");
             foreach (var id in new[] { "sparrow", "nezumi", "tokage", "yamori", "nakiusagi" })
                 Assert.Greater(Length(id), 2.4f, $"{id} は小さくなりすぎない");
         }
@@ -59,7 +60,8 @@ namespace Shakutori.Tests
         [Test]
         public void Insects_KeepTheirSize()
         {
-            foreach (var id in new[] { "ant", "ladybug", "beetle", "herakuresu", "kuwagata", "grasshopper", "butterfly", "mantis", "dragonfly", "oniyanma", "suzumushi", "korogi", "kanabun", "frog" })
+            foreach (var id in new[] { "ant", "ladybug", "beetle", "herakuresu", "kuwagata", "grasshopper", "butterfly", "mantis", "dragonfly", "oniyanma", "suzumushi", "korogi", "kanabun", "frog",
+                                       "minomushi", "zatoumushi", "kirigirisu" })
                 Assert.GreaterOrEqual(SpeciesCatalog.Get(id).scale, 1f, $"{id} は、そのまま");
         }
 

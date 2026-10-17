@@ -229,6 +229,7 @@ namespace Shakutori
             else if (_area.Id == "hut") { }   // 小屋の中の演出は、BuildAreaExtras（HutFX）で
             else if (_area.Id == "coast") { }  // 海辺のきらめきは、UpdateArea で
             else if (_area.Id == "shrine") BuildShrine();
+            else if (_area.Id == "night") BuildNight();
             else BuildRiver();
             foreach (var g in world.Gates) GateMotes(g);
             BuildAreaExtras(world);   // エリアの改善：ただよう物
@@ -302,6 +303,18 @@ namespace Shakutori
                 new Color(1f, 0.82f, 0.28f), new Color(0.95f, 0.36f, 0.22f));
             // 夕ぐれの池のまわりの、ホタル
             Fireflies(_areaRoot, new Vector3(ShrineLayout.Pond.x, 0f, ShrineLayout.Pond.y), 12f, 26, new Color(0.9f, 1f, 0.5f));
+        }
+
+        void BuildNight()
+        {
+            // 月見の池・谷・光る倒木のまわりの、ホタル
+            Fireflies(_areaRoot, new Vector3(NightLayout.Pond.x, 0f, NightLayout.Pond.y), 13f, 40, new Color(0.85f, 1f, 0.5f));
+            Fireflies(_areaRoot, new Vector3(18f, 0f, NightLayout.GullyZ(18f)), 10f, 24, new Color(0.85f, 1f, 0.5f));
+            Fireflies(_areaRoot, new Vector3(NightLayout.GlowLog.x, 0f, NightLayout.GlowLog.y), 8f, 16, new Color(0.55f, 1f, 0.85f));
+            // ねぐらの木から、ときどき舞い落ちる、黄色とだいだいの葉
+            Vector2 t = NightLayout.RoostTree;
+            FallingLeaves(new Vector3(t.x, NightLayout.Height(t.x, t.y) + 28f, t.y), new Vector3(22f, 2f, 22f), 0.6f,
+                new Color(0.9f, 0.7f, 0.3f), new Color(0.85f, 0.45f, 0.2f));
         }
 
         void BuildPark()

@@ -71,7 +71,7 @@ namespace Shakutori.Tests
             int toasts = UI.ToastCount;
             UI.ShowMap(true);
             yield return Frames(2);
-            Assert.AreEqual(7, UI.AreaChipCount, "森・川辺・公園・山・山小屋・海岸・神社");
+            Assert.AreEqual(8, UI.AreaChipCount, "森・川辺・公園・山・山小屋・海岸・神社・夜の森");
             Assert.IsFalse(UI.RequestTravel("river"), "まだ行っていないエリアには地図から行けない");
             Assert.IsFalse(UI.RequestTravel("park"), "まだ行っていないエリアには地図から行けない");
             Assert.Greater(UI.ToastCount, toasts);
@@ -396,7 +396,7 @@ namespace Shakutori.Tests
             UI.ShowCollection(true, "zukan");
             yield return Frames(3);
             var chips = UI.Root.Query<Button>(className: "zukan-filter").ToList();
-            Assert.AreEqual(8, chips.Count, "すべて・森・（7 エリア）");
+            Assert.AreEqual(9, chips.Count, "すべて・森・（8 エリア）");
             Assert.AreEqual("森", chips[1].text);
             for (int i = 2; i < chips.Count; i++)
             {

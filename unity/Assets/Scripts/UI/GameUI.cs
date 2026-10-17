@@ -156,6 +156,13 @@ namespace Shakutori
                 "フクロウは、ご神木の高い枝の上。近づくと、鳥居やお社の屋根へ、音もなく飛んでいきます。",
                 "タヌキは、びっくりすると、ころんと死んだふり。しばらく待つと、起きあがります。",
             },
+            ["night"] = new[]
+            {
+                "枯れ沢の谷は、丸木橋でわたれます。谷底へおりて、むこうの土手を登ることもできます。",
+                "ミノムシの木の枝の下では、しずかに待つと、ミノムシがみのから顔を出します。",
+                "星見の岩のてっぺんからは、月と星がよく見えます。",
+                "イノシシは、とてもおくびょう。近づきすぎると、ウリボウといっしょに走っていってしまいます。",
+            },
         };
 
         /// <summary>読み込み画面の行き先のエリア（そのエリアのヒントを出す）。</summary>
@@ -1295,7 +1302,7 @@ namespace Shakutori
             var filters = new VisualElement();
             filters.AddToClassList("zukan-filters");
             if (!string.IsNullOrEmpty(_zukanFilter) && !AreaNames.Known(AreaNames.ByName(_zukanFilter))) _zukanFilter = "";
-            foreach (var (label, key) in new[] { ("すべて", ""), ("森", "森"), ("川辺", "川辺"), ("公園", "公園"), ("山", "山"), ("山小屋", "山小屋"), ("海岸", "海岸"), ("神社", "神社") })
+            foreach (var (label, key) in new[] { ("すべて", ""), ("森", "森"), ("川辺", "川辺"), ("公園", "公園"), ("山", "山"), ("山小屋", "山小屋"), ("海岸", "海岸"), ("神社", "神社"), ("夜の森", "夜の森") })
             {
                 // まだ行ったことがないエリアは、名前を出さず、えらべない
                 bool locked = key != "" && !AreaNames.Known(AreaNames.ByName(key));
@@ -2201,7 +2208,13 @@ namespace Shakutori
                 chip.EnableInClassList("area-chip--here", isHere);
                 chip.EnableInClassList("area-chip--shown", area == shown);
                 chip.EnableInClassList("area-chip--locked", !visited);
-                if (isHere) chip.text = area.DisplayName + "（ここ）";
+                if (isHere)
+                {
+                    // いまいるエリアは、緑の色と、名前の左の小さな丸い印で（「（ここ）」を名前に足すと、長い名前（山小屋など）がボタンからはみ出た）
+                    var dot = new VisualElement { pickingMode = PickingMode.Ignore };
+                    dot.AddToClassList("area-chip-here-dot");
+                    chip.Add(dot);
+                }
                 string id = area.Id;
                 chip.clicked += () =>
                 {

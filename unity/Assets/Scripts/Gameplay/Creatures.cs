@@ -217,6 +217,14 @@ namespace Shakutori
             public bool wasDead;
             public bool circling;                      // オオミズアオが、あかりのまわりを回っている
             public int lampIdx = -1;                   // オオミズアオが集まる灯籠
+            // ---- 夜の森 ----
+            public Vector3 anchor;                     // ミノムシの糸が付く、枝の所
+            public float threadLen;                    // ミノムシの糸の長さ
+            public Vector2 swingH, swingV;             // ミノムシのゆれ（糸の向きの横へのずれ。糸の長さを 1 として）と、その速さ
+            public bool peekOut;                       // ミノムシが、顔を出したい
+            public float peekUntil;                    // ミノムシが、顔を出してみせる（なかよしのしぐさ）
+            public Mob leader;                         // ウリボウがついていく、おかあさん
+            public int followSlot;                     // ウリボウが、おかあさんのうしろの何番目を歩くか
         }
 
         public struct MobInfo
@@ -642,6 +650,7 @@ namespace Shakutori
                     }
                     if (sp.kind == MobKind.Skater) m.pos.y = g.center.y;
                     else if (sp.id == "manta") StartManta(m);
+                    else if (sp.id == "minomushi") StartBagworm(m);   // 枝から糸でぶらさがる（地面にはおかない）
                     else if (sp.kind != MobKind.Flutter && sp.kind != MobKind.Hover) SnapToSurface(m, 2.5f, 6f);
                     if (sp.id == "mukade") StartTrail(m);
                     m.prevPos = m.pos;
@@ -933,7 +942,7 @@ namespace Shakutori
                 }
                 if (!m.airborne && m.skidVel.sqrMagnitude > 1e-8f) UpdateSkid(m, sdt);
                 // 歩きまわる小さないきものは、しゃくとりむしの体にぶつかると、体が入ってきた分だけ押される
-                if (!m.airborne && !m.sp.rideable && m.curled <= 0f && m.group.path.Count <= 1
+                if (!m.airborne && !m.sp.rideable && m.curled <= 0f && m.group.path.Count <= 1 && m.sp.id != "minomushi"
                     && (m.sp.kind == MobKind.Crawler || m.sp.kind == MobKind.Marcher || m.sp.kind == MobKind.Pouncer))
                 {
                     Vector3 o = WormOverlap(m, m.pos);
@@ -977,6 +986,11 @@ namespace Shakutori
                 {
                     float vol = Mathf.Clamp01(1f - Mathf.Sqrt(d2) / 25f);
                     if (m.sp.id == "tsubame" && R(0f, 1f) < sdt * 0.05f) AudioManager.Instance?.Swallow(0.4f * vol);   // ツバメは、飛びながらもさえずる
+                    else if (m.sp.id == "shimaenaga" && R(0f, 1f) < sdt * 0.07f)
+                    {
+                        AreaSounds.Instance?.PlayAt("shimaenaga", m.pos, 0.3f + 0.5f * vol);   // 「ジュリリ」
+                        m.callUntil = m.anim + 0.9f;
+                    }
                     else if (m.bid == "sparrow" && !m.airborne && R(0f, 1f) < sdt * 0.06f) AudioManager.Instance?.Chirp(0.35f * vol);
                     else if (m.sp.id == "nezumi" && R(0f, 1f) < sdt * (m.speedMul > 1.3f ? 0.6f : 0.03f)) AudioManager.Instance?.Squeak(0.35f * vol);   // おどろくと「チュッ」
                     else if (m.bid == "frog" && !m.airborne && R(0f, 1f) < sdt * 0.04f)
@@ -1534,6 +1548,7 @@ namespace Shakutori
                 case "frog": return dw2 < 4f * 4f ? ActSpecial : r < 0.4f ? ActStretch : r < 0.7f ? ActGroom : 0;   // カエル：前足で目をぬぐう
                 case "sparrow":
                     if (m.sp.id == "tsubame") return r < 0.35f ? ActGroom : r < 0.6f ? ActStretch : ActLook;   // ツバメ：羽づくろい・羽をのばす（砂あびはしない）
+                    if (m.sp.id == "shimaenaga") return r < 0.35f ? ActGroom : r < 0.55f ? ActShake : ActLook;  // シマエナガ：羽づくろい・ぶるっ・きょろきょろ
                     return r < 0.2f ? ActSpecial : r < 0.35f ? ActShake : r < 0.55f ? ActStretch : r < 0.75f ? ActGroom : ActLook;
                 case "crow":
                     if (m.sp.id == "flamingo") return r < 0.3f ? ActShake : r < 0.6f ? ActGroom : r < 0.8f ? ActStretch : ActLook;
@@ -1567,6 +1582,10 @@ namespace Shakutori
                 case "tanuki": return r < 0.4f ? ActGroom : r < 0.75f ? ActLook : 0;                          // タヌキ：毛づくろい・地面のにおいをかぐ
                 case "fukurou": return r < 0.45f ? ActLook : r < 0.75f ? ActGroom : 0;                        // フクロウ：首をぐるりとまわす・羽づくろい
                 case "kanabun": return r < 0.45f ? ActSpecial : r < 0.75f ? ActGroom : 0;                     // カナブン：後ろばねを出して、ブーン
+                case "zatoumushi": return r < 0.35f ? ActSpecial : r < 0.7f ? ActGroom : 0;                   // ザトウムシ：体を上下にゆらす・脚のそうじ
+                case "kirigirisu": return r < 0.5f ? ActGroom : 0;                                            // キリギリス：長い触角の手入れ
+                case "inoshishi": return r < 0.5f ? ActSpecial : r < 0.75f ? ActLook : 0;                     // イノシシ：鼻で土をほりかえす・においをかぐ
+                case "uribou": return r < 0.45f ? ActSpecial : r < 0.6f ? ActLook : 0;                        // ウリボウ：鼻で土をつつく
                 default: return 0;
             }
         }
@@ -1578,7 +1597,7 @@ namespace Shakutori
             {
                 case ActGroom: return m.sp.kind == MobKind.Bird ? 1.4f : 1.2f;
                 case ActStretch: return m.bid == "snail" || m.bid == "riversnail" ? 2.2f : 1.2f;
-                case ActLook: return m.bid == "fukurou" ? 3f : m.bid == "kitsune" || m.bid == "tanuki" ? 1.8f : 0.9f;
+                case ActLook: return m.bid == "fukurou" ? 3f : m.bid == "kitsune" || m.bid == "tanuki" || m.bid == "inoshishi" ? 1.8f : 0.9f;
                 case ActShake: return 1.6f;
                 case ActSpecial:
                     switch (m.bid)
@@ -1593,6 +1612,9 @@ namespace Shakutori
                         case "uni": return 2.2f;
                         case "kitsune": return 1.7f;
                         case "kanabun": return 2.2f;
+                        case "zatoumushi": return 1.6f;
+                        case "inoshishi": return 3.2f;
+                        case "uribou": return 1.8f;
                         default: return 1.2f;
                     }
                 default: return 1f;
@@ -1659,6 +1681,7 @@ namespace Shakutori
                 case "yadokari": return 90f;
                 case "hitode": return 12f;
                 case "uni": return 10f;
+                case "inoshishi": case "uribou": return 260f;   // くるりと向きを変えて、逃げる
                 default: return 120f;
             }
         }
@@ -1675,6 +1698,7 @@ namespace Shakutori
                 case "sanshouuo": return 0.6f;
                 case "yadokari": return 1.2f;
                 case "hitode": case "uni": return 0.1f;
+                case "inoshishi": case "uribou": return 6f;   // イノシシは、すぐにもうれつないきおいで走りだす
                 default: return 1.5f;
             }
         }
@@ -1686,6 +1710,7 @@ namespace Shakutori
         {
             string id = m.bid;
             if (UpdateShrineCrawler(m, dt, near, index)) return;   // キツネ・タヌキ
+            if (UpdateNightCrawler(m, dt, near, index)) return;    // ミノムシ（ザトウムシ・イノシシ・ウリボウは、向きと速さだけ決める）
             if ((id == "mogura" || id == "okera") && UpdateDigger(m, dt)) return;
             if (id == "nanafushi" && (_head - m.pos).sqrMagnitude < 2.2f * 2.2f)
             {
@@ -2718,6 +2743,12 @@ namespace Shakutori
             if (frog && toWorm.sqrMagnitude < 4f * 4f && toWorm.sqrMagnitude > 0.04f) Steer(m, toWorm, dt, 90f);
             // バッタは 2.2 まで、カエルは 1.2 まで近づくと逃げる（カエルは水の方へ）
             bool scared = toWorm.sqrMagnitude < (frog ? 1.2f * 1.2f : 2.2f * 2.2f);
+            // 鳴いているあいだは、歩いたり跳んだりしない（前ばねを立てたまま）
+            if (IsCricket(m) && m.anim < m.callUntil && !scared)
+            {
+                m.curSpeed = 0f;
+                return;
+            }
             // バッタ：跳ぶ合間に、少し歩く（おどろいたら歩くのをやめて跳ぶ）
             if (!frog && m.anim < m.walkUntil && !scared)
             {
@@ -2970,6 +3001,11 @@ namespace Shakutori
                 UpdateOwl(m, dt);
                 return;
             }
+            if (m.sp.id == "shimaenaga")
+            {
+                UpdateTit(m, dt);   // シマエナガは、枝にとまったまま（地面を跳ねまわらない）
+                return;
+            }
             bool crow = m.bid == "crow";
             m.turnHop = Mathf.MoveTowards(m.turnHop, 0f, dt * 5f);
             if (m.airborne)
@@ -3001,7 +3037,7 @@ namespace Shakutori
             if (m.anim > m.puffNext)
             {
                 m.puffNext = m.anim + R(6f, 12f);
-                m.puffUntil = m.anim + 0.4f;
+                m.puffUntil = m.anim + (m.sp.id == "shimaenaga" ? 2.6f : 0.4f);   // シマエナガは、しばらく、まんまるのまま
             }
             // スズメは、ときどき羽をぴっと動かす（羽づくろい）
             if (!crow && m.anim > m.flickNext)
@@ -3168,7 +3204,7 @@ namespace Shakutori
                 {
                     int next = (m.landIndex + 1 + _rng.Next(spots.Count - 1)) % spots.Count;
                     m.landIndex = next;
-                    dest = spots[next] + new Vector3(R(-1.5f, 1.5f), 0f, R(-1.5f, 1.5f)) * (crow ? 2f : m.sp.id == "tsubame" ? 0.3f : 1f);
+                    dest = spots[next] + new Vector3(R(-1.5f, 1.5f), 0f, R(-1.5f, 1.5f)) * (crow ? 2f : m.sp.id == "tsubame" || m.sp.id == "shimaenaga" ? 0.3f : 1f);
                 }
                 else
                 {
@@ -3959,6 +3995,7 @@ namespace Shakutori
             else if (m.bid == "okera") bob -= m.up * (0.45f * m.dig * s);   // 土にもぐる
             else if (m.sp.id == "shiomaneki") bob -= m.up * (0.75f * m.dig * s);   // 巣穴にもぐる
             ShrinePose(m, f, right, s, ref rot, ref scale3, ref bob);
+            NightPose(m, f, right, s, ref rot, ref scale3, ref bob);
             MotionPose(m, f, right, s, moving, walker, ref rot, ref scale3, ref bob);
             Vector3 drawAt = m.drawPos + bob;
             ball = m.bid == "pillbug" && m.curled > 0.35f && m.curlK > 0.5f;   // 体をちぢめてから、くるんと玉になる
@@ -4888,6 +4925,7 @@ namespace Shakutori
                     }
                     if (DrawCoastPart(m, part, pm, body, moving)) continue;
                     if (DrawShrinePart(m, part, pm, body)) continue;
+                    if (DrawNightPart(m, part, pm, body)) continue;
                     if (part.onlyCarrying)
                     {
                         // 運んでいる食べものは、歩くたびに少しゆれる

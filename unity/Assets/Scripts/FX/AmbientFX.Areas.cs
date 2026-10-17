@@ -230,6 +230,7 @@ namespace Shakutori
             else if (_area.Id == "hut") HutFX(world);
             else if (_area.Id == "coast") { }
             else if (_area.Id == "shrine") ShrineFX(world);
+            else if (_area.Id == "night") NightFX(world);
             else ParkFX(world);
         }
 
@@ -465,6 +466,14 @@ namespace Shakutori
             for (int i = 0; i < world.LanternLights.Count; i++)
                 Motes("LanternHalo" + i, world.LanternLights[i], new Vector3(0.2f, 0.2f, 0.2f), 3, 0.6f, new Color(1f, 0.78f, 0.45f, 0.24f),
                     new Vector2(3.2f, 4f), new Vector2(4f, 5f), Vector2.zero, 0f, 0f, 0f);
+        }
+
+        void NightFX(WorldGenerator world)
+        {
+            // 倒木のツキヨタケの、ぼうっとした青白い光
+            for (int i = 0; i < world.GlowCaps.Count && i < 8; i += 2)
+                Motes("GlowHalo" + i, world.GlowCaps[i], new Vector3(0.2f, 0.2f, 0.2f), 3, 0.6f, new Color(0.45f, 1f, 0.8f, 0.2f),
+                    new Vector2(2.4f, 3.2f), new Vector2(4f, 5f), Vector2.zero, 0f, 0f, 0f);
         }
 
         void ParkFX(WorldGenerator world)

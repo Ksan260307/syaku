@@ -1093,6 +1093,39 @@
     border-color: rgb(120, 170, 80);
 }
 
+/* いまいるエリア：名前の左に、小さな丸い印（字はふやさないので、長い名前もはみ出さない） */
+.area-chip--here {
+    padding-left: 16px;
+}
+
+.area-chip-here-dot {
+    position: absolute;
+    left: 9px;
+    top: 14px;
+    width: 10px;
+    height: 10px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: rgb(250, 248, 236);
+    background-color: rgb(78, 136, 40);
+}
+
+.short .area-chip-here-dot {
+    top: 12px;
+}
+
+.portrait .area-chip--here {
+    padding-left: 9px;
+}
+
+.portrait .area-chip-here-dot {
+    left: 4px;
+    top: 11px;
+    width: 7px;
+    height: 7px;
+    border-radius: 4px;
+}
+
 .area-chip--locked {
     color: rgb(170, 155, 135);
 }
@@ -2465,7 +2498,7 @@
     margin-top: 2px;
 }
 
-/* スマホ縦：7 つのエリアを、4 つずつ 2 列に（3 列になると「とじる」に重なる） */
+/* スマホ縦：8 つのエリアを、4 つずつ 2 列に（3 列になると「とじる」に重なる） */
 .portrait .area-chip {
     min-width: 0;
     flex-basis: 22%;

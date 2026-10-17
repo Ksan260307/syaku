@@ -18,6 +18,8 @@ namespace Shakutori
         /// <summary>公園へもどる木の根のトンネル（南のはし）</summary>
         public static readonly Vector2 Gate = new Vector2(0f, -58.5f);
         public static readonly Vector2 Spawn = new Vector2(0f, -51f);
+        /// <summary>夜の森へのトンネル（北東のはし、奥の宮のうら。あとから足した）</summary>
+        public static readonly Vector2 NightGate = new Vector2(40f, 42.6f);
 
         public static readonly Vector2 Entrance = new Vector2(0f, -47f);
         public static readonly Vector2 GreatTorii = new Vector2(0f, -38f);

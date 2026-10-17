@@ -129,6 +129,7 @@ namespace Shakutori
             bool hut = area.Id == "hut";
             bool coast = area.Id == "coast";
             bool shrine = area.Id == "shrine";
+            bool night = area.Id == "night";
             _rng = new Random(forest ? seed : seed + 7919 * area.Id.Length);
             AreaLayout.LateGround = false;   // しずくを置くまでは、もとの地面の形で作る
             SurfaceProbe.ClearCache();
@@ -149,7 +150,7 @@ namespace Shakutori
             progress?.Invoke(0.25f);
             yield return null;
             if (!hut) BuildOuterRing();   // 小屋の中は、かべの外が見えない
-            if (forest) BuildForestSolids(); else if (park) BuildParkSolids(); else if (mountain) BuildMountainSolids(); else if (hut) BuildHutSolids(); else if (coast) BuildCoastSolids(); else if (shrine) BuildShrineSolids(); else BuildRiverSolids();
+            if (forest) BuildForestSolids(); else if (park) BuildParkSolids(); else if (mountain) BuildMountainSolids(); else if (hut) BuildHutSolids(); else if (coast) BuildCoastSolids(); else if (shrine) BuildShrineSolids(); else if (night) BuildNightSolids(); else BuildRiverSolids();
             BuildGates();
             LoadClock.Lap("solids");
             progress?.Invoke(0.4f);
@@ -181,6 +182,11 @@ namespace Shakutori
                 ScatterShrineProps();
                 BuildShrineWater();
             }
+            else if (night)
+            {
+                ScatterNightProps();
+                BuildNightWater();
+            }
             else
             {
                 ScatterRiverProps();
@@ -190,7 +196,7 @@ namespace Shakutori
             LoadClock.Lap("props");
             progress?.Invoke(0.6f);
             yield return null;
-            if (forest) BuildForestFoliage(); else if (park) BuildParkFoliage(); else if (mountain) BuildMountainFoliage(); else if (coast) BuildCoastFoliage(); else if (shrine) BuildShrineFoliage(); else if (!hut) BuildRiverFoliage();
+            if (forest) BuildForestFoliage(); else if (park) BuildParkFoliage(); else if (mountain) BuildMountainFoliage(); else if (coast) BuildCoastFoliage(); else if (shrine) BuildShrineFoliage(); else if (night) BuildNightFoliage(); else if (!hut) BuildRiverFoliage();
             LoadClock.Lap("foliage");
             progress?.Invoke(0.8f);
             yield return null;
@@ -200,6 +206,7 @@ namespace Shakutori
             else if (hut) PlaceHutDewdrops();
             else if (coast) PlaceCoastDewdrops();
             else if (shrine) PlaceShrineDewdrops();
+            else if (night) PlaceNightDewdrops();
             else PlaceRiverDewdrops();
             // しずくを置いたあとに、泉や水たまりの土手を盛る（しずくの場所は変えない）
             LoadClock.Lap("dews");
@@ -239,6 +246,11 @@ namespace Shakutori
                 PlaceShrineCreatures();
                 FixCreaturesForPlay();
                 BuildLightShafts(ShrineShaftSpots);   // 鎮守の森の、木もれ日の光の筋
+            }
+            else if (night)
+            {
+                PlaceNightCreatures();      // 夜なので、木もれ日の光の筋はない
+                FixCreaturesForPlay();
             }
             else
             {
@@ -317,6 +329,7 @@ namespace Shakutori
             ClearHut();
             ClearCoast();
             ClearShrine();
+            ClearNight();
             _specialCap = Vector3.zero;
             DewdropPoints.Clear();
             FlowerPoints.Clear();
@@ -782,7 +795,8 @@ namespace Shakutori
                     : g.targetArea == "park" ? new Color(1.4f, 1.15f, 0.55f, 0.55f)
                     : g.targetArea == "mountain" ? new Color(1.2f, 1.15f, 1.5f, 0.55f)
                     : g.targetArea == "coast" ? new Color(0.6f, 1.2f, 1.45f, 0.55f)
-                    : g.targetArea == "shrine" ? new Color(1.45f, 0.75f, 0.5f, 0.55f) : new Color(0.75f, 1.3f, 0.6f, 0.55f));
+                    : g.targetArea == "shrine" ? new Color(1.45f, 0.75f, 0.5f, 0.55f)
+                    : g.targetArea == "night" ? new Color(0.55f, 0.7f, 1.45f, 0.55f) : new Color(0.75f, 1.3f, 0.6f, 0.55f));
                 mr.SetPropertyBlock(mpb);
                 Gates.Add(new GateInstance { def = g, position = ground, inward = inward });
             }
@@ -1335,6 +1349,7 @@ namespace Shakutori
             else if (area.Id == "hut") DrawHutMap(px, size);
             else if (area.Id == "coast") DrawCoastMap(px, size, generated);
             else if (area.Id == "shrine") DrawShrineMap(px, size);
+            else if (area.Id == "night") DrawNightMap(px, size);
             else DrawRiverMap(px, size, generated);
             tex.SetPixels32(px);
             tex.Apply(false, false);   // 読めるままにしておく（地図の絵を確かめられるように。256×256 なので小さい）

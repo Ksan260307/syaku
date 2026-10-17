@@ -124,6 +124,16 @@ MAKERS = {
     "Ga_Wing": cr.make_ga_wing,
     "Kanabun": cr.make_kanabun,
     "Kanabun_Wing": cr.make_kanabun_wing,
+    "Minomushi": cr.make_minomushi,
+    "Minomushi_Larva": cr.make_minomushi_larva,
+    "Minomushi_Thread": cr.make_minomushi_thread,
+    "Zatoumushi": cr.make_zatoumushi,
+    "Kirigirisu": cr.make_kirigirisu,
+    "Kirigirisu_Wing": cr.make_kirigirisu_wing,
+    "Inoshishi": cr.make_inoshishi,
+    "Uribou": cr.make_uribou,
+    "Shimaenaga_Body": lambda: cr.make_bird_body("Shimaenaga_Body", 4.8, "enaga"),
+    "Shimaenaga_Wing": lambda: cr.make_bird_wing("Shimaenaga_Wing", 4.8, "enaga"),
 }
 
 
@@ -142,10 +152,12 @@ class CreatureKitTests(unittest.TestCase):
             self.assertEqual(len(col.data), len(ob.data.loops), name)
 
     def test_portrait_list_covers_all_species(self):
-        # ふつうの 57 種と、レアの 7 種
+        # 図鑑の絵：いきもの 70 種と、きせかえの 2 枚（ヘルメットのアリ・スニーカーのクモ）
         ids = [c[0] for c in cr.CREATURES]
-        self.assertEqual(len(ids), 66)
-        self.assertEqual(len(set(ids)), 66)
+        self.assertEqual(len(ids), 72)
+        self.assertEqual(len(set(ids)), 72)
+        for need in ("minomushi", "zatoumushi", "kirigirisu", "inoshishi", "uribou", "shimaenaga"):
+            self.assertIn(need, ids)
         for need in ("kitsune", "fukurou", "tanuki", "ga", "kanabun"):
             self.assertIn(need, ids)
         for need in ("yadokari", "shiomaneki", "kamome", "hitode", "uni", "funamushi", "manta"):
@@ -190,7 +202,7 @@ class CreatureKitTests(unittest.TestCase):
 
     def test_wings_are_thin(self):
         for name in ("Butterfly_Wing", "Dragonfly_Wing", "Sparrow_Wing", "Crow_Wing", "Asagimadara_Wing", "Oniyanma_Wing", "Maruhanabachi_Wing",
-                     "Hae_Wing", "Tsubame_Wing"):
+                     "Hae_Wing", "Tsubame_Wing", "Shimaenaga_Wing"):
             ob = MAKERS[name]()
             s = sorted(size(ob))
             self.assertLess(s[0], s[2] * 0.35, f"{name} が厚すぎる")
@@ -288,6 +300,54 @@ class CreatureKitTests(unittest.TestCase):
         zs = [v.co.z for v in head.data.vertices]
         self.assertLess(min(zs), 1.0, "首のところから")
 
+    def test_night_creatures_have_real_sizes(self):
+        # 1 単位 = 2.5cm：ミノムシのみのは 4cm、ザトウムシは脚を広げて 12cm、キリギリスは 3.5cm（触角はもっと長い）、
+        # イノシシは 1.2m ほど、ウリボウは 45cm、シマエナガは尾まで 14cm（体は 6cm ほど）
+        self.assertTrue(1.2 < size(cr.make_minomushi())[2] < 2.0)
+        zato = size(cr.make_zatoumushi())
+        self.assertTrue(4.0 < zato[0] < 6.5 and zato[2] > 1.0, ("脚を高く上げて、広げる", zato))
+        kiri = max(v.co.y for v in cr.make_kirigirisu().data.vertices) - min(v.co.y for v in cr.make_kirigirisu().data.vertices)
+        self.assertGreater(kiri, 2.5, "体よりずっと長い触角")
+        boar = size(cr.make_inoshishi())
+        self.assertTrue(44.0 < boar[1] < 62.0, boar)
+        uri = size(cr.make_uribou())
+        self.assertTrue(14.0 < uri[1] < 22.0 and uri[2] < boar[2] * 0.45, uri)
+        ena = size(cr.make_bird_body("Shimaenaga_Body", 4.8, "enaga"))
+        self.assertTrue(4.4 < ena[1] < 6.4, ("長い尾まで", ena))
+        self.assertLess(ena[2], size(cr.make_bird_body("Sparrow_Body", 5.5, False))[2], "スズメより小さい")
+
+    def test_night_walkers_have_rigs_and_joined_parts(self):
+        reset()
+        cr.split_legs(cr.make_zatoumushi, "Zatoumushi")
+        self.assertEqual(len(cr.RIG["Zatoumushi"]), 4, "ザトウムシの右の脚 4 本")
+        for base, knee, tip in [(b, None, t) for n, b, t in cr.RIG["Zatoumushi"]]:
+            self.assertLess(tip.z, base.z, "足先は地面")
+        for name in ("Inoshishi", "Uribou"):
+            reset()
+            parts = {o.name: o for o in cr.split_legs(MAKERS[name], name)}
+            self.assertEqual(len(cr.LIMBS[name]), 2, f"{name} の右の手足")
+            # 手足は体の中から生える（太ももの上の端は、おなかの下の面より上）
+            from mathutils import Vector
+            from mathutils.bvhtree import BVHTree
+            tree = BVHTree.FromObject(parts[name], bpy.context.evaluated_depsgraph_get())
+            for up, lo, ft, hip, knee, ankle in cr.LIMBS[name]:
+                top = hip.z + max(v.co.z for v in parts[up].data.vertices)
+                hit = tree.ray_cast(Vector((hip.x * 0.6, hip.y, -50.0)), Vector((0, 0, 1)), 200.0)
+                self.assertIsNotNone(hit[0], f"{up} の上に体がない")
+                self.assertGreater(top, hit[0].z + 0.5, f"{up} の付け根が、体の中に入っていない")
+        # ミノムシ：みのは原点（糸の付く所）から下へ。幼虫は、みのの口から前へ出る
+        mino = cr.make_minomushi()
+        self.assertLess(max(v.co.z for v in mino.data.vertices), 0.05)
+        larva = cr.make_minomushi_larva()
+        self.assertGreater(max(v.co.y for v in larva.data.vertices) + cr.MINO_MOUTH.y, cr.mino_radius(cr.MINO_MOUTH.z) + 0.1,
+                           "頭は、みのの外へ出る")
+        for name, r, tol in (("Minomushi", 0.02, 0.005), ("Minomushi_Larva", 0.015, 0.005), ("Zatoumushi", 0.012, 0.005),
+                             ("Inoshishi", 0.3, 0.05), ("Uribou", 0.12, 0.02)):
+            reset()
+            ob = MAKERS[name]()
+            self.assertEqual(open_ends(ob, r), [], f"{name} に、口があいたまま見える筒")
+            self.assertEqual(floating_parts(ob, tol), [], f"{name} に、浮いた部品")
+
     def test_coast_walkers_have_leg_rigs(self):
         for name, n in (("Yadokari", 2), ("Shiomaneki", 4), ("Funamushi", 7)):
             reset()
@@ -352,7 +412,8 @@ class CreatureKitTests(unittest.TestCase):
         # スズムシ・エンマコオロギ：脚は 3 対（Unity で歩く）。前ばねは別のメッシュで、付け根が原点。
         # うしろへのび、外のへりは体のわきへ下がる（ふだんはせなかに重ね、鳴くときは付け根でまわして立てる）
         for name, mk, wmk, root in (("Suzumushi", cr.make_suzumushi, cr.make_suzumushi_wing, cr.SUZUMUSHI_WING_ROOT),
-                                    ("Korogi", cr.make_korogi, cr.make_korogi_wing, cr.KOROGI_WING_ROOT)):
+                                    ("Korogi", cr.make_korogi, cr.make_korogi_wing, cr.KOROGI_WING_ROOT),
+                                    ("Kirigirisu", cr.make_kirigirisu, cr.make_kirigirisu_wing, cr.KIRIGIRISU_WING_ROOT)):
             reset()
             parts = {o.name: o for o in cr.split_legs(mk, name)}
             self.assertEqual(len(cr.RIG[name]), 3, f"{name} の右の脚")

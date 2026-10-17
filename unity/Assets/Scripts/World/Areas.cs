@@ -363,6 +363,9 @@ namespace Shakutori
             // 神社に出ると、参道の先に大鳥居と、石段の上のお社が見える
             new GateDef { position = ShrineLayout.Gate, targetArea = "park", label = "公園へ",
                 arrival = new ArrivalView(ShrineLayout.Spawn, new Vector3(ShrineLayout.Hall.x, ShrineLayout.PlatformY, ShrineLayout.Hall.y), 4f, 4.6f, clear: 40f) },
+            // 夜の森へ（奥の宮のうら。あとから足した。しずくの場所は変えない）。夜の森からもどると、千本鳥居の方を見下ろす
+            new GateDef { position = ShrineLayout.NightGate, targetArea = "night", label = "夜の森へ", late = true,
+                arrival = new ArrivalView(ShrineLayout.NightGate - ShrineLayout.NightGate.normalized * 7f, new Vector3(30f, 3f, 12f), 4f, 4.6f) },
         };
 
         public override string Id => "shrine";
@@ -389,6 +392,39 @@ namespace Shakutori
         public override bool InPlayArea(Vector3 p) => ShrineLayout.InPlayArea(p);
     }
 
+    public class NightArea : AreaLayout
+    {
+        readonly List<GateDef> _gates = new List<GateDef>
+        {
+            // 夜の森に出ると、月あかりの林の奥に、谷の方が見える
+            new GateDef { position = NightLayout.Gate, targetArea = "shrine", label = "神社へ",
+                arrival = new ArrivalView(NightLayout.Spawn, new Vector3(0f, 2f, -10f), 4f, 4.6f, clear: 40f) },
+        };
+
+        public override string Id => "night";
+        public override string DisplayName => "夜の森";
+        public override string Subtitle => "月あかりの森";
+        public override string Tagline => "虫の声と、月あかり。ひんやりとした、秋の夜の雑木林";
+        public override string DropName => "夜露のしずく";
+        public override float PlayRadius => NightLayout.PlayRadius;
+        public override float TerrainHalf => NightLayout.TerrainHalf;
+        public override float MaxClimbHeight => NightLayout.MaxClimbHeight;
+        public override int DropIdOffset => 7000;
+        public override int DropCount => 30;
+        public override Vector2 Spawn => NightLayout.Spawn;
+        public override Vector3 SpawnForward => Vector3.forward;
+        public override List<LandmarkDef> Landmarks => NightLayout.Landmarks;
+        public override List<GateDef> Gates => _gates;
+        public override float Height(float x, float z) => NightLayout.Height(x, z);
+        public override Vector3 Normal(float x, float z) => NightLayout.Normal(x, z);
+        public override Color GroundColor(float x, float z, float h, Vector3 n) => NightLayout.GroundColor(x, z, h, n);
+        public override float TrailMask(float x, float z) => NightLayout.TrailMask(x, z);
+        public override List<Vector2[]> TrailLines => NightLayout.Trails;
+        public override float WaterLevelAt(float x, float z) => NightLayout.WaterLevelAt(x, z);
+        public override bool IsUnderwater(Vector3 p) => NightLayout.IsUnderwater(p);
+        public override bool InPlayArea(Vector3 p) => NightLayout.InPlayArea(p);
+    }
+
     /// <summary>エリアの一覧と、いまいるエリア。</summary>
     public static class Areas
     {
@@ -399,7 +435,8 @@ namespace Shakutori
         public static readonly HutArea Hut = new HutArea();
         public static readonly CoastArea Coast = new CoastArea();
         public static readonly ShrineArea Shrine = new ShrineArea();
-        public static readonly AreaLayout[] All = { Forest, River, Park, Mountain, Hut, Coast, Shrine };
+        public static readonly NightArea Night = new NightArea();
+        public static readonly AreaLayout[] All = { Forest, River, Park, Mountain, Hut, Coast, Shrine, Night };
 
         public static AreaLayout Current { get; set; } = Forest;
 

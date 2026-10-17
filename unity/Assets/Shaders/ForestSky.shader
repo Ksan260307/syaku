@@ -43,6 +43,8 @@ Shader "Shakutori/ForestSky"
             CBUFFER_END
             // 0 = 樹冠の葉の隙間から見る空（森・川辺・公園）、1 = ひらけた空と雲（山）。エリアごとに AreaAtmosphere が全体へ設定する
             float _SkyOpen;
+            // 1 = 夜（夜の森）：こい藍色の空に、星と、大きな月。木の葉は、空にうかぶ黒いかげ
+            float _Night;
 
             struct Attributes { float4 positionOS : POSITION; };
             struct Varyings { float4 positionCS : SV_POSITION; float3 dir : TEXCOORD0; };
@@ -107,7 +109,28 @@ Shader "Shakutori/ForestSky"
 
                 float3 L = _MainLightPosition.xyz;
                 float sd = dot(d, L);
-                sky += _SunColor.rgb * (pow(saturate(sd), 48.0) * 0.6 + smoothstep(1.0 - _SunSize, 1.0 - _SunSize * 0.5, sd) * 2.5);
+                sky += _SunColor.rgb * (pow(saturate(sd), 48.0) * 0.6 + smoothstep(1.0 - _SunSize, 1.0 - _SunSize * 0.5, sd) * 2.5) * (1.0 - _Night);
+                float moon = 0.0;
+                if (_Night > 0.001)
+                {
+                    // 夜空：地平線は少し明るい藍色、天頂はこい紺。月のまわりは、ぼんやり明るい
+                    half3 night = lerp(half3(0.1, 0.13, 0.24), half3(0.025, 0.04, 0.1), pow(saturate(h), 0.5));
+                    night += half3(0.22, 0.28, 0.42) * pow(saturate(sd), 12.0) * 0.55;
+                    // 星：方向の格子ごとに 1 つ。またたく
+                    float2 sp = d.xz / (abs(h) + 0.35) * 70.0;
+                    float2 cell = floor(sp);
+                    float2 rnd = hash2(cell);
+                    float2 off = frac(sp) - (0.2 + 0.6 * rnd);
+                    float star = step(0.93, rnd.x) * smoothstep(0.12, 0.0, length(off));
+                    star *= 0.6 + 0.4 * sin(_Time.y * (1.5 + rnd.y * 3.0) + rnd.x * 40.0);
+                    night += half3(0.9, 0.92, 1.0) * star * smoothstep(0.02, 0.25, h);
+                    // 大きな月：うすい黄色で、すこしかげりのもよう
+                    moon = smoothstep(0.9968, 0.9976, sd);
+                    float2 mp = (d.xz - L.xz) * 60.0;
+                    half3 moonCol = lerp(half3(1.0, 0.97, 0.82), half3(0.82, 0.8, 0.7), smoothstep(0.45, 0.75, vnoise(mp * 1.3 + 3.0)));
+                    night = lerp(night, moonCol * 1.6, moon);
+                    sky = lerp(sky, night, _Night);
+                }
 
                 // 樹冠
                 float3 col = sky;
@@ -124,10 +147,13 @@ Shader "Shakutori/ForestSky"
                     float m = smoothstep(1.0 - cov - 0.03, 1.0 - cov + 0.03, density);
                     m *= smoothstep(_CanopyStart - 0.05, _CanopyStart + 0.15, h);
                     m *= 1.0 - _SkyOpen;
+                    m *= 1.0 - 0.45 * _Night;                                        // 夜は、葉のすきまを広く（星が見える）
+                    m *= 1.0 - _Night * smoothstep(0.985, 0.993, sd);                // 月には、葉がかからない
                     float rim = smoothstep(1.0 - cov - 0.03, 1.0 - cov + 0.12, density);
                     half3 leafCol = lerp(_CanopyLightColor.rgb, _CanopyColor.rgb, saturate(rim * 1.2 - 0.1));
                     leafCol += _CanopyLightColor.rgb * pow(saturate(sd), 6.0) * 0.6 * (1.0 - rim);
                     leafCol *= 0.85 + small * 0.3;
+                    leafCol = lerp(leafCol, half3(0.03, 0.05, 0.07) + half3(0.1, 0.13, 0.2) * pow(saturate(sd), 8.0), _Night);   // 夜の葉は、黒いかげ
                     col = lerp(col, leafCol, m);
                     // ひらけた空：ゆっくり流れる、白い雲
                     if (_SkyOpen > 0.001)
@@ -140,7 +166,7 @@ Shader "Shakutori/ForestSky"
                     }
                 }
                 // 地平線のもや（フォグ色へなじませる）
-                half haze = saturate(1.0 - h * 3.5) * _HazeStrength;
+                half haze = saturate(1.0 - h * 3.5) * _HazeStrength * (1.0 - 0.5 * _Night);
                 col = lerp(col, unity_FogColor.rgb, haze);
                 if (h < 0.0) col = unity_FogColor.rgb;
                 return half4(col, 1.0);

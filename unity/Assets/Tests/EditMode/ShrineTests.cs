@@ -51,7 +51,7 @@ namespace Shakutori.Tests
             Assert.AreEqual(58.5f, toShrine.position.magnitude, 0.5f, "公園のふち");
             Assert.Greater(Vector2.Distance(toShrine.position, ParkLayout.Gate), 30f, "森へのトンネルとは、はなれている");
             Assert.Greater(Vector2.Distance(toShrine.position, ParkLayout.Kunugi), 20f, "クヌギの木とは、はなれている");
-            var back = Areas.Shrine.Gates.Single();
+            var back = Areas.Shrine.Gates.Single(g => g.targetArea == "park");   // 夜の森へのトンネルは、NightTests で
             Assert.AreEqual("park", back.targetArea);
             Assert.IsTrue(Areas.Park.ArrivalFrom("shrine", out var parkArrive, out _));
             Assert.Less(Vector2.Distance(parkArrive, toShrine.position), 8f, "神社からもどると、トンネルの前に出る");

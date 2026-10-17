@@ -46,6 +46,7 @@ namespace Shakutori
             "climb", "ride", "glow", "hover", "swoop", "zigzag", "walk", "run",
             "creep", "swim", "leap", "turn",
             "circle",
+            "sway", "peek", "follow",
         };
 
         readonly System.Random _friendRng = new System.Random(4242);
@@ -160,6 +161,9 @@ namespace Shakutori
                 case "leap": return m.leaping;
                 case "turn": return m.sp.id == "manta" && !m.leaping && Mathf.Abs(m.turnRate) > 14f;
                 case "circle": return m.sp.id == "ga" && m.circling;                                // オオミズアオが、あかりのまわりを回る
+                case "sway": return m.sp.id == "minomushi" && m.swingH.magnitude > 0.1f;            // ミノムシが、糸ごとゆれる
+                case "peek": return m.sp.id == "minomushi" && m.emerge > 0.85f;                     // ミノムシが、みのから顔を出す
+                case "follow": return m.leader != null && !m.airborne && m.moveSpeed > 0.08f;       // ウリボウが、おかあさんのあとを歩く
                 default: return false;
             }
         }
@@ -195,6 +199,8 @@ namespace Shakutori
                 case "swoop": if (!m.airborne) return false; m.vel.y = -1.6f; return true;
                 case "run": m.speedMul = 1.5f; m.timer = 0.8f; return true;
                 case "leap": if (m.sp.id != "manta" || m.leaping) return false; m.hopNext = m.anim; return true;
+                case "sway": if (m.sp.id != "minomushi") return false; m.swingV += new Vector2(Mathf.Cos(m.phase), Mathf.Sin(m.phase)) * 0.9f; return true;
+                case "peek": if (m.sp.id != "minomushi") return false; m.retreat = 0f; m.peekUntil = m.anim + 4f; return true;
                 default: return false;
             }
         }

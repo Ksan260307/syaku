@@ -32,6 +32,7 @@ if ($Assets) {
     & $Blender -b --factory-startup --python (Join-Path $root "blender/scripts/build_hut_kit.py")
     & $Blender -b --factory-startup --python (Join-Path $root "blender/scripts/build_coast_kit.py")
     & $Blender -b --factory-startup --python (Join-Path $root "blender/scripts/build_shrine_kit.py")
+    & $Blender -b --factory-startup --python (Join-Path $root "blender/scripts/build_night_kit.py")
     & $Blender -b --factory-startup --python (Join-Path $root "blender/scripts/build_wear_kit.py")
     Write-Host "== アイコン・フォント・音を生成"
     python (Join-Path $root "tools/make_icons.py")

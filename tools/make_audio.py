@@ -12,6 +12,7 @@
  - ambience_mountain.wav: 高い所の風・遠くのウグイス・ナキウサギ。山の湧き水・尾根の風のループ、ヒグラシ・ナキウサギの声
  - music_hut.wav / ambience_hut.wav: 山小屋の 3 拍子のオルゴールの曲と、しずかな部屋の音。まきストーブ・かけ時計・ハエの羽音のループ、ツバメ・ネズミの声
  - music_coast.wav / ambience_coast.wav: 海辺の、ゆれる 4 拍子のスチールパンの曲と、遠くの波・海風・カモメ。波打ちぎわのループ、カモメの声
+ - music_night.wav / ambience_night.wav: 夜の森の、月あかりのハープとチェレスタの曲と、虫の声の合唱・夜風。キリギリス・シマエナガ・イノシシ・ウリボウの声
  - エリアの音: 公園の環境音、滝・浅瀬・カエルの合唱・ほら穴のしずく・森の葉ずれ（場所で聞こえるループ）、
    キツツキ・どんぐり・ホコリタケ・ブランコ・シーソー・水飲み場・自転車のベル・魚・金属・砂の音
 """
@@ -1466,8 +1467,152 @@ def make_cricket_sounds():
         write(name, out)
 
 
+def make_music_night():
+    """夜の森：月あかりの、ゆったりした曲（56BPM・ニ調のドリア）。ハープのアルペジオ・星のようなチェレスタ・ひくい笛・やわらかい和音"""
+    r = np.random.default_rng(56)
+    bpm = 56
+    beat = 60 / bpm
+    bar = beat * 4
+    chords = [(0, "m"), (10, ""), (5, ""), (7, "m"), (0, "m"), (3, ""), (10, ""), (9, "m")] * 2
+    total = bar * len(chords)
+    buf = np.zeros((int(total * SR), 2))
+    key = 50   # D3
+    dorian = [0, 2, 3, 5, 7, 9, 10]
+    mel_prev = key + 24 + 2
+    for i, (rt, q) in enumerate(chords):
+        start = int(i * bar * SR)
+        tones = [rt, rt + (3 if q == "m" else 4), rt + 7]
+        add(buf, start, pad([midi(key + 12 + t) for t in tones], bar + 1.5), gain=0.11)
+        add(buf, start, bass(midi(key - 12 + rt), bar * 0.9), gain=0.16)
+        # ハープ：ゆっくり上がって下がる
+        arp = [tones[0], tones[1], tones[2], tones[0] + 12, tones[2], tones[1]]
+        for k, a_ in enumerate(arp):
+            add(buf, start + int(k * 0.66 * beat * SR), harp(midi(key + 12 + a_), 2.4), pan=0.3, gain=0.15)
+        # 星のまたたき：高いチェレスタを、ぽつりぽつり
+        for k in range(2):
+            n = key + 36 + int(r.choice(dorian))
+            add(buf, start + int(r.uniform(0, bar) * SR), celesta(midi(n), 2.2), pan=r.uniform(-0.7, 0.7), gain=0.07)
+        # ひくい笛：2 小節に 1 つの、長い音
+        if i % 2 == 1:
+            cands = [key + 24 + p for p in dorian] + [key + 12 + p for p in dorian if p >= 7]
+            note = min(cands, key=lambda n: abs(n - mel_prev) + r.uniform(0, 5))
+            mel_prev = note
+            add(buf, start + int(0.5 * beat * SR), flute(midi(note), bar * 1.4), pan=-0.25, gain=0.16)
+    buf = circular_reverb(buf, seconds=3.4, mix=0.42)
+    write("music_night.wav", buf)
+
+
+def kirigirisu_call():
+    """キリギリスの「ギーッ、チョン」：ざらざらした、はねをこする音（こまかい音のつぶ）と、みじかい「チョン」"""
+    out = []
+    for k in range(2):
+        dur = 0.38
+        t = t_axis(dur)
+        pulses = 0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 55 * t))
+        rasp = shaped_noise(len(t), 0.0, 5000, 11000) * 0.7 + np.sin(2 * np.pi * 7800 * t) * 0.3
+        env = np.minimum(t / 0.02, 1.0) * np.clip((dur - t) / 0.05, 0, 1)
+        out.append(rasp * pulses * env)
+        out.append(np.zeros(int(0.09 * SR)))
+        d2 = 0.05
+        t2 = t_axis(d2)
+        out.append((shaped_noise(len(t2), 0.0, 4000, 10000) * 0.7 + np.sin(2 * np.pi * 6500 * t2) * 0.3) * np.exp(-t2 * 60))
+        out.append(np.zeros(int(0.32 * SR)))
+    return np.concatenate(out) * 0.5
+
+
+def shimaenaga_call():
+    """シマエナガの「ジュリリ、チー、チー」：こまかくふるえる高い声と、細い声"""
+    parts = []
+    dur = 0.32
+    t = t_axis(dur)
+    f = 5200 * (1 + 0.08 * np.sin(2 * np.pi * 40 * t)) * (1 - 0.06 * t / dur)
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    am = 0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 48 * t))
+    env = np.minimum(t / 0.01, 1.0) * np.clip((dur - t) / 0.04, 0, 1)
+    parts.append(np.sin(ph) * am * env)
+    parts.append(np.zeros(int(0.12 * SR)))
+    for k in range(2):
+        d2 = 0.09
+        t2 = t_axis(d2)
+        f2 = 7600 * (1 - 0.1 * t2 / d2)
+        ph2 = 2 * np.pi * np.cumsum(f2) / SR
+        parts.append(np.sin(ph2) * np.sin(np.pi * np.clip(t2 / d2, 0, 1)) * 0.6)
+        parts.append(np.zeros(int(0.08 * SR)))
+    return np.concatenate(parts) * 0.45
+
+
+def boar_snort():
+    """イノシシの「ブフッ、ブッ」：ひくい、鼻からの息の音"""
+    parts = []
+    for dur, gain in ((0.3, 1.0), (0.16, 0.7)):
+        t = t_axis(dur)
+        breath = shaped_noise(len(t), 1.0, 80, 2500)
+        pulse = 0.6 + 0.4 * np.sin(2 * np.pi * 90 * t)
+        env = np.minimum(t / 0.01, 1.0) * np.exp(-t * 7.0)
+        tone = np.sin(2 * np.pi * 110 * t * (1 - 0.2 * t))
+        parts.append((breath * pulse + 0.4 * tone) * env * gain)
+        parts.append(np.zeros(int(0.1 * SR)))
+    return np.concatenate(parts) * 0.6
+
+
+def piglet_squeal():
+    """ウリボウの「キュッ」：みじかい、高い声"""
+    dur = 0.18
+    t = t_axis(dur)
+    f = 1200 + 500 * np.sin(np.pi * np.clip(t / dur, 0, 1))
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    env = np.sin(np.pi * np.clip(t / dur, 0, 1)) ** 0.6
+    s = (np.sin(ph) + 0.35 * np.sin(2 * ph) + 0.15 * np.sin(3 * ph)) * env
+    s += shaped_noise(len(t), 0.5, 800, 5000) * env * 0.1
+    return s * 0.5
+
+
+def one_shot(name, call, reverb=1.2, mix=0.3):
+    out = np.zeros((len(call) + int(0.5 * SR), 2))
+    add(out, 0, call, pan=0.0, gain=0.8, wrap=False)
+    out = circular_reverb(out, seconds=reverb, mix=mix)
+    out[-int(0.1 * SR):] *= np.linspace(1, 0, int(0.1 * SR))[:, None]
+    write(name, out)
+
+
+def make_night_sounds():
+    """夜の森：BGM・環境音（虫の声の合唱・夜風・遠くのフクロウとキリギリス）と、キリギリス・シマエナガ・イノシシ・ウリボウの声"""
+    global rng
+    rng = np.random.default_rng(8080)   # 夜の森の音は、自分の乱数で
+    make_music_night()
+    total = 56.0
+    n = int(total * SR)
+    t = np.arange(n) / SR
+    buf = np.zeros((n, 2))
+    for ch in range(2):
+        buf[:, ch] += shaped_noise(n, 1.8, 50, 900) * (0.1 + 0.05 * np.sin(2 * np.pi * t * (2 / total) + ch * 1.7))   # 夜風
+    calls = np.zeros((n, 2))
+    time = 0.2
+    while time < total - 2.0:
+        add(calls, int(time * SR), cricket_trill(rng.uniform(1.0, 2.2), rng.uniform(3900, 4700)), pan=rng.uniform(-0.8, 0.8), gain=rng.uniform(0.03, 0.07))
+        time += rng.uniform(0.5, 1.6)
+    time = 3.0
+    while time < total - 2.0:
+        add(calls, int(time * SR), kirigirisu_call(), pan=rng.uniform(-0.9, 0.9), gain=rng.uniform(0.02, 0.04))
+        time += rng.uniform(6.0, 12.0)
+    time = 12.0
+    while time < total - 3.0:
+        add(calls, int(time * SR), owl_hoot(), pan=rng.uniform(-0.9, 0.9), gain=rng.uniform(0.04, 0.06))
+        time += rng.uniform(18.0, 26.0)
+    buf += circular_reverb(calls, seconds=2.6, mix=0.5)
+    write("ambience_night.wav", buf)
+    one_shot("kirigirisu.wav", kirigirisu_call())
+    one_shot("shimaenaga.wav", shimaenaga_call(), reverb=1.0, mix=0.25)
+    one_shot("boar.wav", boar_snort(), reverb=1.0, mix=0.2)
+    one_shot("piglet.wav", piglet_squeal(), reverb=1.0, mix=0.25)
+
+
 if __name__ == "__main__":
+    import sys
     os.makedirs(OUT, exist_ok=True)
+    if sys.argv[1:] == ["night"]:
+        make_night_sounds()   # 夜の森の音だけ（ほかの音は作りなおさない）
+        sys.exit(0)
     make_sfx()
     make_ambience()
     make_music()
@@ -1483,3 +1628,4 @@ if __name__ == "__main__":
     make_coast_sounds()
     make_shrine_sounds()
     make_cricket_sounds()
+    make_night_sounds()

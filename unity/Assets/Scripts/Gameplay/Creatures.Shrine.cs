@@ -139,7 +139,7 @@ namespace Shakutori
         /// <summary>しゃくとりむしがこれより近づくと、鳴きやむ（見つけられる近さよりは、少し近い）。</summary>
         public const float CricketHush = 2.6f;
 
-        static bool IsCricket(Mob m) => m.sp.id == "suzumushi" || m.sp.id == "korogi";
+        static bool IsCricket(Mob m) => m.sp.id == "suzumushi" || m.sp.id == "korogi" || m.sp.id == "kirigirisu";
 
         /// <summary>
         /// スズムシ・コオロギ：じっとしているとき、前ばねを立てて鳴く（「リーン、リーン」「コロコロリー」）。
@@ -153,9 +153,9 @@ namespace Shakutori
                 if (m.callUntil > m.anim) m.callUntil = m.anim;
                 return;
             }
-            bool suzu = m.sp.id == "suzumushi";
-            if (m.anim < m.callUntil + (suzu ? 1.0f : 1.4f) || R(0f, 1f) > sdt * 0.8f) return;
-            m.callUntil = m.anim + (suzu ? 2.2f : 1.8f);
+            bool suzu = m.sp.id == "suzumushi", kiri = m.sp.id == "kirigirisu";
+            if (m.anim < m.callUntil + (suzu ? 1.0f : kiri ? 2.4f : 1.4f) || R(0f, 1f) > sdt * 0.8f) return;
+            m.callUntil = m.anim + (suzu ? 2.2f : kiri ? 1.6f : 1.8f);   // キリギリスは「ギーッ、チョン」
             AreaSounds.Instance?.PlayAt(m.sp.id, m.pos, 0.25f + 0.55f * vol);
         }
 
@@ -394,6 +394,7 @@ namespace Shakutori
                 }
                 case "Suzumushi_Wing":
                 case "Korogi_Wing":
+                case "Kirigirisu_Wing":
                 {
                     // スズムシ・コオロギの前ばね：ふだんはせなかに重ねてたたみ、鳴くときは立てて、こまかくふるわせる（こすりあわせる）
                     float dt = Mathf.Min(Time.deltaTime, 0.05f);
