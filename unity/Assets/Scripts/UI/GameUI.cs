@@ -19,6 +19,10 @@ namespace Shakutori
         /// <summary>タイトルの「しゃくとりの森」の文字をタップした（ひみつの操作）。</summary>
         public event Action LogoTapped;
         public event Action NewGamePressed;
+        /// <summary>はじめから：チュートリアルをうける。</summary>
+        public event Action TutorialPressed;
+        /// <summary>メニューの「チュートリアルをおわって、森へ」。</summary>
+        public event Action TutorialEndPressed;
         public event Action ResumePressed;
         public event Action ToTitlePressed;
         public event Action ResetPressed;
@@ -41,6 +45,8 @@ namespace Shakutori
         VisualElement _root, _hud, _look, _loading, _loadingFill, _title, _fade;
         VisualElement _mapOverlay, _pauseOverlay, _howtoOverlay, _confirmOverlay, _completeOverlay, _collectionOverlay;
         VisualElement _banner, _toasts, _prompt, _help, _touch, _joystick, _knob, _moveZone;
+        VisualElement _tutorial, _tutorialCard, _tutorialOverlay;
+        Label _tutorialStep, _tutorialTitle, _tutorialText, _tutorialNote;
         VisualElement _minimapMask, _minimapImage, _minimapPlayer, _bigmap, _bigmapPlayer, _mapAreas;
         VisualElement _creatureCard, _creatureCardImg, _zukanImg, _skinGrid, _recordList;
         Label _dropCount, _placeCount, _creatureCount, _dropLabel, _areaTitle, _areaName;
@@ -163,6 +169,11 @@ namespace Shakutori
                 "星見の岩のてっぺんからは、月と星がよく見えます。",
                 "イノシシは、とてもおくびょう。近づきすぎると、ウリボウといっしょに走っていってしまいます。",
             },
+            ["tutorial"] = new[]
+            {
+                "練習の森では、うごかし方を、ひとつずつ練習します。光っている所が、つぎの行き先です。",
+                "練習は、メニューの「チュートリアルをおわって、森へ」で、いつでもおえられます。",
+            },
         };
 
         /// <summary>読み込み画面の行き先のエリア（そのエリアのヒントを出す）。</summary>
@@ -220,7 +231,8 @@ namespace Shakutori
         public bool IsCompleteOpen => !_completeOverlay.ClassListContains("hidden");
         public bool IsCollectionOpen => !_collectionOverlay.ClassListContains("hidden");
         public bool IsCreditsOpen => _creditsOverlay != null && !_creditsOverlay.ClassListContains("hidden");
-        public bool AnyOverlayOpen => IsMapOpen || IsPauseOpen || IsHowtoOpen || IsConfirmOpen || IsCompleteOpen || IsCollectionOpen || IsCreditsOpen;
+        public bool IsTutorialChoiceOpen => _tutorialOverlay != null && !_tutorialOverlay.ClassListContains("hidden");
+        public bool AnyOverlayOpen => IsMapOpen || IsPauseOpen || IsHowtoOpen || IsConfirmOpen || IsCompleteOpen || IsCollectionOpen || IsCreditsOpen || IsTutorialChoiceOpen;
         public bool IsPhotoMode => _photoMode;
         public string TitleProgressText => _titleProgress != null ? _titleProgress.text : "";
         public string ContinueText => _continue != null ? _continue.text : "";
@@ -440,6 +452,13 @@ namespace Shakutori
             _silkButton = Q<VisualElement>("btn-silk");
             _minimapNorth = _root.Q<Label>(className: "minimap-north");
             _creditsOverlay = Q<VisualElement>("credits-overlay");
+            _tutorial = Q<VisualElement>("tutorial");
+            _tutorialCard = Q<VisualElement>("tutorial-card");
+            _tutorialStep = Q<Label>("tutorial-step");
+            _tutorialTitle = Q<Label>("tutorial-title");
+            _tutorialText = Q<Label>("tutorial-text");
+            _tutorialNote = Q<Label>("tutorial-note");
+            _tutorialOverlay = Q<VisualElement>("tutorial-overlay");
             _photoHint = Q<VisualElement>("photo-hint");
             _titleProgress = Q<Label>("title-progress");
             _version = Q<Label>("version");
@@ -466,12 +485,25 @@ namespace Shakutori
             SetTitleFont(_bannerTitle);
 
             Click("btn-continue", () => ContinuePressed?.Invoke());
+            // はじめから：いまの記録を消してよいか（記録があるとき）、つぎに、チュートリアルをうけるか
             Click("btn-new", () =>
             {
                 if (SaveSystem.HasSave)
-                    Confirm("いまの記録を消して、はじめから遊びますか？", () => NewGamePressed?.Invoke());
-                else NewGamePressed?.Invoke();
+                    Confirm("いまの記録を消して、はじめから遊びますか？", () => ShowTutorialChoice(true));
+                else ShowTutorialChoice(true);
             });
+            Click("tutorial-yes", () =>
+            {
+                ShowTutorialChoice(false);
+                TutorialPressed?.Invoke();
+            });
+            Click("tutorial-no", () =>
+            {
+                ShowTutorialChoice(false);
+                NewGamePressed?.Invoke();
+            });
+            Click("tutorial-back", () => ShowTutorialChoice(false));
+            Click("tutorial-end", () => TutorialEndPressed?.Invoke());
             Click("btn-howto", () => ShowHowto(true));
             Click("howto-close", () => ShowHowto(false));
             Click("pause-howto", () => ShowHowto(true));
@@ -511,6 +543,7 @@ namespace Shakutori
             CloseOnBackdrop(_howtoOverlay, () => ShowHowto(false));
             CloseOnBackdrop(_confirmOverlay, () => ShowConfirm(false));
             CloseOnBackdrop(_creditsOverlay, () => ShowCredits(false));
+            CloseOnBackdrop(_tutorialOverlay, () => ShowTutorialChoice(false));
             CloseOnBackdrop(_completeOverlay, () => ShowComplete(false, ""));
             Click("photo", () => PhotoRequested?.Invoke());
             Click("reset-settings", () =>
@@ -793,6 +826,7 @@ namespace Shakutori
                     string place = _collect != null ? $"{area.DropName} {_collect.CollectedDrops} / {_collect.TotalDrops}　名所 {_collect.DiscoveredPlaces} / {_collect.TotalPlaces}" : "";
                     _pauseSummary.text = $"{area.Subtitle}　{place}\n全体の達成度 {CompletionPercent()}%　あそんだ時間 {PlayTimeText(SaveSystem.Data.playTime)}";
                 }
+                Q<Button>("tutorial-end")?.EnableInClassList("hidden", MapArea != Areas.Tutorial);   // 練習の森だけ
                 Q<Button>("resume").Focus();
             }
             OverlayChanged?.Invoke();
@@ -885,6 +919,7 @@ namespace Shakutori
             _completeOverlay.AddToClassList("hidden");
             _collectionOverlay.AddToClassList("hidden");
             _creditsOverlay?.AddToClassList("hidden");
+            _tutorialOverlay?.AddToClassList("hidden");
             OverlayChanged?.Invoke();
         }
 
@@ -910,6 +945,7 @@ namespace Shakutori
 
         public bool Back()
         {
+            if (IsTutorialChoiceOpen) { ShowTutorialChoice(false); return true; }
             if (IsConfirmOpen) { ShowConfirm(false); return true; }
             if (IsCreditsOpen) { ShowCredits(false); return true; }
             if (IsHowtoOpen) { ShowHowto(false); return true; }
@@ -970,7 +1006,7 @@ namespace Shakutori
                     ? "\n★ このエリアはめぐり終えました"
                     : $"\n{area.DropName} {drops} / {area.DropCount}　名所 {places} / {area.Landmarks.Count}";
             _bannerQueue.Clear();   // 前のエリアの見出しは出さない
-            ShowBannerText(area.DisplayName, area.Subtitle, desc);
+            ShowBannerText(area == Areas.Tutorial ? "チュートリアル" : area.DisplayName, area.Subtitle, desc);
         }
 
         void ShowBannerText(string sub, string title, string desc)
@@ -1123,6 +1159,53 @@ namespace Shakutori
         }
 
         string Device => GameInput.UsingGamepad ? "pad" : (_touchMode ? "touch" : "kb");
+
+        /// <summary>いまの操作のしかた（"kb"・"pad"・"touch"）。</summary>
+        public string InputDevice => Device;
+
+        // ------------------------------------------------------------------
+        // チュートリアル
+        // ------------------------------------------------------------------
+        /// <summary>はじめから：チュートリアルをうけるかを聞く。</summary>
+        public void ShowTutorialChoice(bool show)
+        {
+            if (!EnsureBound() || _tutorialOverlay == null) return;
+            _tutorialOverlay.EnableInClassList("hidden", !show);
+            if (show) Q<Button>("tutorial-yes").Focus();
+            OverlayChanged?.Invoke();
+        }
+
+        public bool IsTutorialCardVisible => _tutorial != null && !_tutorial.ClassListContains("hidden");
+        /// <summary>カードの見出しと説明（テスト用）。</summary>
+        public string TutorialTitle => _tutorialTitle != null ? _tutorialTitle.text : "";
+        public string TutorialText => _tutorialText != null ? _tutorialText.text : "";
+        public bool IsTutorialStepDone => _tutorialCard != null && _tutorialCard.ClassListContains("tutorial-card--done");
+
+        public void ShowTutorialCard(bool show)
+        {
+            if (!EnsureBound() || _tutorial == null) return;
+            _tutorial.EnableInClassList("hidden", !show);
+        }
+
+        /// <summary>いまの練習（何番目か・見出し・説明・ひとこと）をカードに出す。</summary>
+        public void SetTutorialStep(int number, int count, string title, string text, string note)
+        {
+            if (!EnsureBound() || _tutorial == null) return;
+            _tutorialCard.RemoveFromClassList("tutorial-card--done");
+            _tutorialStep.text = $"チュートリアル {number} / {count}";
+            _tutorialTitle.text = title;
+            _tutorialText.text = text;
+            _tutorialNote.text = note;
+            _tutorialNote.style.display = string.IsNullOrEmpty(note) ? DisplayStyle.None : DisplayStyle.Flex;
+        }
+
+        /// <summary>練習ができた：カードを緑にして「できた！」。</summary>
+        public void TutorialStepDone()
+        {
+            if (!EnsureBound() || _tutorial == null) return;
+            _tutorialCard.AddToClassList("tutorial-card--done");
+            _tutorialTitle.text = "できた！";
+        }
 
         void BuildHelp()
         {
@@ -2199,6 +2282,12 @@ namespace Shakutori
             _mapAreas.Clear();
             var here = MapArea;
             var shown = ViewArea;
+            // 練習の森では、ほかのエリアの地図は出さない
+            bool practice = here == Areas.Tutorial;
+            _mapAreas.style.display = practice ? DisplayStyle.None : DisplayStyle.Flex;
+            var areasTitle = _root.Q<Label>(className: "map-areas-title");
+            if (areasTitle != null) areasTitle.style.display = practice ? DisplayStyle.None : DisplayStyle.Flex;
+            if (practice) return;
             foreach (var area in Areas.All)
             {
                 bool isHere = area == here;

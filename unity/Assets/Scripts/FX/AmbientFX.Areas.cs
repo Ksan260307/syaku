@@ -231,6 +231,7 @@ namespace Shakutori
             else if (_area.Id == "coast") { }
             else if (_area.Id == "shrine") ShrineFX(world);
             else if (_area.Id == "night") NightFX(world);
+            else if (_area.Id == "tutorial") TutorialFX(world);
             else ParkFX(world);
         }
 
@@ -474,6 +475,17 @@ namespace Shakutori
             for (int i = 0; i < world.GlowCaps.Count && i < 8; i += 2)
                 Motes("GlowHalo" + i, world.GlowCaps[i], new Vector3(0.2f, 0.2f, 0.2f), 3, 0.6f, new Color(0.45f, 1f, 0.8f, 0.2f),
                     new Vector2(2.4f, 3.2f), new Vector2(4f, 5f), Vector2.zero, 0f, 0f, 0f);
+        }
+
+        /// <summary>練習の森：光の筋の中のちりと、東の草原の綿毛と花粉（森と同じ）。</summary>
+        void TutorialFX(WorldGenerator world)
+        {
+            ShaftMotes(WorldGenerator.TutorialShafts);
+            Vector3 meadow = TutorialLayout.Ground(TutorialLayout.Meadow.x + 2f, TutorialLayout.Meadow.y);
+            Motes("MeadowSeeds", meadow + Vector3.up * 1.5f, new Vector3(16f, 2f, 16f), 24, 1.5f, new Color(1f, 1f, 1f, 0.85f),
+                new Vector2(0.08f, 0.14f), new Vector2(8f, 12f), new Vector2(0.05f, 0.2f), -0.01f, 0.3f, 1.6f);
+            Motes("MeadowPollen", meadow + Vector3.up * 2f, new Vector3(16f, 3f, 16f), 50, 6f, new Color(1f, 0.9f, 0.5f, 0.7f),
+                new Vector2(0.02f, 0.04f), new Vector2(5f, 8f), new Vector2(0.02f, 0.08f), -0.004f, 0.18f, 1f);
         }
 
         void ParkFX(WorldGenerator world)

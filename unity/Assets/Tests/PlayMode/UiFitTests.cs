@@ -155,6 +155,10 @@ namespace Shakutori.Tests
                 yield return Settle();
                 Check(c, "あそびかた");
                 UI.ShowHowto(false);
+                UI.ShowTutorialChoice(true);
+                yield return Settle();
+                Check(c, "チュートリアルをうけるか");
+                UI.ShowTutorialChoice(false);
                 UI.ShowLoading();
                 UI.Root.Q<Label>("loading-tip").text = longestTip;
                 yield return Settle();
@@ -188,6 +192,44 @@ namespace Shakutori.Tests
             {
                 yield return Use(c);
                 yield return CheckGameScreens(c, "ぜんぶ");
+            }
+            Report();
+        }
+
+        [UnityTest, Timeout(900000)]
+        public IEnumerator TutorialScreens_FitEveryScreen()
+        {
+            // チュートリアル：カード（いちばん長い説明と、ひとこと）・メニュー（「チュートリアルをおわって、森へ」）・地図（ほかのエリアは出さない）
+            GM.StartGame(false, tutorial: true);
+            yield return WaitUntil(() => GM.State == GameManager.GameState.Playing && GM.InTutorial && Worm.InputEnabled, 180f, "練習の森");
+            GM.TutorialGuide.Stop();
+            string title = "", text = "";
+            foreach (var step in Tutorial.Steps)
+                foreach (var device in new[] { "kb", "pad", "touch" })
+                {
+                    var (t, x) = Tutorial.Texts(step, device);
+                    if (t.Length > title.Length) title = t;
+                    if (x.Length > text.Length) text = x;
+                }
+            foreach (var c in Cases)
+            {
+                yield return Use(c);
+                UI.ShowTutorialCard(true);
+                UI.SetTutorialStep(12, 12, title, text, "メニューから、いつでもチュートリアルをおえて、森へ行けます");
+                typeof(GameUI).GetMethod("SetHelpVisible", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(UI, new object[] { true });
+                yield return Settle();
+                Check(c, "チュートリアル");
+                _problems.AddRange(HudOverlaps(UI.Root).Select(p => $"[{c.name}] チュートリアル: {p}"));
+                GM.Pause();
+                yield return Settle();
+                Check(c, "チュートリアルのメニュー");
+                GM.Resume();
+                UI.ShowMap(true);
+                yield return Settle();
+                Check(c, "チュートリアルの地図");
+                UI.ShowMap(false);
+                UI.ShowTutorialCard(false);
+                yield return Settle(0.2f);
             }
             Report();
         }
@@ -411,7 +453,7 @@ namespace Shakutori.Tests
         public static List<string> HudOverlaps(VisualElement root)
         {
             var items = new List<VisualElement>();
-            foreach (var n in new[] { "objectives", "help", "minimap", "area-name" }) items.Add(root.Q(n));
+            foreach (var n in new[] { "objectives", "help", "minimap", "area-name", "tutorial-card" }) items.Add(root.Q(n));
             items.AddRange(root.Query(className: "round-button").ToList());
             items.AddRange(root.Query(className: "touch-button").ToList());
             items = items.Where(e => e != null && Shown(e) && e.worldBound.width > 1f && !(e is TextElement t && string.IsNullOrEmpty(t.text))).ToList();

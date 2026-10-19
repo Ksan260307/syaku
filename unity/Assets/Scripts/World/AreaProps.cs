@@ -160,6 +160,7 @@ namespace Shakutori
             float dt = Time.deltaTime;
             if (_area.Id == "forest") UpdateForest(worm, dt);
             else if (_area.Id == "river") UpdateRiver(worm, dt);
+            else if (_area.Id == "tutorial") { }   // 練習の森には、動く小物はない
             else UpdatePark(worm, dt);
         }
 

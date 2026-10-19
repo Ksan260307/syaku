@@ -188,6 +188,21 @@ class FontTests(unittest.TestCase):
         missing = sorted({c for c in uxml if ord(c) >= 0x3000 and ord(c) not in cmap})
         self.assertEqual(missing, [], "フォントにない文字")
 
+    def test_font_subsets_cover_script_text(self):
+        # スクリプトの中の文字列（チュートリアルの説明・おしらせ・名所の名前など）の字も、ぜんぶフォントにある
+        # （Unity の Font.HasCharacter は、エディタではパソコンのフォントで代わりに見つけてしまうので、ここではフォントの表を直接見る）
+        import glob
+        import re
+        from fontTools.ttLib import TTFont
+        cmap = TTFont(os.path.join(ROOT, "unity", "Assets", "UI", "Fonts", "ShakutoriSans-Bold.ttf")).getBestCmap()
+        missing = {}
+        for path in glob.glob(os.path.join(ROOT, "unity", "Assets", "Scripts", "**", "*.cs"), recursive=True):
+            for lit in re.findall(r'"((?:[^"\\\n]|\\.)*)"', read(path)):
+                for c in lit:
+                    if ord(c) >= 0x3000 and ord(c) not in cmap:
+                        missing.setdefault(c, os.path.basename(path))
+        self.assertEqual(missing, {}, "フォントにない文字（tools/make_fonts.py を再実行）")
+
 
 class CheckBuildTests(unittest.TestCase):
     def make_site(self, loader="Game.loader.js", template_ok=True, extra_dir=None, jslib=True):

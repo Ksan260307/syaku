@@ -150,9 +150,16 @@ namespace Shakutori.Tests
             Assert.Greater(C.CountOf(id), 0);
             Vector3 p = C.Info(id).pos;
             Worm.Spawn(SurfaceNear(p, 6f), Vector3.left);
+            yield return FaceCamera(Vector3.left);   // 前ばねの立ちぐあいは、画面に映っているあいだに動く
             yield return WaitUntil(() => C.Info(id).calling, 50f, "「ギーッ、チョン」と鳴く");
-            yield return Seconds(0.4f);
-            if (C.Info(id).calling) Assert.Greater(C.Info(id).wingLift, 0.5f, "前ばねを立てる");
+            // 鳴いているあいだに、前ばねを立てる（「ギーッ」と「チョン」のあいだは、少し下がるので、いちばん高い所を見る）
+            float lift = 0f;
+            for (float t = 0f; t < 1.5f && C.Info(id).calling; t += Time.deltaTime)
+            {
+                lift = Mathf.Max(lift, C.Info(id).wingLift);
+                yield return null;
+            }
+            Assert.Greater(lift, 0.5f, "前ばねを立てる");
             Worm.Spawn(SurfaceNear(C.Info(id).pos, 1.2f), Vector3.left);
             yield return WaitUntil(() => !C.Info(id).calling, 3f, "鳴きやむ");
         }

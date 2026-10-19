@@ -46,6 +46,7 @@ namespace Shakutori
             else if (Area.Id == "coast") { }   // 海辺は、組み立てたときの物で足りている
             else if (Area.Id == "shrine") { }   // 神社も、組み立てたときの物で足りている
             else if (Area.Id == "night") { }    // 夜の森も、組み立てたときの物で足りている
+            else if (Area.Id == "tutorial") { }   // 練習の森も（練習の場所のまわりは、あけておく）
             else BuildRiverExtras();
             Physics.SyncTransforms();
         }

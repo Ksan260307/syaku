@@ -115,6 +115,8 @@ namespace Shakutori
                 AddLoop("loop_frogs", new Vector3(NightLayout.Pond.x, NightLayout.PondLevel, NightLayout.Pond.y), 6f, 30f, 0.45f);   // 月見の池のカエル
                 _canopy = AddLoop("loop_canopy", Vector3.zero, 0f, 0f, 0.22f, global: true);                                        // 夜風の葉ずれ
             }
+            else if (_area == "tutorial")
+                _canopy = AddLoop("loop_canopy", Vector3.zero, 0f, 0f, 0.35f, global: true);   // 練習の森も、森の葉ずれ
             else if (_area == "hut")
             {
                 AddLoop("loop_stove", new Vector3(HutLayout.Stove.x + 6f, 16f, HutLayout.Stove.y), 6f, 70f, 0.7f);   // まきストーブの、ぱちぱち
@@ -190,7 +192,7 @@ namespace Shakutori
                 l.src.volume = Mathf.Lerp(l.src.volume, target, k);
             }
             // 森：遠くで、ときどきキツツキが木をたたく
-            if (_area == "forest" && started && Time.time > _woodNext)
+            if ((_area == "forest" || _area == "tutorial") && started && Time.time > _woodNext)
             {
                 _woodNext = Time.time + R(25f, 50f);
                 var worm = InchwormController.Instance;

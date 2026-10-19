@@ -230,9 +230,82 @@ namespace Shakutori
             else if (_area.Id == "coast") { }  // 海辺のきらめきは、UpdateArea で
             else if (_area.Id == "shrine") BuildShrine();
             else if (_area.Id == "night") BuildNight();
+            else if (_area.Id == "tutorial") BuildTutorial();
             else BuildRiver();
             foreach (var g in world.Gates) GateMotes(g);
             BuildAreaExtras(world);   // エリアの改善：ただよう物
+        }
+
+        /// <summary>練習の森：森と同じ、木から舞い落ちる葉。</summary>
+        void BuildTutorial()
+        {
+            FallingLeaves(new Vector3(0f, TutorialLayout.Height(0f, 0f) + 16f, 0f), new Vector3(56f, 2f, 56f), 0.9f,
+                new Color(1f, 0.6f, 0.25f), new Color(1f, 0.85f, 0.35f));
+        }
+
+        // ------------------------------------------------------------------
+        // チュートリアルの行き先の目じるし
+        // ------------------------------------------------------------------
+        ParticleSystem _beacon, _beaconHalo;
+
+        /// <summary>チュートリアルの行き先の目じるしが出ているか（テスト用）。</summary>
+        public bool BeaconShown => _beacon != null && _beacon.emission.enabled;
+        /// <summary>目じるしの場所（テスト用）。</summary>
+        public Vector3 BeaconAt => _beacon != null ? _beacon.transform.position : Vector3.zero;
+
+        /// <summary>チュートリアルの行き先の目じるし：ふわふわのぼる金色の光のつぶと、足もとの光のわ。null で消す。</summary>
+        public void SetBeacon(Vector3? at)
+        {
+            if (at == null)
+            {
+                if (_beacon != null) { var e = _beacon.emission; e.enabled = false; }
+                if (_beaconHalo != null) { var e = _beaconHalo.emission; e.enabled = false; }
+                return;
+            }
+            if (_beacon == null)
+            {
+                var gold = new Color(1f, 0.88f, 0.45f, 1f);
+                _beacon = Create("TutorialBeacon", transform, 60, gold);
+                var main = _beacon.main;
+                main.startLifetime = new ParticleSystem.MinMaxCurve(2f, 3f);
+                main.startSpeed = new ParticleSystem.MinMaxCurve(0.05f, 0.25f);
+                main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.17f);
+                main.gravityModifier = -0.09f;   // ゆっくり、のぼっていく
+                Drag(_beacon, 0.8f);
+                var sh = _beacon.shape;
+                sh.shapeType = ParticleSystemShapeType.Circle;
+                sh.radius = 0.7f;
+                sh.rotation = new Vector3(90f, 0f, 0f);   // 足もとの、平らなわ
+                var col = _beacon.colorOverLifetime;
+                col.enabled = true;
+                col.color = FadeInOut(Color.white);
+                var em = _beacon.emission;
+                em.rateOverTime = 16f;
+
+                _beaconHalo = Create("TutorialBeaconHalo", transform, 6, new Color(1f, 0.9f, 0.5f, 0.32f));
+                var hm = _beaconHalo.main;
+                hm.startLifetime = 1.8f;
+                hm.startSpeed = 0f;
+                hm.startSize = new ParticleSystem.MinMaxCurve(1.7f, 2.0f);
+                var hs = _beaconHalo.shape;
+                hs.enabled = false;
+                var hc = _beaconHalo.colorOverLifetime;
+                hc.enabled = true;
+                hc.color = FadeInOut(Color.white, 0.3f);
+                var hz = _beaconHalo.sizeOverLifetime;
+                hz.enabled = true;
+                hz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.55f), new Keyframe(1f, 1.15f)));
+                var he = _beaconHalo.emission;
+                he.rateOverTime = 1.6f;
+                var hr = _beaconHalo.GetComponent<ParticleSystemRenderer>();
+                hr.renderMode = ParticleSystemRenderMode.HorizontalBillboard;   // 地面に、まるい光のわ
+            }
+            _beacon.transform.position = at.Value + Vector3.up * 0.08f;
+            _beaconHalo.transform.position = at.Value + Vector3.up * 0.06f;
+            var e1 = _beacon.emission;
+            e1.enabled = true;
+            var e2 = _beaconHalo.emission;
+            e2.enabled = true;
         }
 
         void BuildForest()

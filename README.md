@@ -38,6 +38,7 @@ PC・ゲームパッド・**スマホ／iPad** で、ブラウザから遊べま
 
 ### ゲームのながれ
 
+- 「はじめから」を選ぶと、**チュートリアル**（練習用の小さな森で、うごかし方をひとつずつ練習）をうけるか選べます。
 - **しずく** を集め、**名所** を見つけます。しずくは、登った先や物のかげにかくれています。
 - しゃくとりむしは **どんな面でも這って登れます**（キノコのかさ・切り株の壁・葉っぱの裏・いきものの背中も）。高い所では **糸** でぶら下がって下ります。
 - いきものに近づくと **いきもの図鑑** に登録されます。もう一度会うと、しぐさを観察したり、**なかよし**（★1〜5）になれます。
@@ -135,10 +136,10 @@ powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1 -Only PlayMode
 
 | 種類 | 件数 | 場所 |
 | --- | ---: | --- |
-| Unity EditMode（単体） | 456 | `unity/Assets/Tests/EditMode` |
-| Unity PlayMode（総合） | 276（網の目に歩く 16 件とデモ映像の 1 件は、指定したときだけ） | `unity/Assets/Tests/PlayMode` |
+| Unity EditMode（単体） | 471 | `unity/Assets/Tests/EditMode` |
+| Unity PlayMode（総合） | 280（網の目に歩く 16 件とデモ映像の 1 件は、指定したときだけ） | `unity/Assets/Tests/PlayMode` |
 | Blender（単体） | 97 | `blender/tests` |
-| Python（単体） | 26 | `tools/tests` |
+| Python（単体） | 27 | `tools/tests` |
 
 テストの中身は [TESTING.md](TESTING.md) へ。
 

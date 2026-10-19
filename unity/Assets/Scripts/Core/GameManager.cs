@@ -63,7 +63,8 @@ namespace Shakutori
         bool _starting;
         TitleDemo _demo;
         readonly TitleSecret _secret = new TitleSecret();
-        bool _travelAll;   // タイトルのひみつの操作をした（「はじめる」でやりなおしても、そのまま）
+        bool _travelAll;   // タイトルのひみつの操作をした（「はじめから」でやりなおしても、そのまま）
+        Tutorial _tutorial;
         ProgressStats _stats;
         AreaProps _areaProps;
         AreaSounds _areaSounds;
@@ -72,6 +73,11 @@ namespace Shakutori
 
         /// <summary>しゃくとりむしの頭のぼうし・めがね（テスト用）。</summary>
         public WormWear Wear => _wear;
+
+        /// <summary>チュートリアルの練習の森にいる。</summary>
+        public bool InTutorial => Areas.Current == Areas.Tutorial;
+        /// <summary>チュートリアルの進め役（テスト用）。</summary>
+        public Tutorial TutorialGuide => _tutorial;
 
         IEnumerator Start()
         {
@@ -99,6 +105,7 @@ namespace Shakutori
             }
 
             var area = SaveSystem.HasSave ? Areas.Get(SaveSystem.Data.area) ?? Areas.Forest : Areas.Forest;
+            if (area == Areas.Tutorial) area = Areas.Forest;   // 練習の森からは、始めない
             ui.LoadingAreaId = area.Id;
             ui.SetLoading(0f);
             yield return null;
@@ -180,6 +187,13 @@ namespace Shakutori
             ShakuRegisterPageEvents();
             ui.ContinuePressed += () => StartGame(true);
             ui.NewGamePressed += () => StartGame(false);
+            ui.TutorialPressed += () => StartGame(false, tutorial: true);
+            ui.TutorialEndPressed += () =>
+            {
+                Resume();
+                FinishTutorial();
+            };
+            _tutorial = gameObject.AddComponent<Tutorial>();
             ui.ResumePressed += Resume;
             ui.ToTitlePressed += GoToTitle;
             ui.ResetPressed += () => StartGame(false);
@@ -221,7 +235,7 @@ namespace Shakutori
             collectibles.Build(world.DewdropPoints, area);
             if (creatures != null) creatures.Build(world);
             LoadClock.Lap("mobs");
-            Habitats.Record(area, world.Mobs);   // 図鑑で見られるように、いきもののすみかを記録
+            if (area != Areas.Tutorial) Habitats.Record(area, world.Mobs);   // 図鑑で見られるように、いきもののすみかを記録（練習の森はのぞく）
             fx.BuildArea(world);
             AreaAtmosphere.Apply(area, world.sun);   // エリアの空気と光
             if (GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset urpNow)
@@ -230,7 +244,7 @@ namespace Shakutori
             _areaSounds?.Build(world);
             ui.Init(collectibles, worm, followCamera.transform, world.MapTexture, world.assets);
             AudioManager.Instance?.SetArea(area.Id);
-            if (!SaveSystem.Data.visited.Contains(area.Id)) SaveSystem.Data.visited.Add(area.Id);
+            if (area != Areas.Tutorial && !SaveSystem.Data.visited.Contains(area.Id)) SaveSystem.Data.visited.Add(area.Id);
             AreaChanged?.Invoke(area);
             LoadClock.Lap("fxUi");
             if (hide && cam != null) cam.cullingMask = mask;
@@ -250,16 +264,17 @@ namespace Shakutori
                 worm.Spawn(world.SpawnPoint, world.SpawnForward);
         }
 
-        /// <summary>「つづきから」(true) /「はじめる」(false)。</summary>
-        public void StartGame(bool continueGame)
+        /// <summary>「つづきから」(true) /「はじめから」(false)。tutorial なら、はじめから、チュートリアルの練習の森で始める。</summary>
+        public void StartGame(bool continueGame, bool tutorial = false)
         {
             if (State == GameState.Loading || State == GameState.Traveling || _starting) return;
-            StartCoroutine(Begin(continueGame));
+            StartCoroutine(Begin(continueGame, tutorial && !continueGame));
         }
 
-        IEnumerator Begin(bool continueGame)
+        IEnumerator Begin(bool continueGame, bool tutorial)
         {
             _starting = true;
+            _tutorial?.Stop();
             AudioManager.Instance?.StartMusic();
             ui.Fade(true);
             yield return new WaitForSecondsRealtime(0.65f);
@@ -269,20 +284,23 @@ namespace Shakutori
             if (!continueGame)
             {
                 SaveSystem.ResetProgress();
-                if (_travelAll) TitleSecret.UnlockAll();   // タイトルのひみつの操作は、はじめからでも
+                // チュートリアルは、まっさらな練習の記録で（ブラウザには書かない）。タイトルのひみつの操作は、本番の森で
+                if (tutorial) SaveSystem.BeginPractice();
+                else if (_travelAll) TitleSecret.UnlockAll();   // タイトルのひみつの操作は、はじめからでも
                 _stats = ProgressStats.FromSave();
-                if (Areas.Current != Areas.Forest)
+                AreaLayout first = tutorial ? Areas.Tutorial : (AreaLayout)Areas.Forest;
+                if (Areas.Current != first)
                 {
-                    // 森から始めなおす
-                    ui.LoadingAreaId = "forest";
+                    // 森（チュートリアルなら、練習の森）から始めなおす
+                    ui.LoadingAreaId = first.Id;
                     ui.ShowLoading();
-                    yield return BuildArea(Areas.Forest, ui.SetLoading);
+                    yield return BuildArea(first, ui.SetLoading);
                     ui.HideLoading();
                 }
                 else
                 {
                     collectibles.ApplySave();
-                    if (!SaveSystem.Data.visited.Contains(Areas.Forest.Id)) SaveSystem.Data.visited.Add(Areas.Forest.Id);
+                    if (!tutorial && !SaveSystem.Data.visited.Contains(Areas.Forest.Id)) SaveSystem.Data.visited.Add(Areas.Forest.Id);
                 }
                 SaveSystem.Data.area = Areas.Current.Id;
                 PlaceWorm(false);
@@ -296,6 +314,12 @@ namespace Shakutori
                     ui.Toast("しずくの場所が新しくなりました。もう一度さがしてみよう", "icon-drop", 4.5f);
                 }
             }
+            yield return Started(tutorial);
+        }
+
+        /// <summary>はじめから・つづきから・チュートリアルのあとに、探検を始める（画面が暗いうちに呼ぶ）。</summary>
+        IEnumerator Started(bool tutorial)
+        {
             ApplySkin();
             ui.RefreshCounts(true);
             ui.ShowTitle(false);
@@ -315,10 +339,59 @@ namespace Shakutori
             if (creatures != null) creatures.Active = true;
             _gateCooldown = 1.5f;
             _starting = false;
+            if (tutorial)
+            {
+                ui.ShowAreaBanner(Areas.Tutorial);
+                _tutorial.Begin(this);
+            }
             yield return new WaitForSecondsRealtime(1.0f);
             var first = Areas.Current.EntryLandmark;
             if (first != null && !collectibles.IsDiscovered(first.id) && Collectibles.IsInside(first, worm.HeadPosition))
                 collectibles.Discover(first);
+        }
+
+        // ------------------------------------------------------------------
+        // チュートリアル
+        // ------------------------------------------------------------------
+        /// <summary>練習の森のトンネルの前のヒント。</summary>
+        public const string TutorialGateHint = "トンネルをくぐると、しゃくとりの森へ（チュートリアルをおわる）";
+
+        /// <summary>チュートリアルをおえて、本番の森から始める（練習の記録はすてる。練習で会ったいきものは、図鑑にのこす）。</summary>
+        public void FinishTutorial()
+        {
+            if (!InTutorial || _starting || (State != GameState.Playing && State != GameState.Paused)) return;
+            StartCoroutine(EndTutorial());
+        }
+
+        IEnumerator EndTutorial()
+        {
+            _starting = true;
+            State = GameState.Traveling;
+            Time.timeScale = 1f;
+            worm.InputEnabled = false;
+            collectibles.Active = false;
+            if (creatures != null) creatures.Active = false;
+            ui.GateHint = null;
+            _tutorial.Stop();
+            AudioManager.Instance?.Travel();
+            ui.Fade(true);
+            yield return new WaitForSecondsRealtime(0.7f);
+            ui.CloseAllOverlays();
+            SaveSystem.EndPractice(keepCreatures: true);
+            if (_travelAll) TitleSecret.UnlockAll();
+            _stats = ProgressStats.FromSave();
+            ui.LoadingAreaId = Areas.Forest.Id;
+            ui.ShowLoading();
+            worm.enabled = false;
+            yield return BuildArea(Areas.Forest, ui.SetLoading);
+            worm.enabled = true;
+            SaveSystem.Data.area = Areas.Forest.Id;
+            PlaceWorm(false);
+            ui.HideLoading();
+            yield return new WaitForSecondsRealtime(0.2f);
+            ui.ShowAreaBanner(Areas.Forest);
+            ui.Toast("チュートリアル、おつかれさま！ ここから、しゃくとりの森のぼうけんが始まります", "icon-place", 4.5f);
+            yield return Started(false);
         }
 
         float _dripNext;
@@ -405,7 +478,7 @@ namespace Shakutori
                 if (target == null) continue;
                 // とびらは、はばの広いとびらの前（しきいの上）でヒント。入ったかどうかは、とびらの面で見る
                 bool near = g.def.door ? g.def.DoorNear(head, g.position) : d < 7f;
-                if (near) hint = GateHintText(target, g.def.door);
+                if (near) hint = InTutorial ? TutorialGateHint : GateHintText(target, g.def.door);
                 bool inside = g.def.door ? g.def.DoorReached(head, g.position) : d < g.def.radius;
                 if (inside && _gateCooldown <= 0f && worm.State != InchwormController.Mode.Hang && !ui.AnyOverlayOpen)
                 {
@@ -432,6 +505,12 @@ namespace Shakutori
         /// <summary>別のエリアへ移動する（トンネル・地図から）。</summary>
         public bool TravelTo(string areaId)
         {
+            // 練習の森のトンネルは、チュートリアルのおわり（本番の森へ）
+            if (InTutorial && (State == GameState.Playing || State == GameState.Paused))
+            {
+                FinishTutorial();
+                return true;
+            }
             var to = Areas.Get(areaId);
             if (to == null || to.Id != areaId || to == Areas.Current) return false;
             if (State != GameState.Playing && State != GameState.Paused) return false;
@@ -570,6 +649,12 @@ namespace Shakutori
         public void GoToTitle()
         {
             SaveProgress();
+            if (InTutorial)
+            {
+                // チュートリアルのとちゅうでタイトルへ：練習の記録はすてる（つぎは、はじめから）
+                _tutorial.Stop();
+                SaveSystem.EndPractice(keepCreatures: false);
+            }
             Time.timeScale = 1f;
             ui.CloseAllOverlays();
             ui.ShowTitle(true);
@@ -748,7 +833,8 @@ namespace Shakutori
                 }
             }
 
-            // 一度だけのヒント（はじめてそうなったとき）
+            // 一度だけのヒント（はじめてそうなったとき。チュートリアルの練習の森では、カードが教える）
+            if (InTutorial) return;
             if (_playingFor < 12f || Time.unscaledTime - _lastTip < 25f || ui.AnyOverlayOpen) return;
             bool shown = false;
             if (worm.OnSteepSurface)
@@ -1061,6 +1147,7 @@ namespace Shakutori
         /// <summary>きせかえの解放・エリアのクリア・ぜんぶのクリアを調べる。</summary>
         void CheckProgress()
         {
+            if (InTutorial) return;   // 練習の森で集めた物は、本番の記録にしない（きせかえも、めぐり終えたも）
             var now = ProgressStats.FromSave();
             foreach (var s in Skins.NewlyUnlocked(_stats, now))
             {

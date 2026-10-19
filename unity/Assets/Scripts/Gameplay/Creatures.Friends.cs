@@ -78,7 +78,9 @@ namespace Shakutori
         /// </summary>
         void SpaceOut(Mob m, List<Mob> members, MobGroup g)
         {
-            float reach = BodyReach(m);
+            // 一匹ずつの大きさは遊ぶたびにちがうので、間をあけるかどうかは、その種のふつうの大きさでも決める（小さめの一匹が、仲間に重ならない）
+            var mesh = M(m.sp.body);
+            float reach = Mathf.Max(BodyReach(m), mesh != null ? Mathf.Max(mesh.bounds.extents.x, mesh.bounds.extents.z) * m.sp.scale : 0f);
             if (reach < SpacedReach || members.Count == 0) return;
             float gap = reach * 2.3f;   // 体と体のあいだに、少しすき間
             float Nearest(Vector3 q)

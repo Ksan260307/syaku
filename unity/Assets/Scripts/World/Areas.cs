@@ -434,6 +434,42 @@ namespace Shakutori
         }
     }
 
+    /// <summary>
+    /// チュートリアルの「練習の森」：はじめからを選んだときに、うけるとえらべる練習用の小さな森（森をもとにした景色）。
+    /// 本番のエリアの一覧（<see cref="Areas.All"/>）にはふくめない（しずく・名所の数、地図のエリア、図鑑、デモ映像に出ない）。
+    /// 北のトンネルをくぐると、本番の森へ。
+    /// </summary>
+    public class TutorialArea : AreaLayout
+    {
+        readonly List<GateDef> _gates = new List<GateDef>
+        {
+            new GateDef { position = TutorialLayout.Gate, targetArea = "forest", label = "森へ" },
+        };
+
+        public override string Id => "tutorial";
+        public override string DisplayName => "練習の森";
+        public override string Subtitle => "練習の森";
+        public override string Tagline => "しゃくとりむしの うごかし方を、ためしてみよう";
+        public override string DropName => "しずく";
+        public override float PlayRadius => TutorialLayout.PlayRadius;
+        public override float TerrainHalf => TutorialLayout.TerrainHalf;
+        public override float MaxClimbHeight => TutorialLayout.MaxClimbHeight;
+        public override int DropIdOffset => 9000;
+        public override int DropCount => 3;
+        public override Vector2 Spawn => TutorialLayout.Spawn;
+        public override Vector3 SpawnForward => Vector3.forward;
+        public override List<LandmarkDef> Landmarks => TutorialLayout.Landmarks;
+        public override List<GateDef> Gates => _gates;
+        public override float Height(float x, float z) => TutorialLayout.Height(x, z);
+        public override Vector3 Normal(float x, float z) => TutorialLayout.Normal(x, z);
+        public override Color GroundColor(float x, float z, float h, Vector3 n) => TutorialLayout.GroundColor(x, z, h, n);
+        public override float TrailMask(float x, float z) => TutorialLayout.TrailMask(x, z);
+        public override List<Vector2[]> TrailLines => TutorialLayout.Trails;
+        public override float WaterLevelAt(float x, float z) => TutorialLayout.WaterLevelAt(x, z);
+        public override bool IsUnderwater(Vector3 p) => TutorialLayout.IsUnderwater(p);
+        public override bool InPlayArea(Vector3 p) => TutorialLayout.InPlayArea(p);
+    }
+
     /// <summary>エリアの一覧と、いまいるエリア。</summary>
     public static class Areas
     {
@@ -446,6 +482,8 @@ namespace Shakutori
         public static readonly ShrineArea Shrine = new ShrineArea();
         public static readonly NightArea Night = new NightArea();
         public static readonly AreaLayout[] All = { Forest, River, Park, Mountain, Hut, Coast, Shrine, Night };
+        /// <summary>チュートリアルの練習の森（<see cref="All"/> にはふくめない）。</summary>
+        public static readonly TutorialArea Tutorial = new TutorialArea();
 
         public static AreaLayout Current { get; set; } = Forest;
 
@@ -453,6 +491,7 @@ namespace Shakutori
         {
             foreach (var a in All)
                 if (a.Id == id) return a;
+            if (id == Tutorial.Id) return Tutorial;
             return Forest;
         }
 

@@ -25,6 +25,18 @@
             </ui:VisualElement>
             <ui:Label name="area-name" text="" class="area-name" picking-mode="Ignore" />
 
+            <!-- チュートリアル：いまの練習と、その操作 -->
+            <ui:VisualElement name="tutorial" class="tutorial hidden" picking-mode="Ignore">
+                <ui:VisualElement name="tutorial-card" class="tutorial-card" picking-mode="Ignore">
+                    <ui:VisualElement class="tutorial-head" picking-mode="Ignore">
+                        <ui:Label name="tutorial-step" text="" class="tutorial-step" picking-mode="Ignore" />
+                        <ui:Label name="tutorial-title" text="" class="tutorial-title" picking-mode="Ignore" />
+                    </ui:VisualElement>
+                    <ui:Label name="tutorial-text" text="" class="tutorial-text" picking-mode="Ignore" />
+                    <ui:Label name="tutorial-note" text="" class="tutorial-note" picking-mode="Ignore" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
             <ui:VisualElement name="top-right" class="top-right" picking-mode="Ignore">
                 <ui:VisualElement name="minimap" class="minimap">
                     <ui:VisualElement name="minimap-mask" class="minimap-mask" picking-mode="Ignore">
@@ -121,7 +133,7 @@
                 <ui:Label text="— INCHWORM FOREST —" class="logo-sub" picking-mode="Ignore" />
                 <ui:VisualElement class="title-buttons" picking-mode="Ignore">
                     <ui:Button name="btn-continue" text="つづきから" class="btn btn-primary btn-large" />
-                    <ui:Button name="btn-new" text="はじめる" class="btn btn-large" />
+                    <ui:Button name="btn-new" text="はじめから" class="btn btn-large" />
                     <ui:Button name="btn-howto" text="あそびかた" class="btn" />
                     <ui:Button name="btn-credits" text="クレジット" class="btn btn-small-title" />
                 </ui:VisualElement>
@@ -157,6 +169,7 @@
                 <ui:Label text="メニュー" class="window-title" picking-mode="Ignore" />
                 <ui:Label name="pause-summary" text="" class="pause-summary" picking-mode="Ignore" />
                 <ui:Button name="resume" text="つづける" class="btn btn-primary" />
+                <ui:Button name="tutorial-end" text="チュートリアルをおわって、森へ" class="btn hidden" />
                 <ui:VisualElement class="row-buttons">
                     <ui:Button name="pause-howto" text="あそびかた" class="btn btn-small" />
                     <ui:Button name="pause-collection" text="図鑑・きせかえ" class="btn btn-small" />
@@ -261,6 +274,18 @@
                     <ui:Button name="confirm-no" text="やめる" class="btn btn-small" />
                     <ui:Button name="confirm-yes" text="はい" class="btn btn-small btn-danger" />
                 </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ===== はじめから：チュートリアルをうけるか ===== -->
+        <ui:VisualElement name="tutorial-overlay" class="overlay hidden">
+            <ui:VisualElement class="window tutorial-window">
+                <ui:Label text="チュートリアル" class="window-title" picking-mode="Ignore" />
+                <ui:Label text="しゃくとりむしの うごかし方を、練習用の小さな森で、ためしてみますか？" class="confirm-text" picking-mode="Ignore" />
+                <ui:Label text="すすむ・見まわす・登る・糸でおりる・糸をねらう・いきものに会う などを、ひとつずつ練習できます（5 分くらい）。練習のあとは、そのまま森から始まります。" class="tutorial-lead" picking-mode="Ignore" />
+                <ui:Button name="tutorial-yes" text="チュートリアルをうける" class="btn btn-primary" />
+                <ui:Button name="tutorial-no" text="うけないで、はじめる" class="btn" />
+                <ui:Button name="tutorial-back" text="もどる" class="btn btn-small" />
             </ui:VisualElement>
         </ui:VisualElement>
 

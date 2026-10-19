@@ -2566,3 +2566,149 @@
 .portrait .top-buttons {
     margin-left: 8px;
 }
+
+/* ===== チュートリアル ===== */
+/* いまの練習と、その操作（画面の上のまん中。目標とミニマップのあいだ） */
+.tutorial {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 22px;
+    align-items: center;
+}
+
+.tutorial-card {
+    width: 44%;
+    max-width: 700px;
+    background-color: rgba(252, 248, 238, 0.94);
+    border-radius: 18px;
+    border-width: 3px;
+    border-color: rgb(214, 186, 128);
+    padding: 10px 22px 12px 22px;
+    transition-property: background-color, border-color;
+    transition-duration: 0.25s;
+}
+
+/* できた！ */
+.tutorial-card--done {
+    background-color: rgba(228, 247, 208, 0.97);
+    border-color: rgb(118, 178, 88);
+}
+
+.tutorial-head {
+    flex-direction: row;
+    align-items: center;
+}
+
+.tutorial-step {
+    font-size: 16px;
+    letter-spacing: 2px;
+    color: rgb(156, 124, 80);
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+
+.tutorial-title {
+    font-size: 27px;
+    -unity-font-style: bold;
+    color: rgb(92, 66, 38);
+    flex-shrink: 1;
+}
+
+.tutorial-card--done .tutorial-title {
+    color: rgb(64, 128, 48);
+}
+
+.tutorial-text {
+    font-size: 20px;
+    white-space: normal;
+    color: rgb(74, 62, 50);
+    margin-top: 4px;
+}
+
+.tutorial-note {
+    font-size: 15px;
+    white-space: normal;
+    color: rgb(140, 118, 92);
+    margin-top: 4px;
+}
+
+/* はじめから：チュートリアルをうけるか */
+.tutorial-window {
+    width: 640px;
+}
+
+.tutorial-lead {
+    font-size: 19px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    color: rgb(110, 92, 72);
+    margin-bottom: 14px;
+}
+
+.compact .tutorial {
+    top: 12px;
+}
+
+.compact .tutorial-card {
+    padding: 6px 14px 8px 14px;
+}
+
+.compact .tutorial-title {
+    font-size: 23px;
+}
+
+.compact .tutorial-text {
+    font-size: 18px;
+}
+
+.short .tutorial-lead {
+    margin-bottom: 6px;
+}
+
+/* スマホ縦：目標とミニマップの下に、横いっぱいで */
+.portrait .tutorial {
+    top: 196px;
+    left: 10px;
+    right: 10px;
+}
+
+.portrait .tutorial-card {
+    width: 100%;
+    max-width: none;
+    padding: 6px 12px 8px 12px;
+}
+
+/* せまいので、何番目かと見出しは、上下にならべる */
+.portrait .tutorial-head {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.portrait .tutorial-step,
+.portrait .tutorial-note {
+    font-size: 13px;
+}
+
+.portrait .tutorial-title {
+    font-size: 20px;
+}
+
+.portrait .tutorial-text {
+    font-size: 16px;
+}
+
+/* スマホ縦のタッチ：右下のボタン（糸・背伸び など）にかからないよう、左がわに */
+.portrait.touch-ui .tutorial {
+    right: 44%;
+}
+
+/* メニューの「チュートリアルをおわって、森へ」：入らなければ字を小さく */
+#tutorial-end {
+    white-space: nowrap;
+    -unity-text-auto-size: best-fit 14px 23px;
+}
+
+.portrait .tutorial-window {
+    width: 94%;
+}

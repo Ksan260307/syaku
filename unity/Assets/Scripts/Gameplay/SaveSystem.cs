@@ -166,7 +166,7 @@ namespace Shakutori
                 if (!float.IsFinite(n.smallMm) || n.smallMm < 0f) n.smallMm = 0f;
                 if (!float.IsFinite(n.friendAt)) n.friendAt = -999f;
             }
-            if (string.IsNullOrEmpty(d.area)) d.area = "forest";
+            if (string.IsNullOrEmpty(d.area) || d.area == "tutorial") d.area = "forest";   // 練習の森は、記録しない
             if (string.IsNullOrEmpty(d.skin)) d.skin = "wakaba";
             if (d.hat == null) d.hat = "";
             if (d.glasses == null) d.glasses = "";
@@ -212,8 +212,40 @@ namespace Shakutori
 
         static float Fix(float v, float lo, float hi, float def) => float.IsFinite(v) ? Mathf.Clamp(v, lo, hi) : def;
 
+        /// <summary>
+        /// 練習中（チュートリアルの練習の森）：進み具合は、ブラウザに書かない（メモリの中だけ。練習が終わったら消す）。設定は、いつもどおり書く。
+        /// </summary>
+        public static bool Practice { get; private set; }
+
+        /// <summary>練習をはじめる：まっさらな記録で練習する（ブラウザには書かない）。</summary>
+        public static void BeginPractice()
+        {
+            EnsureLoaded();
+            _data = new SaveData();
+            Practice = true;
+        }
+
+        /// <summary>練習をおえる：練習の記録をすてて、まっさらな記録にもどす（練習で見つけたいきものは、keepCreatures なら図鑑にのこす）。</summary>
+        public static void EndPractice(bool keepCreatures)
+        {
+            var practice = _data;
+            Practice = false;
+            _data = new SaveData();
+            HasSave = false;
+            if (!keepCreatures || practice == null) return;
+            foreach (var c in practice.creatures) if (!_data.creatures.Contains(c)) _data.creatures.Add(c);
+            foreach (var c in practice.seenCreatures) if (!_data.seenCreatures.Contains(c)) _data.seenCreatures.Add(c);
+            foreach (var n in practice.notes)
+            {
+                if (n == null || _data.notes.Exists(m => m.id == n.id)) continue;
+                n.friendAt = -999f;   // 遊んだ時間は 0 からなので、練習の時間は使わない
+                _data.notes.Add(n);
+            }
+        }
+
         public static void Save()
         {
+            if (Practice) return;   // 練習の森の記録は、書かない
             try
             {
                 string json = JsonUtility.ToJson(Data);
@@ -277,6 +309,7 @@ namespace Shakutori
         /// <summary>テスト用：保存データと設定をすべて消して初期状態に戻す。</summary>
         public static void ResetAll()
         {
+            Practice = false;
             PlayerPrefs.DeleteKey(SaveKey);
             PlayerPrefs.DeleteKey(BackupKey);
             PlayerPrefs.DeleteKey(SettingsKey);
@@ -290,6 +323,7 @@ namespace Shakutori
         /// <summary>テスト用：保存先には触らず、メモリ上の状態だけ初期化する。</summary>
         public static void ResetAllInMemoryForTests()
         {
+            Practice = false;
             _data = new SaveData();
             _settings = new SettingsData();
             _loaded = true;
@@ -301,6 +335,7 @@ namespace Shakutori
 
         public static void ResetProgress()
         {
+            Practice = false;
             _data = new SaveData();
             _loaded = true;
             HasSave = false;

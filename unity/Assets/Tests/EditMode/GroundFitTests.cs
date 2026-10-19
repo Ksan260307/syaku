@@ -94,7 +94,7 @@ namespace Shakutori.Tests
         }
 
         [Test]
-        public void Dewdrops_AreNotBuriedByLaterGroundOrRocks([Values("forest", "river", "park", "mountain", "coast", "shrine", "night")] string id)
+        public void Dewdrops_AreNotBuriedByLaterGroundOrRocks([Values("forest", "river", "park", "mountain", "coast", "shrine", "night", "tutorial")] string id)
         {
             var gen = Make(id);
             try
