@@ -18,11 +18,15 @@ namespace Shakutori.Tests
     /// 時間がかかり、映像のファイルを書きかえるので、ふだんのテストでは走らせない［Explicit］。
     /// <c>-testFilter Shakutori.Tests.DemoRecorder</c> で名前を指定したときだけ。<c>SHAKU_DEMO_STILLS</c> を入れると、映像のかわりに、場面ごとの絵を build-tmp/demo_stills に書き出す。
     /// <c>SHAKU_DEMO_AREAS</c>（例：forest,shrine）で、作るエリアをしぼれる。
+    /// 1 秒に 30 こまで（60Hz の画面で、こまの出る間あいがそろう）、2 倍の細かさで写して半分にちぢめ（ぎざぎざが出ない）、
+    /// H.264（High）の 4Mbps で書く（ビットレートが低いと、葉や草がブロックのようにくずれる）。
     /// </summary>
     [Explicit("タイトルのデモ映像を作りなおすときだけ")]
     public class DemoRecorder
     {
-        const int Fps = 24;
+        const int Fps = 30;
+        const int Supersample = 2;
+        const uint BitRate = 4000000;
         const float ShotSeconds = 4.6f;
         const float FadeSeconds = 0.6f;
 
@@ -76,7 +80,8 @@ namespace Shakutori.Tests
             GM.ApplyQuality(1);   // きれい
             bool autoCam = SaveSystem.Settings.autoCamera;
             SaveSystem.Settings.autoCamera = false;   // カメラは、この中で回す
-            var rt = new RenderTexture(TitleDemo.Width, TitleDemo.Height, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 };
+            var rt = new RenderTexture(TitleDemo.Width * Supersample, TitleDemo.Height * Supersample, 24, RenderTextureFormat.ARGB32) { antiAliasing = 4 };
+            var small = new RenderTexture(TitleDemo.Width, TitleDemo.Height, 0, RenderTextureFormat.ARGB32) { filterMode = FilterMode.Bilinear };
             var tex = new Texture2D(TitleDemo.Width, TitleDemo.Height, TextureFormat.RGBA32, false);
             Directory.CreateDirectory(stills ? StillDir : OutDir);
             Time.captureFramerate = Fps;
@@ -92,7 +97,7 @@ namespace Shakutori.Tests
                         yield return Seconds(1f);
                     }
                     var sink = new Sink(stills ? null : Path.Combine(OutDir, area.Id + ".mp4"), tex);
-                    try { yield return RecordArea(area, rt, tex, sink, stills); }
+                    try { yield return RecordArea(area, rt, small, tex, sink, stills); }
                     finally { sink.Dispose(); }
                 }
             }
@@ -102,11 +107,12 @@ namespace Shakutori.Tests
                 SaveSystem.Settings.autoCamera = autoCam;
                 ResetInput();
                 Object.Destroy(rt);
+                Object.Destroy(small);
                 Object.Destroy(tex);
             }
         }
 
-        IEnumerator RecordArea(AreaLayout area, RenderTexture rt, Texture2D tex, Sink sink, bool stills)
+        IEnumerator RecordArea(AreaLayout area, RenderTexture rt, RenderTexture small, Texture2D tex, Sink sink, bool stills)
         {
             var shots = Shots[area.Id];
             int shotFrames = Mathf.RoundToInt(ShotSeconds * Fps), fade = Mathf.RoundToInt(FadeSeconds * Fps);
@@ -133,7 +139,7 @@ namespace Shakutori.Tests
                     Cam.pitch = shot.pitch;
                     Cam.distance = shot.distance;
                     yield return null;
-                    var px = Grab(rt, tex);
+                    var px = Grab(rt, small, tex);
                     if (stills)
                     {
                         if (f == 0 || f == total / 2 || f == total - 1) Save(px, tex, $"{area.Id}_{s}_{(f == 0 ? "a" : f == total - 1 ? "c" : "b")}");
@@ -164,13 +170,15 @@ namespace Shakutori.Tests
 #if UNITY_EDITOR
                 if (path == null) return;
                 if (File.Exists(path)) File.Delete(path);
-                var attrs = new VideoTrackAttributes
+                var h264 = new H264EncoderAttributes { gopSize = Fps, numConsecutiveBFrames = 2, profile = UnityEditor.VideoEncodingProfile.H264High };
+                var attrs = new VideoTrackEncoderAttributes(h264)
                 {
                     frameRate = new MediaRational(Fps),
                     width = (uint)tex.width,
                     height = (uint)tex.height,
                     includeAlpha = false,
-                    bitRateMode = UnityEditor.VideoBitrateMode.Medium,
+                    bitRateMode = UnityEditor.VideoBitrateMode.High,
+                    targetBitRate = BitRate,
                 };
                 _enc = new MediaEncoder(path, attrs);
 #endif
@@ -197,16 +205,18 @@ namespace Shakutori.Tests
             }
         }
 
-        static Color32[] Grab(RenderTexture rt, Texture2D tex)
+        /// <summary>2 倍の細かさで写して、半分にちぢめる（となりの 4 つの点をまぜる）。</summary>
+        static Color32[] Grab(RenderTexture rt, RenderTexture small, Texture2D tex)
         {
             var cam = Camera.main;
             var old = cam.targetTexture;
             cam.targetTexture = rt;
             cam.Render();
             cam.targetTexture = old;
+            Graphics.Blit(rt, small);
             var prev = RenderTexture.active;
-            RenderTexture.active = rt;
-            tex.ReadPixels(new Rect(0, 0, rt.width, rt.height), 0, 0, false);
+            RenderTexture.active = small;
+            tex.ReadPixels(new Rect(0, 0, small.width, small.height), 0, 0, false);
             RenderTexture.active = prev;
             return tex.GetPixels32();
         }

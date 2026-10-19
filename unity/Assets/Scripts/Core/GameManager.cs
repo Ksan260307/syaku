@@ -265,6 +265,7 @@ namespace Shakutori
             yield return new WaitForSecondsRealtime(0.65f);
             Time.timeScale = 1f;
             ui.CloseAllOverlays();
+            _demo?.Show(false);   // 画面が暗いうちに、デモ映像を止めて、うしろのエリアをまた描く（エリアを作りなおす前に）
             if (!continueGame)
             {
                 SaveSystem.ResetProgress();

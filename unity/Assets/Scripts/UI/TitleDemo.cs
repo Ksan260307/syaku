@@ -9,11 +9,14 @@ namespace Shakutori
     /// タイトル画面のうしろに流すデモ映像。エリアごとに 1 本（StreamingAssets/Demo/エリア.mp4。テストの DemoRecorder で作る）。
     /// 行ったことのあるエリアの映像だけから、ランダムに 1 本ずつ流す（終わったら、なるべくちがうエリアの映像へ）。
     /// 映像が読めないとき（ファイルがない・ブラウザが再生できない）は出さない（うしろのエリアが、いままでどおり見える）。
+    /// 映像がすっかり出ているあいだは、うしろのエリアを描かない（映像にかくれて見えないのに描くと、映像がかくかくする）。
     /// </summary>
     public class TitleDemo : MonoBehaviour
     {
         public const string Folder = "Demo";
-        public const int Width = 960, Height = 540;
+        public const int Width = 1280, Height = 720;
+        /// <summary>映像がふわっと出てくる時間（USS の .title-demo の transition と同じ）。</summary>
+        public const float FadeIn = 1.2f;
 
         VideoPlayer _player;
         RenderTexture _rt;
@@ -21,12 +24,18 @@ namespace Shakutori
         string _current;
         bool _want;
         int _fails;
+        float _onAt = -1f;
+        bool _worldHidden;
+        int _mask;
+        bool _post;
         readonly System.Random _rng = new System.Random(System.Environment.TickCount);
 
         /// <summary>いま流している（流そうとしている）エリア。</summary>
         public string Current => _current;
         /// <summary>映像が画面に出ている。</summary>
         public bool Showing => _view != null && _view.ClassListContains("title-demo--on");
+        /// <summary>映像にかくれて、うしろのエリアを描くのを止めている。</summary>
+        public bool WorldHidden => _worldHidden;
 
         public static string UrlFor(string areaId) => Application.streamingAssetsPath + "/" + Folder + "/" + areaId + ".mp4";
 
@@ -77,14 +86,51 @@ namespace Shakutori
             else
             {
                 _view?.RemoveFromClassList("title-demo--on");
+                _onAt = -1f;
+                HideWorld(false);
                 if (_player != null) _player.Stop();
             }
+        }
+
+        void Update()
+        {
+            // 映像がすっかり出たら、うしろのエリアを描かない（映像がしまわれるときは、すぐ描きはじめる）
+            bool cover = _want && _onAt >= 0f && Showing && Time.unscaledTime - _onAt > FadeIn + 0.1f;
+            if (cover != _worldHidden) HideWorld(cover);
+        }
+
+        /// <summary>うしろのエリア（地形・草花・小物・いきもの・光のしあげ）を描くのを、止める・もどす。</summary>
+        void HideWorld(bool hide)
+        {
+            if (hide == _worldHidden) return;
+            var cam = Camera.main;
+            if (cam == null) return;
+            var data = cam.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+            var gm = GetComponent<GameManager>();
+            if (hide)
+            {
+                _mask = cam.cullingMask;
+                cam.cullingMask = 0;
+                if (data != null) { _post = data.renderPostProcessing; data.renderPostProcessing = false; }
+            }
+            else
+            {
+                cam.cullingMask = _mask;
+                if (data != null) data.renderPostProcessing = _post;
+            }
+            if (gm != null)
+            {
+                if (gm.world != null && gm.world.instanced != null) gm.world.instanced.enabled = !hide;
+                if (gm.world != null && gm.world.loose != null) gm.world.loose.enabled = !hide;
+                if (gm.creatures != null) gm.creatures.enabled = !hide;
+            }
+            _worldHidden = hide;
         }
 
         void Ensure()
         {
             if (_player != null) return;
-            _rt = new RenderTexture(Width, Height, 0, RenderTextureFormat.ARGB32) { name = "TitleDemo" };
+            _rt = new RenderTexture(Width, Height, 0, RenderTextureFormat.ARGB32) { name = "TitleDemo", filterMode = FilterMode.Bilinear };
             _player = gameObject.AddComponent<VideoPlayer>();
             _player.playOnAwake = false;
             _player.source = VideoSource.Url;
@@ -99,6 +145,7 @@ namespace Shakutori
             {
                 if (!_want) { p.Stop(); return; }
                 _fails = 0;
+                if (_onAt < 0f) _onAt = Time.unscaledTime;
                 _view?.AddToClassList("title-demo--on");
             };
             _player.loopPointReached += p => { if (_want) PlayNext(); };
@@ -106,6 +153,7 @@ namespace Shakutori
             {
                 Debug.LogWarning($"[TitleDemo] {_current}: {msg}");
                 _view?.RemoveFromClassList("title-demo--on");
+                _onAt = -1f;
                 if (_want && ++_fails < 3) PlayNext();
             };
             if (_view != null) _view.style.backgroundImage = new StyleBackground(Background.FromRenderTexture(_rt));
@@ -124,6 +172,7 @@ namespace Shakutori
 
         void OnDestroy()
         {
+            HideWorld(false);
             if (_rt != null) { _rt.Release(); Destroy(_rt); }
         }
     }
