@@ -5,9 +5,11 @@ namespace Shakutori
 {
     /// <summary>
     /// チュートリアル（練習の森）：基本の操作を、ひとつずつ練習する。
-    /// 画面の上のカードに、いまの練習と、その操作（キーボード・ゲームパッド・タッチで、それぞれの言い方）を出し、
-    /// できたら「できた！」と音で知らせて、次の練習へ。行き先は、金色の光のつぶと、足もとの光のわで示す。
-    /// さいごに北のトンネルをくぐると、本番の森へ（とちゅうでくぐっても、メニューの「チュートリアルをおわる」でも）。
+    /// 画面の上のカードに、いまの練習・押すボタン（キーボード・ゲームパッド・タッチで、それぞれのボタン）・めあてを出し、
+    /// できたら「できた！」と音で知らせて、次の練習へ。見まわす・はやく などは、どれだけできたかをバーで見せる。
+    /// 行き先は、金色の光のつぶと、行き先の上の ▼（名前つき）と、しゃくとりむしのそばの矢印で示す。
+    /// 押すボタンが画面にあるとき（タッチのボタン・右上の地図と図鑑のボタン）は、そのボタンを光らせる。
+    /// さいごに北のトンネルをくぐると、本番の森へ（とちゅうでくぐっても、メニューの「チュートリアルをおわって、森へ」でも）。
     /// </summary>
     public class Tutorial : MonoBehaviour
     {
@@ -48,6 +50,7 @@ namespace Shakutori
             _gm = gm;
             _index = 0;
             Running = true;
+            FaceNearestDew();
             StartStep();
         }
 
@@ -57,6 +60,8 @@ namespace Shakutori
             Running = false;
             if (_gm == null) return;
             _gm.ui.ShowTutorialCard(false);
+            _gm.ui.SetTutorialHighlight(null);
+            _gm.ui.TutorialTarget = null;
             _gm.fx.SetBeacon(null);
         }
 
@@ -67,22 +72,39 @@ namespace Shakutori
             StartStep();
         }
 
+        /// <summary>はじめは、いちばん近いしずくの方へ、体とカメラを向けておく（しずくが画面のまん中に見える）。</summary>
+        void FaceNearestDew()
+        {
+            var worm = _gm.worm;
+            if (!_gm.collectibles.NearestRemaining(worm.CenterPosition, out var dew, out _)) return;
+            Vector3 d = dew - worm.CenterPosition;
+            d.y = 0f;
+            if (d.sqrMagnitude < 0.01f) return;
+            d.Normalize();
+            if (Vector3.Angle(worm.Heading, d) > 15f) worm.Spawn(_gm.world.SpawnPoint, d);
+            float yaw = Mathf.Atan2(d.x, d.z) * Mathf.Rad2Deg;
+            _gm.followCamera.ShowView(yaw, 9f, 3.6f);   // 少し低めから、しずくを正面に（歩きだすと、いつものカメラにもどる）
+        }
+
         void StartStep()
         {
             _progress = 0f;
             _doneAt = -1f;
             _sawHang = _wasHigh = false;
             Refresh();
-            UpdateBeacon();
+            UpdateGuide();
         }
 
-        /// <summary>カードの字を、いまの練習と操作のしかたに合わせる（とちゅうでゲームパッドやタッチに変えても）。</summary>
+        /// <summary>カードの字とボタンを、いまの練習と操作のしかたに合わせる（とちゅうでゲームパッドやタッチに変えても）。</summary>
         void Refresh()
         {
             _device = _gm.ui.InputDevice;
             var (title, text) = Texts(Current, _device);
+            var (keys, action) = Keys(Current, _device);
             string note = _index == 0 ? "メニューから、いつでもチュートリアルをおえて、森へ行けます" : "";
-            _gm.ui.SetTutorialStep(_index + 1, Steps.Length, title, text, note);
+            _gm.ui.SetTutorialStep(_index + 1, Steps.Length, title, keys, action, text, note);
+            _gm.ui.SetTutorialProgress(ProgressGoal(Current) > 0f ? Mathf.Clamp01(_progress / ProgressGoal(Current)) : (float?)null);
+            _gm.ui.SetTutorialHighlight(Highlight(Current, _device));
             _gm.ui.ShowTutorialCard(true);
         }
 
@@ -98,14 +120,19 @@ namespace Shakutori
                 StartStep();
                 return;
             }
-            UpdateBeacon();
-            if (Check()) Done();
+            UpdateGuide();
+            bool done = Check();
+            float goal = ProgressGoal(Current);
+            if (goal > 0f) _gm.ui.SetTutorialProgress(Mathf.Clamp01(_progress / goal));
+            if (done) Done();
         }
 
         void Done()
         {
             _doneAt = Time.unscaledTime;
             _gm.ui.TutorialStepDone();
+            _gm.ui.SetTutorialHighlight(null);
+            _gm.ui.TutorialTarget = null;
             _gm.fx.SetBeacon(null);
             AudioManager.Instance?.Friend();
             StepDone?.Invoke(Current);
@@ -114,6 +141,10 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // できたか
         // ------------------------------------------------------------------
+        /// <summary>ためる練習の、めやすの量（ためない練習は 0）。</summary>
+        static float ProgressGoal(Step s) =>
+            s == Step.Look ? LookAmount : s == Step.Zoom ? ZoomAmount : s == Step.Sprint ? SprintSeconds : s == Step.Stand ? StandSeconds : 0f;
+
         bool Check()
         {
             var worm = _gm.worm;
@@ -202,51 +233,91 @@ namespace Shakutori
             }
         }
 
-        void UpdateBeacon() => _gm.fx.SetBeacon(_doneAt < 0f ? Target() : null);
-
-        // ------------------------------------------------------------------
-        // カードの字
-        // ------------------------------------------------------------------
-        /// <summary>操作の言い方（device は "kb"・"pad"・"touch"）。</summary>
-        public static string Key(string action, string device)
+        /// <summary>行き先の上の ▼ にそえる名前。</summary>
+        public static string TargetLabel(Step s)
         {
-            bool pad = device == "pad", touch = device == "touch";
-            switch (action)
-            {
-                case "move": return pad ? "左スティック" : touch ? "画面の左がわに指をおいて、すべらせる" : "W A S D（矢印キーでも）";
-                case "look": return pad ? "右スティック" : touch ? "画面の右がわをドラッグ" : "マウスでドラッグ（Q・R キーでも）";
-                case "zoom": return pad ? "LB・RB" : touch ? "2本の指を、広げたり、せばめたり" : "マウスホイール";
-                case "sprint": return pad ? "RT" : touch ? "「はやく」ボタン" : "Shift";
-                case "stand": return pad ? "Y" : touch ? "「背伸び」ボタン" : "E";
-                case "silk": return pad ? "A" : touch ? "「糸」ボタン" : "Space";
-                case "aim": return pad ? "LT" : touch ? "「ねらう」ボタン" : "F（右クリックでも）";
-                case "book": return pad ? "X" : touch ? "右上の本のボタン" : "B";
-                case "map": return pad ? "View" : touch ? "右上の地図のボタン" : "M";
-            }
-            return "";
-        }
-
-        /// <summary>練習の見出しと説明。</summary>
-        public static (string title, string text) Texts(Step s, string device)
-        {
-            string K(string a) => Key(a, device);
             switch (s)
             {
-                case Step.Walk: return ("すすむ", $"{K("move")}で、すすもう。光っている所の、しずくを取ってみよう");
-                case Step.Look: return ("見まわす", $"{K("look")}で、まわりを見まわそう");
-                case Step.Zoom: return ("ズーム", $"{K("zoom")}で、カメラを近づけたり、はなしたりしよう");
+                case Step.Walk: return "しずく";
+                case Step.Climb: return "切り株のてっぺん";
+                case Step.Aim: return "赤キノコのかさ";
+                case Step.Silk: return "ここへおりる";
+                case Step.Sprint: return "草原";
+                case Step.Creature: return "かたつむり";
+                case Step.Exit: return "トンネル";
+                default: return "";
+            }
+        }
+
+        void UpdateGuide()
+        {
+            Vector3? t = _doneAt < 0f ? Target() : null;
+            _gm.fx.SetBeacon(t);
+            _gm.ui.TutorialTarget = t;
+            _gm.ui.TutorialTargetLabel = TargetLabel(Current);
+        }
+
+        // ------------------------------------------------------------------
+        // カードの字・押すボタン
+        // ------------------------------------------------------------------
+        /// <summary>押すボタン（キーの形で、カードにならべる）と、押すとどうなるか（device は "kb"・"pad"・"touch"）。</summary>
+        public static (string[] keys, string action) Keys(Step s, string device)
+        {
+            bool pad = device == "pad", touch = device == "touch";
+            string[] move = pad ? new[] { "L スティック" } : touch ? new[] { "左がわをドラッグ" } : new[] { "W", "A", "S", "D" };
+            switch (s)
+            {
+                case Step.Walk: return (move, "すすむ");
+                case Step.Look: return (pad ? new[] { "R スティック" } : touch ? new[] { "右がわをドラッグ" } : new[] { "マウスでドラッグ" }, "見まわす");
+                case Step.Zoom: return (pad ? new[] { "LB", "RB" } : touch ? new[] { "2本指" } : new[] { "ホイール" }, "近づける・はなす");
+                case Step.Climb: return (move, "壁にむかって、すすむ");
+                case Step.Aim: return (pad ? new[] { "LT" } : touch ? new[] { "ねらう" } : new[] { "F", "右クリック" }, "押したまま ねらい、はなすと発射");
+                case Step.Silk: return (pad ? new[] { "A" } : touch ? new[] { "糸" } : new[] { "Space" }, "ふちで押すと、糸でおりる");
+                case Step.Sprint: return (pad ? new[] { "RT" } : touch ? new[] { "はやく" } : new[] { "Shift" }, "押しながら、すすむ");
+                case Step.Stand: return (pad ? new[] { "Y" } : touch ? new[] { "背伸び" } : new[] { "E" }, "長押しで、背伸び");
+                case Step.Creature: return (move, "近づく");
+                case Step.Zukan: return (pad ? new[] { "X" } : touch ? new[] { "本のボタン" } : new[] { "B" }, "図鑑を開く");
+                case Step.Map: return (pad ? new[] { "View" } : touch ? new[] { "地図のボタン" } : new[] { "M" }, "地図を開く");
+                default: return (move, "すすむ");
+            }
+        }
+
+        /// <summary>光らせる、画面のボタン（タッチのボタン・右上のボタン）。なければ null。</summary>
+        public static string Highlight(Step s, string device)
+        {
+            bool touch = device == "touch";
+            switch (s)
+            {
+                case Step.Aim: return touch ? "btn-aim" : null;
+                case Step.Silk: return touch ? "btn-silk" : null;
+                case Step.Sprint: return touch ? "btn-dash" : null;
+                case Step.Stand: return touch ? "btn-stand" : null;
+                case Step.Zukan: return "collection-button";   // マウスで押しても開ける
+                case Step.Map: return "map-button";
+                default: return null;
+            }
+        }
+
+        /// <summary>練習の見出しと、めあて（押すボタンは、カードにキーの形でならべる）。</summary>
+        public static (string title, string text) Texts(Step s, string device)
+        {
+            switch (s)
+            {
+                case Step.Walk: return ("すすむ", "矢印の方へすすんで、光っている所の、しずくを取ってみよう");
+                case Step.Look: return ("見まわす", "カメラを回して、まわりを、ぐるっと見まわしてみよう");
+                case Step.Zoom: return ("ズーム", "カメラを、近づけたり、はなしたりしてみよう");
                 case Step.Climb: return ("登る", "しゃくとりむしは、どんな面でも登れる。切り株の壁にむかってすすんで、てっぺんのしずくを取ろう");
-                case Step.Silk: return ("糸でおりる", $"高い所のふちで {K("silk")} を押すと、糸でぶら下がって、おりられる。キノコのかさのふちから、下へおりよう（長押しで、糸をのぼる）");
-                case Step.Sprint: return ("はやく", $"{K("sprint")} を押しながらすすむと、はやく歩ける。光っている草原まで、いそごう");
-                case Step.Stand: return ("背伸び", $"{K("stand")} を長押しすると、背伸びして、上半身を持ち上げる。高い所に、頭がとどくよ");
                 case Step.Aim:
                     return ("糸をねらう", device == "touch"
-                        ? "「ねらう」ボタンを押したまま、指をすべらせて、となりの赤キノコのかさにねらいを合わせよう。はなすと糸がとんで、かさの上へ引きよせられる"
-                        : $"{K("aim")} を押したまま、となりの赤キノコのかさにねらいを合わせよう。はなすと糸がとんで、かさの上へ引きよせられる");
+                        ? "「ねらう」を押したまま、指をすべらせて、となりの赤キノコのかさにねらいを合わせよう。はなすと糸がとんで、かさの上へ引きよせられる"
+                        : "押したまま、となりの赤キノコのかさに、ねらいを合わせよう。はなすと糸がとんで、かさの上へ引きよせられる");
+                case Step.Silk: return ("糸でおりる", "かさのふちまで歩いて、糸を出すと、ぶら下がって下へおりられる（長押しで、糸をのぼる）");
+                case Step.Sprint: return ("はやく", "はやく歩いて、光っている草原まで、いそごう");
+                case Step.Stand: return ("背伸び", "背伸びすると、上半身を持ち上げて、高い所に頭がとどくよ");
                 case Step.Creature: return ("いきもの", "いきものに近づくと、いきもの図鑑にのる。小さな赤キノコの根もとの、かたつむりに会いに行こう");
-                case Step.Zukan: return ("図鑑", $"{K("book")} で、いきもの図鑑を開いてみよう。会ったいきものが、のっている");
-                case Step.Map: return ("地図", $"{K("map")} で、地図を開いてみよう。見つけた名所へは、地図からすぐ行ける");
-                default: return ("出発！", "これで練習はおしまい。北の木の根のトンネルをくぐって、しゃくとりの森へ出発しよう");
+                case Step.Zukan: return ("図鑑", "いきもの図鑑を開いてみよう。会ったいきものが、のっている（とじると、つぎへ）");
+                case Step.Map: return ("地図", "地図を開いてみよう。見つけた名所へは、地図からすぐ行ける（とじると、つぎへ）");
+                default: return ("出発！", "これで練習はおしまい。矢印の方の、木の根のトンネルをくぐって、しゃくとりの森へ出発しよう");
             }
         }
     }

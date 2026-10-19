@@ -8,7 +8,7 @@ using static Shakutori.Tests.GameHarness;
 namespace Shakutori.Tests
 {
     /// <summary>
-    /// 総合テスト：はじめからを選ぶと、チュートリアルをうけるか聞かれる。チュートリアルは練習の森で、
+    /// 総合テスト：はじめからを選ぶと、練習（チュートリアル）をするか聞かれる。チュートリアルは練習の森で、
     /// 基本の操作をひとつずつ練習し（できたら次へ）、北のトンネルをくぐると本番の森から始まる。
     /// 練習の記録はブラウザに書かず、練習で会ったいきものだけ図鑑にのこる。
     /// </summary>
@@ -25,6 +25,7 @@ namespace Shakutori.Tests
         [TearDown]
         public void TearDown()
         {
+            if (UI != null) UI.ForceTouch = null;
             ResetInput();
             Time.timeScale = 1f;
         }
@@ -55,19 +56,21 @@ namespace Shakutori.Tests
         }
 
         [UnityTest, Timeout(300000)]
-        public IEnumerator NewGame_AsksWhetherToTakeTheTutorial()
+        public IEnumerator NewGame_AsksWhetherToPracticeFirst()
         {
             Assert.AreEqual("はじめから", UI.Root.Q<Button>("btn-new").text);
-            // 記録がないとき：すぐに、チュートリアルをうけるか聞く
+            // 記録がないとき：すぐに、練習するか聞く
             Press("btn-new");
             yield return null;
-            Assert.IsTrue(UI.IsTutorialChoiceOpen, "チュートリアルをうけるか聞く");
+            Assert.IsTrue(UI.IsTutorialChoiceOpen, "練習するか聞く");
             Assert.IsFalse(UI.IsConfirmOpen);
+            Assert.AreEqual("練習してから はじめる", UI.Root.Q<Button>("tutorial-yes").text);
+            Assert.AreEqual("練習しないで はじめる", UI.Root.Q<Button>("tutorial-no").text);
             Press("tutorial-back");
             yield return null;
             Assert.IsFalse(UI.IsTutorialChoiceOpen, "もどる");
             Assert.AreEqual(GameManager.GameState.Title, GM.State, "タイトルのまま");
-            // 記録があるとき：記録を消してよいか聞いてから、チュートリアルをうけるか聞く
+            // 記録があるとき：記録を消してよいか聞いてから、練習するか聞く
             SaveSystem.Data.drops.Add(3);
             SaveSystem.Save();
             Press("btn-new");
@@ -76,14 +79,14 @@ namespace Shakutori.Tests
             Assert.IsFalse(UI.IsTutorialChoiceOpen);
             Press("confirm-yes");
             yield return null;
-            Assert.IsTrue(UI.IsTutorialChoiceOpen, "つぎに、チュートリアルをうけるか");
-            // うけないで、はじめる：森から（練習の森には行かない）
+            Assert.IsTrue(UI.IsTutorialChoiceOpen, "つぎに、練習するか");
+            // 練習しないで はじめる：森から（練習の森には行かない）
             Press("tutorial-no");
             yield return WaitUntil(() => GM.State == GameManager.GameState.Playing && Worm.InputEnabled, 60f, "森から始まる");
             Assert.AreSame(Areas.Forest, Areas.Current);
             Assert.IsFalse(UI.IsTutorialCardVisible, "チュートリアルのカードは出ない");
             Assert.AreEqual(0, SaveSystem.Data.drops.Count, "記録は消えた");
-            // うける：練習の森から
+            // 練習してから はじめる：練習の森から
             GM.GoToTitle();
             yield return null;
             Press("btn-new");
@@ -105,8 +108,24 @@ namespace Shakutori.Tests
             Assert.AreEqual(3, Col.TotalDrops, "練習の森のしずくは 3 つ");
             Assert.Less(Vector2.Distance(new Vector2(Worm.CenterPosition.x, Worm.CenterPosition.z), TutorialLayout.Spawn), 3f, "はじまりの場所");
             Assert.IsTrue(GM.fx.BeaconShown, "行き先の目じるし");
-            Assert.Less(Vector3.Distance(GM.fx.BeaconAt, TutorialLayout.Ground(TutorialLayout.FirstDew.x, TutorialLayout.FirstDew.y)), 0.5f, "道のしずくに");
-            StringAssert.Contains("W A S D", UI.TutorialText, "キーボードの言い方");
+            Vector3 firstDew = TutorialLayout.Ground(TutorialLayout.FirstDew.x, TutorialLayout.FirstDew.y);
+            Assert.Less(Vector3.Distance(GM.fx.BeaconAt, firstDew), 0.5f, "道のしずくに");
+            // はじめは、カメラがいちばん近いしずくの方を向いている（しずくが画面のまん中のあたりに見える）
+            Vector3 vp = Camera.main.WorldToViewportPoint(firstDew);
+            Assert.Greater(vp.z, 0f, "しずくはカメラの前");
+            Assert.AreEqual(0.5f, vp.x, 0.12f, "しずくは、画面の左右のまん中");
+            Assert.Greater(vp.y, 0.25f, "しずくは、カードの下にかくれない高さ");
+            Assert.Less(vp.y, 0.7f, "しずくは、カードの下にかくれない高さ");
+            // 押すボタン（キーの形）と、行き先の ▼
+            CollectionAssert.AreEqual(new[] { "W", "A", "S", "D" }, UI.TutorialKeys, "押すボタン");
+            yield return Frames(2);
+            Assert.IsTrue(UI.IsTutorialMarkVisible, "しずくの上の ▼");
+            // カメラを横へ向けると、▼ は画面の外。矢印が、しずくの方をさす
+            yield return FaceCamera(Vector3.left);
+            yield return Frames(2);
+            Assert.IsFalse(UI.IsTutorialMarkVisible, "しずくは画面の外");
+            Assert.IsTrue(UI.IsTutorialArrowVisible, "行き先をさす矢印");
+            Assert.AreEqual(90f, UI.TutorialArrowAngle, 15f, "カメラを左へ向けると、矢印は右（しずくの方）をさす");
 
             // 1. すすむ：道のしずくまで歩く
             yield return FaceCamera(Vector3.forward);
@@ -118,6 +137,7 @@ namespace Shakutori.Tests
 
             // 2. 見まわす
             Assert.AreEqual(Tutorial.Step.Look, Guide.Current);
+            Assert.IsFalse(UI.IsTutorialArrowVisible, "行き先のない練習では、矢印は出ない");
             for (int i = 0; i < 120 && Guide.Current == Tutorial.Step.Look && !Guide.ShowingDone; i++)
             {
                 GameInput.AddLook(new Vector2(12f, 0f));
@@ -136,6 +156,10 @@ namespace Shakutori.Tests
             // 4. 登る：切り株の壁にむかってすすみ、てっぺんのしずくを取る
             Assert.AreEqual(Tutorial.Step.Climb, Guide.Current);
             Place(TutorialLayout.Stump + new Vector2(0f, -6f), Vector3.forward);
+            yield return FaceCamera(Vector3.right);
+            yield return Frames(2);
+            Assert.IsTrue(UI.IsTutorialArrowVisible, "切り株をさす矢印");
+            Assert.AreEqual(-90f, UI.TutorialArrowAngle, 20f, "カメラを右へ向けると、矢印は左（切り株の方）をさす");
             yield return FaceCamera(Vector3.forward);
             GameInput.VirtualMove = Vector2.up;
             yield return WaitUntil(() => Worm.HeadPosition.y > TutorialLayout.Height(0f, -9f) + 2.6f, 40f, "切り株を登る");
@@ -168,6 +192,14 @@ namespace Shakutori.Tests
 
             // 6. 糸でおりる：かさのふちで糸を出して、下へ
             Assert.AreEqual(Tutorial.Step.Silk, Guide.Current);
+            CollectionAssert.AreEqual(new[] { "Space" }, UI.TutorialKeys, "キーボードでは Space");
+            Assert.IsNull(UI.TutorialHighlight, "キーボードでは、画面のボタンは光らせない");
+            UI.ForceTouch = true;   // タッチにすると、押すボタンは「糸」、画面の「糸」ボタンを光らせる
+            yield return Frames(3);
+            CollectionAssert.AreEqual(new[] { "糸" }, UI.TutorialKeys, "タッチでは「糸」ボタン");
+            Assert.AreEqual("btn-silk", UI.TutorialHighlight, "画面の「糸」ボタンを光らせる");
+            UI.ForceTouch = null;
+            yield return Frames(3);
             Assert.Less(Vector3.Distance(GM.fx.BeaconAt, TutorialLayout.Ground(TutorialLayout.SilkLanding.x, TutorialLayout.SilkLanding.y)), 0.5f, "おりる先に目じるし");
             Vector2 toL = (TutorialLayout.SilkLanding - m).normalized;
             yield return FaceCamera(new Vector3(toL.x, 0f, toL.y));
@@ -199,6 +231,8 @@ namespace Shakutori.Tests
             CollectionAssert.Contains(SaveSystem.Data.creatures, "snail");
 
             // 10. 図鑑・11. 地図（開いて、とじると次へ）
+            Assert.AreEqual("collection-button", UI.TutorialHighlight, "図鑑のボタンを光らせる");
+            CollectionAssert.AreEqual(new[] { "B" }, UI.TutorialKeys, "B キー");
             UI.ShowCollection(true);
             yield return Frames(2);
             Assert.IsTrue(Guide.ShowingDone, "図鑑を開いた");
@@ -207,9 +241,11 @@ namespace Shakutori.Tests
             Assert.AreEqual(Tutorial.Step.Zukan, Guide.Current, "とじるまで、つぎへ進まない");
             UI.ShowCollection(false);
             yield return WaitUntil(() => Guide.Current == Tutorial.Step.Map, 5f, "とじたら、つぎへ");
+            Assert.AreEqual("map-button", UI.TutorialHighlight, "地図のボタンを光らせる");
             UI.ShowMap(true);
             yield return Frames(2);
             Assert.IsTrue(Guide.ShowingDone, "地図を開いた");
+            Assert.IsNull(UI.TutorialHighlight, "できたら、光は消す");
             Assert.AreEqual(DisplayStyle.None, UI.Root.Q("map-areas").resolvedStyle.display, "練習の森では、ほかのエリアの地図は出さない");
             UI.ShowMap(false);
             yield return WaitUntil(() => Guide.Current == Tutorial.Step.Exit, 5f, "さいごの練習");
@@ -230,6 +266,8 @@ namespace Shakutori.Tests
             Assert.IsFalse(Guide.Running);
             Assert.IsFalse(UI.IsTutorialCardVisible, "カードはしまう");
             Assert.IsFalse(GM.fx.BeaconShown, "目じるしも消える");
+            Assert.IsFalse(UI.IsTutorialArrowVisible, "矢印も消える");
+            Assert.IsNull(UI.TutorialHighlight);
             Assert.AreEqual(0, SaveSystem.Data.drops.Count, "練習のしずくは、本番の記録にしない");
             Assert.IsFalse(SaveSystem.Data.places.Contains(90) || SaveSystem.Data.places.Contains(91), "練習の名所も");
             CollectionAssert.DoesNotContain(SaveSystem.Data.visited, "tutorial");
@@ -260,7 +298,7 @@ namespace Shakutori.Tests
             Assert.AreEqual(0, SaveSystem.Data.drops.Count);
             Assert.AreEqual(DisplayStyle.None, UI.Root.Q<Button>("btn-continue").resolvedStyle.display);
 
-            // もう一度うけて、メニューからおわる
+            // もう一度練習して、メニューからおわる
             yield return StartTutorial();
             Assert.AreEqual(Tutorial.Step.Walk, Guide.Current, "はじめの練習から");
             Assert.AreEqual(0, Col.CollectedDrops, "しずくも、もとどおり");

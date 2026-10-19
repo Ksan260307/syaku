@@ -19,7 +19,7 @@ namespace Shakutori
         /// <summary>タイトルの「しゃくとりの森」の文字をタップした（ひみつの操作）。</summary>
         public event Action LogoTapped;
         public event Action NewGamePressed;
-        /// <summary>はじめから：チュートリアルをうける。</summary>
+        /// <summary>はじめから：練習してから はじめる（チュートリアル）。</summary>
         public event Action TutorialPressed;
         /// <summary>メニューの「チュートリアルをおわって、森へ」。</summary>
         public event Action TutorialEndPressed;
@@ -45,8 +45,10 @@ namespace Shakutori
         VisualElement _root, _hud, _look, _loading, _loadingFill, _title, _fade;
         VisualElement _mapOverlay, _pauseOverlay, _howtoOverlay, _confirmOverlay, _completeOverlay, _collectionOverlay;
         VisualElement _banner, _toasts, _prompt, _help, _touch, _joystick, _knob, _moveZone;
-        VisualElement _tutorial, _tutorialCard, _tutorialOverlay;
-        Label _tutorialStep, _tutorialTitle, _tutorialText, _tutorialNote;
+        VisualElement _tutorial, _tutorialCard, _tutorialOverlay, _tutorialKeys, _tutorialProgress, _tutorialProgressFill, _tutorialGuide, _tutorialMark;
+        Label _tutorialStep, _tutorialTitle, _tutorialText, _tutorialNote, _tutorialMarkLabel, _tutorialArrow;
+        VisualElement _tutorialHint;
+        float _hintPulseAt;
         VisualElement _minimapMask, _minimapImage, _minimapPlayer, _bigmap, _bigmapPlayer, _mapAreas;
         VisualElement _creatureCard, _creatureCardImg, _zukanImg, _skinGrid, _recordList;
         Label _dropCount, _placeCount, _creatureCount, _dropLabel, _areaTitle, _areaName;
@@ -459,6 +461,13 @@ namespace Shakutori
             _tutorialText = Q<Label>("tutorial-text");
             _tutorialNote = Q<Label>("tutorial-note");
             _tutorialOverlay = Q<VisualElement>("tutorial-overlay");
+            _tutorialKeys = Q<VisualElement>("tutorial-keys");
+            _tutorialProgress = Q<VisualElement>("tutorial-progress");
+            _tutorialProgressFill = Q<VisualElement>("tutorial-progress-fill");
+            _tutorialGuide = Q<VisualElement>("tutorial-guide");
+            _tutorialMark = Q<VisualElement>("tutorial-mark");
+            _tutorialMarkLabel = Q<Label>("tutorial-mark-label");
+            _tutorialArrow = Q<Label>("tutorial-arrow");
             _photoHint = Q<VisualElement>("photo-hint");
             _titleProgress = Q<Label>("title-progress");
             _version = Q<Label>("version");
@@ -485,7 +494,7 @@ namespace Shakutori
             SetTitleFont(_bannerTitle);
 
             Click("btn-continue", () => ContinuePressed?.Invoke());
-            // はじめから：いまの記録を消してよいか（記録があるとき）、つぎに、チュートリアルをうけるか
+            // はじめから：いまの記録を消してよいか（記録があるとき）、つぎに、練習（チュートリアル）をするか
             Click("btn-new", () =>
             {
                 if (SaveSystem.HasSave)
@@ -1166,7 +1175,7 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // チュートリアル
         // ------------------------------------------------------------------
-        /// <summary>はじめから：チュートリアルをうけるかを聞く。</summary>
+        /// <summary>はじめから：練習（チュートリアル）をするかを聞く。</summary>
         public void ShowTutorialChoice(bool show)
         {
             if (!EnsureBound() || _tutorialOverlay == null) return;
@@ -1187,8 +1196,13 @@ namespace Shakutori
             _tutorial.EnableInClassList("hidden", !show);
         }
 
-        /// <summary>いまの練習（何番目か・見出し・説明・ひとこと）をカードに出す。</summary>
-        public void SetTutorialStep(int number, int count, string title, string text, string note)
+        /// <summary>カードの、押すボタン（テスト用）。</summary>
+        public string[] TutorialKeys => _tutorialKeys != null ? _tutorialKeys.Query<Label>(className: "keycap").ToList().ConvertAll(l => l.text).ToArray() : new string[0];
+
+        /// <summary>
+        /// いまの練習をカードに出す：何番目か・見出し・押すボタン（キーの形にならべる）と押すとどうなるか・めあて・ひとこと。
+        /// </summary>
+        public void SetTutorialStep(int number, int count, string title, string[] keys, string action, string text, string note)
         {
             if (!EnsureBound() || _tutorial == null) return;
             _tutorialCard.RemoveFromClassList("tutorial-card--done");
@@ -1197,6 +1211,120 @@ namespace Shakutori
             _tutorialText.text = text;
             _tutorialNote.text = note;
             _tutorialNote.style.display = string.IsNullOrEmpty(note) ? DisplayStyle.None : DisplayStyle.Flex;
+            _tutorialKeys.Clear();
+            if (keys != null)
+                for (int i = 0; i < keys.Length; i++)
+                {
+                    // W A S D はならべるだけ。ほかの組みあわせ（F と右クリック・LB と RB）は「か」でつなぐ
+                    if (i > 0 && keys.Length != 4)
+                    {
+                        var or = new Label("か") { pickingMode = PickingMode.Ignore };
+                        or.AddToClassList("tutorial-keys-plus");
+                        _tutorialKeys.Add(or);
+                    }
+                    var k = new Label(keys[i]) { pickingMode = PickingMode.Ignore };
+                    k.AddToClassList("keycap");
+                    _tutorialKeys.Add(k);
+                }
+            var act = new Label(string.IsNullOrEmpty(action) ? "" : "… " + action) { pickingMode = PickingMode.Ignore };
+            act.AddToClassList("tutorial-keys-action");
+            _tutorialKeys.Add(act);
+            _tutorialKeys.style.display = keys != null && keys.Length > 0 ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        /// <summary>どれだけできたか（0〜1）のバー。null でかくす。</summary>
+        public void SetTutorialProgress(float? amount)
+        {
+            if (!EnsureBound() || _tutorialProgress == null) return;
+            _tutorialProgress.style.display = amount.HasValue ? DisplayStyle.Flex : DisplayStyle.None;
+            if (amount.HasValue) _tutorialProgressFill.style.width = Length.Percent(100f * Mathf.Clamp01(amount.Value));
+        }
+
+        /// <summary>押すボタン（画面のボタン：タッチのボタン・右上の地図と図鑑のボタン）を光らせる。null で消す。</summary>
+        public void SetTutorialHighlight(string elementName)
+        {
+            if (!EnsureBound()) return;
+            var next = string.IsNullOrEmpty(elementName) ? null : _root.Q(elementName);
+            if (next == _tutorialHint) return;
+            if (_tutorialHint != null)
+            {
+                _tutorialHint.RemoveFromClassList("tutorial-hint");
+                _tutorialHint.RemoveFromClassList("tutorial-hint--pulse");
+            }
+            _tutorialHint = next;
+            _tutorialHint?.AddToClassList("tutorial-hint");
+        }
+
+        /// <summary>光らせているボタンの名前（テスト用）。</summary>
+        public string TutorialHighlight => _tutorialHint != null ? _tutorialHint.name : null;
+
+        /// <summary>チュートリアルの行き先（なければ null）。行き先の上に ▼ と名前、しゃくとりむしのそばに、行き先をさす矢印を出す。</summary>
+        public Vector3? TutorialTarget { get; set; }
+        public string TutorialTargetLabel { get; set; } = "";
+        public bool IsTutorialArrowVisible => _tutorialGuide != null && !_tutorialGuide.ClassListContains("hidden") && _tutorialArrow.style.display != DisplayStyle.None;
+        public bool IsTutorialMarkVisible => _tutorialGuide != null && !_tutorialGuide.ClassListContains("hidden") && _tutorialMark.style.display != DisplayStyle.None;
+        /// <summary>矢印の向き（度。0 = 画面の上 = カメラの前、右まわりがプラス。テスト用）。</summary>
+        public float TutorialArrowAngle { get; private set; }
+
+        /// <summary>行き先の ▼ と矢印を、毎フレーム、画面の上に置く。押すボタンの光を、ふくらませる。</summary>
+        void UpdateTutorialGuide(bool playing)
+        {
+            if (_tutorialHint != null && Time.unscaledTime > _hintPulseAt)
+            {
+                _hintPulseAt = Time.unscaledTime + 0.5f;
+                _tutorialHint.ToggleInClassList("tutorial-hint--pulse");
+            }
+            if (_tutorialGuide == null) return;
+            var cam = Camera.main;
+            bool show = playing && TutorialTarget.HasValue && _worm != null && cam != null && !AnyOverlayOpen && !IsPhotoMode;
+            _tutorialGuide.EnableInClassList("hidden", !show);
+            if (!show) return;
+            var panel = _root.panel;
+            var bounds = panel.visualTree.layout;
+            float t = Time.unscaledTime;
+            Vector3 target = TutorialTarget.Value;
+            // 行き先の上の ▼（画面に映っているときだけ）
+            Vector3 top = target + Vector3.up * 0.9f;
+            Vector3 vp = cam.WorldToViewportPoint(top);
+            bool onScreen = vp.z > 0.3f && vp.x > 0.05f && vp.x < 0.95f && vp.y > 0.08f && vp.y < 0.92f;
+            _tutorialMark.style.display = onScreen ? DisplayStyle.Flex : DisplayStyle.None;
+            Vector2 tip = default;   // ▼ の先
+            if (onScreen)
+            {
+                Vector2 p = RuntimePanelUtils.CameraTransformWorldToPanel(panel, top, cam);
+                if (_tutorialMarkLabel.text != TutorialTargetLabel) _tutorialMarkLabel.text = TutorialTargetLabel;
+                _tutorialMarkLabel.style.display = string.IsNullOrEmpty(TutorialTargetLabel) ? DisplayStyle.None : DisplayStyle.Flex;
+                _tutorialMark.style.left = p.x - 110f;
+                _tutorialMark.style.top = p.y - 78f + Mathf.Sin(t * 4f) * 6f;
+                tip = p;
+            }
+            // しゃくとりむしの頭の先の矢印：行き先の方を、上から見た向きでさす（真上 = カメラの前）。
+            // 近くまで来たとき・行き先の ▼ と重なるとき（▼ が、もう行き先を示している）は、出さない
+            Vector3 d = target - _worm.CenterPosition;
+            d.y = 0f;
+            Vector3 f = cam.transform.forward, r = cam.transform.right;
+            f.y = 0f;
+            r.y = 0f;
+            bool far = d.magnitude > 2.5f && f.sqrMagnitude > 1e-4f && r.sqrMagnitude > 1e-4f;
+            Vector2 pos = default;
+            float ang = 0f;
+            if (far)
+            {
+                ang = Mathf.Atan2(Vector3.Dot(d, r.normalized), Vector3.Dot(d, f.normalized)) * Mathf.Rad2Deg;
+                Vector2 w = RuntimePanelUtils.CameraTransformWorldToPanel(panel, _worm.HeadPosition, cam);
+                float rad = ang * Mathf.Deg2Rad;
+                float reach = bounds.height * (0.085f + 0.008f * Mathf.Sin(t * 5f));   // 行き先の方へ、ぴょこぴょこ（画面の大きさに合わせる）
+                pos = w + new Vector2(Mathf.Sin(rad), -Mathf.Cos(rad)) * reach;
+                pos.x = Mathf.Clamp(pos.x, 40f, Mathf.Max(41f, bounds.width - 40f));
+                pos.y = Mathf.Clamp(pos.y, 40f, Mathf.Max(41f, bounds.height - 40f));
+                if (onScreen && Vector2.Distance(pos, tip) < bounds.height * 0.11f) far = false;
+            }
+            _tutorialArrow.style.display = far ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!far) return;
+            TutorialArrowAngle = ang;
+            _tutorialArrow.style.left = pos.x - 40f;
+            _tutorialArrow.style.top = pos.y - 40f;
+            _tutorialArrow.style.rotate = new Rotate(new Angle(ang, AngleUnit.Degree));
         }
 
         /// <summary>練習ができた：カードを緑にして「できた！」。</summary>
@@ -2690,6 +2818,7 @@ namespace Shakutori
                 if (_tipTimer > 4.5f) NextTip();
             }
             _touch.style.display = _touchMode && playing ? DisplayStyle.Flex : DisplayStyle.None;
+            UpdateTutorialGuide(playing);
 
             // 縦向きのスマホでは、横向きをすすめる（数秒だけ）
             bool phonePortrait = _touchMode && IsPortrait && ScreenSize.x < ScreenSize.y * 0.75f;

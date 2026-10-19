@@ -157,7 +157,7 @@ namespace Shakutori.Tests
                 UI.ShowHowto(false);
                 UI.ShowTutorialChoice(true);
                 yield return Settle();
-                Check(c, "チュートリアルをうけるか");
+                Check(c, "練習するか");
                 UI.ShowTutorialChoice(false);
                 UI.ShowLoading();
                 UI.Root.Q<Label>("loading-tip").text = longestTip;
@@ -203,19 +203,24 @@ namespace Shakutori.Tests
             GM.StartGame(false, tutorial: true);
             yield return WaitUntil(() => GM.State == GameManager.GameState.Playing && GM.InTutorial && Worm.InputEnabled, 180f, "練習の森");
             GM.TutorialGuide.Stop();
-            string title = "", text = "";
+            string title = "", text = "", action = "";
+            string[] keys = new string[0];
             foreach (var step in Tutorial.Steps)
                 foreach (var device in new[] { "kb", "pad", "touch" })
                 {
                     var (t, x) = Tutorial.Texts(step, device);
                     if (t.Length > title.Length) title = t;
                     if (x.Length > text.Length) text = x;
+                    var (k, a) = Tutorial.Keys(step, device);
+                    if (string.Concat(k).Length + k.Length * 3 > string.Concat(keys).Length + keys.Length * 3) keys = k;
+                    if (a.Length > action.Length) action = a;
                 }
             foreach (var c in Cases)
             {
                 yield return Use(c);
                 UI.ShowTutorialCard(true);
-                UI.SetTutorialStep(12, 12, title, text, "メニューから、いつでもチュートリアルをおえて、森へ行けます");
+                UI.SetTutorialStep(12, 12, title, keys, action, text, "メニューから、いつでもチュートリアルをおえて、森へ行けます");
+                UI.SetTutorialProgress(0.5f);
                 typeof(GameUI).GetMethod("SetHelpVisible", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(UI, new object[] { true });
                 yield return Settle();
                 Check(c, "チュートリアル");

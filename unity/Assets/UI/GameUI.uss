@@ -2633,7 +2633,120 @@
     margin-top: 4px;
 }
 
-/* はじめから：チュートリアルをうけるか */
+/* 押すボタン（キーの形） */
+.tutorial-keys {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 6px;
+}
+
+.tutorial-keys .keycap {
+    margin: 2px 6px 2px 0;
+    font-size: 21px;
+    border-width: 2px;
+    border-bottom-width: 4px;
+    border-color: rgb(196, 158, 92);
+    background-color: rgb(255, 238, 190);
+}
+
+.tutorial-keys-plus {
+    font-size: 18px;
+    color: rgb(140, 112, 72);
+    margin-right: 6px;
+}
+
+.tutorial-keys-action {
+    font-size: 20px;
+    -unity-font-style: bold;
+    color: rgb(150, 96, 30);
+    margin-left: 4px;
+    white-space: normal;
+    flex-shrink: 1;
+}
+
+/* どれだけできたか（見まわす・ズーム・はやく・背伸び） */
+.tutorial-progress {
+    height: 10px;
+    margin-top: 8px;
+    border-radius: 5px;
+    background-color: rgba(120, 96, 60, 0.18);
+    overflow: hidden;
+}
+
+.tutorial-progress-fill {
+    height: 100%;
+    width: 0;
+    border-radius: 5px;
+    background-color: rgb(236, 176, 64);
+}
+
+.tutorial-card--done .tutorial-progress-fill {
+    background-color: rgb(118, 178, 88);
+}
+
+/* 行き先の上の ▼ と、しゃくとりむしのそばの矢印 */
+.tutorial-guide {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.tutorial-mark {
+    position: absolute;
+    width: 220px;
+    height: 78px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.tutorial-mark-label {
+    font-size: 18px;
+    -unity-font-style: bold;
+    color: rgb(255, 246, 214);
+    background-color: rgba(60, 44, 20, 0.62);
+    border-radius: 10px;
+    padding: 1px 10px;
+    white-space: nowrap;
+}
+
+.tutorial-mark-arrow {
+    font-size: 40px;
+    color: rgb(255, 214, 90);
+    -unity-text-outline-width: 1.5px;
+    -unity-text-outline-color: rgba(80, 50, 10, 0.9);
+    -unity-text-align: middle-center;
+    margin-top: -6px;
+}
+
+.tutorial-arrow {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    font-size: 66px;
+    color: rgb(255, 214, 90);
+    -unity-text-outline-width: 2px;
+    -unity-text-outline-color: rgba(80, 50, 10, 0.9);
+    -unity-text-align: middle-center;
+    transform-origin: center;
+}
+
+/* 押すボタン（画面のボタン）を光らせる：金色のわくで、ふくらんだり、もどったり */
+.tutorial-hint {
+    border-width: 4px;
+    border-color: rgb(255, 214, 90);
+    transition-property: scale, background-color;
+    transition-duration: 0.45s;
+}
+
+.tutorial-hint--pulse {
+    scale: 1.14 1.14;
+    background-color: rgba(120, 90, 20, 0.7);
+}
+
+/* はじめから：チュートリアル（練習）をするか */
 .tutorial-window {
     width: 640px;
 }
@@ -2666,6 +2779,43 @@
     margin-bottom: 6px;
 }
 
+/* 背の低い画面（スマホ横）：カードを小さめに（左下の操作説明に、かからない） */
+.short .tutorial-card {
+    padding: 4px 12px 6px 12px;
+}
+
+.short .tutorial-step,
+.short .tutorial-note {
+    font-size: 12px;
+}
+
+.short .tutorial-title {
+    font-size: 20px;
+}
+
+.short .tutorial-text {
+    font-size: 15px;
+    margin-top: 2px;
+}
+
+.short .tutorial-keys {
+    margin-top: 2px;
+}
+
+.short .tutorial-keys .keycap {
+    font-size: 15px;
+    padding: 1px 8px;
+}
+
+.short .tutorial-keys-action {
+    font-size: 15px;
+}
+
+.short .tutorial-progress {
+    height: 7px;
+    margin-top: 4px;
+}
+
 /* スマホ縦：目標とミニマップの下に、横いっぱいで */
 .portrait .tutorial {
     top: 196px;
@@ -2695,6 +2845,11 @@
 }
 
 .portrait .tutorial-text {
+    font-size: 16px;
+}
+
+.portrait .tutorial-keys .keycap,
+.portrait .tutorial-keys-action {
     font-size: 16px;
 }
 
