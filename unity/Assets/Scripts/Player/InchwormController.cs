@@ -69,7 +69,7 @@ namespace Shakutori
         public float SprintBlend => _sprintBlend;
         public float SilkSpeed => _silkSpeed;
         /// <summary>足音の大きさ（はやくで大きく、ゆっくり・いきものの近くでは小さく）。</summary>
-        public float StepLoudness => Mathf.Clamp(0.55f + 0.45f * _lastTapSpeed * _lastTapSpeed, 0.6f, 1.4f) * (_moveMag < 0.5f ? 0.75f : 1f) * (_nearMob ? 0.7f : 1f);
+        public float StepLoudness => Mathf.Clamp(0.55f + 0.45f * _lastTapSpeed * _lastTapSpeed, 0.6f, 1.4f) * (_moveMag < 0.5f ? 0.75f : 1f) * (_nearMob ? 0.7f : 1f) * (_sneak ? 0.6f : 1f);
         public float Fatigue => _fatigue;
         public bool IsSurveying => Time.time >= _surveyStart && Time.time < _surveyUntil;
         public bool IsResting => _rest > 0.5f;
@@ -262,6 +262,7 @@ namespace Shakutori
         bool _standPrev, _standPressed;
         float _shotDur = 0.18f;
         bool _rebounded;
+        Vector3 _reachDesired;           // 伸びはじめたときのスティックの向き（逆に倒したかどうか）
         float _reelBlocked;
         Vector3 _pumpInput;
         float _squashRate = 6f;
@@ -305,6 +306,7 @@ namespace Shakutori
             // 体で、どんぐりなどの転がる物を押す。重力は、いきもの・転がる物と同じ値
             if (GetComponent<WormBodyPushers>() == null) gameObject.AddComponent<WormBodyPushers>();
             Physics.gravity = Vector3.down * ShakuPhysics.Gravity;
+            InitSilkFX();
         }
 
         // ------------------------------------------------------------------
@@ -375,6 +377,7 @@ namespace Shakutori
         public void Spawn(Vector3 tailPoint, Vector3 tailNormal, Vector3 headPoint, Vector3 headNormal)
         {
             ResetAirState();
+            _jitterStep = 0;
             _tail = AttachToPlatform(tailPoint, tailNormal);
             _head = AttachToPlatform(headPoint, headNormal);
             State = Mode.Idle;
@@ -434,9 +437,10 @@ namespace Shakutori
                 // 裏側（天井）では、カメラではなく体の向きを基準にする：前に倒せば、そのまま前へ進みつづける
                 Vector3 hf = ShakuMath.ProjectOnPlaneSafe(_head.point - _tail.point, n, Heading).normalized;
                 Vector3 hr = Vector3.Cross(n, hf).normalized;
-                Vector3 bd = hf * mv.y - hr * mv.x;
+                Vector3 bd = hf * mv.y + CeilingSide(n, hf, hr) * mv.x;   // 左右は、カメラから見た左右
                 return bd.sqrMagnitude > 1e-6f ? bd.normalized : Vector3.zero;
             }
+            if (WallStickUp(n, mv, out var wallDir)) return wallDir;
             Vector3 cf = cameraTransform.forward;
             Vector3 cu = cameraTransform.up;
             Vector3 cr = cameraTransform.right;
@@ -573,10 +577,12 @@ namespace Shakutori
                 case Mode.Hang: UpdateHang(dt, desired, mag, sprint); break;
                 case Mode.Fall: UpdateFall(dt, desired, mag); break;
             }
+            UpdateSilkTicks();
 
             if (State != Mode.Hang && State != Mode.Fall)
             {
                 UpdateCanDrop();
+                UpdateSilkReady();
                 if (InputEnabled && GameInput.SilkPressed && !_standRequested && _pending == PendingFall.None)
                 {
                     if (CanDropSilk) StartHang();
@@ -585,6 +591,7 @@ namespace Shakutori
                 UpdateBlocked(dt, desired, wantsMove);
                 UpdateSupport(dt);
                 UpdateReactions(dt, wantsMove);
+                UpdateDrips();
             }
             else CanDropSilk = false;
             _peekT += dt;
@@ -618,7 +625,10 @@ namespace Shakutori
             body.Apply(_curve);
             UpdateSilkLine(dt);
 
-            Shader.SetGlobalVector("_ShakuPlayerPos", new Vector4(c.x, c.y, c.z, 0.9f));
+            // 歩いているときは、重さで草を少し強く押しのける。伸ばした頭の所でも、草がかき分けられる
+            Shader.SetGlobalVector("_ShakuPlayerPos", new Vector4(c.x, c.y, c.z, IsMoving ? 1f : 0.9f));
+            Vector3 hp = _curve.Head;
+            Shader.SetGlobalVector("_ShakuPlayerHead", new Vector4(hp.x, hp.y, hp.z, airborne ? 0f : 0.45f));
             SurfaceUp = airborne ? Vector3.up : Vector3.Slerp(SurfaceUp, avgN, ShakuMath.DampFactor(6f, dt));
             Vector3 hd = _curve.Head - _curve.Tail;
             if (hd.sqrMagnitude > 1e-4f) Heading = hd.normalized;
@@ -726,6 +736,8 @@ namespace Shakutori
         {
             _idleTime += dt;
             if (_idleTime > 0.3f) _stepStreak = 0;     // しばらく止まると、また歩きはじめから
+            if (IsWallResting) wantsMove = false;       // 壁の途中で一休み
+            if (!wantsMove) _uturnAt = -1f;
             float rearTarget = 0f;
             bool standing = _standRequested;
             bool steep = _tail.normal.y < 0.5f;
@@ -776,8 +788,10 @@ namespace Shakutori
                     float D = Vector3.Distance(_tail.point, _head.point);
                     Vector3 hf = BodyDir(_head.point - _tail.point, _tail.normal, Heading);
                     float off = Vector3.Angle(hf, OnTailPlane(desired, hf));
-                    // 後ろへ歩きだすときは、まずその場で頭をふり向けてから
-                    if (D < L * 0.55f || off > 100f) StartReach(desired, false, sprint);
+                    // 真後ろへは、頭をふって後ろを見てから U ターン
+                    if (TurnBackFirst(off, hf, desired)) rearTarget = 0.42f;
+                    // 後ろや横へ歩きだすとき（平らな所では 60 度、床と壁にまたがっているときは 100 度より大きくちがう）は、まずその場で頭をふり向けてから
+                    else if (D < L * 0.55f || off > (FlatFooting ? 60f : 100f)) StartReach(desired, false, sprint);
                     else StartPull(sprint);
                 }
             }
@@ -828,6 +842,7 @@ namespace Shakutori
                     if (Time.time - _stretchStart < 2.2f) rearTarget = Mathf.Max(rearTarget, 0.15f);
                     // 休んでいるときのしぐさ（眠る・かじる・あくび・日なたぼっこ・つつく・ながめる…）
                     rearTarget = Mathf.Max(rearTarget, UpdateMoods(dt, calm, steep));
+                    rearTarget = Mathf.Max(rearTarget, ReactRear());
                     if (State != Mode.Idle) return;
                     // 自分の新しい高さまで登ったら、背伸びして見わたす
                     float height = _curve.Head.y - Areas.Current.Height(_curve.Head.x, _curve.Head.z);
@@ -883,7 +898,7 @@ namespace Shakutori
             ShakuPhysics.SpringSteps(ref _rear, ref _rearVel, rearTarget, raised ? 9f : 11f, raised ? 0.62f : 0.85f, dt);
             if (_rear > 1.1f) { _rear = 1.1f; _rearVel = Mathf.Min(_rearVel, 0f); }
             if (_rear < 0f) { _rear = 0f; _rearVel = Mathf.Max(_rearVel, 0f); }
-            if (!standing && _rear < 0.3f && Time.time >= _lookAtUntil && Time.time >= _lookUntil && !IsAiming) _standLookTarget = 0f;
+            if (!standing && _rear < 0.3f && Time.time >= _lookAtUntil && Time.time >= _lookUntil && !IsAiming && !IsTurningBack) _standLookTarget = 0f;
             _wasStanding = standing;
         }
 
@@ -913,7 +928,11 @@ namespace Shakutori
             if (_narrow) k *= 1.15f;
             // ぬれた体は、水の分だけ重くて少しゆっくり
             if (IsWet) k *= 1.08f;
-            k *= 1f + UnityEngine.Random.Range(-0.05f, 0.05f);   // 生きものらしいゆらぎ
+            if (IsWobbly) k *= 1.12f;          // 強く落ちたあとは、ふらふら
+            k *= ReactTimeScale();             // 忍び足・力む・しずくへ早足
+            // 続けて歩くと、調子が出てくる（少し速く、ゆらぎも小さく）
+            k *= GrooveTimeScale(_stepStreak);
+            k *= 1f + UnityEngine.Random.Range(-0.05f, 0.05f) * JitterScale;   // 生きものらしいゆらぎ
             return k;
         }
 
@@ -1094,10 +1113,16 @@ namespace Shakutori
             // 尾の弧：歩幅と速さに合わせた高さ。通り道に出っぱりがあれば、それもこえる
             float baseLift = 0.05f * L * Mathf.Clamp(span / (0.7f * L), 0.5f, 1.4f) * (1f + 0.5f * _sprintBlend);
             _pullLift = Mathf.Max(baseLift, PathClearance(_from.point, _to.point, n) + 0.03f);
+            // 段を上るときは、尾を段の高さに合わせて高く持ち上げる
+            float riseT = Vector3.Dot(_to.point - _from.point, n);
+            if (riseT > 0.03f) _pullLift = Mathf.Max(_pullLift, 0.5f * riseT + 0.05f);
+            _tailDrop = -Vector3.Dot(_to.point - _from.point, _from.normal);
+            if (_tailDrop > 0.05f && !StepCornerClear(_from.point, _to.point, _from.normal)) _tailDrop = 0f;
             _pullLift = UnderCeiling(_pullLift, _from.point, _to.point, n);
             // 次に曲がる方へ、体を少しかたむける
             Vector3 want = _desiredNow.sqrMagnitude > 0.01f ? ShakuMath.ProjectOnPlaneSafe(_desiredNow, _head.normal, hf) : hf;
             _turnSign = Mathf.Clamp(Vector3.SignedAngle(hf, want, _head.normal) / 70f, -1f, 1f);
+            BeginPullHold(hf);   // 壁を登る一歩は、引き寄せる前に「ため」る
             State = Mode.Pull;
         }
 
@@ -1115,7 +1140,7 @@ namespace Shakutori
             // 引き寄せる前に、一瞬だけ後ろへ踏んばる
             float e = ShakuMath.Smoother01(_t) - 0.04f * Mathf.Sin(Mathf.PI * Mathf.Clamp01(_t / 0.22f));
             Vector3 liftN = (_from.normal + _to.normal).normalized;
-            Vector3 p = Vector3.LerpUnclamped(_from.point, _to.point, e) + liftN * Mathf.Sin(Mathf.PI * Mathf.Clamp01(e)) * _pullLift;
+            Vector3 p = StepPath(_from.point, _to.point, e, Mathf.Clamp01(_t), _tailDrop, _from.normal) + liftN * Mathf.Sin(Mathf.PI * Mathf.Clamp01(e)) * _pullLift;
             _tail = new SurfacePoint(p, Vector3.Slerp(_from.normal, _to.normal, Mathf.Clamp01(e)).normalized);
             if (_t >= 1f)
             {
@@ -1128,6 +1153,7 @@ namespace Shakutori
                 _gripPulse = 1f;   // 腹脚でつかまった瞬間に、きゅっと
                 _lastTapSpeed = pullTime / Mathf.Max(0.05f, _dur);
                 _softKick += -_tail.normal * 0.12f;   // 尾をついた衝撃で、体がぷるん
+                if (_sprintBlend > 0.5f) Bump(0.3f * _sprintBlend);   // はやくは、ぽんぽんと弾むリズムで
                 Stepped?.Invoke(_tail.point, false);
                 if (wantsMove)
                 {
@@ -1168,6 +1194,7 @@ namespace Shakutori
             // 小さな向きのぶれでは曲がらない（まっすぐ歩く）
             if (!settle && Mathf.Abs(ang) < 5f) ang = 0f;
             float turn = Mathf.Clamp(ang, -maxTurnDegrees, maxTurnDegrees);
+            if (IsWobbly && !settle) turn += UnityEngine.Random.Range(-8f, 8f);   // ふらふら歩きは、向きが少しぶれる
             float dist = (settle ? restRatio : extendRatio) * L;
             _narrow = !settle && Narrow(_head, heading);
             // 曲がるほど、歩幅を少しずつ小さく
@@ -1189,6 +1216,7 @@ namespace Shakutori
                 {
                     float sl = Vector3.Dot(heading.normalized, Vector3.up);
                     if (sl > 0f) dist *= 1f - 0.15f * Mathf.Clamp01(sl * 2f);
+                    else if (sl < -0.5f) dist *= 0.9f;   // 急な下り坂（30 度より急）では、歩幅を短く（すべり落ちないように）
                 }
                 // 足場がせまい・動く足場の上では、歩幅を小さく
                 if (_narrow) dist *= 0.8f;
@@ -1236,7 +1264,8 @@ namespace Shakutori
                     {
                         firstFail = SurfaceProbe.LastFail;
                         // 行き先が水の中・遊べる範囲の外なら、その理由にする
-                        Vector3 ahead = _tail.point + go * dist + n * 0.05f;
+                        // （坂やせまい所で歩幅を短くしていても、体の長さの先まで見て、水かどうかを調べる）
+                        Vector3 ahead = _tail.point + go * Mathf.Max(dist, extendRatio * L) + n * 0.05f;
                         var area = Areas.Current;
                         if (area.IsUnderwater(ahead) || area.IsUnderwater(SurfaceProbe.LastStopPoint + go * 0.2f)) firstFail = "water";
                         else if (!area.InPlayArea(ahead)) firstFail = "outside";
@@ -1292,17 +1321,28 @@ namespace Shakutori
             // 段を上るときは、時間をかけて頭を高く上げる
             float rise = Vector3.Dot(tgt.point - _tail.point, n);
             if (rise > 0.05f) k *= 1f + Mathf.Min(rise, 0.6f) * 0.5f;
+            _stepDown = rise < -0.05f && StepCornerClear(_head.point, tgt.point, n) ? -rise : 0f;
             _dur = reachTime * k;
             _settling = settle;
             float lift = settle ? 0.12f : 0.24f;
             if (rise > 0.05f) lift += Mathf.Min(rise, 0.6f) * 0.6f / L;
             else if (rise < -0.05f) lift *= 0.7f;                  // 下りは低く
             if (!settle && _stepStreak == 0) lift *= 1.3f;         // 歩きだしの一歩は、頭を高く上げて行き先を見る
+            if (!settle) lift *= LiftJitter();                     // 頭を上げる高さも、一歩ごとに少しちがう
             // 壁を登りきるときは、頭を上の面へ高く伸ばして体を引き上げる
             if (Vector3.Dot(tgt.normal, Vector3.up) - Vector3.Dot(n, Vector3.up) > 0.5f) lift += 0.12f;
             // 足もとの物：キノコの上は弾むように、石の上は「とん」と強く、葉っぱの上は少し沈むように
             _stepKind = SurfaceKindAt(tgt);
             if (_stepKind == 1) lift *= 1.15f;
+            // すべりやすい石（ぬれた石・水ぎわの石）の上は、慎重に、ゆっくり低く
+            if (_stepKind == 2 && SlipperyStone(tgt))
+            {
+                _dur *= 1.12f;
+                lift *= 0.85f;
+            }
+            LastReachDistance = Vector3.Distance(_tail.point, tgt.point);
+            _reachDesired = _desiredNow;
+            _brakeShort = false;
             _reachSlope = n.y > 0.5f ? Vector3.Dot(go.normalized, Vector3.up) : 0f;
             // 頭の通り道に出っぱりがあれば、それをこえる高さに
             Vector3 liftN = (_from.normal + tgt.normal).normalized;
@@ -1315,6 +1355,7 @@ namespace Shakutori
             _turnSign = Mathf.Clamp(turnDeg / 70f, -1f, 1f);
             // 出っ張った角（上の面→壁）へ向かうときは、早めに頭を下げる
             _convexAhead = Vector3.Dot(tgt.normal, n) < 0.7f && Vector3.Dot(tgt.normal - n, go) > 0f;
+            ClassifyCorner(tgt, n, go);
             if (!settle) _stepStreak++;
             State = Mode.Reach;
             IsBlocked = false;
@@ -1373,6 +1414,7 @@ namespace Shakutori
         {
             _peekStrength = 1f;
             if (why == "water") { _peekKind = "water"; _peekDur = 1.2f; }
+            else if (why == "overhang") { _peekKind = "overhang"; _peekDur = 1.3f; }   // ひさしの裏に、頭を上げて手をかけようとする
             else if (IsEdgeFail(why))
             {
                 // 高いふちほど、長くのぞきこむ
@@ -1382,6 +1424,12 @@ namespace Shakutori
                 if (f.sqrMagnitude > 1e-4f && SurfaceProbe.Raycast(_head.point + f.normalized * 0.4f + Vector3.up * 0.1f, Vector3.down, 12f, out var below))
                     h = below.distance;
                 _peekDur = 1.4f + Mathf.Min(h, 10f) * 0.08f;
+                // とどかない幅のすき間：体を伸ばしきって、迷ってからもどる
+                if (FarSideAhead(f))
+                {
+                    _peekKind = "gap";
+                    _peekDur = 1.7f;
+                }
             }
             else
             {
@@ -1398,7 +1446,9 @@ namespace Shakutori
             _rear = Mathf.MoveTowards(_rear, 0f, dt * 4f);
             _rearVel = 0f;
             // 伸びている途中でスティックを逆に倒したら、頭を引っこめてブレーキ
-            if (wantsMove && !_settling && _t < 0.45f)
+            // （伸びはじめたときから、スティックの向きが本当に変わったときだけ。床と壁の角では、同じ向きのスティックでも
+            //  面へ写すと逆向きに見えることがあり、伸びてはブレーキをくり返して、その場でもぞもぞしてしまう）
+            if (wantsMove && !_settling && _t < 0.45f && (_reachDesired.sqrMagnitude < 0.01f || Vector3.Angle(desired, _reachDesired) > 90f))
             {
                 Vector3 rd = Vector3.ProjectOnPlane(_to.point - _from.point, _tail.normal);
                 Vector3 dd = Vector3.ProjectOnPlane(desired, _tail.normal);
@@ -1412,21 +1462,25 @@ namespace Shakutori
                     return;
                 }
             }
+            // 伸びている途中で手をはなしたら、残りを短くして、ゆっくり縮めて止まる
+            if (!_settling) BrakeReach(wantsMove);
             _t += dt / _dur;
             // 頭を少し上げてから前へ（行き先をさぐる）
             float tm = Mathf.Clamp01((_t - 0.08f) / 0.92f);
             float e = ShakuMath.Smoother01(tm);
             Vector3 liftN = (_from.normal + _to.normal).normalized;
             float lift = Mathf.Pow(Mathf.Sin(Mathf.PI * Mathf.Clamp01(_t)), 0.75f) * _reachLift * L;
-            Vector3 p = Vector3.Lerp(_from.point, _to.point, e);
+            Vector3 p = StepPath(_from.point, _to.point, e, tm, _stepDown, _tail.normal);
             if (_arcBlend > 0f)
             {
                 // 曲がるときは、頭が尾のまわりを弧をえがいて動く
                 Vector3 pivot = _tail.point;
-                Vector3 arc = pivot + Vector3.Slerp(_from.point - pivot, _to.point - pivot, e);
+                // 頭が先に向きを変えて（首ふり）、体があとから追う
+                float eArc = ShakuMath.Smoother01(Mathf.Clamp01(tm * 1.3f));
+                Vector3 arc = pivot + Vector3.Slerp(_from.point - pivot, _to.point - pivot, eArc);
                 p = Vector3.Lerp(p, arc, _arcBlend);
             }
-            p += liftN * lift;
+            p += liftN * lift + ProbeOffset(tm, liftN) + FlipWiggle(tm, liftN);
             _head = new SurfacePoint(p, Vector3.Slerp(_from.normal, _to.normal, e).normalized);
             if (_t >= 1f)
             {
@@ -1438,6 +1492,7 @@ namespace Shakutori
                 MarkSafe();
                 _headPulse = 1f;   // 胸脚でつかまった瞬間に、ぺたっ
                 _onLeaf = _stepKind == 3;
+                OnHeadPlanted();
                 if (_stepKind == 1) Bump(0.3f);   // キノコの上は、ぽよん（やわらかくて、はね返る）
                 if (_braking)
                 {
@@ -1445,10 +1500,24 @@ namespace Shakutori
                     State = Mode.Idle;   // ブレーキのあとは、その場で向きを変えてから
                     return;
                 }
+                if (wantsMove && ShouldWallRest())
+                {
+                    State = Mode.Idle;   // 疲れたので、壁の途中で一休み
+                    _settlePulse = 1f;
+                    return;
+                }
                 if (wantsMove)
                 {
                     _tapAt = -99f;
+                    bool wallPause = _concaveAhead && !_settling;
+                    // 入力の向きが体の向きと大きくちがえば、尾は動かさずに、もう一度頭をその向きへふり向ける（すぐ反映）
+                    if (!wallPause && WantsPivot(desired))
+                    {
+                        if (StartReach(desired, false, sprint)) _pivots++;
+                        return;
+                    }
                     StartPull(sprint);
+                    if (wallPause && State == Mode.Pull) _holdKind = 1;   // 壁に頭をつけて、体を起こす
                 }
                 else if (TakeTap(out _)) StartPull(sprint);
                 else
@@ -1492,10 +1561,13 @@ namespace Shakutori
                 // 持ち上げた前半身は、片持ちばりのように重さで少したれる（長く伸ばすほど・重力が体に垂直なほど）
                 float lever = Mathf.Clamp01(chord.magnitude / L);
                 headAngle += 0.09f * lever * lever * Vector3.Dot(Vector3.down, U) * Mathf.Sin(Mathf.PI * tNow);
+                // 出っぱった角では、頭が先に角を回りこんでから、体が追う
+                if (_convexAhead) headAngle -= 0.3f * Mathf.Sin(Mathf.PI * Mathf.Clamp01((tNow - 0.3f) / 0.6f));
             }
             else if (State == Mode.Pull) headAngle += 0.12f * Mathf.Sin(Mathf.PI * tNow);   // 引き寄せながら前を見る
 
             // のぞきこむ（がけ）・水をたしかめる・頭を引っこめる（ぶつかった）
+            _peekSway = 0f;
             if (_peekT < _peekDur && State != Mode.Reach)
             {
                 float k = Mathf.Sin(Mathf.PI * Mathf.Clamp01(_peekT / _peekDur));
@@ -1505,6 +1577,18 @@ namespace Shakutori
                     case "cliff":
                         hc += hf * (0.16f * k) - _head.normal * (0.03f * k);
                         headAngle -= 0.7f * k;
+                        break;
+                    case "gap":
+                        hc += hf * (0.24f * k);
+                        headAngle -= (0.25f - 0.12f * Mathf.Sin(_peekT * 15f)) * k;
+                        break;
+                    case "overhang":
+                        hc += hf * (0.05f * k) + _head.normal * (0.08f * k);
+                        headAngle += (0.9f + 0.15f * Mathf.Abs(Mathf.Sin(_peekT * 11f))) * k;
+                        break;
+                    case "no":
+                        headAngle += 0.1f * k;
+                        _peekSway = 0.35f * Mathf.Sin(_peekT * 22f) * k;   // 首を左右にふって「むり」
                         break;
                     case "water":
                         float dip = Mathf.Abs(Mathf.Sin(Mathf.PI * 2f * Mathf.Clamp01(_peekT / _peekDur)));   // ちょんちょんと 2 回
@@ -1519,12 +1603,17 @@ namespace Shakutori
             }
             // はやくから止まると、つんのめってから落ちつく
             if (_overshoot > 0f) hc += X * (0.06f * Mathf.Sin(Mathf.PI * (1f - _overshoot)));
+            hc += SlipOffset(X);   // ぬれた所で、頭がつるっとすべりかける
             // 大きな伸び
             float stT = (Time.time - _stretchStart) / 2.2f;
             if (stT >= 0f && stT < 1f) hc += X * (0.1f * Mathf.Sin(Mathf.PI * stT));
             if (Time.time < _dazeUntil) headAngle += 0.15f * Mathf.Sin(_swayPhase * 9f);   // 目をまわして、ふらふら
+            if (IsTeetering) headAngle += 0.18f * Mathf.Sin(_swayPhase * 16f);              // がけのふちで、ぐらぐら
             headAngle -= 0.4f * _flinch;
+            headAngle -= 0.1f * _headPulse;   // 胸脚をついた瞬間に、ぺたっと押しつける
             headAngle += MoodHead();
+            headAngle += LevelHead(X, U, dt);
+            headAngle -= ReactHead();   // 歩きながらのぺこり
             tailAngle = Mathf.Clamp(tailAngle, -1.4f, 1.4f);
             headAngle = Mathf.Clamp(headAngle, -1.4f, 1.4f);
 
@@ -1546,6 +1635,7 @@ namespace Shakutori
             bool wall = U.y < 0.5f && U.y > -0.35f, ceiling = U.y <= -0.35f;
             if (wall || ceiling) breathe += Mathf.Max(0f, Vector3.Dot(Vector3.down, U)) * 0.015f;
             if (wall) breathe -= 0.008f;
+            if (ceiling) breathe += CeilingSag();
             breathe -= 0.012f * _relax;                                       // 力をぬいて低く
             breathe -= 0.03f * _gripPulse;                                    // 尾をつけた瞬間にきゅっ
             breathe += 0.022f * Mathf.Sin(Mathf.PI * _settlePulse);           // 止まって、ふうっ
@@ -1556,6 +1646,10 @@ namespace Shakutori
             breathe -= Mathf.Min(0.02f, _platformVel.magnitude * 0.01f);      // 乗り物が速いと低くして踏んばる
             breathe -= 0.03f * _flinch;
             breathe += MoodBreathe();
+            breathe += SurfaceBreathe();
+            breathe += ClimbBreathe();
+            breathe += ReactBreathe();
+            breathe += AimBreathe();   // ねらっているときは、身がまえる
 
             // ---- 横のゆれ ----
             float sway;
@@ -1565,7 +1659,8 @@ namespace Shakutori
             if (State == Mode.Reach) sway = (Mathf.Sin(_swayPhase * 7f) * 0.12f * slowK * surfK + _turnSign * 0.15f) * Mathf.Sin(Mathf.PI * tNow);   // 曲がる方へかたむく
             else if (State == Mode.Pull)
             {
-                sway = _turnSign * 0.1f * Mathf.Sin(Mathf.PI * tNow);
+                // Ω のてっぺんは、曲がる外がわへ振られる（はやいほど大きく）
+                sway = -_turnSign * (0.06f + 0.08f * _sprintBlend) * Mathf.Sin(Mathf.PI * tNow);
                 sway += WindPush(tc, Zs) * 0.05f * Mathf.Sin(Mathf.PI * tNow);   // Ω のてっぺんが風でゆれる
             }
             else
@@ -1585,6 +1680,11 @@ namespace Shakutori
                 sway += Vector3.Dot(upslope, Zs) * 0.08f;
             }
             if (_narrow) sway *= 0.4f;                                         // せまい所では、ゆれを小さく
+            sway += CoilSway(wall, tNow);                                      // 細い物を登るときは、巻きつくように
+            sway += _peekSway;
+            sway += WobbleSway();
+            sway += AimTremble();
+            if (IsTeetering) sway += 0.2f * Mathf.Sin(_swayPhase * 9f);
             if (Time.time < _shakeUntil) sway += 0.12f * Mathf.Sin(_swayPhase * 38f) * (_shakeUntil - Time.time) * 2f;   // 着地のあと、ぶるっ
             if (Time.time < _wetUntil) sway += 0.04f * Mathf.Sin(_swayPhase * 45f) * Mathf.Clamp01(_wetUntil - Time.time);   // ぬれて、ぶるぶる
             if (IsBlocked && _moveMag > 0.2f && State == Mode.Idle) sway += 0.05f * Mathf.Sin(_swayPhase * 16f);   // 進めないまま押すと、力む
@@ -1601,6 +1701,9 @@ namespace Shakutori
                 {
                     float u = k / (float)K;
                     _target.pos[k] += _target.up[k] * (0.007f * L * Mathf.Sin(u * 14f - ph) * Mathf.Sin(Mathf.PI * u));
+                    // 持ち上げは、尾のほうから頭のほうへ、体節ごとに少しおくれて伝わる
+                    float lag = Mathf.Sin(Mathf.PI * Mathf.Clamp01((tNow - 0.22f * u) / 0.78f)) - Mathf.Sin(Mathf.PI * tNow);
+                    _target.pos[k] += _target.up[k] * (0.012f * L * lag * Mathf.Sin(Mathf.PI * u));
                 }
             }
             ConformToSurface(_target, upHint);
@@ -1642,22 +1745,25 @@ namespace Shakutori
                     nod = Mathf.Lerp(nod, -0.15f, _twig);
                 }
                 nod = MoodNod(nod);
+                nod = ReactNod(nod);
                 // BuildRear の横向きは SignedAngle と逆まわりなので、符号を反転して渡す
                 _pose.BuildRear(tc, X, _tail.normal, L, rise, -swayAngle, nod);
+                _target.Blend(_target, _pose, ShakuMath.Smooth01(rise));
+                // 背伸びの形は、尾のところの面にそってまっすぐのびるので、上り坂では体のつけ根が地面にうまる。もう一度、面の外へ
+                ConformToSurface(_target, upHint);
                 // 背伸び：腹脚（尾の先）でつかまったまま、体のうしろも少し持ち上げて、つま先立ちのように
+                // （面の外へ出したあとで、面からはなれる向きにだけ動かす。先に曲げると、坂で面の外へ出す計算がはずれる）
                 {
-                    int K = _pose.Count - 1;
+                    int K = _target.Count - 1;
+                    float lift = 0.03f * L * rise * ShakuMath.Smooth01(rise);
                     for (int k = 1; k < K; k++)
                     {
                         float u = k / (float)K;
                         if (u > 0.42f) break;
-                        _pose.pos[k] += _tail.normal * (0.03f * L * rise * Mathf.Sin(Mathf.PI * Mathf.Clamp01((u - 0.03f) / 0.39f)));
+                        _target.pos[k] += _tail.normal * (lift * Mathf.Sin(Mathf.PI * Mathf.Clamp01((u - 0.03f) / 0.39f)));
                     }
-                    _pose.RecomputeTangents();
+                    _target.RecomputeTangents();
                 }
-                _target.Blend(_target, _pose, ShakuMath.Smooth01(rise));
-                // 背伸びの形は、尾のところの面にそってまっすぐのびるので、上り坂では体のつけ根が地面にうまる。もう一度、面の外へ
-                ConformToSurface(_target, upHint);
             }
         }
 
@@ -1767,6 +1873,7 @@ namespace Shakutori
             if (silk != null) silk.enabled = true;
             _silkFade = 1f;
             SilkStarted?.Invoke();
+            OnSilkOut();
         }
 
         void UpdateHang(float dt, Vector3 desired, float mag, bool sprint)
@@ -1776,9 +1883,11 @@ namespace Shakutori
             // 背伸びボタンで、糸を切って落ちる
             if (InputEnabled && _standPressed && _shotT >= 1f && _blendT >= 1f)
             {
+                Vector3 hop = _reeling ? Vector3.zero : SwingHop();   // ゆれの高い所で切ると、外へぴょんと
                 _reeling = false;
+                SilkCut?.Invoke();
                 _fallSpinRate = 3f;
-                StartFall(_hangVel, _anchorSurface);
+                StartFall(_hangVel + hop, _anchorSurface);
                 return;
             }
             // 動く物（舟・いきもの）にかけた糸は、いっしょに動く
@@ -1793,6 +1902,7 @@ namespace Shakutori
                 if (InputEnabled && GameInput.SilkPressed && _shotT >= 1f)
                 {
                     _reeling = false;
+                    SilkCut?.Invoke();
                     _fallSpinRate = 3.5f;
                     StartFall(_hangVel, _anchorSurface);
                     return;
@@ -1808,8 +1918,8 @@ namespace Shakutori
                 float want = climb ? -silkClimbSpeed * (sprint ? 1.6f : 1f) * Mathf.Lerp(0.4f, 1f, Mathf.Clamp01(_silkLen / 0.8f))
                                    : (sprint ? silkFastSpeed : silkDescendSpeed);
                 // 下りる：地面が近づくと、ゆっくり
-                if (!climb && SurfaceProbe.Raycast(_hangPos, Vector3.down, L * 1.8f, out var gnd))
-                    want *= Mathf.Lerp(0.45f, 1f, Mathf.InverseLerp(L * 0.95f, L * 1.8f, gnd.distance));
+                if (!climb && SurfaceProbe.Raycast(_hangPos, Vector3.down, L * 2.2f, out var gnd))
+                    want *= Mathf.Lerp(0.3f, 1f, Mathf.InverseLerp(L * 0.95f, L * 2.2f, gnd.distance));
                 _silkSpeed = Mathf.MoveTowards(_silkSpeed, want, dt * (climb ? 7f : 5f));
                 _silkLen += _silkSpeed * dt;
                 // 糸がのびきったら、糸を出すのが止まる。落ちる勢いは糸のばねがうけとめて、びよんと弾む
@@ -1830,10 +1940,10 @@ namespace Shakutori
             // こぐ：ゆれている向きに合わせて押すと、よくゆれる
             Vector3 flatVel = Vector3.ProjectOnPlane(_hangVel, Vector3.up);
             float pump = 4f;
-            if (horiz.sqrMagnitude > 1e-4f && flatVel.sqrMagnitude > 1e-4f) pump += 3f * Mathf.Max(0f, Vector3.Dot(horiz.normalized, flatVel.normalized));
+            if (horiz.sqrMagnitude > 1e-4f && flatVel.sqrMagnitude > 1e-4f) pump += 4.5f * Mathf.Max(0f, Vector3.Dot(horiz.normalized, flatVel.normalized));
             _pumpInput = horiz;
             // 糸が長いほど、糸が風をうけて流される
-            float windK = 0.2f + Mathf.Min(_silkLen, 15f) * 0.03f;
+            float windK = 0.25f + Mathf.Min(_silkLen, 15f) * 0.045f;
             Vector3 air = Wind.At(_hangPos, Time.time, _hangPos.y - Areas.Current.Height(_hangPos.x, _hangPos.z)) * windK;   // 高い所ほど風が強い
             // 空気のてい抗（体と風の速さの差に）：糸が長いほどゆれが長くつづき、スティックを離すと早めにおさまる
             float lin = Mathf.Lerp(1.15f, 0.55f, Mathf.Clamp01(_silkLen / 10f)) * (horiz.sqrMagnitude < 0.01f ? 1.3f : 1f);
@@ -1902,6 +2012,16 @@ namespace Shakutori
                     Land(SurfacePoint.On(wall.point, SurfaceProbe.SmoothNormal(wall), wall.collider));
                     return;
                 }
+                // ゆれて、上向きの面（台の上・枝の上）に体が当たったら、そこへ乗り移る
+                // （糸を出したふちのまわりには、もどらない：糸のつけ根より 0.6 下で、横に 0.8 よりはなれた面だけ）
+                if (!_reeling && wall.distance > 1e-4f && wall.normal.y >= 0.5f && _blendT >= 1f && Time.time - _hangStart > 0.6f
+                    && _silkAnchor.y - wall.point.y > 0.6f
+                    && new Vector2(wall.point.x - _silkAnchor.x, wall.point.z - _silkAnchor.z).sqrMagnitude > 0.8f * 0.8f
+                    && SurfaceProbe.Valid(wall.point) && !Areas.Current.IsUnderwater(wall.point))
+                {
+                    Land(SurfacePoint.On(wall.point, SurfaceProbe.SmoothNormal(wall), wall.collider));
+                    return;
+                }
                 var wm = ShakuPhysics.MaterialOf(wall.collider);
                 Vector3 wv = MovingPlatform.VelocityOf(wall.collider, wall.point);
                 if (wall.collider.gameObject.layer == ShakuConst.CreatureLayer) Creatures.Instance?.Push(wall.collider.transform, _hangVel - wv);
@@ -1924,7 +2044,7 @@ namespace Shakutori
             UpdateTwist(dt, horiz);
 
             // 着地：尾が地面にとどいたら（糸をたぐっている間は着地しない）
-            if (!_reeling && _blendT >= 1f && SurfaceProbe.Raycast(_hangPos, Vector3.down, L * 0.95f, out var ground))
+            if (!_reeling && _blendT >= 1f && SurfaceProbe.Raycast(_hangPos, Vector3.down, L * 0.95f, out var ground) && !JustBelowAnchor(ground))
             {
                 Vector3 gn = SurfaceProbe.SmoothNormal(ground);
                 if (gn.y > 0.35f && !Areas.Current.IsUnderwater(ground.point)) Land(SurfacePoint.On(ground.point, gn, ground.collider));
@@ -2022,6 +2142,7 @@ namespace Shakutori
                 float err = Vector3.SignedAngle(f, horiz.normalized, Vector3.up);
                 acc = err * 9f - _twistVel * 5f;
                 _twistRest = f;
+                SightseeTwist(horiz);
             }
             else
             {
@@ -2031,6 +2152,7 @@ namespace Shakutori
                 // 風が体を横向きに回す（体の前とうしろで、風のうけ方がちがう）
                 Vector3 wind = Wind.At(_hangPos);
                 acc += Vector3.Dot(wind, Vector3.Cross(Vector3.up, f)) * 40f;
+                acc += SightseeTwist(horiz);
                 acc = Mathf.Clamp(acc, -w * 4f, w * 4f);
             }
             _twistVel = Mathf.Clamp(_twistVel + acc * dt, -240f, 240f);
@@ -2052,7 +2174,7 @@ namespace Shakutori
             State = Mode.Idle;
             _idleTime = 0f;
             _landBounce = Mathf.Max(_landBounce, 0.2f);   // 尾がついて、体が横たわるときに少し弾む
-            Bump(0.45f);
+            Bump(Mathf.Lerp(0.28f, 0.45f, Mathf.Clamp01(_hangVel.magnitude / 2f)));   // ゆっくり下りてきたら、ふわっと
             MarkSafe();
             Landed?.Invoke();
         }
@@ -2083,12 +2205,13 @@ namespace Shakutori
             if (SurfaceProbe.Raycast(_hangPos, Vector3.down, L * 2f, out var g))
                 curl = Mathf.Lerp(curl, 0.1f, Mathf.Clamp01(1f - (g.distance - L) / L));
             float wiggle = Mathf.Sin(_swayPhase * 2.2f) * 0.25f * (1f + 1.5f * _moveMag);  // スティックを倒すと、もがく
-            curl += 0.25f * Vector3.Dot(_pumpInput, _hangFacing);                           // こぐ向きへ体をしならせる
+            curl += 0.4f * Vector3.Dot(_pumpInput, _hangFacing);                            // こぐ向きへ体をしならせる
             Vector3 head = _hangPos;
             if (climbing > 0f) head += Vector3.up * (0.025f * climbing * Mathf.Sin(_swayPhase * 9f));
             // 糸をつけた直後は、頭をふって糸をつける
             float since = Time.time - _hangStart;
             if (since < 0.35f) wiggle += Mathf.Sin(since * 40f) * 0.3f * (1f - since / 0.35f);
+            if (since < 0.3f && !_reeling) curl += 0.5f * (1f - since / 0.3f);              // 糸を出すとき、尾をきゅっとはね上げる
             if (_reeling)
             {
                 // ねらった糸で引き寄せられている：体はまっすぐのびて、糸と一直線（頭が先）
@@ -2120,6 +2243,7 @@ namespace Shakutori
             if (silk == null) return;
             if (_rope == null)
                 _rope = new VerletRope(12) { groundHeight = p => Mathf.Max(Areas.Current.Height(p.x, p.z), Areas.Current.WaterLevelAt(p.x, p.z)) };
+            UpdateSilkTrail();
             if (State == Mode.Hang)
             {
                 silk.enabled = true;
@@ -2135,7 +2259,7 @@ namespace Shakutori
                 // （ねらって出した糸は、飛んでいくときも引き寄せるときも、まっすぐ張っている）
                 _ropeLen = _shotT < 1f || _reeling ? dist : Mathf.Max(dist, _silkLen);
                 _rope.airDrag = 3f;
-                _rope.Step(dt, a, h, _ropeLen, Wind.At((a + h) * 0.5f));
+                _rope.Step(dt, a, h, _ropeLen, Wind.At((a + h) * 0.5f) * 1.5f);   // 糸は風をうけて、しなる
                 // 張った糸は、風で細かく速くふるえ、ゆるい糸は大きくゆっくりゆれる
                 Vector3 d = h - a;
                 Vector3 side = Vector3.Cross(d, Vector3.up);
@@ -2143,7 +2267,7 @@ namespace Shakutori
                 side = side.sqrMagnitude > 1e-8f ? side.normalized : Vector3.right;
                 float tension01 = Mathf.Clamp01(_silkTension / 12f);
                 float freq = Mathf.Lerp(9f, 31f, tension01);
-                float amp = 0.015f * Wind.Gust(Time.time) * Mathf.Lerp(2.2f, 1f, tension01) * Mathf.Clamp01(dist / 2f);
+                float amp = 0.022f * Wind.Gust(Time.time) * Mathf.Lerp(2.2f, 1f, tension01) * Mathf.Clamp01(dist / 2f);
                 int n = _rope.Count;
                 silk.positionCount = n;
                 for (int i = 0; i < n; i++)
@@ -2227,7 +2351,7 @@ namespace Shakutori
             f.Normalize();
             _pending = PendingFall.WalkOff;
             _pendingStart = Time.time;
-            _pendingUntil = Time.time + 0.16f;
+            _pendingUntil = Time.time + 0.16f + TeeterTime(edge, f);
             _pendingVel = f * 1.6f + Vector3.up * 0.5f;
             _pendingFrom = SurfacePoint.On(edge, Vector3.up, null);
             _pendingEdge = edge;
@@ -2236,6 +2360,14 @@ namespace Shakutori
             _peekKind = "cliff";
             _peekT = 0f;
             _peekDur = 0.5f;
+            // 向こうに足場が見える、とどかないすき間：体を伸ばしきって、迷う（スティックを引けば、もどれる）
+            if (FarSideAhead(f))
+            {
+                _peekKind = "gap";
+                _peekDur = 0.75f;
+                if (!_teeter) _pendingUntil += 0.3f;
+                _teeter = true;
+            }
             State = Mode.Idle;
             IsBlocked = false;
         }
@@ -2259,6 +2391,7 @@ namespace Shakutori
         /// <summary>「ため」が終わったら落ちはじめる。</summary>
         void UpdatePending()
         {
+            if (TeeterBackOut()) return;
             if (_pending == PendingFall.None || Time.time < _pendingUntil) return;
             var kind = _pending;
             _pending = PendingFall.None;
@@ -2281,6 +2414,7 @@ namespace Shakutori
             _rebounded = false;
             _bounces = 0;
             _spinL = _fallSpinRate;
+            BeginFallKind();
             _pending = PendingFall.None;
             Vector3 h = Vector3.ProjectOnPlane(velocity.sqrMagnitude > 0.01f ? velocity : Heading, Vector3.up);
             if (h.sqrMagnitude < 1e-4f) h = Vector3.ProjectOnPlane(Heading, Vector3.up);
@@ -2315,9 +2449,10 @@ namespace Shakutori
             float wlv = Areas.Current.WaterLevelAt(_fallPos.x, _fallPos.z);
             if (wlv > -100f) groundDist = Mathf.Min(groundDist, Mathf.Max(0f, _fallPos.y - wlv));
             _uncurl = Mathf.MoveTowards(_uncurl, groundDist < 1.6f ? 1f - groundDist / 1.6f : 0f, dt * 4f);
+            UpdateGlide(dt);   // 背伸びボタンで、体を広げて、ふわっと
             // 回る勢い：落ちる風が体を回し、空気のてい抗でおさえられる。
             // 回る速さは、丸まると速く、体を開くとゆっくり（角運動量を保つ。フィギュアスケートと同じ）
-            float spinWant = _fallSpinRate + _fallVel.magnitude * 0.6f;
+            float spinWant = _gliding ? 1.5f : _fallSpinRate + _fallVel.magnitude * 0.6f;
             _spinL = Mathf.Lerp(_spinL, spinWant, 1f - Mathf.Exp(-1.5f * dt));
             _fallSpin += dt * FallSpinRate;
             // 回る軸は、ゆっくり首をふる
@@ -2342,6 +2477,7 @@ namespace Shakutori
                     return;
                 }
             }
+            if (TryAutoGrab()) return;   // 横へ流されて壁に近づいたら、しがみつく
             // 物の中から落ちはじめたときは、まず外へ出る（めりこみの深さを計算して）
             if (_fallTime < 0.05f && Physics.CheckSphere(_fallPos, FallRadius * 0.8f, SurfaceProbe.Mask, QueryTriggerInteraction.Ignore))
             {
@@ -2355,8 +2491,15 @@ namespace Shakutori
             Vector3 air = Wind.At(_fallPos, Time.time, groundDist) * Mathf.Lerp(0.25f, 0.45f, _uncurl);
             float lin = Mathf.Lerp(FallLinearDrag, OpenLinearDrag, _uncurl);
             float quad = Mathf.Lerp(FallQuadraticDrag, OpenQuadraticDrag, _uncurl);
+            if (_gliding)
+            {
+                // 体を広げると、空気をたくさんうけて、ゆっくり落ちる（風にも流されやすい）
+                lin *= 1.5f;
+                quad *= 1.8f;
+                air *= 1.3f;
+            }
             // 手をはなした直後は空中で向きを変えやすく、だんだんきかなくなる
-            Vector3 control = Vector3.ProjectOnPlane(desired, Vector3.up) * mag * Mathf.Lerp(2f, 0.8f, Mathf.Clamp01(_fallTime / 0.6f));
+            Vector3 control = Vector3.ProjectOnPlane(desired, Vector3.up) * mag * Mathf.Lerp(2f, 0.8f, Mathf.Clamp01(_fallTime / 0.6f)) * (_gliding ? 1.7f : 1f);
             Vector3 start = _fallPos;
             int steps = ShakuPhysics.Substeps(dt, out float h);
             for (int i = 0; i < steps; i++)
@@ -2477,7 +2620,9 @@ namespace Shakutori
         void UpdateWater(float dt)
         {
             _sinkTimer += dt;
-            float soak = Mathf.Clamp01((_sinkTimer - 0.6f) / 0.3f);
+            Vector3 paddle = SwimPaddle(dt);   // 泳ぐ：スティックの向きへ
+            if (TryClimbOut()) return;         // 岸や浮いた葉に着いたら、上がる
+            float soak = SwimSoak;
             int steps = ShakuPhysics.Substeps(dt, out float h);
             for (int i = 0; i < steps; i++)
             {
@@ -2485,6 +2630,7 @@ namespace Shakutori
                 Vector3 acc = Vector3.down * fallGravity;
                 // 浮力：しずんだ深さに合わせて大きくなる（体が半分しずんだ所でつりあう）
                 acc += Vector3.up * (ShakuPhysics.BuoyantAccel(depth, 0.03f, 60f) * (1f - 0.75f * soak));
+                if (depth > -0.05f) acc += paddle;
                 _waterVel += acc * h;
                 // 水のてい抗は、空気よりずっと大きい。川では、流れといっしょに流される
                 Vector3 flow = depth > 0f ? Creatures.WaterFlow(_fallPos, Areas.Current) : Vector3.zero;
@@ -2492,8 +2638,9 @@ namespace Shakutori
                 _fallPos += _waterVel * h;
             }
             _fallPos.y = Mathf.Max(_fallPos.y, _waterLevel - 1.2f);
-            if (_sinkTimer > 1.1f)
+            if (SwimSunk)
             {
+                _swimming = false;
                 Spawn(_lastSafeTail, _lastSafeNormal, _lastSafeHead, _lastSafeNormal);
                 _wetUntil = Time.time + 2.5f;   // ぬれて、しばらくぶるぶる
                 _wetBodyUntil = Time.time + 7f; // 体がかわくまで
@@ -2543,9 +2690,17 @@ namespace Shakutori
             }
             // 弾み・ぺたんこ：よくはね返る面ほど弾み、やわらかい面ほど衝撃をすいこんでつぶれにくい
             _landBounce = Mathf.Clamp01(0.35f + speed * 0.12f);
-            Bump(Mathf.Clamp01((0.3f + speed * 0.1f) * (0.75f + 0.6f * mat.restitution)));
+            // 石の上では、ほとんど弾まない。低い所からは、弾まずに「ぽてっ」
+            Bump(Mathf.Clamp01((0.3f + speed * 0.1f) * (0.75f + 0.6f * mat.restitution)) * (mat.name == ShakuPhysics.Stone.name ? 0.35f : _lowDrop ? 0.4f : 1f));
+            if (_lowDrop) _landSquash = Mathf.Max(_landSquash, 0.3f);
             _landSquash = Mathf.Clamp01(speed / 6f) * (1f - 0.5f * mat.softness);   // 強く落ちるほど、一瞬ぺたんこ
             _squashRate = Mathf.Lerp(6f, 2.5f, Mathf.Clamp01(speed / 9f));           // 強く落ちるほど、ぺたんこの時間が長い
+            if (mat.name == ShakuPhysics.Leaf.name)
+            {
+                _landSquash = Mathf.Max(_landSquash, 0.4f);   // 葉っぱの上は「ぽふ」と沈む
+                _squashRate = 2f;
+            }
+            BeginWobble(LastImpact);
             _softKick = -tail.normal * Mathf.Min(1.5f, speed * 0.15f);               // やわらかい体が、おくれてぷるん
             _shakeUntil = Time.time + 0.5f;                                          // 体をぶるっとふって
             Survey(0.6f);                                                            // まわりを見わたす
@@ -2560,6 +2715,7 @@ namespace Shakutori
         {
             _silkAnchor = _fallFrom.point;
             _anchorSurface = _fallFrom;
+            _anchorCollider = null;
             _hangPos = _fallPos;
             // 糸がのびて、落ちる勢いをうけとめる（糸を出すところでも少しすべって、勢いをへらす）
             _hangVel = _fallVel * 0.8f;
@@ -2579,6 +2735,12 @@ namespace Shakutori
 
         void BuildFallTarget()
         {
+            // 泳いでいるときは、水面にうかんで、くねくね
+            if (_swimming)
+            {
+                BuildSwimTarget();
+                return;
+            }
             // 落ちはじめは体がのびていて、すぐにくるんと丸まる。回りながら落ちて、地面が近づくと体を開く
             _target.BuildCurl(_fallPos, _fallAxis, _hangFacing, L, CurlTotal(), _fallSpin);
         }
@@ -2588,10 +2750,12 @@ namespace Shakutori
         // ------------------------------------------------------------------
         void UpdateAim()
         {
-            bool canAim = State != Mode.Fall && !_reeling && !_standRequested && cameraTransform != null;
+            // 引き寄せられている途中でも、ねらい直せる（つぎつぎに糸をかけて進む）
+            bool canAim = State != Mode.Fall && !_standRequested && cameraTransform != null;
             bool held = InputEnabled && GameInput.AimHeld && canAim;
             if (held)
             {
+                if (!IsAiming) _aimStart = Time.time;
                 IsAiming = true;
                 ComputeAim();
                 return;
@@ -2599,7 +2763,7 @@ namespace Shakutori
             if (IsAiming)
             {
                 IsAiming = false;
-                if (AimValid && canAim && InputEnabled) FireSilk();
+                ReleaseAim(canAim);
                 AimValid = false;
             }
         }
@@ -2637,6 +2801,7 @@ namespace Shakutori
                 return;
             }
             _aimHit = hit;
+            AimNormal = SurfaceProbe.SmoothNormal(hit);
             AimValid = true;
             AimProblem = "";
         }
@@ -2660,6 +2825,7 @@ namespace Shakutori
                     if (SurfaceProbe.Raycast(head, toT.normalized, toT.magnitude - 0.15f, out var block) && block.collider != h.collider) continue;
                     _aimHit = h;
                     AimPoint = h.point;
+                    AimNormal = SurfaceProbe.SmoothNormal(h);
                     AimValid = true;
                     AimProblem = "";
                     return true;
@@ -2696,6 +2862,7 @@ namespace Shakutori
             _silkFade = 1f;
             AimValid = false;
             SilkStarted?.Invoke();
+            OnSilkOut();
             return true;
         }
 
@@ -2709,6 +2876,7 @@ namespace Shakutori
             if (Vector3.Distance(head, hit.point) > silkRange || hit.point.y < head.y - 0.6f) return false;
             _aimHit = hit;
             AimPoint = hit.point;
+            AimNormal = SurfaceProbe.SmoothNormal(hit);
             AimValid = true;
             return true;
         }
@@ -2725,7 +2893,12 @@ namespace Shakutori
                 return;
             }
             _blockedTime += dt;
-            if (_peekT > _peekDur + 1.6f) TriggerPeek(BlockReason);   // ときどき、もう一度のぞく
+            // ときどき、もう一度のぞく。しばらく押しつづけていたら、首をふって「むり」
+            if (_peekT > _peekDur + 1.6f)
+            {
+                if (_blockedTime > 1.5f) ShakeNo();
+                else TriggerPeek(BlockReason);
+            }
             // 物に引っかかったまま 2.5 秒たったら、左右へ一歩ずれてみる
             if (_blockedTime > 2.5f && Time.time > _unstickNext && IsObstacleFail(BlockReason) || (_blockedTime > 2.5f && Time.time > _unstickNext && BlockReason == ""))
             {
@@ -2770,7 +2943,9 @@ namespace Shakutori
             _reactTimer = 0.25f;
             Vector3 head = _curve.Head;
             _nearMob = cr.NearestMob(head, 1.5f, false, out _, out _, out _);
+            UpdateSurroundings(cr, head);
             if (State != Mode.Idle || wantsMove || _standRequested || _pending != PendingFall.None) return;
+            SniffFlowers(head);
             // カメラがとても近いと、カメラの方を見る
             if (cameraTransform != null && Time.time > _shyNext && Vector3.Distance(cameraTransform.position, head) < 1f)
             {
@@ -2816,6 +2991,7 @@ namespace Shakutori
                 Vector3 away = Vector3.ProjectOnPlane(_curve.Middle - pos, _tail.normal);
                 if (away.sqrMagnitude > 1e-4f && StartReach(away.normalized, true, false)) return;
             }
+            if (LookBack(pos, d)) return;   // うしろに来たいきものに気づいて、ふり返る
             if (d < 0.75f && Time.time > _flinchNext)
             {
                 _flinch = 1f;
@@ -2952,6 +3128,8 @@ namespace Shakutori
             _arcBlend = 0f;
             _turnSign = 0f;
             _convexAhead = false;
+            _flipAhead = _concaveAhead = false;
+            _stepDown = 0f;
             _reachSlope = 0f;
             _stepKind = 0;
             State = Mode.Reach;

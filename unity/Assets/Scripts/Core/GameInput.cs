@@ -37,6 +37,17 @@ namespace Shakutori
         public static bool PhotoPressed { get; private set; }
         public static bool VirtualRecenter;
 
+        /// <summary>自分で倒したスティックの向き（おまかせ歩きの向きを入れる前）。</summary>
+        public static Vector2 PlayerMove { get; private set; }
+        /// <summary>おまかせ歩き（AutoWalk）が倒すスティック。自分で倒していないときだけ使う。</summary>
+        public static Vector2 AutoMove;
+        /// <summary>ゆっくり歩き（Ctrl を押している間 / L3 で切りかえ）。せまい足場で、小さく動ける。</summary>
+        public static bool Slow { get; private set; }
+        public static bool VirtualSlow;
+        static bool _slowLatch;
+        /// <summary>ゆっくり歩きのときの、スティックの倒しぐあいの上限。</summary>
+        public const float SlowMagnitude = 0.4f;
+
         // 画面上のボタン・スティック（UI から設定）
         public static Vector2 VirtualMove;
         public static bool VirtualSprint;
@@ -84,7 +95,7 @@ namespace Shakutori
             var pad = Gamepad.current;
 
             Vector2 move = Vector2.zero;
-            bool sprint = false, silkP = false, silkH = false, stand = false, pause = false, map = false, help = false, confirm = false, any = false, book = false, aim = false, recenter = false, photo = false;
+            bool sprint = false, silkP = false, silkH = false, stand = false, pause = false, map = false, help = false, confirm = false, any = false, book = false, aim = false, recenter = false, photo = false, slow = false;
             if (kb != null)
             {
                 if (kb.wKey.isPressed || kb.upArrowKey.isPressed) move.y += 1f;
@@ -109,6 +120,7 @@ namespace Shakutori
                 help |= kb.hKey.wasPressedThisFrame;
                 book |= kb.bKey.wasPressedThisFrame || kb.cKey.wasPressedThisFrame;
                 confirm |= kb.enterKey.wasPressedThisFrame;
+                slow |= kb.leftCtrlKey.isPressed || kb.rightCtrlKey.isPressed;
                 any |= kb.anyKey.wasPressedThisFrame;
                 if (kb.anyKey.wasPressedThisFrame) UsingGamepad = false;
                 if (kb.qKey.isPressed) _lookAccum.x -= 600f * Time.unscaledDeltaTime;
@@ -142,6 +154,7 @@ namespace Shakutori
                 stand |= pad.buttonNorth.isPressed;
                 aim |= pad.leftTrigger.isPressed;
                 recenter |= pad.rightStickButton.wasPressedThisFrame;
+                if (pad.leftStickButton.wasPressedThisFrame) _slowLatch = !_slowLatch;   // L3 で、ゆっくり歩きを切りかえ
                 pause |= pad.startButton.wasPressedThisFrame;
                 map |= pad.selectButton.wasPressedThisFrame;
                 book |= pad.buttonWest.wasPressedThisFrame;
@@ -157,6 +170,11 @@ namespace Shakutori
 
             move += VirtualMove;
             if (move.sqrMagnitude > 1f) move.Normalize();
+            // ゆっくり歩き：スティックを少しだけ倒したのと同じ（歩幅が小さく、ゆっくり、頭で足場をさぐる）
+            Slow = slow || _slowLatch || VirtualSlow;
+            if (Slow && move.sqrMagnitude > 0.01f) move = move.normalized * Mathf.Min(move.magnitude, SlowMagnitude);
+            PlayerMove = move;
+            if (move.sqrMagnitude < 0.01f && AutoMove.sqrMagnitude > 0.01f) move = AutoMove;
             Move = move;
             Sprint = sprint || VirtualSprint;
             // 「はやく」の強さ（ゲームパッドのトリガーは押しぐあいで 0〜1）

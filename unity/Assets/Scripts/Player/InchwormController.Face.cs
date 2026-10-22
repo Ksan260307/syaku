@@ -166,7 +166,7 @@ namespace Shakutori
 
             // ---- 脚：尾（腹脚）・頭（胸脚）をついた瞬間に、ぺたっ。踏んばるときは、ぐっと。細い物は、はさむ ----
             _headPulse = Mathf.MoveTowards(_headPulse, 0f, dt * 5f);
-            float brace = Mathf.Clamp01(_platformVel.magnitude * 0.5f + Mathf.Max(0f, Wind.Gust(t) - 0.6f) * 1.5f + (IsBlocked && _moveMag > 0.2f ? 0.6f : 0f));
+            float brace = Mathf.Clamp01(_platformVel.magnitude * 0.5f + _platformLean.magnitude * 2f + Mathf.Max(0f, Wind.Gust(t) - 0.6f) * 1.5f + (IsBlocked && _moveMag > 0.2f ? 0.6f : 0f));
             body.tailGrip = Mathf.Clamp01(Mathf.Max(_gripPulse, brace));
             body.headGrip = Mathf.Clamp01(Mathf.Max(_headPulse, brace * 0.8f));
             body.legPinch = Mathf.MoveTowards(body.legPinch, _narrow && State != Mode.Hang && State != Mode.Fall ? 0.8f : 0f, dt * 3f);

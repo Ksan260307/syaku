@@ -264,8 +264,9 @@ namespace Shakutori
         public void Step(bool head, Surface surface, float loudness, bool echo)
         {
             if (steps == null || steps.Length == 0) return;
-            float vol = (head ? 0.35f : 0.25f) * Mathf.Clamp(loudness, 0.3f, 1.6f);
-            float pitch = Random.Range(0.9f, 1.15f) * (head ? 1.08f : 0.95f);
+            // 胸脚（頭）は「とん」と高く、腹脚（尾）は「ぺた」と低く小さく（2 段の歩き方が、耳でもわかる）
+            float vol = (head ? 0.38f : 0.22f) * Mathf.Clamp(loudness, 0.3f, 1.6f);
+            float pitch = Random.Range(0.94f, 1.1f) * (head ? 1.16f : 0.84f);
             AudioClip clip = steps[Random.Range(0, steps.Length)];
             switch (surface)
             {
@@ -286,6 +287,16 @@ namespace Shakutori
                     break;
             }
             Play(clip, vol, pitch);
+            // 腹脚は 2 対あるので、少しおくれて、もう一度小さく「ぺた」
+            if (!head && clip != null)
+            {
+                var src2 = _sfx[_next];
+                _next = (_next + 1) % _sfx.Length;
+                src2.clip = clip;
+                src2.pitch = pitch * 0.94f;
+                src2.volume = vol * 0.55f * SaveSystem.Settings.sfx;
+                src2.PlayDelayed(0.045f);
+            }
             if (echo && clip != null)
             {
                 // 少しおくれて、こもった音がひびく
@@ -321,6 +332,10 @@ namespace Shakutori
         /// <summary>葉をかじる「しゃくっ」（小さく、高く）。</summary>
         public void Nibble() => Play(steps != null && steps.Length > 0 ? steps[Random.Range(0, steps.Length)] : click, 0.16f, Random.Range(1.9f, 2.3f));
         public void Silk() => Play(silk, 0.55f);
+        /// <summary>糸をたぐってのぼる、小さな「きゅっ」。</summary>
+        public void SilkTick() => Play(click, 0.1f, Random.Range(2.3f, 2.7f));
+        /// <summary>糸を切る「ぷつん」。</summary>
+        public void SilkCut() => Play(silk, 0.32f, 1.9f);
         public void Land() => Play(land, 0.5f);
         public void Complete()
         {
@@ -341,6 +356,8 @@ namespace Shakutori
         public void Gull(float volume) => Play(AreaClip("gull"), volume, Random.Range(0.94f, 1.08f));
         public void Fall() => Play(fall, 0.55f, Random.Range(0.95f, 1.08f));
         public void Splash() => Play(splash, 0.85f);
+        /// <summary>葉からたれたしずくが当たる、小さな「ぴちょん」。</summary>
+        public void Drip() => Play(splash, 0.14f, Random.Range(2.2f, 2.6f));
         public void Rare()
         {
             Duck(3.2f);

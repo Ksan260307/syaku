@@ -1305,4 +1305,5 @@ MonoBehaviour:
   warmGlow: {fileID: 2100000, guid: f40ff25ea8f90e6439f1d2a6209fc4f0, type: 2}
   backdrop: {fileID: 2100000, guid: 3ec367a2002f624468b04e4600a2e7c0, type: 2}
   wear: {fileID: 2100000, guid: b5d8f704d0e9b3441a80ab01031c19f8, type: 2}
+  footprint: {fileID: 2100000, guid: a7505250d018464aa8c3317b0a2e17e0, type: 2}
   sunCookie: {fileID: 2800000, guid: 11d4622ca0f4c3e4eadbbeac8afa0d92, type: 3}

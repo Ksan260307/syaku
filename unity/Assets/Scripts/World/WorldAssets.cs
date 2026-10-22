@@ -49,6 +49,7 @@ namespace Shakutori
         public Material warmGlow;      // まきストーブの火・ランプ（山小屋）
         public Material backdrop;      // 窓の外の景色（日ざしに関係なく明るい）
         public Material wear;          // きせかえのぼうし・めがね
+        public Material footprint;     // 砂・雪の上の足あと
 
         [Header("Textures")]
         public Texture2D sunCookie;

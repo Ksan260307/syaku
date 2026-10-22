@@ -6,6 +6,7 @@
 
 // ---- グローバル（スクリプトから設定） ----
 float4 _ShakuPlayerPos;   // xyz = しゃくとりむしの位置, w = 草をかき分ける半径
+float4 _ShakuPlayerHead;  // xyz = しゃくとりむしの頭, w = 頭で草をかき分ける半径（0 なら、かき分けない）
 float4 _ShakuWind;        // xy = 風向き(XZ), z = 強さ, w = ゆれの位相（スクリプトで、速さを時間で積み上げたもの）
 
 // 4x4 ベイヤー行列によるディザ（カメラ近くのフェード用）
@@ -39,6 +40,14 @@ float3 ShakuApplyWind(float3 positionWS, float weight, float strength, float pha
     float2 pushDir = distXZ > 1e-4 ? d.xz / distXZ : float2(0, 0);
     offset.xz += pushDir * push * radius * 0.8;
     offset.y -= push * radius * 0.35;
+    // 伸ばした頭の所でも、草がかき分けられる
+    float3 dh = positionWS - _ShakuPlayerHead.xyz;
+    float headR = max(_ShakuPlayerHead.w, 0.001);
+    float distH = length(dh.xz);
+    float pushH = step(0.001, _ShakuPlayerHead.w) * saturate(1.0 - distH / headR) * saturate(1.0 - abs(dh.y) / (headR * 3.0)) * w;
+    float2 dirH = distH > 1e-4 ? dh.xz / distH : float2(0, 0);
+    offset.xz += dirH * pushH * headR * 0.7;
+    offset.y -= pushH * headR * 0.3;
     return positionWS + offset;
 }
 

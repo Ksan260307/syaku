@@ -201,6 +201,7 @@
                     <ui:Toggle name="set-minimap" label="ミニマップを回転させる" />
                     <ui:Toggle name="set-sprinttoggle" label="「はやく」を押すたびに切りかえる" />
                     <ui:Toggle name="set-aimtoggle" label="「ねらう」を押すたびに切りかえる" />
+                    <ui:Toggle name="set-wallup" label="壁では、スティックの上で登る" />
                     <ui:Toggle name="set-help" label="操作説明を表示する" />
                     <ui:Label text="音" class="settings-head" picking-mode="Ignore" />
                     <ui:Slider name="set-music" label="BGM の音量" low-value="0" high-value="1" value="0.55" />

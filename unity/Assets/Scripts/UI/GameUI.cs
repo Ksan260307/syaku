@@ -32,6 +32,13 @@ namespace Shakutori
         public event Action<string> SkinSelected;
         public event Action<int> FastTravelRequested;    // 地図から名所へ
         public event Action<int> LandmarkTravelRequested;   // 図鑑から、すみかのそばの名所へ（ほかのエリアでも）
+        /// <summary>おまかせ歩き：その場所（と、着いたとする半径）まで歩いて行く。</summary>
+        public event Action<Vector3, float> WalkToRequested;
+        /// <summary>タッチで地面をタップした（画面の座標）。そこまで歩いて行く。</summary>
+        public event Action<Vector2> WalkToScreenPoint;
+        LandmarkDef _walkAsk;
+        float _walkAskAt = -99f;
+        bool _tapPending;
         /// <summary>エリアの地図の絵（地図の下のボタンで、ほかのエリアの地図に切りかえるときに使う）。</summary>
         public Func<AreaLayout, Texture2D> MapProvider;
         public event Action RescueRequested;             // 動けなくなったら
@@ -71,7 +78,7 @@ namespace Shakutori
         Action _confirmAction;
         VisualElement _creditsOverlay, _photoHint, _bigmapHere;
         Label _titleProgress, _version, _loadingTip, _pauseSummary;
-        Toggle _sprintToggle, _aimToggle, _helpToggle;
+        Toggle _sprintToggle, _aimToggle, _helpToggle, _wallUpToggle;
         readonly Queue<(string sub, string title, string desc)> _bannerQueue = new Queue<(string, string, string)>();
         readonly List<VisualElement> _miniCreatures = new List<VisualElement>();
         readonly List<Vector3> _nearCreatures = new List<Vector3>();
@@ -477,6 +484,7 @@ namespace Shakutori
             _pauseSummary = Q<Label>("pause-summary");
             _sprintToggle = Q<Toggle>("set-sprinttoggle");
             _aimToggle = Q<Toggle>("set-aimtoggle");
+            _wallUpToggle = Q<Toggle>("set-wallup");
             _helpToggle = Q<Toggle>("set-help");
             if (_continue != null) _continueBase = _continue.text;
             if (_version != null) _version.text = "ver. " + Application.version;
@@ -595,6 +603,7 @@ namespace Shakutori
                 ApplySettings();
             });
             _aimToggle?.RegisterValueChangedCallback(e => { SaveSystem.Settings.aimToggle = e.newValue; ApplySettings(); });
+            _wallUpToggle?.RegisterValueChangedCallback(e => { SaveSystem.Settings.wallStickUp = e.newValue; ApplySettings(); });
             _helpToggle?.RegisterValueChangedCallback(e =>
             {
                 SaveSystem.Settings.showHelp = e.newValue;
@@ -640,6 +649,7 @@ namespace Shakutori
             _observe?.SetValueWithoutNotify(s.observeNotice);
             _sprintToggle?.SetValueWithoutNotify(s.sprintToggle);
             _aimToggle?.SetValueWithoutNotify(s.aimToggle);
+            _wallUpToggle?.SetValueWithoutNotify(s.wallStickUp);
             _helpToggle?.SetValueWithoutNotify(s.showHelp);
             ApplySettings(false);
         }
@@ -1377,6 +1387,7 @@ namespace Shakutori
                     (new[] { "Y" }, "背伸び（長押し）"),
                     (new[] { "A" }, "糸でおりる / 壁ではなれる"),
                     (new[] { "LT" }, "糸をねらって発射"),
+                    (new[] { "L3" }, "ゆっくり歩き（切りかえ）"),
                     (new[] { "X" }, "図鑑"),
                     (new[] { "View" }, "地図"),
                     (new[] { "Menu" }, "メニュー"),
@@ -1399,6 +1410,7 @@ namespace Shakutori
                     (new[] { "E" }, "背伸び（長押し）"),
                     (new[] { "Space" }, "糸でおりる / 壁ではなれる"),
                     (new[] { "F" }, "糸をねらって発射（右クリックでも）"),
+                    (new[] { "Ctrl" }, "ゆっくり歩き（押している間）"),
                     (new[] { "X" }, "カメラを後ろへ"),
                     (new[] { "B" }, "図鑑"),
                     (new[] { "M" }, "地図"),
@@ -2423,7 +2435,20 @@ namespace Shakutori
                 else LandmarkTravelRequested?.Invoke(place.id);
                 return true;
             }
-            if (unknown != null) Toast("まだ見つけていない場所。まずは歩いて行ってみよう", "icon-lock");
+            if (unknown != null)
+            {
+                // 見つけていない名所：もう一度タップすると、そこまで歩いて行く（おまかせ歩き）
+                if (here && _walkAsk == unknown && Time.unscaledTime - _walkAskAt < 4f)
+                {
+                    _walkAsk = null;
+                    ShowMap(false);
+                    WalkToRequested?.Invoke(new Vector3(unknown.position.x, 0f, unknown.position.y), Mathf.Max(1.5f, unknown.radius * 0.6f));
+                    return true;
+                }
+                _walkAsk = unknown;
+                _walkAskAt = Time.unscaledTime;
+                Toast(here ? "まだ見つけていない場所。もう一度タップすると、歩いて行くよ" : "まだ見つけていない場所。まずは歩いて行ってみよう", "icon-lock");
+            }
             return false;
         }
 
@@ -2581,10 +2606,24 @@ namespace Shakutori
             {
                 GameInput.VirtualRecenter = true;
                 _lastTapTime = -9f;
+                _tapPending = false;
                 return;
             }
             _lastTapTime = Time.unscaledTime;
             _lastTapPos = pos;
+            _tapPending = true;   // 2 回目のタップがなければ、そこまで歩いて行く
+        }
+
+        /// <summary>タッチの 1 回だけのタップ（2 回タップでなかった）：そこまで歩いて行く。</summary>
+        void UpdatePendingTap()
+        {
+            if (!_tapPending || Time.unscaledTime - _lastTapTime < 0.36f) return;
+            _tapPending = false;
+            if (_root?.panel == null || AnyOverlayOpen || IsPhotoMode) return;
+            Rect r = _root.worldBound;
+            if (r.width < 1f || r.height < 1f) return;
+            Vector2 screen = new Vector2(_lastTapPos.x / r.width * Screen.width, Screen.height - _lastTapPos.y / r.height * Screen.height);
+            WalkToScreenPoint?.Invoke(screen);
         }
 
         float PinchDistance()
@@ -2846,6 +2885,7 @@ namespace Shakutori
             _touch.style.display = _touchMode && playing ? DisplayStyle.Flex : DisplayStyle.None;
             UpdateTutorialGuide(playing);
             UpdateSleepLabel(playing);
+            UpdatePendingTap();
 
             // 縦向きのスマホでは、横向きをすすめる（数秒だけ）
             bool phonePortrait = _touchMode && IsPortrait && ScreenSize.x < ScreenSize.y * 0.75f;
@@ -2934,6 +2974,10 @@ namespace Shakutori
                 // 状況に応じたヒント
                 if (_worm.IsReeling)
                     SetPrompt(KeyName("silk"), "はなす");
+                else if (_worm.IsSwimming)
+                    SetPrompt("", "スティックで、岸や浮いた葉まで泳ぐ");
+                else if (_worm.IsFalling && !_worm.CanCatchWithSilk)
+                    SetPrompt(KeyName("stand"), "押しつづけると、体を広げて、ふわっと");
                 else if (_worm.IsFalling)
                     SetPrompt(KeyName("silk"), "糸を出してつかまる");
                 else if (_worm.State == InchwormController.Mode.Hang)

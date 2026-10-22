@@ -54,6 +54,7 @@ namespace Shakutori
         public float fov = 50f;
         public bool sprintToggle;     // Shift を押すたびに「はやく」を切りかえる
         public bool aimToggle;        // F / 右クリックを押すたびに「ねらう」を切りかえる
+        public bool wallStickUp;      // 壁では、カメラの向きに関係なく、スティックの上で登る
         public float cameraDistance;  // 0 = 最初の距離
         public bool observeNotice = true;   // しぐさを観察したことを、画面の上に知らせる（つづけて見つけたときは、まとめて 1 回）
     }

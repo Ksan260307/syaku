@@ -291,8 +291,8 @@ namespace Shakutori.Tests
             Place(p, Vector3.back);
             yield return FaceCamera(Vector3.back);
             GameInput.VirtualMove = Vector2.up;
-            yield return WaitUntil(() => Worm.IsBlocked, 20f, "池のふちで止まる");
-            yield return Frames(2);
+            // 止まったあとも、短い一歩で水ぎわまで少しずつ近づくので、止まっている間のヒントを見る
+            yield return WaitUntil(() => Worm.IsBlocked && Worm.BlockReason == "water" && UI.PromptText.Contains("水"), 20f, "池のふちで止まって、理由を出す");
             Assert.AreEqual("water", Worm.BlockReason);
             StringAssert.Contains("水", UI.PromptText);
         }

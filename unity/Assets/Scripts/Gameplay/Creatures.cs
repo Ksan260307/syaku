@@ -996,6 +996,7 @@ namespace Shakutori
                     else if (m.bid == "frog" && !m.airborne && R(0f, 1f) < sdt * 0.04f)
                     {
                         AudioManager.Instance?.Croak(0.4f * vol);
+                        InchwormController.Instance?.HearSound(m.pos, vol);   // しゃくとりむしが、声の方を見る
                         m.callUntil = m.anim + 0.6f;   // 鳴くときは、のどを大きくふくらませる
                     }
                     else if (m.bid == "nakiusagi" && !m.airborne && R(0f, 1f) < sdt * 0.05f)
@@ -3241,6 +3242,7 @@ namespace Shakutori
             float dist = Vector3.Distance(cam.transform.position, m.pos);
             float vol = Mathf.Clamp01(1f - dist / 70f) * loud;
             if (vol <= 0.05f) return;
+            InchwormController.Instance?.HearSound(m.pos, loud);   // しゃくとりむしが、声の方を見る
             if (m.sp.id == "kamome") AudioManager.Instance?.Gull(vol);   // カモメは「ミャーオ」
             else AudioManager.Instance?.Caw(vol);
         }

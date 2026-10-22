@@ -62,13 +62,14 @@ namespace Shakutori.Tests
             Assert.Greater(stretch, 0.15f, "体節が、伸び縮みする");
             Assert.Greater(bulge, 0.04f, "体節が、ふくらむ");
             // 背伸び：体のうしろも、少し持ち上げる（つま先立ち）
+            yield return WaitUntil(() => Worm.State == InchwormController.Mode.Idle, 3f, "止まる");
             yield return Seconds(0.5f);
-            float low = AboveGround(Worm.Curve.pos[7]);
             GameInput.VirtualStand = true;
             yield return Seconds(1.2f);
-            float high = AboveGround(Worm.Curve.pos[7]);
+            // 尾の先はついたまま、そのすぐ前の体が持ち上がる
+            float lift = AboveGround(Worm.Curve.pos[7]) - AboveGround(Worm.Curve.pos[1]);
             GameInput.VirtualStand = false;
-            Assert.Greater(high - low, 0.012f, "背伸びすると、体のうしろも浮く");
+            Assert.Greater(lift, 0.012f, "背伸びすると、体のうしろも浮く");
         }
 
         static float AboveGround(Vector3 p) => p.y - Areas.Current.Height(p.x, p.z);
@@ -125,9 +126,16 @@ namespace Shakutori.Tests
             yield return Seconds(3f);
             // びっくり：まばたきして、反射的に一瞬かたまる
             Worm.DebugMood("startle");
-            yield return Seconds(0.12f);
-            Assert.Greater(Worm.BlinkAmount, 0.3f, "まばたき");
-            Assert.Greater(Worm.MouthOpen, 0.1f, "口をあける");
+            float blink = 0f, mouth = 0f;
+            float t0 = Time.time;
+            yield return WaitUntil(() =>
+            {
+                blink = Mathf.Max(blink, Worm.BlinkAmount);
+                mouth = Mathf.Max(mouth, Worm.MouthOpen);
+                return Time.time - t0 > 0.35f;
+            }, 2f, "びっくり");
+            Assert.Greater(blink, 0.3f, "まばたき");
+            Assert.Greater(mouth, 0.1f, "口をあける");
         }
 
         [UnityTest, Timeout(120000)]

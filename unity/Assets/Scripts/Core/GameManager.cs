@@ -68,11 +68,18 @@ namespace Shakutori
         ProgressStats _stats;
         AreaProps _areaProps;
         AreaSounds _areaSounds;
+        Footprints _footprints;
+        AutoWalk _autoWalk;
+        bool _rumbleHead;
         Renderer _wormRenderer;
         WormWear _wear;
 
         /// <summary>しゃくとりむしの頭のぼうし・めがね（テスト用）。</summary>
         public WormWear Wear => _wear;
+        /// <summary>砂・雪の上の足あと。</summary>
+        public Footprints Prints => _footprints;
+        /// <summary>おまかせ歩き。</summary>
+        public AutoWalk AutoWalker => _autoWalk;
 
         /// <summary>チュートリアルの練習の森にいる。</summary>
         public bool InTutorial => Areas.Current == Areas.Tutorial;
@@ -117,6 +124,14 @@ namespace Shakutori
             if (_areaProps == null) _areaProps = gameObject.AddComponent<AreaProps>();
             _areaSounds = GetComponent<AreaSounds>();
             if (_areaSounds == null) _areaSounds = gameObject.AddComponent<AreaSounds>();
+            _footprints = GetComponent<Footprints>();
+            if (_footprints == null) _footprints = gameObject.AddComponent<Footprints>();
+            _footprints.Init(world.assets != null ? world.assets.footprint : null);
+            _autoWalk = GetComponent<AutoWalk>();
+            if (_autoWalk == null) _autoWalk = gameObject.AddComponent<AutoWalk>();
+            _autoWalk.worm = worm;
+            _autoWalk.cameraTransform = followCamera.transform;
+            _autoWalk.GaveUp += () => ui.Toast("ここからは、歩いて行けない…", "icon-map");
             yield return BuildArea(area, p => ui.SetLoading(p * 0.95f));
             PlaceWorm(SaveSystem.HasSave);
             followCamera.target = worm;
@@ -129,9 +144,16 @@ namespace Shakutori
                 var surface = AreaProps.Refine(SurfaceAt(p), p);
                 AudioManager.Instance?.Step(head, surface, worm.StepLoudness, AreaProps.Echo(p));
                 // 砂や土の上を歩くと、体が少しずつ、ほこりっぽくなる
-                if (surface == AudioManager.Surface.Sand) worm.AddDust(0.035f);
+                if (surface == AudioManager.Surface.Sand)
+                {
+                    worm.AddDust(0.035f);
+                    // 砂・雪の上には、足あとが残る
+                    _footprints?.Add(p, worm.SurfaceUp, worm.Heading, head, Areas.Current == Areas.Mountain ? Footprints.SnowColor : Footprints.SandColor);
+                }
                 else if (surface == AudioManager.Surface.Ground) worm.AddDust(0.004f);
                 _areaProps?.OnStep(p);
+                StepPuff(p, head, surface);
+                StepRumble(head);
                 if (head) SaveSystem.Data.steps++;
                 // 一歩ごとの小さな力：乗っている舟がゆれ、近くのしずくがふるえる
                 PlatformFerry()?.Push(p, 0.25f * worm.StepLoudness);
@@ -144,7 +166,22 @@ namespace Shakutori
                 AudioManager.Instance?.Silk();
                 SaveSystem.Data.silkUses++;
             };
+            worm.SilkClimbTick += () => AudioManager.Instance?.SilkTick();
+            worm.SilkCut += () => AudioManager.Instance?.SilkCut();
+            // おまかせ歩き：地図で見つけていない名所を 2 回タップ・タッチで地面をタップ
+            ui.WalkToRequested += (p, r) =>
+            {
+                _autoWalk.Begin(p, r);
+                ui.Toast("歩いて行くよ（スティックを倒すと、やめる）", "icon-map");
+            };
+            ui.WalkToScreenPoint += WalkToScreenPoint;
             worm.Fell += () => AudioManager.Instance?.Fall();
+            // 葉や枝からたれてきたしずくが、体に当たる
+            worm.Dripped += p =>
+            {
+                fx.Burst(p + Vector3.up * 0.05f, 6, new Color(0.7f, 0.9f, 1f, 1f));
+                AudioManager.Instance?.Drip();
+            };
             worm.HitGround += OnHitGround;
             worm.Bounced += OnBounced;
             worm.Splashed += OnSplash;
@@ -235,6 +272,8 @@ namespace Shakutori
             LoadClock.Start();
             Areas.Current = area;
             worm.ClearSafeHistory();
+            _footprints?.Clear();
+            _autoWalk?.Stop();
             if (creatures != null) creatures.Clear();
             // 読み込み画面のあいだは、うしろのエリアを描かない（作っているとちゅうのフレームが軽くなる。画面は読み込み画面でかくれている）
             var cam = Camera.main;
@@ -742,6 +781,7 @@ namespace Shakutori
             fx.Burst(worm.CenterPosition, 6 + ShakuMath.RoundToIntSafe(18f * k));
             // 土けむりは、面にそって広がる（やわらかい葉っぱや苔の上では、ほとんど出ない）
             fx.Dust(worm.TailPoint, worm.LastImpactNormal, k, soft);
+            if (worm.LastImpactMaterial == "leaf") fx.Burst(worm.TailPoint, 6 + ShakuMath.RoundToIntSafe(10f * k), new Color(0.55f, 0.78f, 0.32f, 1f));   // 葉っぱに、ぽふ
             followCamera.Dip(k);
             if (creatures != null) creatures.Disturb(worm.CenterPosition, 2f + 5f * k);   // 落ちた音に、近くのいきものがおどろく
             followCamera.Shake(0.25f + 0.6f * k, -worm.LastImpactNormal);   // ぶつかった向きにゆれる（壁なら横、床なら下）
@@ -753,6 +793,49 @@ namespace Shakutori
         }
 
         /// <summary>ゲームパッドをふるわせる（設定で「振動」が入っているときだけ）。</summary>
+        /// <summary>一歩ごとに、ゲームパッドをごく弱く、頭（右）と尾（左）で交互にふるわせる。</summary>
+        void StepRumble(bool head)
+        {
+            if (!SaveSystem.Settings.vibration || Gamepad.current == null || !GameInput.UsingGamepad || Time.unscaledTime < _rumbleUntil) return;
+            _rumbleHead = head;
+            Gamepad.current.SetMotorSpeeds(head ? 0f : 0.07f, head ? 0.06f : 0f);
+            _rumbleUntil = Time.unscaledTime + 0.05f;
+        }
+
+        /// <summary>一歩ごとの、足もとの小さなけむり：砂・雪はさらさら、苔は胞子、花のそばでは花粉。</summary>
+        void StepPuff(Vector3 p, bool head, AudioManager.Surface surface)
+        {
+            Vector3 n = worm.SurfaceUp;
+            switch (surface)
+            {
+                case AudioManager.Surface.Sand:
+                    fx.Dust(p, n, 0.02f, 0.2f);
+                    return;
+                case AudioManager.Surface.Moss:
+                    if (head) fx.Burst(p + n * 0.04f, 2, new Color(0.62f, 0.8f, 0.36f, 1f));
+                    return;
+            }
+            if (!head || world == null) return;
+            foreach (var f in world.FlowerPoints)
+            {
+                if ((f - p).sqrMagnitude > 0.6f * 0.6f) continue;
+                fx.Burst(p + n * 0.08f, 3, new Color(1f, 0.9f, 0.35f, 1f));   // 花粉
+                return;
+            }
+        }
+
+        /// <summary>タッチで地面をタップ：そこまで歩いて行く。</summary>
+        void WalkToScreenPoint(Vector2 screen)
+        {
+            var cam = followCamera != null ? followCamera.GetComponent<Camera>() : Camera.main;
+            if (cam == null || State != GameState.Playing || !worm.InputEnabled) return;
+            var ray = cam.ScreenPointToRay(screen);
+            if (!Physics.Raycast(ray, out var hit, 60f, SurfaceProbe.Mask, QueryTriggerInteraction.Ignore)) return;
+            if (Areas.Current.IsUnderwater(hit.point) || hit.normal.y < 0.4f) return;
+            _autoWalk.Begin(hit.point, 0.5f);
+            fx.Burst(hit.point + hit.normal * 0.05f, 6, new Color(0.8f, 1f, 0.9f, 1f));   // 行き先に、小さな光
+        }
+
         void Rumble(float strength, float seconds)
         {
             if (!SaveSystem.Settings.vibration || Gamepad.current == null) return;
@@ -885,7 +968,7 @@ namespace Shakutori
             fx.Splash(worm.CenterPosition, k, wl > -100f ? wl : worm.CenterPosition.y);
             fx.Burst(worm.CenterPosition, 24 + ShakuMath.RoundToIntSafe(32f * k));
             if (creatures != null) creatures.Disturb(worm.CenterPosition, 3f + 4f * k);
-            ui.Toast("ぽちゃん！ 水に落ちてしまった…", "icon-drop");
+            ui.Toast("ぽちゃん！ 岸まで泳ごう", "icon-drop");
         }
 
         void UpdateStats()
@@ -1043,6 +1126,7 @@ namespace Shakutori
             else AudioManager.Instance?.Greet();
             fx.Burst(pos + Vector3.up * 0.35f, 8, new Color(1f, 0.62f, 0.78f, 1f));
             worm.LookAt(pos, 1.2f);
+            worm.Bow();   // あいさつを返して、ぺこり
             ui.Tip("friend-first", "見つけたいきものに、しずかに近づくと、あいさつしてくれる。会うたびに、なかよしになれるよ（図鑑で見られる）");
             if (!up) return;
             AudioManager.Instance?.Friend();

@@ -29,6 +29,10 @@ namespace Shakutori.Tests
             Assert.Greater(InchwormController.StartupTimeScale(0), InchwormController.StartupTimeScale(1));
             Assert.Greater(InchwormController.StartupTimeScale(1), InchwormController.StartupTimeScale(2));
             Assert.AreEqual(1f, InchwormController.StartupTimeScale(5), 1e-5f, "3 歩目からは本来の速さ");
+            // 続けて歩くと、調子が出てくる（11 歩目から少しずつ速く）
+            Assert.AreEqual(1f, InchwormController.GrooveTimeScale(10), 1e-5f);
+            Assert.Less(InchwormController.GrooveTimeScale(13), 1f);
+            Assert.AreEqual(0.95f, InchwormController.GrooveTimeScale(30), 1e-5f);
         }
 
         [Test]

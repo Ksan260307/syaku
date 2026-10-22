@@ -534,6 +534,7 @@ namespace Shakutori.EditorTools
                 m.SetFloat("_SpecularStrength", 0.5f);
                 m.SetFloat("_SpecularSize", 0.04f);
             });
+            assets.footprint = Mat("M_Footprint", "Shakutori/Footprint", m => { });
             Mat("M_Sky", "Shakutori/ForestSky", m => { });
             assets.sunCookie = tex.cookie;
 
