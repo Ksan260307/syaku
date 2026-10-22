@@ -25,6 +25,9 @@
             </ui:VisualElement>
             <ui:Label name="area-name" text="" class="area-name" picking-mode="Ignore" />
 
+            <!-- 眠っているしゃくとりむしの「z Z」 -->
+            <ui:Label name="worm-zzz" text="z z Z" class="worm-zzz hidden" picking-mode="Ignore" />
+
             <!-- チュートリアル：行き先の上の ▼（名前つき）と、しゃくとりむしのそばの、行き先をさす矢印 -->
             <ui:VisualElement name="tutorial-guide" class="tutorial-guide hidden" picking-mode="Ignore">
                 <ui:VisualElement name="tutorial-mark" class="tutorial-mark" picking-mode="Ignore">

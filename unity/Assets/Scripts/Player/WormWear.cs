@@ -20,6 +20,12 @@ namespace Shakutori
         public static readonly Vector3 HairRoot = new Vector3(0f, 0.058f, 0.004f);
 
         Slot _hat, _glasses;
+        // あいた口（頭の先の口の所に、小さな暗いだ円。あくほど大きく）
+        GameObject _mouthGo;
+        MeshRenderer _mouthMr;
+        static Mesh s_mouthMesh;
+        /// <summary>口のあきぐあい（テスト用。0 なら口はかくれる）。</summary>
+        public float MouthShown { get; private set; }
         Renderer _bodyRenderer;
         Vector3 _prevPivot, _prevVel;
         bool _hasPrev;
@@ -95,6 +101,68 @@ namespace Shakutori
             Quaternion rot = show ? Quaternion.LookRotation(-fwd, up) : Quaternion.identity;
             PlaceSlot(_hat, show, rot, dt);
             PlaceSlot(_glasses, show, rot, dt);
+            PlaceMouth(show);
+        }
+
+        /// <summary>口：しゃくとりむしの口のあきぐあい（InchwormController.MouthOpen）に合わせて、口の所に暗いだ円をえがく。</summary>
+        void PlaceMouth(bool show)
+        {
+            var worm = InchwormController.Instance;
+            float open = worm != null ? worm.MouthOpen : 0f;
+            MouthShown = show ? open : 0f;
+            if (_mouthGo == null)
+            {
+                if (open < 0.04f) return;
+                Material mat = material != null ? material : assets != null ? assets.creature : null;
+                if (mat == null) return;
+                _mouthGo = new GameObject("WearMouth");
+                _mouthGo.transform.SetParent(transform, false);
+                _mouthGo.layer = body.gameObject.layer;
+                _mouthGo.AddComponent<MeshFilter>().sharedMesh = MouthMesh();
+                _mouthMr = _mouthGo.AddComponent<MeshRenderer>();
+                _mouthMr.sharedMaterial = mat;
+                _mouthMr.shadowCastingMode = ShadowCastingMode.Off;
+            }
+            bool on = show && open > 0.04f;
+            if (_mouthMr.enabled != on) _mouthMr.enabled = on;
+            if (!on) return;
+            float L = body.Scale;
+            Vector3 n = body.MouthNormal;
+            Vector3 up = Vector3.ProjectOnPlane(body.HeadUp, n);
+            if (up.sqrMagnitude < 1e-4f) up = body.HeadUp;
+            _mouthGo.transform.SetPositionAndRotation(body.MouthCenter + n * (0.0025f * L), Quaternion.LookRotation(n, up));
+            _mouthGo.transform.localScale = new Vector3(0.012f * L * (0.75f + 0.35f * open), 0.011f * L * open, 1f);
+        }
+
+        /// <summary>口のだ円（+Z を向いた面。まん中ほど暗く、下がわに少し赤い舌）。</summary>
+        static Mesh MouthMesh()
+        {
+            if (s_mouthMesh != null) return s_mouthMesh;
+            const int seg = 20;
+            var v = new System.Collections.Generic.List<Vector3> { Vector3.zero };
+            var c = new System.Collections.Generic.List<Color> { new Color(0.16f, 0.07f, 0.06f) };
+            var t = new System.Collections.Generic.List<int>();
+            for (int i = 0; i < seg; i++)
+            {
+                float a = i * Mathf.PI * 2f / seg;
+                v.Add(new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0f));
+                c.Add(Mathf.Sin(a) < -0.4f ? new Color(0.72f, 0.3f, 0.32f) : new Color(0.3f, 0.13f, 0.1f));
+            }
+            for (int i = 0; i < seg; i++)
+            {
+                t.Add(0);
+                t.Add(1 + (i + 1) % seg);
+                t.Add(1 + i);
+            }
+            s_mouthMesh = new Mesh { name = "WormMouth" };
+            s_mouthMesh.SetVertices(v);
+            s_mouthMesh.SetColors(c);
+            s_mouthMesh.SetTriangles(t, 0);
+            var nrm = new Vector3[v.Count];
+            for (int i = 0; i < nrm.Length; i++) nrm[i] = Vector3.forward;
+            s_mouthMesh.normals = nrm;
+            s_mouthMesh.RecalculateBounds();
+            return s_mouthMesh;
         }
 
         void PlaceSlot(Slot slot, bool show, Quaternion rot, float dt)

@@ -50,6 +50,8 @@ namespace Shakutori
         public Transform Root { get; private set; }
         public Texture2D MapTexture { get; private set; }
         public AreaLayout Area { get; private set; } = Areas.Forest;
+        /// <summary>光るキノコのある所（しゃくとりむしが、その光にてらされる）。</summary>
+        public readonly List<Vector3> GlowSpots = new List<Vector3>();
         public readonly List<Vector3> DewdropPoints = new List<Vector3>();
         /// <summary>花の頭の位置（チョウやトンボがとまる）。</summary>
         public readonly List<Vector3> FlowerPoints = new List<Vector3>();
@@ -342,6 +344,7 @@ namespace Shakutori
             _specialCap = Vector3.zero;
             DewdropPoints.Clear();
             FlowerPoints.Clear();
+            GlowSpots.Clear();
             _viewLanes.Clear();
             Mobs.Clear();
             Gates.Clear();
@@ -629,6 +632,7 @@ namespace Shakutori
         {
             Mesh m = assets.Get(meshName);
             if (m == null || mat == null) return null;
+            if (meshName == "Mushroom_Glow") GlowSpots.Add(pos + rot * (m.bounds.center * scale));   // しゃくとりむしをてらす光るキノコ
             if (!collider && !asRenderer && IsTallFoliage(meshName) && InViewLane(new Vector2(pos.x, pos.z), m.bounds.extents.magnitude * scale * 0.5f)) return null;
             var mtx = Matrix4x4.TRS(pos, rot, Vector3.one * scale);
             if (FlowerMeshes.Contains(meshName))

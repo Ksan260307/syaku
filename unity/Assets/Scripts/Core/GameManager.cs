@@ -126,7 +126,11 @@ namespace Shakutori
             worm.Stepped += (p, head) =>
             {
                 // 足音：苔の上はやわらかく、公園の砂はしゃりしゃり、丸太や土管の中はひびく
-                AudioManager.Instance?.Step(head, AreaProps.Refine(SurfaceAt(p), p), worm.StepLoudness, AreaProps.Echo(p));
+                var surface = AreaProps.Refine(SurfaceAt(p), p);
+                AudioManager.Instance?.Step(head, surface, worm.StepLoudness, AreaProps.Echo(p));
+                // 砂や土の上を歩くと、体が少しずつ、ほこりっぽくなる
+                if (surface == AudioManager.Surface.Sand) worm.AddDust(0.035f);
+                else if (surface == AudioManager.Surface.Ground) worm.AddDust(0.004f);
                 _areaProps?.OnStep(p);
                 if (head) SaveSystem.Data.steps++;
                 // 一歩ごとの小さな力：乗っている舟がゆれ、近くのしずくがふるえる
@@ -145,6 +149,12 @@ namespace Shakutori
             worm.Bounced += OnBounced;
             worm.Splashed += OnSplash;
             worm.Landed += () => AudioManager.Instance?.Land();
+            // 葉をかじると、葉のかけらが散って、もぐもぐ
+            worm.Nibbled += p =>
+            {
+                fx.Burst(p + Vector3.up * 0.05f, 4, new Color(0.55f, 0.85f, 0.35f, 1f));
+                AudioManager.Instance?.Nibble();
+            };
             collectibles.DropCollected += OnDrop;
             collectibles.LandmarkDiscovered += OnLandmark;
             if (creatures != null)
@@ -970,7 +980,8 @@ namespace Shakutori
             _lastDropTime = Time.time;
             AudioManager.Instance?.Collect(count + _combo - 1);
             fx.Burst(pos, 40, AreaAtmosphere.DropTint(collectibles.Area.Id));   // エリアの色がまじる
-            worm.Cheer(_combo >= 3 ? 1.4f : 1f);   // 続けて取ると、もっと大きくよろこぶ
+            // 続けて取ると、もっと大きくよろこぶ（2 つ目は、ぴょん。3 つ目からは、くるりと見まわして、ふりふり）
+            worm.Cheer(_combo >= 3 ? 1.4f : 1f, _combo >= 3 ? 2 : _combo == 2 ? 1 : 0);
             string text = $"{collectibles.Area.DropName}  {count} / {collectibles.TotalDrops}";
             if (_combo >= 3) text += $"　れんぞく ×{_combo}！";
             ui.Toast(text);
@@ -1194,6 +1205,9 @@ namespace Shakutori
             if (_wormRenderer == null) return;
             var skin = Skins.Worn(WearKind.Color) ?? Skins.Get("wakaba");
             Skins.Apply(_wormRenderer, skin, Time.unscaledTime);
+            // ぬれたつや・ほこり・日なた・光るものの光を、きせかえの色にかける
+            var tint = worm.BodyTint;
+            Skins.ApplyTint(_wormRenderer, tint.value, tint.saturation, tint.rim, tint.rimColor);
             if (_wear != null) _wear.Set(Skins.Worn(WearKind.Hat), Skins.Worn(WearKind.Glasses));
         }
 

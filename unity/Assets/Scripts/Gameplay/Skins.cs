@@ -181,6 +181,25 @@ namespace Shakutori
             r.SetPropertyBlock(_mpb);
         }
 
+        static readonly int RimId = Shader.PropertyToID("_RimStrength");
+        static readonly int RimColorId = Shader.PropertyToID("_RimColor");
+
+        /// <summary>
+        /// きせかえの色（Apply のあと）に、体のようすをかける：明るさと鮮やかさの倍率、ふちの光（つや・てらされる光）の強さと色。
+        /// </summary>
+        public static void ApplyTint(Renderer r, float valueMul, float satMul, float rimAdd, Color rimColor)
+        {
+            if (r == null) return;
+            _mpb ??= new MaterialPropertyBlock();
+            r.GetPropertyBlock(_mpb);
+            float baseRim = r.sharedMaterial != null && r.sharedMaterial.HasProperty(RimId) ? r.sharedMaterial.GetFloat(RimId) : 0.35f;
+            _mpb.SetFloat(ValId, _mpb.GetFloat(ValId) * valueMul);
+            _mpb.SetFloat(SatId, _mpb.GetFloat(SatId) * satMul);
+            _mpb.SetFloat(RimId, baseRim + rimAdd);
+            _mpb.SetColor(RimColorId, rimColor);
+            r.SetPropertyBlock(_mpb);
+        }
+
         /// <summary>シェーダーと同じ色の変え方（テストや UI の見本用）。</summary>
         public static Color Shift(Color c, float hueDeg, float sat, float val)
         {

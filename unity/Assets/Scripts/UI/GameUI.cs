@@ -49,6 +49,7 @@ namespace Shakutori
         Label _tutorialStep, _tutorialTitle, _tutorialText, _tutorialNote, _tutorialMarkLabel, _tutorialArrow;
         VisualElement _tutorialHint;
         float _hintPulseAt;
+        Label _wormZzz;
         VisualElement _minimapMask, _minimapImage, _minimapPlayer, _bigmap, _bigmapPlayer, _mapAreas;
         VisualElement _creatureCard, _creatureCardImg, _zukanImg, _skinGrid, _recordList;
         Label _dropCount, _placeCount, _creatureCount, _dropLabel, _areaTitle, _areaName;
@@ -468,6 +469,7 @@ namespace Shakutori
             _tutorialMark = Q<VisualElement>("tutorial-mark");
             _tutorialMarkLabel = Q<Label>("tutorial-mark-label");
             _tutorialArrow = Q<Label>("tutorial-arrow");
+            _wormZzz = Q<Label>("worm-zzz");
             _photoHint = Q<VisualElement>("photo-hint");
             _titleProgress = Q<Label>("title-progress");
             _version = Q<Label>("version");
@@ -1265,6 +1267,30 @@ namespace Shakutori
         public bool IsTutorialMarkVisible => _tutorialGuide != null && !_tutorialGuide.ClassListContains("hidden") && _tutorialMark.style.display != DisplayStyle.None;
         /// <summary>矢印の向き（度。0 = 画面の上 = カメラの前、右まわりがプラス。テスト用）。</summary>
         public float TutorialArrowAngle { get; private set; }
+
+        /// <summary>眠っているしゃくとりむしの「z Z」が出ているか（テスト用）。</summary>
+        public bool IsSleepLabelVisible => _wormZzz != null && !_wormZzz.ClassListContains("hidden");
+
+        /// <summary>眠っているしゃくとりむしの頭の上に「z z Z」を、ふわふわと出す。</summary>
+        void UpdateSleepLabel(bool playing)
+        {
+            if (_wormZzz == null) return;
+            var cam = Camera.main;
+            bool show = playing && _worm != null && _worm.IsSleeping && cam != null && !AnyOverlayOpen && !IsPhotoMode;
+            Vector3 top = show ? _worm.HeadPosition + _worm.SurfaceUp * 0.35f : Vector3.zero;
+            if (show)
+            {
+                Vector3 vp = cam.WorldToViewportPoint(top);
+                show = vp.z > 0.2f && vp.x > 0.05f && vp.x < 0.95f && vp.y > 0.05f && vp.y < 0.95f;
+            }
+            _wormZzz.EnableInClassList("hidden", !show);
+            if (!show) return;
+            Vector2 p = RuntimePanelUtils.CameraTransformWorldToPanel(_root.panel, top, cam);
+            float t = Time.unscaledTime;
+            _wormZzz.style.left = p.x - 20f + Mathf.Sin(t * 1.3f) * 8f;
+            _wormZzz.style.top = p.y - 44f - Mathf.Repeat(t * 6f, 12f);
+            _wormZzz.style.opacity = 0.65f + 0.35f * Mathf.Sin(t * 2f);
+        }
 
         /// <summary>行き先の ▼ と矢印を、毎フレーム、画面の上に置く。押すボタンの光を、ふくらませる。</summary>
         void UpdateTutorialGuide(bool playing)
@@ -2819,6 +2845,7 @@ namespace Shakutori
             }
             _touch.style.display = _touchMode && playing ? DisplayStyle.Flex : DisplayStyle.None;
             UpdateTutorialGuide(playing);
+            UpdateSleepLabel(playing);
 
             // 縦向きのスマホでは、横向きをすすめる（数秒だけ）
             bool phonePortrait = _touchMode && IsPortrait && ScreenSize.x < ScreenSize.y * 0.75f;

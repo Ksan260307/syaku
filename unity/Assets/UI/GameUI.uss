@@ -2867,3 +2867,17 @@
 .portrait .tutorial-window {
     width: 94%;
 }
+
+/* 眠っているしゃくとりむしの「z Z」（頭の上に、ふわふわ） */
+.worm-zzz {
+    position: absolute;
+    width: 120px;
+    height: 44px;
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: rgb(240, 246, 255);
+    -unity-text-outline-width: 1.5px;
+    -unity-text-outline-color: rgba(40, 50, 90, 0.85);
+    -unity-text-align: middle-center;
+    letter-spacing: 4px;
+}

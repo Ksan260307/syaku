@@ -9,7 +9,7 @@ namespace Shakutori
     ///  2) 伸び（Reach）  : 腹脚で踏んばり、前半身を持ち上げて前へ伸ばし、頭を次の場所に下ろす
     /// をくり返す。表面ならどこでも（壁・裏側も）這える。高い所からは糸を出してぶら下がれる。
     /// </summary>
-    public class InchwormController : MonoBehaviour
+    public partial class InchwormController : MonoBehaviour
     {
         static readonly Unity.Profiling.ProfilerMarker s_Worm = new Unity.Profiling.ProfilerMarker("Shaku.Worm");
         public enum Mode { Idle, Pull, Reach, Hang, Fall }
@@ -613,6 +613,8 @@ namespace Shakutori
             Vector3 c = _curve.Middle;
             ApplySoftBody(dt);
 
+            UpdateEndure(dt);
+            UpdateFace(dt);
             body.Apply(_curve);
             UpdateSilkLine(dt);
 
@@ -735,7 +737,11 @@ namespace Shakutori
             _twig = Mathf.MoveTowards(_twig, twig ? 1f : 0f, dt * (twig ? 2.5f : 5f));
             _rest = Mathf.MoveTowards(_rest, calm && _idleTime >= 90f ? 1f : 0f, dt * (calm ? 0.5f : 4f));
             // 小枝のまね・ぺたんから動きだすときは、ひと伸びしてから
-            if (wantsMove && (_twig > 0.5f || _rest > 0.5f)) _stretchStart = Time.time - 0.6f;
+            if (wantsMove && (_twig > 0.5f || _rest > 0.5f || _sleep > 0.3f))
+            {
+                _stretchStart = Time.time - 0.6f;
+                if (_sleep > 0.3f) TriggerBlink(0.6f);   // 眠っていたら、ゆっくりまばたきして目をさます
+            }
             // 背伸びをやめるとき、頭をとんと下ろす
             if (!standing && _wasStanding && _rear > 0.6f) _settlePulse = 1f;
             if (standing && wantsMove)
@@ -820,6 +826,9 @@ namespace Shakutori
                         _stretchNext = Time.time + UnityEngine.Random.Range(22f, 30f);
                     }
                     if (Time.time - _stretchStart < 2.2f) rearTarget = Mathf.Max(rearTarget, 0.15f);
+                    // 休んでいるときのしぐさ（眠る・かじる・あくび・日なたぼっこ・つつく・ながめる…）
+                    rearTarget = Mathf.Max(rearTarget, UpdateMoods(dt, calm, steep));
+                    if (State != Mode.Idle) return;
                     // 自分の新しい高さまで登ったら、背伸びして見わたす
                     float height = _curve.Head.y - Areas.Current.Height(_curve.Head.x, _curve.Head.z);
                     if (_bestHeight < -900f) _bestHeight = height;
@@ -827,6 +836,7 @@ namespace Shakutori
                     {
                         _bestHeight = height;
                         Survey();
+                        if (Time.time - _climbUntil < 2.5f) Sigh();   // 登りきって、ふうっと一息
                     }
                 }
             }
@@ -1426,6 +1436,7 @@ namespace Shakutori
                 _softKick += -_head.normal * (0.2f * Mathf.Min(1.6f, _lastTapSpeed));   // 頭をついた衝撃で、体がぷるん
                 Stepped?.Invoke(_head.point, true);
                 MarkSafe();
+                _headPulse = 1f;   // 胸脚でつかまった瞬間に、ぺたっ
                 _onLeaf = _stepKind == 3;
                 if (_stepKind == 1) Bump(0.3f);   // キノコの上は、ぽよん（やわらかくて、はね返る）
                 if (_braking)
@@ -1513,6 +1524,7 @@ namespace Shakutori
             if (stT >= 0f && stT < 1f) hc += X * (0.1f * Mathf.Sin(Mathf.PI * stT));
             if (Time.time < _dazeUntil) headAngle += 0.15f * Mathf.Sin(_swayPhase * 9f);   // 目をまわして、ふらふら
             headAngle -= 0.4f * _flinch;
+            headAngle += MoodHead();
             tailAngle = Mathf.Clamp(tailAngle, -1.4f, 1.4f);
             headAngle = Mathf.Clamp(headAngle, -1.4f, 1.4f);
 
@@ -1521,7 +1533,7 @@ namespace Shakutori
             if (State == Mode.Idle)
             {
                 // 呼吸のリズムはゆらぎ、長く休むとゆっくり浅く。はやくで歩いたあとは、はあはあと深く速く
-                _breathPhase += dt * Mathf.Lerp(2.1f, 1.3f, _relax) * (1f - 0.3f * _rest) * (1f + 0.25f * Mathf.Sin(_swayPhase * 0.13f)) * (1f + 1.5f * _fatigue);
+                _breathPhase += dt * Mathf.Lerp(2.1f, 1.3f, _relax) * (1f - 0.3f * _rest) * (1f - 0.45f * _sleep) * (1f + 0.25f * Mathf.Sin(_swayPhase * 0.13f)) * (1f + 1.5f * _fatigue);
                 breathe = (Mathf.Sin(_breathPhase) * 0.5f + 0.5f) * 0.012f * (1f - 0.4f * _relax) * (1f + 1.2f * _fatigue);
             }
             breathe -= 0.015f * _rest;                                        // ぺたんと休む
@@ -1543,6 +1555,7 @@ namespace Shakutori
             if (_pending == PendingFall.LetGo) breathe -= 0.035f * Mathf.Clamp01((Time.time - _pendingStart) / 0.12f);   // 手をはなす前にちぢめる
             breathe -= Mathf.Min(0.02f, _platformVel.magnitude * 0.01f);      // 乗り物が速いと低くして踏んばる
             breathe -= 0.03f * _flinch;
+            breathe += MoodBreathe();
 
             // ---- 横のゆれ ----
             float sway;
@@ -1577,6 +1590,7 @@ namespace Shakutori
             if (IsBlocked && _moveMag > 0.2f && State == Mode.Idle) sway += 0.05f * Mathf.Sin(_swayPhase * 16f);   // 進めないまま押すと、力む
             if (Time.time < _cheerUntil) sway += 0.3f * Mathf.Min(1.5f, _cheerStrength) * Mathf.Sin(_swayPhase * 14f);   // うれしいと左右にふりふり
             if (Time.time < _dazeUntil) sway += 0.25f * Mathf.Sin(_swayPhase * 12f);
+            sway = MoodSway(sway);
             _target.BuildArch(tc, hc, U, L, tailAngle, headAngle, sway, breathe);
             if (State == Mode.Pull)
             {
@@ -1627,8 +1641,20 @@ namespace Shakutori
                     swayAngle = Mathf.Lerp(swayAngle, 0.12f + Wind.Gust(Time.time) * 0.12f * Mathf.Sin(_swayPhase * 1.1f), _twig);
                     nod = Mathf.Lerp(nod, -0.15f, _twig);
                 }
+                nod = MoodNod(nod);
                 // BuildRear の横向きは SignedAngle と逆まわりなので、符号を反転して渡す
                 _pose.BuildRear(tc, X, _tail.normal, L, rise, -swayAngle, nod);
+                // 背伸び：腹脚（尾の先）でつかまったまま、体のうしろも少し持ち上げて、つま先立ちのように
+                {
+                    int K = _pose.Count - 1;
+                    for (int k = 1; k < K; k++)
+                    {
+                        float u = k / (float)K;
+                        if (u > 0.42f) break;
+                        _pose.pos[k] += _tail.normal * (0.03f * L * rise * Mathf.Sin(Mathf.PI * Mathf.Clamp01((u - 0.03f) / 0.39f)));
+                    }
+                    _pose.RecomputeTangents();
+                }
                 _target.Blend(_target, _pose, ShakuMath.Smooth01(rise));
                 // 背伸びの形は、尾のところの面にそってまっすぐのびるので、上り坂では体のつけ根が地面にうまる。もう一度、面の外へ
                 ConformToSurface(_target, upHint);
@@ -2524,6 +2550,9 @@ namespace Shakutori
             _shakeUntil = Time.time + 0.5f;                                          // 体をぶるっとふって
             Survey(0.6f);                                                            // まわりを見わたす
             _dazeUntil = Time.time + Mathf.Lerp(0.15f, 0.6f, Mathf.Clamp01(LastImpact * 1.3f));   // 強く落ちると少しだけ目をまわす
+            TriggerBlink(1.3f);
+            // キノコの上で何度も弾んだら、たのしくて、ぴょんとよろこぶ
+            if (_bounces >= 2 && LastImpact < 0.6f) Cheer(1.2f, 1);
             HitGround?.Invoke(speed);
         }
 
@@ -2765,6 +2794,7 @@ namespace Shakutori
                 && pspeed > 0.3f && Vector3.Distance(ppos, head) < (psp.id == "crow" ? 7f : 5f))
             {
                 _freezeUntil = Time.time + 2.2f;
+                if (Vector3.Distance(ppos, head) < 4f) _endureUntil = _freezeUntil;   // すぐそばなら、目をとじて、ぴたっとがまん
                 return;
             }
             if (!cr.NearestMob(head, 3f, false, out var pos, out float speed, out var near) || speed < 0.05f) return;
@@ -2774,6 +2804,7 @@ namespace Shakutori
             {
                 _flinch = 1f;
                 _flinchNext = Time.time + 3f;
+                Startle();
                 Recoil(0.22f);
                 return;
             }
@@ -2789,6 +2820,7 @@ namespace Shakutori
             {
                 _flinch = 1f;
                 _flinchNext = Time.time + 3f;
+                Startle();
             }
             else if (Time.time > _curiousNext && Time.time >= _lookAtUntil)
             {

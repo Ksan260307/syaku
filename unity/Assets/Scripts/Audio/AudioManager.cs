@@ -318,6 +318,8 @@ namespace Shakutori
         public void Collect(int count) => Play(collect, 0.8f, 1f + Mathf.Min(count % 8, 7) * 0.025f);
         public void Discover() => Play(discover, 0.9f);
         public void Click() => Play(click, 0.5f, Random.Range(0.97f, 1.03f));
+        /// <summary>葉をかじる「しゃくっ」（小さく、高く）。</summary>
+        public void Nibble() => Play(steps != null && steps.Length > 0 ? steps[Random.Range(0, steps.Length)] : click, 0.16f, Random.Range(1.9f, 2.3f));
         public void Silk() => Play(silk, 0.55f);
         public void Land() => Play(land, 0.5f);
         public void Complete()

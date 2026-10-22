@@ -220,6 +220,7 @@ namespace Shakutori
         public void BuildArea(WorldGenerator world)
         {
             _area = world.Area;
+            GlowSwarms.Clear();
             if (_areaRoot != null) Destroy(_areaRoot.gameObject);
             _areaRoot = new GameObject("AreaFX").transform;
             _areaRoot.SetParent(transform, false);
@@ -486,8 +487,12 @@ namespace Shakutori
             col.color = FadeInOut(Color.white);
         }
 
+        /// <summary>ホタルのむれ（まん中・広さ・色）。しゃくとりむしが、その光にてらされる。</summary>
+        public static readonly System.Collections.Generic.List<(Vector3 center, float radius, Color color)> GlowSwarms = new System.Collections.Generic.List<(Vector3, float, Color)>();
+
         void Fireflies(Transform parent, Vector3 center, float radius, int count, Color color)
         {
+            GlowSwarms.Add((center, radius, color));
             var ps = Create("Fireflies", parent, count, color);
             center.y = _area.Height(center.x, center.z) + 1.5f;
             ps.transform.position = center;
