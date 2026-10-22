@@ -162,7 +162,8 @@ Shader "Shakutori/ForestSky"
                         float cl = fbm(q);
                         float cm = smoothstep(0.5, 0.7, cl) * smoothstep(0.02, 0.22, h);
                         half3 cloudCol = lerp(half3(0.84, 0.88, 0.95), half3(1.0, 1.0, 1.0), saturate((cl - 0.5) * 3.0));
-                        col = lerp(col, cloudCol, cm * _SkyOpen * 0.85);
+                        cloudCol = lerp(cloudCol, half3(0.13, 0.15, 0.24) + half3(0.12, 0.14, 0.2) * pow(saturate(sd), 6.0), _Night);   // 夜は、月にてらされた、うすい雪雲
+                        col = lerp(col, cloudCol, cm * _SkyOpen * (0.85 - 0.4 * _Night) * (1.0 - moon));
                     }
                 }
                 // 地平線のもや（フォグ色へなじませる）

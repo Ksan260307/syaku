@@ -69,7 +69,7 @@ namespace Shakutori
     }
 
     /// <summary>
-    /// いきもの図鑑にのる 59 しゅと、めったに会えないレア 7 しゅ。
+    /// いきもの図鑑にのる 70 しゅと、めったに会えないレア 7 しゅ。
     /// 大きさ：体長 1 = 2.5cm。虫（と、虫くらいの小さないきもの）は本物の大きさ（少し大きめもいる）。神社・公園・山の物は本物より小さく作ってあるので、
     /// 虫より大きい動物（鳥・けもの・トカゲなど）は、大きいものほど強くちぢめる（scale ≒ (1.9 / 長さ)^0.53。キツネは 0.19、スズメは 0.62）。
     /// 速さも、ちぢめた分だけおそくする（≒ √scale）。
@@ -451,6 +451,29 @@ namespace Shakutori
                     parts = new[] { new PartMount { mesh = "Shimaenaga_Wing", flapAmp = 62f, flapHz = 12f } },
                     description = "まっ白でまんまるな顔に、小さな黒い目とくちばし。長い尾の、とても小さな鳥。さむい夜は、羽をふくらませて、なかまとくっつきあって眠る。",
                     hint = "ねぐらの木の枝。まんまるの白いかたまりをさがそう。" },
+                // ---- クリスマス村 ----
+                new SpeciesDef { id = "tonakai", name = "トナカイ", areaLabel = "クリスマス村", kind = MobKind.Crawler, body = "Tonakai", scale = 0.15f, speed = 0.7f, discoverRadius = 16f, fleeRadius = 3f,
+                    rig = "Tonakai", stride = 3f, legSwing = 20f, legLift = 10f,
+                    description = "北の国の、雪の原でくらすシカのなかま。オスもメスも、大きな角を持つ。大きなひづめで雪をほって、下にかくれた苔を食べる。",
+                    hint = "そり置き場のまわり。首の鈴の「チリン」という音をたよりに。" },
+                new SpeciesDef { id = "yukiusagi", name = "ユキウサギ", areaLabel = "クリスマス村", kind = MobKind.Hopper, body = "Yukiusagi", scale = 0.29f, speed = 0.3f, discoverRadius = 8f,
+                    rig = "Yukiusagi", stride = 1.4f, gait = GaitKind.None, behavesLike = "nakiusagi",
+                    description = "冬になると、まっ白な毛に生えかわるウサギ（耳の先だけは黒いまま）。雪にしずまない、大きなうしろ足。近づかれると、ぴたっと止まって耳を立て、それから、ぴょーんと遠くへ。",
+                    hint = "村のはしの、雪の吹きだまりや、モミの木のかげ。そっと近づこう。" },
+                new SpeciesDef { id = "robin", name = "ヨーロッパコマドリ", areaLabel = "クリスマス村", kind = MobKind.Bird, body = "Robin_Body", scale = 0.62f, speed = 0.9f, discoverRadius = 10f, fleeRadius = 3.5f,
+                    birdSize = 5.6f, rig = "Robin_Body", stride = 0.7f, gait = GaitKind.None, behavesLike = "sparrow",
+                    parts = new[] { new PartMount { mesh = "Robin_Wing", flapAmp = 60f, flapHz = 10f } },
+                    description = "だいだい色の顔とむねの、まるい小鳥。冬でも、すんだ声でさえずる。さくのくいや、ポストの上にとまって、首をかしげる。",
+                    hint = "さくのくいの上や、ポストの屋根の上。" },
+                new SpeciesDef { id = "fuyushaku", name = "フユシャク", areaLabel = "クリスマス村", kind = MobKind.Flutter, body = "Fuyushaku_Body", speed = 0.9f, discoverRadius = 7f,
+                    parts = new[] { new PartMount { mesh = "Fuyushaku_Wing", offset = CreatureRig.FuyushakuWingRoot, restRoll = 8f, flapAmp = 50f, flapHz = 6f } },
+                    description = "冬の夜にだけ飛ぶ、シャクガのなかま。しゃくとりむしは、シャクガの子ども。つまり、しゃくとりむしの親せき。メスは、はねがなく、飛べない。",
+                    hint = "ガーデンランプのあかりのまわり。ランプの屋根の上で、休んでいることも。" },
+                new SpeciesDef { id = "yamane", name = "ニホンヤマネ", areaLabel = "クリスマス村", kind = MobKind.Crawler, body = "Yamane", scale = 0.7f, speed = 0f, discoverRadius = 5f,
+                    gait = GaitKind.None,
+                    parts = new[] { new PartMount { mesh = "Yamane_Eye", offset = CreatureRig.YamaneEye } },
+                    description = "しっぽのふさふさした、小さなネズミのなかま。せなかに 1 本の黒いすじ。冬はボールのようにまるくなって、春まで冬眠する。日本にしかいない、天然記念物。",
+                    hint = "サンタさんへのポストのそばに落ちた、手ぶくろの中。" },
                 // ---- レア ----
                 new SpeciesDef { id = "ant_helmet", name = "ヘルメットアリ", areaLabel = "？？？（とてもめずらしい）", kind = MobKind.Marcher, body = "Ant", speed = 0.9f, discoverRadius = 2.8f,
                     climbs = true, rig = "Ant", stride = 0.11f, legSwing = 26f, legLift = 18f, rareOf = "ant", rareChance = 0.05f,

@@ -65,6 +65,9 @@ namespace Shakutori
             { "Inoshishi", new[] { new LimbMount("Inoshishi_Limb1U", "Inoshishi_Limb1L", "Inoshishi_Limb1F", new Vector3(-6.0000f, 14.0000f, -8.0000f), new Vector3(-6.4000f, 7.5000f, -6.5000f), new Vector3(-6.4000f, 2.2000f, -8.2000f)), new LimbMount("Inoshishi_Limb2U", "Inoshishi_Limb2L", "Inoshishi_Limb2F", new Vector3(-6.6000f, 14.5000f, 12.0000f), new Vector3(-7.0000f, 8.0000f, 9.5000f), new Vector3(-7.0000f, 2.2000f, 12.5000f)) } },
             { "Uribou", new[] { new LimbMount("Uribou_Limb1U", "Uribou_Limb1L", "Uribou_Limb1F", new Vector3(-2.2000f, 4.8000f, -2.8000f), new Vector3(-2.3200f, 2.6000f, -2.3200f), new Vector3(-2.3200f, 0.8800f, -2.9600f)), new LimbMount("Uribou_Limb2U", "Uribou_Limb2L", "Uribou_Limb2F", new Vector3(-2.3200f, 5.0000f, 4.2000f), new Vector3(-2.4800f, 2.8000f, 3.4000f), new Vector3(-2.4800f, 0.8800f, 4.4000f)) } },
             { "Shimaenaga_Body", new[] { new LimbMount("Shimaenaga_Body_Limb1U", "Shimaenaga_Body_Limb1L", "Shimaenaga_Body_Limb1F", new Vector3(-0.2400f, 0.9600f, -0.1680f), new Vector3(-0.2784f, 0.4800f, 0.1440f), new Vector3(-0.2880f, 0.0672f, -0.1440f)) } },
+            { "Tonakai", new[] { new LimbMount("Tonakai_Limb1U", "Tonakai_Limb1L", "Tonakai_Limb1F", new Vector3(-7.0000f, 33.0000f, -11.0000f), new Vector3(-7.6000f, 17.5000f, -8.4000f), new Vector3(-7.6000f, 4.4000f, -11.0000f)), new LimbMount("Tonakai_Limb2U", "Tonakai_Limb2L", "Tonakai_Limb2F", new Vector3(-7.4000f, 34.0000f, 19.0000f), new Vector3(-8.2000f, 18.5000f, 14.5000f), new Vector3(-8.0000f, 4.4000f, 20.5000f)) } },
+            { "Yukiusagi", new[] { new LimbMount("Yukiusagi_Limb1U", "Yukiusagi_Limb1L", "Yukiusagi_Limb1F", new Vector3(-1.5000f, 5.2000f, -3.4000f), new Vector3(-1.8000f, 2.4000f, -2.6000f), new Vector3(-1.7000f, 0.5500f, -3.5000f)), new LimbMount("Yukiusagi_Limb2U", "Yukiusagi_Limb2L", "Yukiusagi_Limb2F", new Vector3(-2.4000f, 5.2000f, 3.8000f), new Vector3(-2.8000f, 2.4000f, 1.4000f), new Vector3(-2.7000f, 0.5500f, 5.0000f)) } },
+            { "Robin_Body", new[] { new LimbMount("Robin_Body_Limb1U", "Robin_Body_Limb1L", "Robin_Body_Limb1F", new Vector3(-0.2800f, 1.1200f, -0.1960f), new Vector3(-0.3248f, 0.5600f, 0.1680f), new Vector3(-0.3360f, 0.0784f, -0.1680f)) } },
         };
 
         public static readonly Vector3 GrasshopperHip = new Vector3(-0.1000f, 0.2500f, 0.0500f);
@@ -88,5 +91,8 @@ namespace Shakutori
         public static readonly Vector3 KorogiWingRoot = new Vector3(-0.0150f, 0.2500f, -0.0600f);
         public static readonly Vector3 KirigirisuWingRoot = new Vector3(-0.0150f, 0.2700f, -0.0600f);
         public static readonly Vector3 MinoMouth = new Vector3(-0.0000f, -0.2400f, -0.1000f);
+        public static readonly Vector3 FuyushakuWingRoot = new Vector3(-0.0300f, 0.0850f, -0.1000f);
+        public static readonly Vector3 YamaneEye = new Vector3(-0.2596f, 0.8593f, -1.1609f);
+        public static readonly Vector3 TonakaiBell = new Vector3(-0.0000f, 41.2000f, -21.0000f);
     }
 }

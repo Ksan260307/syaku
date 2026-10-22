@@ -41,8 +41,8 @@ namespace Shakutori.Tests
             CollectionAssert.DoesNotContain(Areas.All, Areas.Tutorial, "本番のエリアの一覧に入らない（しずく・名所の数、地図、図鑑、デモ映像）");
             Assert.AreSame(Areas.Tutorial, Areas.Get("tutorial"));
             Assert.AreEqual("練習の森", Areas.Tutorial.DisplayName);
-            Assert.AreEqual(270, Areas.TotalDrops, "本番のしずくの数は、そのまま");
-            Assert.AreEqual(70, Areas.TotalLandmarks, "本番の名所の数は、そのまま");
+            Assert.AreEqual(300, Areas.TotalDrops, "本番のしずくの数は、そのまま");
+            Assert.AreEqual(79, Areas.TotalLandmarks, "本番の名所の数は、そのまま");
             var ids = Areas.AllLandmarks().Select(l => l.id).ToList();
             foreach (var lm in TutorialLayout.Landmarks)
             {

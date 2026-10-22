@@ -57,6 +57,7 @@ namespace Shakutori.Tests
             ["coast"] = new[] { new Shot(54, 18f, 9f, 5f), new Shot(53, -18f, 10f, 4.6f), new Shot(57, 16f, 8f, 5.2f) },
             ["shrine"] = new[] { new Shot(62, -18f, 12f, 5f), new Shot(68, 18f, 11f, 5f), new Shot(67, 18f, 9f, 4.6f) },
             ["night"] = new[] { new Shot(71, -18f, 10f, 5f), new Shot(75, 18f, 11f, 4.8f), new Shot(74, -16f, 12f, 5f) },
+            ["xmas"] = new[] { new Shot(80, 14f, 5f, 8f), new Shot(83, -16f, 3f, 8f), new Shot(86, 16f, 8f, 6f) },
         };
 
         static string Root => Path.GetFullPath(Path.Combine(Application.dataPath, ".."));

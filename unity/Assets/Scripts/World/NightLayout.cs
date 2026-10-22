@@ -45,6 +45,8 @@ namespace Shakutori
         public const float HillR = 21f;
         public const float HillTop = 8f;
         public static readonly Vector2 StarRock = new Vector2(8f, 44f);
+        /// <summary>クリスマス村への光の輪（星見の丘の北東。あとから足した）</summary>
+        public static readonly Vector2 XmasGate = new Vector2(20f, 56f);
 
         // 枯れ沢の谷（西から東へ、ゆるく曲がる）
         public const float GullyFloorHalf = 2.6f;

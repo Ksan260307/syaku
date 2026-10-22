@@ -26,6 +26,8 @@ namespace Shakutori
         public Vector2 walk;
         public float halfWidth = 1.3f;
         public float height = 4f;
+        /// <summary>光の輪（クリスマス村へのワープ）：トンネルの根のかわりに、たてに立つ金の輪。輪の中の光にふれると移動する。</summary>
+        public bool warp;
 
         /// <summary>とびらの前（ヒントを出す所）：とびらの面から 6 以内、とびらのはばより少し広い所。</summary>
         public bool DoorNear(Vector3 head, Vector3 at)
@@ -399,6 +401,9 @@ namespace Shakutori
             // 夜の森に出ると、月あかりの林の奥に、谷の方が見える
             new GateDef { position = NightLayout.Gate, targetArea = "shrine", label = "神社へ",
                 arrival = new ArrivalView(NightLayout.Spawn, new Vector3(0f, 2f, -10f), 4f, 4.6f, clear: 40f) },
+            // クリスマス村へ（星見の丘の北の、光の輪。あとから足した。しずくの場所は変えない）。クリスマス村からもどると、星見の岩の方を見る
+            new GateDef { position = NightLayout.XmasGate, targetArea = "xmas", label = "クリスマス村へ", late = true, warp = true,
+                arrival = new ArrivalView(NightLayout.XmasGate - NightLayout.XmasGate.normalized * 7f, new Vector3(NightLayout.StarRock.x, NightLayout.HillTop + 3f, NightLayout.StarRock.y), 4f, 4.6f) },
         };
 
         public override string Id => "night";
@@ -432,6 +437,39 @@ namespace Shakutori
                 yield return (NightLayout.Wallow, NightLayout.WallowR * 1.7f + 2f);
             }
         }
+    }
+
+    public class XmasArea : AreaLayout
+    {
+        readonly List<GateDef> _gates = new List<GateDef>
+        {
+            // クリスマス村に出ると、小道の先に、大きなツリーが見える
+            new GateDef { position = XmasLayout.Gate, targetArea = "night", label = "夜の森へ", warp = true,
+                arrival = new ArrivalView(XmasLayout.Spawn, new Vector3(XmasLayout.Tree.x, 16f, XmasLayout.Tree.y), 2f, 4.6f, clear: 40f) },
+        };
+
+        public override string Id => "xmas";
+        public override string DisplayName => "クリスマス村";
+        public override string Subtitle => "雪あかりのクリスマス村";
+        public override string Tagline => "しんしんとふる雪と、あたたかなあかり。きらきらのツリーの、冬の夜の村";
+        public override string DropName => "雪のしずく";
+        public override float PlayRadius => XmasLayout.PlayRadius;
+        public override float TerrainHalf => XmasLayout.TerrainHalf;
+        public override float MaxClimbHeight => XmasLayout.MaxClimbHeight;
+        public override int DropIdOffset => 8000;
+        public override int DropCount => 30;
+        public override Vector2 Spawn => XmasLayout.Spawn;
+        public override Vector3 SpawnForward => Vector3.forward;
+        public override List<LandmarkDef> Landmarks => XmasLayout.Landmarks;
+        public override List<GateDef> Gates => _gates;
+        public override float Height(float x, float z) => XmasLayout.Height(x, z);
+        public override Vector3 Normal(float x, float z) => XmasLayout.Normal(x, z);
+        public override Color GroundColor(float x, float z, float h, Vector3 n) => XmasLayout.GroundColor(x, z, h, n);
+        public override float TrailMask(float x, float z) => XmasLayout.TrailMask(x, z);
+        public override List<Vector2[]> TrailLines => XmasLayout.Trails;
+        public override float WaterLevelAt(float x, float z) => XmasLayout.WaterLevelAt(x, z);
+        public override bool IsUnderwater(Vector3 p) => XmasLayout.IsUnderwater(p);
+        public override bool InPlayArea(Vector3 p) => XmasLayout.InPlayArea(p);
     }
 
     /// <summary>
@@ -481,7 +519,8 @@ namespace Shakutori
         public static readonly CoastArea Coast = new CoastArea();
         public static readonly ShrineArea Shrine = new ShrineArea();
         public static readonly NightArea Night = new NightArea();
-        public static readonly AreaLayout[] All = { Forest, River, Park, Mountain, Hut, Coast, Shrine, Night };
+        public static readonly XmasArea Xmas = new XmasArea();
+        public static readonly AreaLayout[] All = { Forest, River, Park, Mountain, Hut, Coast, Shrine, Night, Xmas };
         /// <summary>チュートリアルの練習の森（<see cref="All"/> にはふくめない）。</summary>
         public static readonly TutorialArea Tutorial = new TutorialArea();
 

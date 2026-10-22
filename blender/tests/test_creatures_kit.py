@@ -134,6 +134,14 @@ MAKERS = {
     "Uribou": cr.make_uribou,
     "Shimaenaga_Body": lambda: cr.make_bird_body("Shimaenaga_Body", 4.8, "enaga"),
     "Shimaenaga_Wing": lambda: cr.make_bird_wing("Shimaenaga_Wing", 4.8, "enaga"),
+    "Tonakai": cr.make_tonakai,
+    "Yukiusagi": cr.make_yukiusagi,
+    "Robin_Body": lambda: cr.make_bird_body("Robin_Body", 5.6, "robin"),
+    "Robin_Wing": lambda: cr.make_bird_wing("Robin_Wing", 5.6, "robin"),
+    "Fuyushaku_Body": cr.make_fuyushaku_body,
+    "Fuyushaku_Wing": cr.make_fuyushaku_wing,
+    "Yamane": cr.make_yamane,
+    "Yamane_Eye": cr.make_yamane_eye,
 }
 
 
@@ -152,10 +160,12 @@ class CreatureKitTests(unittest.TestCase):
             self.assertEqual(len(col.data), len(ob.data.loops), name)
 
     def test_portrait_list_covers_all_species(self):
-        # 図鑑の絵：いきもの 70 種と、きせかえの 2 枚（ヘルメットのアリ・スニーカーのクモ）
+        # 図鑑の絵：いきもの 75 種と、きせかえの 2 枚（ヘルメットのアリ・スニーカーのクモ）
         ids = [c[0] for c in cr.CREATURES]
-        self.assertEqual(len(ids), 72)
-        self.assertEqual(len(set(ids)), 72)
+        self.assertEqual(len(ids), 77)
+        self.assertEqual(len(set(ids)), 77)
+        for need in ("tonakai", "yukiusagi", "robin", "fuyushaku", "yamane"):
+            self.assertIn(need, ids)
         for need in ("minomushi", "zatoumushi", "kirigirisu", "inoshishi", "uribou", "shimaenaga"):
             self.assertIn(need, ids)
         for need in ("kitsune", "fukurou", "tanuki", "ga", "kanabun"):
@@ -202,7 +212,7 @@ class CreatureKitTests(unittest.TestCase):
 
     def test_wings_are_thin(self):
         for name in ("Butterfly_Wing", "Dragonfly_Wing", "Sparrow_Wing", "Crow_Wing", "Asagimadara_Wing", "Oniyanma_Wing", "Maruhanabachi_Wing",
-                     "Hae_Wing", "Tsubame_Wing", "Shimaenaga_Wing"):
+                     "Hae_Wing", "Tsubame_Wing", "Shimaenaga_Wing", "Robin_Wing", "Fuyushaku_Wing"):
             ob = MAKERS[name]()
             s = sorted(size(ob))
             self.assertLess(s[0], s[2] * 0.35, f"{name} が厚すぎる")
@@ -315,6 +325,45 @@ class CreatureKitTests(unittest.TestCase):
         ena = size(cr.make_bird_body("Shimaenaga_Body", 4.8, "enaga"))
         self.assertTrue(4.4 < ena[1] < 6.4, ("長い尾まで", ena))
         self.assertLess(ena[2], size(cr.make_bird_body("Sparrow_Body", 5.5, False))[2], "スズメより小さい")
+
+    def test_xmas_creatures_have_real_sizes_and_joined_parts(self):
+        # 1 単位 = 2.5cm：トナカイは鼻先からおしりまで 1.7m ほど（角は 2.4m の高さまで）、ユキウサギは 50cm、
+        # ヨーロッパコマドリは 14cm、フユシャクのオスは、はねを広げて 3cm、ヤマネはまるくなって 5cm ほど
+        rein = size(cr.make_tonakai())
+        self.assertTrue(56.0 < rein[1] < 76.0 and rein[2] > 80.0, ("トナカイは大きく、角は高い", rein))
+        hare = size(cr.make_yukiusagi())
+        self.assertTrue(16.0 < hare[1] < 24.0, hare)
+        self.assertGreater(hare[2], hare[1] * 0.6, "長い耳")
+        robin = size(cr.make_bird_body("Robin_Body", 5.6, "robin"))
+        self.assertTrue(3.6 < robin[1] < 5.6, robin)
+        wing = size(cr.make_fuyushaku_wing())
+        self.assertTrue(0.4 < wing[0] < 0.8, ("はねは片方 1.5cm ほど", wing))
+        self.assertLess(max(size(cr.make_fuyushaku_body())), 1.0, "しゃくとりむしより小さい")
+        dor = size(cr.make_yamane())
+        self.assertTrue(1.6 < max(dor) < 3.0, dor)
+        # ヤマネのうす目は、とじた目の所（頭の表面）
+        self.assertAlmostEqual((cr.YAMANE_EYE - cr.YAMANE_HEAD).length, cr.YAMANE_HEAD_R, delta=0.03)
+        # 手足：トナカイ・ユキウサギは 2 対、コマドリは 1 対。手足の付け根は体の中
+        for name, n in (("Tonakai", 2), ("Yukiusagi", 2), ("Robin_Body", 1)):
+            reset()
+            parts = {o.name: o for o in cr.split_legs(MAKERS[name], name)}
+            self.assertEqual(len(cr.LIMBS[name]), n, f"{name} の右の手足")
+            if name == "Robin_Body":
+                continue
+            from mathutils import Vector
+            from mathutils.bvhtree import BVHTree
+            tree = BVHTree.FromObject(parts[name], bpy.context.evaluated_depsgraph_get())
+            for up, lo, ft, hip, knee, ankle in cr.LIMBS[name]:
+                top = hip.z + max(v.co.z for v in parts[up].data.vertices)
+                hit = tree.ray_cast(Vector((hip.x * 0.6, hip.y, -50.0)), Vector((0, 0, 1)), 200.0)
+                self.assertIsNotNone(hit[0], f"{up} の上に体がない")
+                self.assertGreater(top, hit[0].z + 0.3, f"{up} の付け根が、体の中に入っていない")
+        for name, r, tol in (("Tonakai", 0.3, 0.05), ("Yukiusagi", 0.08, 0.02), ("Fuyushaku_Body", 0.004, 0.002), ("Yamane", 0.02, 0.005),
+                             ("Yamane_Eye", 0.01, 0.002)):
+            reset()
+            ob = MAKERS[name]()
+            self.assertEqual(open_ends(ob, r), [], f"{name} に、口があいたまま見える筒")
+            self.assertEqual(floating_parts(ob, tol), [], f"{name} に、浮いた部品")
 
     def test_night_walkers_have_rigs_and_joined_parts(self):
         reset()

@@ -50,7 +50,7 @@ namespace Shakutori.Tests
             Assert.Greater(Vector2.Distance(toNight.position, ShrineLayout.Gate), 30f, "公園へのトンネルとは、はなれている");
             Assert.Greater(Vector2.Distance(toNight.position, ShrineLayout.InnerShrine), 8f, "奥の宮とは、はなれている");
             Assert.Greater(Vector2.Distance(toNight.arrival.from, ShrineLayout.InnerShrine), 6f, "もどってきた所は、奥の宮の祠の外");
-            var back = Areas.Night.Gates.Single();
+            var back = Areas.Night.Gates.Single(g => g.targetArea == "shrine");
             Assert.AreEqual("shrine", back.targetArea);
             Assert.IsTrue(Areas.Shrine.ArrivalFrom("night", out var shrineArrive, out _));
             Assert.Less(Vector2.Distance(shrineArrive, toNight.position), 8f, "夜の森からもどると、トンネルの前に出る");
@@ -147,6 +147,21 @@ namespace Shakutori.Tests
             Vector2 bc = NightLayout.BridgeCenter;
             Assert.IsTrue(_gen.DewdropPoints.Any(d => Mathf.Abs(d.x - bc.x) < 2f && Mathf.Abs(d.z - bc.y) < 8f && d.y > NightLayout.Height(bc.x, bc.y) + 3f), "丸木橋の上");
             Assert.IsTrue(_gen.DewdropPoints.Any(d => Vector2.Distance(new Vector2(d.x, d.z), NightLayout.StarRock) < 6f && d.y > NightLayout.Height(NightLayout.StarRock.x, NightLayout.StarRock.y) + 2f), "星見の岩の上");
+        }
+
+        [Test]
+        public void WarpRing_ToTheXmasVillage_IsBuiltAfterTheDewdrops()
+        {
+            // クリスマス村への光の輪は、しずくのあとで作る（しずくは 30 こ、光の輪からはなれている）
+            var ring = _gen.Gates.Single(g => g.def.targetArea == "xmas");
+            Assert.IsTrue(ring.def.warp);
+            Assert.IsTrue(ring.def.late);
+            foreach (var d in _gen.DewdropPoints)
+                Assert.Greater(Vector2.Distance(new Vector2(d.x, d.z), ring.def.position), ring.def.radius + 3f, $"しずく {d} が光の輪に近すぎる");
+            var names = Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None).Select(r => r.name).ToList();
+            CollectionAssert.Contains(names, "Xmas_WarpRing");
+            CollectionAssert.Contains(names, "Xmas_WarpLights");
+            Assert.IsFalse(Physics.Raycast(ring.position + Vector3.up * 3f - ring.inward * 3f, ring.inward, 6f, ShakuConst.SurfaceMask), "光の輪の中は、通りぬけられる");
         }
 
         [Test]

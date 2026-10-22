@@ -379,6 +379,7 @@ namespace Shakutori
                     return true;
                 }
                 case "Ga_Wing":
+                case "Fuyushaku_Wing":
                 {
                     // とんでいるときは、ゆったり大きくはばたく。とまっているときは、平らに広げる（ときどき、ふるわせる）
                     float roll = m.airborne

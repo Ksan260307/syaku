@@ -199,6 +199,10 @@ MonoBehaviour:
     mesh: {fileID: -7801804520176178211, guid: 58a71b56c96325e428429121fe33566b, type: 3}
   - name: Funamushi_Leg7
     mesh: {fileID: 6419295772318745594, guid: 38a62b88da9503a4b9fdb47a7076557d, type: 3}
+  - name: Fuyushaku_Body
+    mesh: {fileID: -5400235235864943796, guid: f4c511c1b7ce6b04da9e3a8352dc3603, type: 3}
+  - name: Fuyushaku_Wing
+    mesh: {fileID: 7397761505483033332, guid: 73e3dd5d144b7e448b47caf75b064a2f, type: 3}
   - name: Ga_Body
     mesh: {fileID: 4233616379451230979, guid: 314da189e389e784188f74d7971c552c, type: 3}
   - name: Ga_Wing
@@ -815,6 +819,18 @@ MonoBehaviour:
     mesh: {fileID: -8423140119587628266, guid: 74d8bc87e1318fe48a756235796fd03d, type: 3}
   - name: RiverStone_C
     mesh: {fileID: 788895249798429306, guid: 51bc6b2a818c58b4c9bbfb1821120f67, type: 3}
+  - name: Robin_Body
+    mesh: {fileID: -5109579840658684659, guid: 283928c2b7e7a334d9ac2c437c4f8a93, type: 3}
+  - name: Robin_Body_Limb1F
+    mesh: {fileID: -621982632048779103, guid: fb0069a0c83590e4ca16d656ec6b52a5, type: 3}
+  - name: Robin_Body_Limb1L
+    mesh: {fileID: 5018718433919217825, guid: eeeed54686b08304085ca50f2a52b390, type: 3}
+  - name: Robin_Body_Limb1U
+    mesh: {fileID: 2679280015639595852, guid: 0f977e8584b67d041a45267606774dfd, type: 3}
+  - name: Robin_Wing
+    mesh: {fileID: 602482216866835335, guid: 2e9c46d4540cc8a4c9ca96eafcf093bf, type: 3}
+  - name: Robin_WingFolded
+    mesh: {fileID: 4836884788957607178, guid: 88333e5cf77e8b7479bb6a829d027452, type: 3}
   - name: Rock_A
     mesh: {fileID: 2649995349246831342, guid: 99013a01bd17bf048ba3cda04c0704e0, type: 3}
   - name: Rock_B
@@ -969,6 +985,20 @@ MonoBehaviour:
     mesh: {fileID: 2637486533146488282, guid: e4ce3229946c8014c8949918e2a6b60a, type: 3}
   - name: Tokage_Leg2
     mesh: {fileID: 4883398603691130762, guid: f908a221a7db5ad4f993103ef3208199, type: 3}
+  - name: Tonakai
+    mesh: {fileID: 1933824739548957690, guid: e8d429769a91f0a4d8dd82db6842535c, type: 3}
+  - name: Tonakai_Limb1F
+    mesh: {fileID: -3684282812430564643, guid: 372efdb72001c24438f729fdb0d091a6, type: 3}
+  - name: Tonakai_Limb1L
+    mesh: {fileID: -3665808429794862993, guid: a60fb4da5c2f05344b162f433c58f58f, type: 3}
+  - name: Tonakai_Limb1U
+    mesh: {fileID: 4618146567886401400, guid: 0e9509e2cecf3dc4a8466b30c5166f62, type: 3}
+  - name: Tonakai_Limb2F
+    mesh: {fileID: 1885003906934473621, guid: ce934ccd0132ae248a2738d8bf7a45e8, type: 3}
+  - name: Tonakai_Limb2L
+    mesh: {fileID: -5872800596227859462, guid: 87af0497389f2b845afd1e8241844186, type: 3}
+  - name: Tonakai_Limb2U
+    mesh: {fileID: -6143787239405219742, guid: 104727d3e6b43614ea0d8ac867ff21fe, type: 3}
   - name: Tsubame_Body
     mesh: {fileID: -6580232210186165945, guid: 5dbb928767b5daa41a2a23f8a876ccbd, type: 3}
   - name: Tsubame_Body_Limb1F
@@ -1053,6 +1083,52 @@ MonoBehaviour:
     mesh: {fileID: 2281869185647553734, guid: 85a35a0ab4b9f4642adf7ca69cd31cdc, type: 3}
   - name: Wear_Sunglasses
     mesh: {fileID: -6551794701614749244, guid: 6d21c5f882dc4254c9ef9f8ca9c44a22, type: 3}
+  - name: Xmas_CandyCane
+    mesh: {fileID: -8131957263069150820, guid: 41630117820141d47b8cad891e230b57, type: 3}
+  - name: Xmas_Cottage
+    mesh: {fileID: -8055898722323045350, guid: 98ad018eeb6e5e94a8c1f3d8bf419284, type: 3}
+  - name: Xmas_CottageWindow
+    mesh: {fileID: -8504428850357210129, guid: f1fa181eaffa33249aa4a4fa6b3c585e, type: 3}
+  - name: Xmas_Fence
+    mesh: {fileID: 6977345126399919517, guid: f49517203b7a2b6448fa6df2c9635efc, type: 3}
+  - name: Xmas_FenceLights
+    mesh: {fileID: -8179300201985679586, guid: b51eba0bf94807643ac60b8964c51ab0, type: 3}
+  - name: Xmas_Fir
+    mesh: {fileID: 8143440790065027929, guid: 03378fd7cbf2a1b458a7115354e5767c, type: 3}
+  - name: Xmas_Holly
+    mesh: {fileID: 5909724304235170401, guid: b4c8e5bf71c657444b8f949eda8a025f, type: 3}
+  - name: Xmas_Ice
+    mesh: {fileID: -2166462208622893097, guid: a6d9e871b3d7ccc40a91cdbc699b0d50, type: 3}
+  - name: Xmas_Lamp
+    mesh: {fileID: 5282390492943261399, guid: 8288528acb02a6e47be07193e2d392d8, type: 3}
+  - name: Xmas_LampGlow
+    mesh: {fileID: 3522651470528903725, guid: e9094bc808b20204db09541b92ee861d, type: 3}
+  - name: Xmas_Mailbox
+    mesh: {fileID: -8506154746795380597, guid: 16adf9dfb0364764d972daf05eedded1, type: 3}
+  - name: Xmas_Mitten
+    mesh: {fileID: 7933202208764370381, guid: 43228fcfb249ae34d8a9ea7810e7d7ef, type: 3}
+  - name: Xmas_Present_A
+    mesh: {fileID: 8210353679597698222, guid: 63aeff5fdf161824e99673afb12a2895, type: 3}
+  - name: Xmas_Present_B
+    mesh: {fileID: 1534041726820659936, guid: 73bb9e27570e56c458e684ae6173a964, type: 3}
+  - name: Xmas_Present_C
+    mesh: {fileID: 6546451403043652874, guid: 02b463c2be3b9dd4e99dc74ba7073d49, type: 3}
+  - name: Xmas_Sled
+    mesh: {fileID: -5081653335162721433, guid: 79505bbe2e17ecf49b4612786a7f21ea, type: 3}
+  - name: Xmas_SnowDrift
+    mesh: {fileID: -6044112753211353421, guid: d7ea5e259dc02d74387b3f8800a41405, type: 3}
+  - name: Xmas_Snowman
+    mesh: {fileID: 8298141810100436216, guid: e26bcd981cdb91642851febc189d3e2f, type: 3}
+  - name: Xmas_Tree
+    mesh: {fileID: -5570951721586977093, guid: 157a66e1f067fe94b9a3affd16fffb38, type: 3}
+  - name: Xmas_TreeLights
+    mesh: {fileID: 4969820968417756244, guid: d2a78f8ac2c4024478194ee410202178, type: 3}
+  - name: Xmas_TreeStar
+    mesh: {fileID: -5804524010500333023, guid: 4b661ad8565f11b478a916fccc6cdcfb, type: 3}
+  - name: Xmas_WarpLights
+    mesh: {fileID: 7987623733609775612, guid: 914dcae8ba30948499d7954239e652e0, type: 3}
+  - name: Xmas_WarpRing
+    mesh: {fileID: -4939743189866640306, guid: e949ae22c1416e540a08ed8a22ebc54a, type: 3}
   - name: Yadokari
     mesh: {fileID: -8443137957222503045, guid: f594f412fa2d7864395ebca498226a92, type: 3}
   - name: Yadokari_Crab
@@ -1061,12 +1137,30 @@ MonoBehaviour:
     mesh: {fileID: 7940411701313346448, guid: bbf930547c8b0fc4ea111381affdd410, type: 3}
   - name: Yadokari_Leg2
     mesh: {fileID: 8516250505547679203, guid: 32451401e5bd852488bf0e4959663192, type: 3}
+  - name: Yamane
+    mesh: {fileID: 8127286779258998577, guid: a64b8be624296f04ab720aac8951ec93, type: 3}
+  - name: Yamane_Eye
+    mesh: {fileID: 2399808967953972331, guid: 934f70e125bf6e140a87e2ab7eed0f96, type: 3}
   - name: Yamori
     mesh: {fileID: 3379804976030079378, guid: 71b58ab6cea1ec148aa8af966b94e84e, type: 3}
   - name: Yamori_Leg1
     mesh: {fileID: 8553714719559656584, guid: f4209a49887fb974b93d9b6f429caa30, type: 3}
   - name: Yamori_Leg2
     mesh: {fileID: -4032914250901339698, guid: 47f6bd560609e404ea8cfeea6a0a1403, type: 3}
+  - name: Yukiusagi
+    mesh: {fileID: -8614499070241866202, guid: 4430efd6736916144a4e4683bbf74090, type: 3}
+  - name: Yukiusagi_Limb1F
+    mesh: {fileID: 810112280563955734, guid: baa6ad34f84416e458adb717a98874b6, type: 3}
+  - name: Yukiusagi_Limb1L
+    mesh: {fileID: -4225811270846537459, guid: bf3f675d8e99973489bdf6f414bb7c41, type: 3}
+  - name: Yukiusagi_Limb1U
+    mesh: {fileID: -8507012048316601405, guid: 77d08c1b05cc3874ba598325a30935b7, type: 3}
+  - name: Yukiusagi_Limb2F
+    mesh: {fileID: 1448867645039558230, guid: 7a5d0f39688ef5c4093517ca1e033697, type: 3}
+  - name: Yukiusagi_Limb2L
+    mesh: {fileID: -3604128996930341236, guid: 0c420647f0e25894f9133bf752079813, type: 3}
+  - name: Yukiusagi_Limb2U
+    mesh: {fileID: 787214732046393672, guid: 36805e205aab5424daebf7725877af52, type: 3}
   - name: Zatoumushi
     mesh: {fileID: 4673766449082015319, guid: 0bfd18d1c08f9984daa2e5c1a3c43071, type: 3}
   - name: Zatoumushi_Leg1
@@ -1104,6 +1198,8 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 61d64cc797f23e14388d2fa9d56518ca, type: 3}
   - name: funamushi
     texture: {fileID: 2800000, guid: 5c472f5bdcc6bc44faa1296ace7b4140, type: 3}
+  - name: fuyushaku
+    texture: {fileID: 2800000, guid: c64687bf913716b4ba37724c6481817d, type: 3}
   - name: ga
     texture: {fileID: 2800000, guid: 167cedb14a107714180f3989e18db7c9, type: 3}
   - name: gengorou
@@ -1188,6 +1284,8 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 5e794fef5d875934db904be5b2a663f4, type: 3}
   - name: riversnail
     texture: {fileID: 2800000, guid: f1f06a4d47074084da33da2f4f8f5f3a, type: 3}
+  - name: robin
+    texture: {fileID: 2800000, guid: ca634b85cb643c542872e533ed371f12, type: 3}
   - name: sanshouuo
     texture: {fileID: 2800000, guid: 51c26a14a3042b04e864ad303356c712, type: 3}
   - name: shimaenaga
@@ -1208,6 +1306,8 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 03439a01652317e45931d232db961e62, type: 3}
   - name: tokage
     texture: {fileID: 2800000, guid: 22bb01cfbb059cb42888fe5cd993a7f8, type: 3}
+  - name: tonakai
+    texture: {fileID: 2800000, guid: c10be9baedfff164083ef068c386839d, type: 3}
   - name: tsubame
     texture: {fileID: 2800000, guid: bf66305b091627644b350d77b91b1ae6, type: 3}
   - name: uni
@@ -1218,8 +1318,12 @@ MonoBehaviour:
     texture: {fileID: 2800000, guid: 5189426165d8db240afa746472fc8c72, type: 3}
   - name: yadokari
     texture: {fileID: 2800000, guid: 6808a57874a59fc48a0dbb55ae5dfd2a, type: 3}
+  - name: yamane
+    texture: {fileID: 2800000, guid: dbc9faedc6b70134aabfb487c66d2937, type: 3}
   - name: yamori
     texture: {fileID: 2800000, guid: ffcb31d35a5b4ed469317536c95901b2, type: 3}
+  - name: yukiusagi
+    texture: {fileID: 2800000, guid: 2d933055bc9d612428990894f858cb91, type: 3}
   - name: zatoumushi
     texture: {fileID: 2800000, guid: 6d8b08072e88fbe4db5ec760d1f2fd2e, type: 3}
   - name: skin_acorn
@@ -1303,6 +1407,7 @@ MonoBehaviour:
   creatureWing: {fileID: 2100000, guid: d1e537e3dbb188f4e9a54638a7398e9e, type: 2}
   creatureGlow: {fileID: 2100000, guid: 956c42b1a60d6e84daa5718c8579b501, type: 2}
   warmGlow: {fileID: 2100000, guid: f40ff25ea8f90e6439f1d2a6209fc4f0, type: 2}
+  lightGlow: {fileID: 2100000, guid: 56afbf864c59a994888e711bb2d9d277, type: 2}
   backdrop: {fileID: 2100000, guid: 3ec367a2002f624468b04e4600a2e7c0, type: 2}
   wear: {fileID: 2100000, guid: b5d8f704d0e9b3441a80ab01031c19f8, type: 2}
   footprint: {fileID: 2100000, guid: a7505250d018464aa8c3317b0a2e17e0, type: 2}

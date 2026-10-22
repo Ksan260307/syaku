@@ -13,6 +13,7 @@
  - music_hut.wav / ambience_hut.wav: 山小屋の 3 拍子のオルゴールの曲と、しずかな部屋の音。まきストーブ・かけ時計・ハエの羽音のループ、ツバメ・ネズミの声
  - music_coast.wav / ambience_coast.wav: 海辺の、ゆれる 4 拍子のスチールパンの曲と、遠くの波・海風・カモメ。波打ちぎわのループ、カモメの声
  - music_night.wav / ambience_night.wav: 夜の森の、月あかりのハープとチェレスタの曲と、虫の声の合唱・夜風。キリギリス・シマエナガ・イノシシ・ウリボウの声
+ - music_xmas.wav / ambience_xmas.wav: クリスマス村の、オルゴールとそりの鈴の 3 拍子の曲と、雪の夜の風・遠くのそりの鈴。トナカイの鈴・コマドリ・ユキウサギ・ヤマネの音
  - エリアの音: 公園の環境音、滝・浅瀬・カエルの合唱・ほら穴のしずく・森の葉ずれ（場所で聞こえるループ）、
    キツツキ・どんぐり・ホコリタケ・ブランコ・シーソー・水飲み場・自転車のベル・魚・金属・砂の音
 """
@@ -1607,11 +1608,147 @@ def make_night_sounds():
     one_shot("piglet.wav", piglet_squeal(), reverb=1.0, mix=0.25)
 
 
+def sleigh_bell(dur=0.5, accent=1.0):
+    """そりの鈴（ジングル）：小さな鈴がいくつもふれあう、しゃらんという高い音"""
+    n = int(dur * SR)
+    out = np.zeros(n)
+    for k in range(rng.integers(4, 8)):
+        h = rng.uniform(0.0, 0.05)
+        t = np.arange(n - int(h * SR)) / SR
+        f = rng.uniform(2600, 3900)
+        s = np.zeros_like(t)
+        for m, a, d in ((1.0, 1.0, 16.0), (1.47, 0.5, 22.0), (2.09, 0.35, 28.0), (2.76, 0.2, 34.0)):
+            s += a * np.sin(2 * np.pi * f * m * t + rng.uniform(0, 6.28)) * np.exp(-t * d)
+        s += shaped_noise(len(t), 0.0, 6000, 14000) * np.exp(-t * 90) * 0.3
+        i0 = int(h * SR)
+        out[i0:i0 + len(s)] += s * rng.uniform(0.5, 1.0)
+    return out * 0.18 * accent
+
+
+def reindeer_bell(dur=1.4):
+    """トナカイの首の鈴：「チリン」とまるい金色の鈴が 2 回ゆれる"""
+    n = int(dur * SR)
+    out = np.zeros(n)
+    for k, h in enumerate((0.0, 0.22)):
+        t = np.arange(n - int(h * SR)) / SR
+        s = np.zeros_like(t)
+        for m, a, d in ((1.0, 1.0, 4.0), (2.38, 0.45, 7.0), (4.1, 0.2, 11.0)):
+            s += a * np.sin(2 * np.pi * 1960 * m * t * (1 + 0.002 * k) + rng.uniform(0, 1)) * np.exp(-t * d)
+        s += shaped_noise(len(t), 0.0, 4000, 12000) * np.exp(-t * 70) * 0.25
+        i0 = int(h * SR)
+        out[i0:i0 + len(s)] += s * (1.0 if k == 0 else 0.6)
+    return out * 0.4
+
+
+def robin_song():
+    """ヨーロッパコマドリのさえずり：高い、すんだ声が、こぼれるように上がり下がり（冬でも歌う）"""
+    parts = []
+    for k in range(int(rng.integers(5, 8))):
+        f0 = rng.uniform(3000, 6200)
+        f1 = f0 * rng.uniform(0.75, 1.3)
+        parts.append(bird_chirp(f0, f1, rng.uniform(0.06, 0.16), vib=rng.uniform(0.0, 0.02), harm=0.06))
+        parts.append(np.zeros(int(rng.uniform(0.02, 0.09) * SR)))
+    for _ in range(int(rng.integers(4, 8))):
+        parts.append(bird_chirp(6400, 7200, 0.025, harm=0.03))   # 最後の、こまかいトリル
+        parts.append(np.zeros(int(0.012 * SR)))
+    return np.concatenate(parts) * 0.45
+
+
+def hare_thump():
+    """ユキウサギが、うしろ足で雪をける「トン」"""
+    dur = 0.22
+    t = t_axis(dur)
+    s = np.sin(2 * np.pi * 95 * t * (1 - 0.3 * t / dur)) * np.exp(-t * 26)
+    s += shaped_noise(len(t), 1.0, 200, 3000) * np.exp(-t * 40) * 0.35   # 雪の、さくっ
+    return s * 0.7
+
+
+def dormouse_snore():
+    """ヤマネの寝息：小さな、すう・すう"""
+    parts = []
+    for k in range(2):
+        dur = 0.7
+        t = t_axis(dur)
+        env = np.sin(np.pi * np.clip(t / dur, 0, 1)) ** 2
+        s = shaped_noise(len(t), 0.5, 900, 6000) * env * 0.4 + np.sin(2 * np.pi * 2300 * t) * env * 0.04
+        parts.append(s)
+        parts.append(np.zeros(int(0.45 * SR)))
+    return np.concatenate(parts) * 0.5
+
+
+def make_music_xmas():
+    """クリスマス村：雪の夜の、ゆったりした 3 拍子（88BPM・ト長調）。オルゴールと鉄琴のメロディ・そりの鈴・はじくベース・あたたかい和音"""
+    r = np.random.default_rng(1225)
+    bpm = 88
+    beat = 60 / bpm
+    bar = beat * 3
+    prog = ["G", "Em", "C", "D", "G", "Bm", "C", "D",
+            "Em", "C", "G", "D", "C", "G", "Am", "D"]
+    total = bar * len(prog)
+    buf = np.zeros((int(total * SR), 2))
+    scale = [0, 2, 4, 5, 7, 9, 11]
+    key = 67   # G4
+    mel_prev = 79
+    for i, ch in enumerate(prog):
+        root, tones = chord_notes(ch)
+        start = int(i * bar * SR)
+        add(buf, start, pad([midi(55 + t) for t in tones], bar + 1.2), gain=0.2)
+        add(buf, start, pizz_bass(midi(43 + root), 0.8), gain=0.48)
+        add(buf, start + int(2 * beat * SR), pizz_bass(midi(43 + root + 7), 0.5), gain=0.3)
+        # そりの鈴：1 拍目は強く、2・3 拍目は小さく
+        for b_ in range(3):
+            add(buf, start + int(b_ * beat * SR), sleigh_bell(0.45, 1.0 if b_ == 0 else 0.55), pan=0.35, gain=0.5)
+        # オルゴールのメロディ（1 小節に 2〜3 音）と、ときどき鉄琴の、きらきら
+        cands = [key + p + o for p in scale for o in (0, 12) if 71 <= key + p + o <= 91]
+        for b_ in ((0, 1, 2) if i % 2 == 0 else (0, 2)):
+            note = pick_melody(cands, mel_prev, tones, root, r)
+            mel_prev = note
+            add(buf, start + int(b_ * beat * SR), music_box(midi(note), 2.0), pan=-0.2, gain=0.36)
+        if i % 4 == 3:
+            for k, tn in enumerate((tones[0], tones[1], tones[2], tones[0] + 12)):
+                add(buf, start + int((0.5 + 0.5 * k) * beat * SR), glock(midi(84 + tn), 1.4), pan=0.4, gain=0.12)
+    buf = circular_reverb(buf, seconds=2.8, mix=0.36)
+    write("music_xmas.wav", buf)
+
+
+def make_xmas_sounds():
+    """クリスマス村：BGM・環境音（雪の夜の、しずかな風・遠くのそりの鈴・ときどきコマドリ）と、トナカイの鈴・コマドリ・ユキウサギ・ヤマネの音"""
+    global rng
+    rng = np.random.default_rng(1224)   # クリスマス村の音は、自分の乱数で
+    make_music_xmas()
+    total = 56.0
+    n = int(total * SR)
+    t = np.arange(n) / SR
+    buf = np.zeros((n, 2))
+    for ch in range(2):
+        buf[:, ch] += shaped_noise(n, 2.0, 40, 600) * (0.08 + 0.04 * np.sin(2 * np.pi * t * (2 / total) + ch * 1.3))   # 雪の夜の、しずかな風
+    calls = np.zeros((n, 2))
+    time = 4.0
+    while time < total - 4.0:
+        # 遠くを通るそりの鈴（しゃん、しゃん、しゃん…）
+        for k in range(int(rng.integers(6, 12))):
+            add(calls, int((time + k * 0.34) * SR), sleigh_bell(0.4, 0.6 + 0.4 * np.sin(np.pi * k / 10)), pan=rng.uniform(-0.6, 0.6), gain=0.04)
+        time += rng.uniform(14.0, 22.0)
+    time = 9.0
+    while time < total - 3.0:
+        add(calls, int(time * SR), robin_song(), pan=rng.uniform(-0.9, 0.9), gain=rng.uniform(0.02, 0.035))
+        time += rng.uniform(15.0, 24.0)
+    buf += circular_reverb(calls, seconds=2.4, mix=0.5)
+    write("ambience_xmas.wav", buf)
+    one_shot("reindeer_bell.wav", reindeer_bell(), reverb=1.4, mix=0.3)
+    one_shot("robin.wav", robin_song(), reverb=1.0, mix=0.25)
+    one_shot("hare_thump.wav", hare_thump(), reverb=0.6, mix=0.15)
+    one_shot("dormouse.wav", dormouse_snore(), reverb=0.6, mix=0.15)
+
+
 if __name__ == "__main__":
     import sys
     os.makedirs(OUT, exist_ok=True)
     if sys.argv[1:] == ["night"]:
         make_night_sounds()   # 夜の森の音だけ（ほかの音は作りなおさない）
+        sys.exit(0)
+    if sys.argv[1:] == ["xmas"]:
+        make_xmas_sounds()    # クリスマス村の音だけ（ほかの音は作りなおさない）
         sys.exit(0)
     make_sfx()
     make_ambience()
@@ -1629,3 +1766,4 @@ if __name__ == "__main__":
     make_shrine_sounds()
     make_cricket_sounds()
     make_night_sounds()
+    make_xmas_sounds()

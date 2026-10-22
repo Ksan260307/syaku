@@ -69,6 +69,14 @@ namespace Shakutori
                         sun = new Color(0.62f, 0.72f, 1f), sunIntensity = 0.95f,
                         sky = new Color(0.26f, 0.32f, 0.52f), equator = new Color(0.2f, 0.25f, 0.36f), ground = new Color(0.12f, 0.13f, 0.17f),
                     };
+                case "xmas":
+                    // クリスマス村：雪の夜。月あかりと、雪の照り返しで、下からも明るい（足もとが見える）。霧は、こい藍色
+                    return new Look
+                    {
+                        fog = new Color(0.13f, 0.19f, 0.29f), fogStart = 30f, fogEnd = 190f,
+                        sun = new Color(0.8f, 0.87f, 1f), sunIntensity = 0.95f,
+                        sky = new Color(0.4f, 0.48f, 0.62f), equator = new Color(0.36f, 0.42f, 0.5f), ground = new Color(0.44f, 0.48f, 0.54f),
+                    };
                 case "park":
                     return new Look
                     {
@@ -90,7 +98,7 @@ namespace Shakutori
         static readonly int NightId = Shader.PropertyToID("_Night");
 
         /// <summary>夜のエリアか（空に月と星。水の照り返しも夜の色）。</summary>
-        public static bool IsNight(string areaId) => areaId == "night";
+        public static bool IsNight(string areaId) => areaId == "night" || areaId == "xmas";
         static Texture s_cookie;
         static bool s_cookieSaved;
 
@@ -110,8 +118,8 @@ namespace Shakutori
             RenderSettings.ambientSkyColor = l.sky;
             RenderSettings.ambientEquatorColor = l.equator;
             RenderSettings.ambientGroundColor = l.ground;
-            // 山と海辺は、樹冠のない、ひらけた空（白い雲）
-            Shader.SetGlobalFloat(SkyOpenId, area != null && (area.Id == "mountain" || area.Id == "coast") ? 1f : 0f);
+            // 山と海辺とクリスマス村は、樹冠のない、ひらけた空（雲。夜は、うすい雪雲）
+            Shader.SetGlobalFloat(SkyOpenId, area != null && (area.Id == "mountain" || area.Id == "coast" || area.Id == "xmas") ? 1f : 0f);
             // 夜の森は、月と星の夜空（木の葉は、空にうかぶ黒いかげ）
             Shader.SetGlobalFloat(NightId, area != null && IsNight(area.Id) ? 1f : 0f);
             if (sun != null)
@@ -120,7 +128,7 @@ namespace Shakutori
                 sun.intensity = l.sunIntensity;
                 // 木もれ日のもよう（光のクッキー）は、小屋の中ではつかわない（窓の形の日だまりにする）
                 if (!s_cookieSaved) { s_cookie = sun.cookie; s_cookieSaved = true; }
-                sun.cookie = area != null && (area.Id == "hut" || area.Id == "coast") ? null : s_cookie;   // 海辺も、木のかげはない
+                sun.cookie = area != null && (area.Id == "hut" || area.Id == "coast" || area.Id == "xmas") ? null : s_cookie;   // 海辺とクリスマス村も、木のかげはない
             }
             GameManager.ApplyAmbient();
         }
@@ -130,13 +138,13 @@ namespace Shakutori
             areaId == "river" ? new Color(0.55f, 0.9f, 1f) : areaId == "park" ? new Color(1f, 0.86f, 0.42f)
             : areaId == "mountain" ? new Color(0.85f, 0.88f, 1f) : areaId == "hut" ? new Color(1f, 0.78f, 0.5f)
             : areaId == "coast" ? new Color(0.5f, 0.95f, 0.95f) : areaId == "shrine" ? new Color(1f, 0.62f, 0.4f)
-            : areaId == "night" ? new Color(0.6f, 0.75f, 1f) : new Color(0.7f, 1f, 0.45f);
+            : areaId == "night" ? new Color(0.6f, 0.75f, 1f) : areaId == "xmas" ? new Color(1f, 0.85f, 0.5f) : new Color(0.7f, 1f, 0.45f);
 
         /// <summary>しずくを取ったときのきらめきに、まぜる色。</summary>
         public static Color DropTint(string areaId) =>
             areaId == "river" ? new Color(0.6f, 0.92f, 1f) : areaId == "park" ? new Color(1f, 0.9f, 0.55f)
             : areaId == "mountain" ? new Color(0.88f, 0.9f, 1f) : areaId == "hut" ? new Color(1f, 0.82f, 0.58f)
             : areaId == "coast" ? new Color(0.62f, 0.96f, 0.95f) : areaId == "shrine" ? new Color(1f, 0.72f, 0.5f)
-            : areaId == "night" ? new Color(0.7f, 0.85f, 1f) : new Color(0.72f, 1f, 0.55f);
+            : areaId == "night" ? new Color(0.7f, 0.85f, 1f) : areaId == "xmas" ? new Color(0.85f, 0.92f, 1f) : new Color(0.72f, 1f, 0.55f);
     }
 }

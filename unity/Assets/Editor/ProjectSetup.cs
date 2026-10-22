@@ -515,6 +515,15 @@ namespace Shakutori.EditorTools
                 m.SetFloat("_ShadowBrightness", 1.5f);
                 m.SetShaderPassEnabled("SRPDefaultUnlit", false);
             });
+            assets.lightGlow = Mat("M_LightGlow", "Shakutori/ToonLit", m =>
+            {
+                // クリスマスの電球・窓とランプのあかり：頂点の色（赤・緑・青・金）を生かして光る
+                m.SetFloat("_OutlineWidth", 0f);
+                m.SetColor("_EmissionColor", new Color(1.25f, 1.15f, 1.0f) * 1.3f);
+                m.SetFloat("_RimStrength", 0f);
+                m.SetFloat("_ShadowBrightness", 1.5f);
+                m.SetShaderPassEnabled("SRPDefaultUnlit", false);
+            });
             assets.backdrop = Mat("M_Backdrop", "Shakutori/ToonLit", m =>
             {
                 // 窓の外の景色：日ざしの向きやかげに関係なく、明るい外の色
@@ -749,6 +758,8 @@ namespace Shakutori.EditorTools
             audio.shrineAmbience = Clip("ambience_shrine");
             audio.musicNight = Clip("music_night");
             audio.nightAmbience = Clip("ambience_night");
+            audio.musicXmas = Clip("music_xmas");
+            audio.xmasAmbience = Clip("ambience_xmas");
             audio.areaClips = new[]
             {
                 Clip("loop_waterfall"), Clip("loop_shallows"), Clip("loop_frogs"), Clip("loop_cave_drip"), Clip("loop_canopy"),
@@ -759,6 +770,7 @@ namespace Shakutori.EditorTools
                 Clip("loop_surf"), Clip("gull"),
                 Clip("owl"), Clip("suzu"), Clip("suzumushi"), Clip("korogi"),
                 Clip("kirigirisu"), Clip("shimaenaga"), Clip("boar"), Clip("piglet"),
+                Clip("reindeer_bell"), Clip("robin"), Clip("hare_thump"), Clip("dormouse"),
             };
             var creatures = game.AddComponent<Creatures>();
             creatures.assets = assets;

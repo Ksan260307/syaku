@@ -115,6 +115,12 @@ namespace Shakutori
                 AddLoop("loop_frogs", new Vector3(NightLayout.Pond.x, NightLayout.PondLevel, NightLayout.Pond.y), 6f, 30f, 0.45f);   // 月見の池のカエル
                 _canopy = AddLoop("loop_canopy", Vector3.zero, 0f, 0f, 0.22f, global: true);                                        // 夜風の葉ずれ
             }
+            else if (_area == "xmas")
+            {
+                Vector2 w = XmasLayout.CottageLocal(XmasLayout.WindowX, XmasLayout.CottageFront);
+                AddLoop("loop_stove", new Vector3(w.x, 8f, w.y), 4f, 30f, 0.4f);                          // 家の中の、だんろの、ぱちぱち
+                _canopy = AddLoop("loop_canopy", Vector3.zero, 0f, 0f, 0.12f, global: true);              // モミの森を、わたる風
+            }
             else if (_area == "tutorial")
                 _canopy = AddLoop("loop_canopy", Vector3.zero, 0f, 0f, 0.35f, global: true);   // 練習の森も、森の葉ずれ
             else if (_area == "hut")

@@ -129,6 +129,8 @@ namespace Shakutori
         {
             if (s != AudioManager.Surface.Ground) return s;
             if (Areas.Current == Areas.Park && ParkLayout.SandMask(p.x, p.z) > 0.5f && p.y - ParkLayout.Height(p.x, p.z) < 0.4f) return AudioManager.Surface.Sand;
+            // クリスマス村：雪はさくさく（砂の音。足あとがのこる）
+            if (Areas.Current == Areas.Xmas && p.y - XmasLayout.Height(p.x, p.z) < 0.4f && !XmasLayout.OnIce(p.x, p.z, 0f)) return AudioManager.Surface.Sand;
             if (Areas.Current == Areas.Mountain && p.y - MountainLayout.Height(p.x, p.z) < 0.4f)
             {
                 // 山：雪渓の雪はさくさく（砂の音）、岩はだは石の音

@@ -231,6 +231,7 @@ namespace Shakutori
             else if (_area.Id == "coast") { }
             else if (_area.Id == "shrine") ShrineFX(world);
             else if (_area.Id == "night") NightFX(world);
+            else if (_area.Id == "xmas") XmasFX(world);
             else if (_area.Id == "tutorial") TutorialFX(world);
             else ParkFX(world);
         }
@@ -475,6 +476,23 @@ namespace Shakutori
             for (int i = 0; i < world.GlowCaps.Count && i < 8; i += 2)
                 Motes("GlowHalo" + i, world.GlowCaps[i], new Vector3(0.2f, 0.2f, 0.2f), 3, 0.6f, new Color(0.45f, 1f, 0.8f, 0.2f),
                     new Vector2(2.4f, 3.2f), new Vector2(4f, 5f), Vector2.zero, 0f, 0f, 0f);
+        }
+
+        /// <summary>クリスマス村：しんしんとふる雪。ランプのまわりと、家の窓の、あたたかな光。ツリーのてっぺんの星の、やわらかな光。</summary>
+        void XmasFX(WorldGenerator world)
+        {
+            // 村の上から、ゆっくりふる雪（風で少し流れる）
+            Motes("Snowfall", new Vector3(0f, 34f, 0f), new Vector3(150f, 2f, 150f), 1100, 44f, new Color(0.95f, 0.97f, 1f, 0.9f),
+                new Vector2(0.07f, 0.16f), new Vector2(24f, 30f), new Vector2(0f, 0.08f), 0.12f, 0.35f, 0.8f);
+            for (int i = 0; i < world.XmasLamps.Count; i++)
+                Motes("LampHalo" + i, world.XmasLamps[i], new Vector3(0.2f, 0.2f, 0.2f), 3, 0.6f, new Color(1f, 0.9f, 0.62f, 0.22f),
+                    new Vector2(3f, 3.6f), new Vector2(4f, 5f), Vector2.zero, 0f, 0f, 0f);
+            Vector3 star = XmasLayout.Ground(XmasLayout.Tree.x, XmasLayout.Tree.y) + Vector3.up * 51.3f;
+            Motes("StarHalo", star, new Vector3(0.2f, 0.2f, 0.2f), 3, 0.6f, new Color(1f, 0.86f, 0.5f, 0.3f),
+                new Vector2(7f, 8.5f), new Vector2(4f, 5f), Vector2.zero, 0f, 0f, 0f);
+            Vector2 w = XmasLayout.CottageLocal(XmasLayout.WindowX, XmasLayout.CottageFront - 2.5f);
+            Motes("WindowHalo", new Vector3(w.x, XmasLayout.SillY + 8f, w.y), new Vector3(0.2f, 0.2f, 0.2f), 3, 0.6f, new Color(1f, 0.82f, 0.5f, 0.2f),
+                new Vector2(13f, 15f), new Vector2(4f, 5f), Vector2.zero, 0f, 0f, 0f);
         }
 
         /// <summary>練習の森：光の筋の中のちりと、東の草原の綿毛と花粉（森と同じ）。</summary>

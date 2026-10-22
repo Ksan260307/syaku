@@ -20,6 +20,8 @@ namespace Shakutori
         public bool showcase;
         /// <summary>かべにいるいきもの（ヤモリ）：かべの面の向き。ふつうは 0（地面の上）。</summary>
         public Vector3 up;
+        /// <summary>向きを決めて置くいきもの（手ぶくろの口のヤマネ）：前の向き。ふつうは 0（ばらばらの向き）。</summary>
+        public Vector3 face;
     }
 
     /// <summary>生成されたエリア間トンネル。</summary>
@@ -132,6 +134,7 @@ namespace Shakutori
             bool coast = area.Id == "coast";
             bool shrine = area.Id == "shrine";
             bool night = area.Id == "night";
+            bool xmas = area.Id == "xmas";
             bool tutorial = area.Id == "tutorial";
             _rng = new Random(forest ? seed : seed + 7919 * area.Id.Length);
             AreaLayout.LateGround = false;   // しずくを置くまでは、もとの地面の形で作る
@@ -153,7 +156,7 @@ namespace Shakutori
             progress?.Invoke(0.25f);
             yield return null;
             if (!hut) BuildOuterRing();   // 小屋の中は、かべの外が見えない
-            if (forest) BuildForestSolids(); else if (park) BuildParkSolids(); else if (mountain) BuildMountainSolids(); else if (hut) BuildHutSolids(); else if (coast) BuildCoastSolids(); else if (shrine) BuildShrineSolids(); else if (night) BuildNightSolids(); else if (tutorial) BuildTutorialSolids(); else BuildRiverSolids();
+            if (forest) BuildForestSolids(); else if (park) BuildParkSolids(); else if (mountain) BuildMountainSolids(); else if (hut) BuildHutSolids(); else if (coast) BuildCoastSolids(); else if (shrine) BuildShrineSolids(); else if (night) BuildNightSolids(); else if (xmas) BuildXmasSolids(); else if (tutorial) BuildTutorialSolids(); else BuildRiverSolids();
             BuildGates();
             LoadClock.Lap("solids");
             progress?.Invoke(0.4f);
@@ -190,6 +193,7 @@ namespace Shakutori
                 ScatterNightProps();
                 BuildNightWater();
             }
+            else if (xmas) ScatterXmasProps();   // クリスマス村の池は、こおっている（水はない）
             else if (tutorial) ScatterTutorialProps();   // 練習の森には、水はない
             else
             {
@@ -200,7 +204,7 @@ namespace Shakutori
             LoadClock.Lap("props");
             progress?.Invoke(0.6f);
             yield return null;
-            if (forest) BuildForestFoliage(); else if (park) BuildParkFoliage(); else if (mountain) BuildMountainFoliage(); else if (coast) BuildCoastFoliage(); else if (shrine) BuildShrineFoliage(); else if (night) BuildNightFoliage(); else if (tutorial) BuildTutorialFoliage(); else if (!hut) BuildRiverFoliage();
+            if (forest) BuildForestFoliage(); else if (park) BuildParkFoliage(); else if (mountain) BuildMountainFoliage(); else if (coast) BuildCoastFoliage(); else if (shrine) BuildShrineFoliage(); else if (night) BuildNightFoliage(); else if (xmas) BuildXmasFoliage(); else if (tutorial) BuildTutorialFoliage(); else if (!hut) BuildRiverFoliage();
             LoadClock.Lap("foliage");
             progress?.Invoke(0.8f);
             yield return null;
@@ -211,6 +215,7 @@ namespace Shakutori
             else if (coast) PlaceCoastDewdrops();
             else if (shrine) PlaceShrineDewdrops();
             else if (night) PlaceNightDewdrops();
+            else if (xmas) PlaceXmasDewdrops();
             else if (tutorial) PlaceTutorialDewdrops();
             else PlaceRiverDewdrops();
             // しずくを置いたあとに、泉や水たまりの土手を盛る（しずくの場所は変えない）
@@ -255,6 +260,11 @@ namespace Shakutori
             else if (night)
             {
                 PlaceNightCreatures();      // 夜なので、木もれ日の光の筋はない
+                FixCreaturesForPlay();
+            }
+            else if (xmas)
+            {
+                PlaceXmasCreatures();       // 雪の夜なので、木もれ日の光の筋はない
                 FixCreaturesForPlay();
             }
             else if (tutorial)
@@ -341,6 +351,7 @@ namespace Shakutori
             ClearCoast();
             ClearShrine();
             ClearNight();
+            ClearXmas();
             _specialCap = Vector3.zero;
             DewdropPoints.Clear();
             FlowerPoints.Clear();
@@ -471,8 +482,9 @@ namespace Shakutori
             var col = new List<Color>();
             var tris = new List<int>();
             bool coast = Area.Id == "coast";
-            ColorUtility.TryParseHtmlString(Area.Id == "mountain" ? "#5d7550" : coast ? "#8aa35c" : "#3f6a35", out var deep);
-            ColorUtility.TryParseHtmlString(Area.Id == "mountain" ? "#7c7a78" : coast ? "#d6c08f" : "#5c4a38", out var soil);   // 山は、岩の灰色。海辺は、砂と草
+            bool snow = Area.Id == "xmas";
+            ColorUtility.TryParseHtmlString(Area.Id == "mountain" ? "#5d7550" : coast ? "#8aa35c" : snow ? "#a9b9cf" : "#3f6a35", out var deep);
+            ColorUtility.TryParseHtmlString(Area.Id == "mountain" ? "#7c7a78" : coast ? "#d6c08f" : snow ? "#c9d4e3" : "#5c4a38", out var soil);   // 山は、岩の灰色。海辺は、砂と草。クリスマス村は、雪
             for (int r = 0; r < radii.Length; r++)
             {
                 for (int s = 0; s < seg; s++)
@@ -787,6 +799,11 @@ namespace Shakutori
                 BuildDoorGate(g);
                 return;
             }
+            if (g.warp)
+            {
+                BuildWarpGate(g);
+                return;
+            }
             {
                 Vector2 inward2 = (-g.position).normalized;
                 Vector3 inward = new Vector3(inward2.x, 0f, inward2.y);
@@ -813,6 +830,35 @@ namespace Shakutori
                 mr.SetPropertyBlock(mpb);
                 Gates.Add(new GateInstance { def = g, position = ground, inward = inward });
             }
+        }
+
+        /// <summary>
+        /// 光の輪（夜の森とクリスマス村をつなぐワープ）：たてに立つ金の輪と、まわりの電球。輪の中は、ほんのり光る。
+        /// 輪は、くぐれるように当たり判定なし。inward は、輪から出てくる向き（エリアのまん中の方）。
+        /// </summary>
+        void BuildWarpGate(GateDef g)
+        {
+            Vector2 inward2 = (-g.position).normalized;
+            Vector3 inward = new Vector3(inward2.x, 0f, inward2.y);
+            Vector3 ground = Area.Ground(g.position.x, g.position.y);
+            Quaternion rot = Quaternion.LookRotation(inward, Vector3.up);
+            const float scale = 1.25f;
+            Place("Xmas_WarpRing", assets.prop, ground + Vector3.down * 0.25f, rot, scale, false, true, 400f, asRenderer: true);
+            Material glow = assets.lightGlow != null ? assets.lightGlow : assets.warmGlow != null ? assets.warmGlow : assets.glow;
+            Place("Xmas_WarpLights", glow, ground + Vector3.down * 0.25f, rot, scale, false, false, 400f, asRenderer: true);
+            Occupy(g.position, 5f);
+            var portal = new GameObject("GatePortal");
+            portal.transform.SetParent(_solidRoot, false);
+            portal.transform.SetPositionAndRotation(ground + Vector3.up * (4.4f * scale - 0.25f), rot);
+            portal.transform.localScale = new Vector3(8.2f, 8.2f, 1f);
+            portal.AddComponent<MeshFilter>().sharedMesh = QuadMesh();
+            var mr = portal.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = assets.particle;
+            mr.shadowCastingMode = ShadowCastingMode.Off;
+            var mpb = new MaterialPropertyBlock();
+            mpb.SetColor("_TintColor", g.targetArea == "xmas" ? new Color(1.45f, 1.05f, 0.6f, 0.6f) : new Color(0.6f, 0.75f, 1.45f, 0.6f));
+            mr.SetPropertyBlock(mpb);
+            Gates.Add(new GateInstance { def = g, position = ground, inward = inward });
         }
 
         /// <summary>
@@ -1363,6 +1409,7 @@ namespace Shakutori
             else if (area.Id == "coast") DrawCoastMap(px, size, generated);
             else if (area.Id == "shrine") DrawShrineMap(px, size);
             else if (area.Id == "night") DrawNightMap(px, size);
+            else if (area.Id == "xmas") DrawXmasMap(px, size);
             else if (area.Id == "tutorial") DrawTutorialMap(px, size);
             else DrawRiverMap(px, size, generated);
             tex.SetPixels32(px);

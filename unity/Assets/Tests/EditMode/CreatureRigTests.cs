@@ -158,9 +158,9 @@ namespace Shakutori.Tests
         {
             // 地面や水の上を動くいきものは、みんな体と別に動く脚（または手足）を持つ（体と一体の脚のまま、すべって動かない）。
             // かたつむりは足がなく、空を飛ぶ虫は、飛んでいる間は脚を動かさない。ヒトデとウニは、小さな管足で歩き（腕・とげは別に動かす）、
-            // マンタは、むなびれで泳ぐ。ミノムシは、みのに入ったまま、枝から糸でぶらさがる（歩かない）
+            // マンタは、むなびれで泳ぐ。ミノムシは、みのに入ったまま、枝から糸でぶらさがる（歩かない）。ヤマネは、まるくなって冬眠中（歩かない）
             var assets = TestUtil.LoadWorldAssets();
-            var noLegs = new[] { "snail", "riversnail", "hitode", "uni", "manta", "minomushi" };
+            var noLegs = new[] { "snail", "riversnail", "hitode", "uni", "manta", "minomushi", "yamane" };
             foreach (var sp in SpeciesCatalog.All)
             {
                 if (sp.kind == MobKind.Flutter || sp.kind == MobKind.Hover || System.Array.IndexOf(noLegs, sp.id) >= 0) continue;

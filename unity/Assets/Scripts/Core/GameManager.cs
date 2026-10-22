@@ -146,9 +146,10 @@ namespace Shakutori
                 // 砂や土の上を歩くと、体が少しずつ、ほこりっぽくなる
                 if (surface == AudioManager.Surface.Sand)
                 {
-                    worm.AddDust(0.035f);
+                    bool snowy = Areas.Current == Areas.Mountain || Areas.Current == Areas.Xmas;
+                    if (Areas.Current != Areas.Xmas) worm.AddDust(0.035f);   // 雪の村では、ほこりっぽくならない
                     // 砂・雪の上には、足あとが残る
-                    _footprints?.Add(p, worm.SurfaceUp, worm.Heading, head, Areas.Current == Areas.Mountain ? Footprints.SnowColor : Footprints.SandColor);
+                    _footprints?.Add(p, worm.SurfaceUp, worm.Heading, head, snowy ? Footprints.SnowColor : Footprints.SandColor);
                 }
                 else if (surface == AudioManager.Surface.Ground) worm.AddDust(0.004f);
                 _areaProps?.OnStep(p);
@@ -527,7 +528,7 @@ namespace Shakutori
                 if (target == null) continue;
                 // とびらは、はばの広いとびらの前（しきいの上）でヒント。入ったかどうかは、とびらの面で見る
                 bool near = g.def.door ? g.def.DoorNear(head, g.position) : d < 7f;
-                if (near) hint = InTutorial ? TutorialGateHint : GateHintText(target, g.def.door);
+                if (near) hint = InTutorial ? TutorialGateHint : GateHintText(target, g.def.door, g.def.warp);
                 bool inside = g.def.door ? g.def.DoorReached(head, g.position) : d < g.def.radius;
                 if (inside && _gateCooldown <= 0f && worm.State != InchwormController.Mode.Hang && !ui.AnyOverlayOpen)
                 {
@@ -539,14 +540,14 @@ namespace Shakutori
         }
 
         /// <summary>トンネルの近くのヒント。行ったことがあれば、行き先で集めた数も出す。</summary>
-        public static string GateHintText(AreaLayout target, bool door = false)
+        public static string GateHintText(AreaLayout target, bool door = false, bool warp = false)
         {
             // まだ行ったことがない場所は、名前を出さない
             if (!SaveSystem.Data.visited.Contains(target.Id))
                 return door ? (target.Id == "hut" ? "とびらのすき間から、まだ入ったことがない場所へ" : "とびらを出ると、まだ行ったことがない場所へ")
-                    : "トンネルを抜けると、まだ行ったことがない場所へ";
+                    : warp ? "光の輪をくぐると、まだ行ったことがない場所へ" : "トンネルを抜けると、まだ行ったことがない場所へ";
             string text = door ? (target.Id == "hut" ? $"とびらのすき間から「{target.Subtitle}」の中へ" : $"とびらを出ると「{target.Subtitle}」へ")
-                : $"トンネルを抜けると「{target.Subtitle}」へ";
+                : warp ? $"光の輪をくぐると「{target.Subtitle}」へ" : $"トンネルを抜けると「{target.Subtitle}」へ";
             if (SaveSystem.Data.completedAreas.Contains(target.Id)) return text + "（★ めぐり終えた）";
             return text + $"（{target.DropName} {Collectibles.CollectedIn(target)} / {target.DropCount}）";
         }
@@ -809,7 +810,8 @@ namespace Shakutori
             switch (surface)
             {
                 case AudioManager.Surface.Sand:
-                    fx.Dust(p, n, 0.02f, 0.2f);
+                    if (Areas.Current == Areas.Xmas) { if (head) fx.Burst(p + n * 0.04f, 2, new Color(0.9f, 0.94f, 1f, 1f)); }   // 雪が、ふわっと
+                    else fx.Dust(p, n, 0.02f, 0.2f);
                     return;
                 case AudioManager.Surface.Moss:
                     if (head) fx.Burst(p + n * 0.04f, 2, new Color(0.62f, 0.8f, 0.36f, 1f));
