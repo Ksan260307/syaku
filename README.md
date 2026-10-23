@@ -50,7 +50,7 @@ PC・ゲームパッド・**スマホ／iPad** で、ブラウザから遊べま
 
 ## エリア
 
-木の根のトンネル（山小屋は、とびら）を通って、となりのエリアへ行けます。
+木の根のトンネル（山小屋は、とびら。クリスマス村は、光の輪）を通って、となりのエリアへ行けます。
 
 | エリア | ようす | しずく | 名所 | 行き方 |
 | --- | --- | ---: | ---: | --- |
@@ -62,6 +62,7 @@ PC・ゲームパッド・**スマホ／iPad** で、ブラウザから遊べま
 | 海岸 | 砂浜と波打ちぎわ、大きな巻き貝、磯の潮だまり | 30 | 9 | 川辺の下流のトンネル |
 | 神社 | 夕ぐれの鎮守の森。大鳥居・お社・千本鳥居 | 30 | 9 | 公園の北東のトンネル |
 | 夜の森 | 月と星の夜。枯れ沢の谷と丸木橋、光る倒木 | 30 | 9 | 神社の奥の宮のうらのトンネル |
+| クリスマス村 | 雪のふる夜。大きなツリー・雪だるま・あかりのともる家 | 30 | 9 | 夜の森の星見の丘の、光の輪 |
 
 エリアごとのようす・名所の一覧は [GUIDE.md のエリア](GUIDE.md#エリア) へ。
 
@@ -77,6 +78,7 @@ PC・ゲームパッド・**スマホ／iPad** で、ブラウザから遊べま
 | 海岸 | ヤドカリ・シオマネキ・カモメ・ヒトデ・ウニ・フナムシ |
 | 神社 | ホンドギツネ・フクロウ・ホンドタヌキ・オオミズアオ・カナブン・スズムシ・エンマコオロギ |
 | 夜の森 | ミノムシ・ザトウムシ・キリギリス・ニホンイノシシ・ウリボウ・シマエナガ |
+| クリスマス村 | トナカイ・ユキウサギ・ヨーロッパコマドリ・フユシャク・ニホンヤマネ |
 | レア（5%） | ヘルメットアリ・スニーカーグモ・カメレオン・ヘラクレスオオカブト・フラミンゴ・ハリネズミ・マンタ |
 
 それぞれのしぐさや動き方は [GUIDE.md のいきもの](GUIDE.md#いきもの) へ。
@@ -109,12 +111,12 @@ docs/                  ビルド済み WebGL（GitHub Pages の公開用）
 
 ```powershell
 $blender = "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe"
-foreach ($s in "forest_kit", "creatures", "park_kit", "mountain_kit", "hut_kit", "wear_kit", "coast_kit", "shrine_kit", "night_kit") {
+foreach ($s in "forest_kit", "creatures", "park_kit", "mountain_kit", "hut_kit", "wear_kit", "coast_kit", "shrine_kit", "night_kit", "xmas_kit") {
     & $blender -b --factory-startup --python "blender/scripts/build_$s.py"
 }
 python tools/make_icons.py
 python tools/make_fonts.py   # ゲーム内のテキストを増やしたら、もう一度
-python tools/make_audio.py   # python tools/make_audio.py night で、夜の森の音だけ
+python tools/make_audio.py   # python tools/make_audio.py night（xmas）で、夜の森（クリスマス村）の音だけ
 ```
 
 ### Unity で開く・ビルドする

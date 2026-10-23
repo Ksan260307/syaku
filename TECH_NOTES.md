@@ -51,6 +51,13 @@ Unity 側で毎フレームこの曲線に沿って曲げています（`Inchwor
 池とぬた場の水は、照り返しを夜空の色・どろの色にして（`MaterialPropertyBlock`）、低い所から見ても白くなりません。
 ミノムシは、枝の下（上へのレイで、さがす）から糸の長さだけ下にぶらさがる、ふりこ（`Creatures.Night.cs`）。糸と、顔を出す幼虫は、別のメッシュです。
 ウリボウは、いちばん近いイノシシを「おかあさん」にして、そのうしろの自分の場所へついていきます。
+クリスマス村（`XmasLayout.cs` / `WorldGenerator.Xmas.cs`）は、雪の原と、平らなツリーの広場・家の前を地形で作り、ツリー・家・雪だるまなど（`blender/scripts/build_xmas_kit.py`）を置いたエリアです。
+夜の森からの入り口は、トンネルのかわりの光の輪（`GateDef.warp`。`BuildWarpGate` が、当たり判定なしの金の輪と電球と光の板を置く）で、`late` なので夜の森のしずくは変わりません。
+空は `_Night` と `_SkyOpen` の両方（樹冠のない星空。`ForestSky` の雲は、夜は、うすい雪雲の色）。池はこおっているので水はなく（`WaterLevelAt` は -999）、氷は当たり判定のある板です。
+村のまわりのモミの森はとても高いので、影を落としません（落とすと、村じゅうが月かげで青くなる）。電球・窓・ランプは `M_LightGlow`（頂点の色を生かして光る）。
+雪の上は、足音が砂の音で、足あとがのこります（`AreaProps.Refine`。ほこりっぽくはならない）。
+いきもの（`Creatures.Xmas.cs`）：ユキウサギは `behavesLike` ナキウサギ、コマドリは `behavesLike` スズメで、シマエナガと同じとまり木めぐり（`UpdateTit`）、
+フユシャクは、オオミズアオと同じランプのまわり（`UpdateMoth`）。ヤマネは `MobGroup.face` の向きで手ぶくろの口に置き（`CreatureHome.Hanging` で動かさない）、うす目は別のメッシュ（`Yamane_Eye`）です。
 
 チュートリアルの「練習の森」（`TutorialLayout.cs` / `WorldGenerator.Tutorial.cs`）は、森と同じ物（切り株・赤キノコ・岩・落ち葉・草花・背景の幹）で作った小さなエリアです。
 `Areas.Tutorial` は `Areas.All` に入れないので、しずく・名所の数、地図のエリアのボタン、図鑑のすみか、デモ映像には出ません（`Areas.Get("tutorial")` では取れる）。
