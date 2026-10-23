@@ -1669,6 +1669,8 @@ namespace Shakutori
             if (_zukanHabitatTitle != null)
             {
                 _zukanHabitatTitle.text = show ? area.DisplayName + "の地図" : "";
+                // 長い名前（クリスマス村）は、少し小さな字で 1 行に
+                _zukanHabitatTitle.style.fontSize = show && area.DisplayName.Length >= 6 ? new StyleLength(13f) : new StyleLength(StyleKeyword.Null);
                 _zukanHabitatTitle.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
             }
             if (!show) return;

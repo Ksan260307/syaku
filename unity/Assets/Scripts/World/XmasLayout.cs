@@ -220,21 +220,21 @@ namespace Shakutori
                         new LandmarkDef { id = 87, areaId = "xmas", name = "そり置き場", english = "Sled Yard", description = "木のそりが、ひとつ。トナカイたちが、雪の下の苔をさがしにくる。",
                             position = Sled, radius = 10f, mapColor = new Color(0.75f, 0.35f, 0.3f) },
                         new LandmarkDef { id = 88, areaId = "xmas", name = "ツリーのてっぺん", english = "Treetop Star", description = "大きなツリーのいちばん上。金の星のとなりから、雪の村が見わたせる。",
-                            position = Tree, radius = 6f, minHeightAboveGround = 40f, mapColor = new Color(1f, 0.85f, 0.35f) },
+                            position = Tree, radius = 6f, minHeightAboveGround = 36f, mapColor = new Color(1f, 0.85f, 0.35f) },
                     };
                     // 着いたときの景色
                     Vector2 door = CottageDoor;
                     _landmarks[0].view = new ArrivalView(new Vector2(0f, -50f), new Vector3(Tree.x, 16f, Tree.y), 2f, 4.6f, clear: 40f);                      // 入り口から、小道の先のツリー
-                    _landmarks[1].view = new ArrivalView(new Vector2(-24f, -2f), new Vector3(Tree.x, 18f, Tree.y), 3f, 5f);                                    // 広場の西の小道から、ツリーを見上げる
-                    _landmarks[2].view = new ArrivalView(new Vector2(-8f, -26f), new Vector3(Presents.x, 4f, Presents.y), 8f, 5f);                             // プレゼントの山
+                    _landmarks[1].view = new ArrivalView(new Vector2(-21f, -3f), new Vector3(Tree.x, 18f, Tree.y), 3f, 5f);                                    // 広場の西から、ツリーを見上げる
+                    _landmarks[2].view = new ArrivalView(new Vector2(-13f, -21f), new Vector3(Presents.x, 4f, Presents.y), 8f, 5f);                             // プレゼントの山
                     _landmarks[3].view = new ArrivalView(new Vector2(-21f, -17f), new Vector3(Snowman.x, 9f, Snowman.y), 3f, 5f);                              // 雪だるまの前
                     _landmarks[4].view = new ArrivalView(new Vector2(17f, -27f), new Vector3(Pond.x, 0f, Pond.y), 9f, 5f);                                     // 池のほとりから、氷の上
                     _landmarks[5].view = new ArrivalView(door + (Tree - door).normalized * 14f, new Vector3(door.x, 12f, door.y), 4f, 5f);                     // 家のとびらと窓
                     _landmarks[6].view = new ArrivalView(new Vector2(-17f, 22f), new Vector3(Mailbox.x, 9f, Mailbox.y), 4f, 5f);                               // ポストと手ぶくろ
                     _landmarks[7].view = new ArrivalView(new Vector2(-30f, -38f), new Vector3(Sled.x, 2f, Sled.y), 8f, 5f);                                    // そり置き場
-                    _landmarks[8].view = new ArrivalView(new Vector2(Tree.x + 0.5f, Tree.y - 2.5f), new Vector3(0f, 20f, -30f), 6f, 5f, onTop: true);         // ツリーのてっぺんから、村を見わたす
+                    _landmarks[8].view = new ArrivalView(new Vector2(Tree.x, Tree.y - 4.3f), new Vector3(0f, 20f, -30f), 6f, 5f, onTop: true);               // ツリーの上の段から、村を見わたす
                     // 地図や図鑑から移動したときに始める所
-                    _landmarks[1].travel = new ArrivalView(new Vector2(-24f, -2f), new Vector3(Tree.x, 10f, Tree.y), 4f, 5f);
+                    _landmarks[1].travel = new ArrivalView(new Vector2(-21f, -3f), new Vector3(Tree.x, 10f, Tree.y), 4f, 5f);
                 }
                 return _landmarks;
             }

@@ -223,7 +223,7 @@ namespace Shakutori.Tests
             Color ice = Px(XmasLayout.Pond + new Vector2(4f, 2f));
             Assert.Greater(ice.b, ice.r, "こおった池は水色");
             var look = AreaAtmosphere.For("xmas");
-            Assert.Greater(look.sun.b, look.sun.r + 0.2f, "青い月あかり");
+            Assert.Greater(look.sun.b, look.sun.r + 0.1f, "少し青い月あかり（雪が白く見えるように、夜の森ほど青くしない）");
             Assert.Greater(look.sunIntensity, 0.8f, "雪の照り返しで、夜の森より少し明るい");
             Assert.Less(look.fog.maxColorComponent, 0.35f, "こい藍色の霧");
             Assert.IsTrue(AreaAtmosphere.IsNight("xmas"), "星空");

@@ -458,7 +458,7 @@ namespace Shakutori
                     hint = "そり置き場のまわり。首の鈴の「チリン」という音をたよりに。" },
                 new SpeciesDef { id = "yukiusagi", name = "ユキウサギ", areaLabel = "クリスマス村", kind = MobKind.Hopper, body = "Yukiusagi", scale = 0.29f, speed = 0.3f, discoverRadius = 8f,
                     rig = "Yukiusagi", stride = 1.4f, gait = GaitKind.None, behavesLike = "nakiusagi",
-                    description = "冬になると、まっ白な毛に生えかわるウサギ（耳の先だけは黒いまま）。雪にしずまない、大きなうしろ足。近づかれると、ぴたっと止まって耳を立て、それから、ぴょーんと遠くへ。",
+                    description = "冬は、耳の先だけを残して、まっ白な毛に生えかわるウサギ。雪にしずまない、大きなうしろ足で、ぴょーんと遠くへ跳ぶ。",
                     hint = "村のはしの、雪の吹きだまりや、モミの木のかげ。そっと近づこう。" },
                 new SpeciesDef { id = "robin", name = "ヨーロッパコマドリ", areaLabel = "クリスマス村", kind = MobKind.Bird, body = "Robin_Body", scale = 0.62f, speed = 0.9f, discoverRadius = 10f, fleeRadius = 3.5f,
                     birdSize = 5.6f, rig = "Robin_Body", stride = 0.7f, gait = GaitKind.None, behavesLike = "sparrow",
@@ -472,7 +472,7 @@ namespace Shakutori
                 new SpeciesDef { id = "yamane", name = "ニホンヤマネ", areaLabel = "クリスマス村", kind = MobKind.Crawler, body = "Yamane", scale = 0.7f, speed = 0f, discoverRadius = 5f,
                     gait = GaitKind.None,
                     parts = new[] { new PartMount { mesh = "Yamane_Eye", offset = CreatureRig.YamaneEye } },
-                    description = "しっぽのふさふさした、小さなネズミのなかま。せなかに 1 本の黒いすじ。冬はボールのようにまるくなって、春まで冬眠する。日本にしかいない、天然記念物。",
+                    description = "しっぽのふさふさした、小さなネズミのなかま。せなかに 1 本の黒いすじ。冬はボールのようにまるくなって、春まで冬眠する。",
                     hint = "サンタさんへのポストのそばに落ちた、手ぶくろの中。" },
                 // ---- レア ----
                 new SpeciesDef { id = "ant_helmet", name = "ヘルメットアリ", areaLabel = "？？？（とてもめずらしい）", kind = MobKind.Marcher, body = "Ant", speed = 0.9f, discoverRadius = 2.8f,

@@ -2788,7 +2788,7 @@ namespace Shakutori
             for (int tries = 0; tries < 6; tries++)
             {
                 float a = R(0f, Mathf.PI * 2f);
-                float dist = frog ? R(0.8f, 2.2f) : (scared ? R(3.5f, 6f) : R(2f, 5f)) * HareLeap(m);   // 逃げるときは遠くまで
+                float dist = frog ? R(0.8f, 2.2f) : scared ? R(3.5f, 6f) * HareLeap(m) : R(2f, 5f);   // 逃げるときは遠くまで
                 Vector3 dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
                 if (scared) dir = Vector3.Slerp(Vector3.ProjectOnPlane(m.pos - _head, Vector3.up).normalized, dir, 0.35f).normalized;
                 Vector3 target = m.pos + dir * dist;
@@ -3220,7 +3220,7 @@ namespace Shakutori
                 {
                     int next = (m.landIndex + 1 + _rng.Next(spots.Count - 1)) % spots.Count;
                     m.landIndex = next;
-                    dest = spots[next] + new Vector3(R(-1.5f, 1.5f), 0f, R(-1.5f, 1.5f)) * (crow ? 2f : m.sp.id == "tsubame" || m.sp.id == "shimaenaga" || m.sp.id == "robin" ? 0.3f : 1f);
+                    dest = spots[next] + new Vector3(R(-1.5f, 1.5f), 0f, R(-1.5f, 1.5f)) * (crow ? 2f : m.sp.id == "robin" ? 0f : m.sp.id == "tsubame" || m.sp.id == "shimaenaga" ? 0.3f : 1f);
                 }
                 else
                 {
@@ -3229,8 +3229,9 @@ namespace Shakutori
                 }
                 if (Vector2.Distance(new Vector2(dest.x, dest.z), new Vector2(_head.x, _head.z)) > avoid) break;
             }
-            if (FlatLanding(dest, crow ? 3f : 1.5f, out var spot)) dest = spot;
-            else if (spots.Count > 0 && FlatLanding(spots[m.landIndex], crow ? 3f : 1.5f, out spot)) dest = spot;
+            float spread = crow ? 3f : m.sp.id == "robin" ? 0.2f : 1.5f;   // コマドリは、小さなとまり木（くいの頭・ランプの屋根）の上に、そのまま
+            if (FlatLanding(dest, spread, out var spot)) dest = spot;
+            else if (spots.Count > 0 && FlatLanding(spots[m.landIndex], spread, out spot)) dest = spot;
             m.from = m.pos;
             m.to = dest;
             m.t = 0f;

@@ -94,15 +94,21 @@ namespace Shakutori.Tests
             yield return GoTo(Areas.Xmas);
             Vector3 hare = C.PositionOf("yukiusagi");
             Assert.AreNotEqual(Vector3.zero, hare, "ユキウサギがいる");
-            // 少しはなれた所から、近づく（止まって、耳を立てる）
-            Vector3 dir = Vector3.ProjectOnPlane(Vector3.zero - hare, Vector3.up).normalized;
-            Worm.Spawn(TopSurface(new Vector2(hare.x + dir.x * 4.5f, hare.z + dir.z * 4.5f)), -dir);
-            float frozeAlert = 0f, frozeFor = 0f;
+            // 地面にいるときに、少しはなれた所へ（止まって、耳を立てる）。ひとりで跳んでいたら、着いた所の前へ置きなおす
+            float frozeAlert = 0f, frozeFor = 0f, sinceSpawn = 99f;
             bool leaped = false;
             Vector3 frozeAt = hare;
-            for (float t = 0f; t < 10f && !leaped; t += Time.deltaTime)
+            for (float t = 0f; t < 20f && !leaped; t += Time.deltaTime)
             {
                 C.NearestOf("yukiusagi", frozeAt, out var p, out var alert, out var air);
+                if (frozeFor == 0f && !air && C.Info("yukiusagi").crouch < 0.05f && sinceSpawn > 1.5f)
+                {
+                    Vector3 dir = Vector3.ProjectOnPlane(Vector3.zero - p, Vector3.up).normalized;
+                    Worm.Spawn(TopSurface(new Vector2(p.x + dir.x * 4.5f, p.z + dir.z * 4.5f)), -dir);
+                    frozeAt = p;
+                    sinceSpawn = 0f;
+                }
+                sinceSpawn += Time.deltaTime;
                 if (!air && alert > 0.5f)
                 {
                     // 止まって耳を立てているあいだは、動かない
