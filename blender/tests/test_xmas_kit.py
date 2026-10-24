@@ -133,6 +133,19 @@ class XmasKitTests(unittest.TestCase):
         lo, hi = size(ob)
         self.assertGreater(hi.z, xmas.HOUSE_EAVE + 12.0, "屋根")
 
+    def test_sled_deck_has_no_gaps_to_fall_through(self):
+        # すのこの板のあいだに、すき間がない（しゃくとりむしが落ちない）：前からうしろまで、上からのレイは板の上の面に当たる
+        ob = xmas.make_sled()
+        tree = bvh(ob)
+        z0, z1 = xmas.SLED_DECK
+        for x in (-4.0, 0.0, 3.0):
+            z = z0 + 0.3
+            while z < z1 - 0.3:
+                h = drop(tree, x, z, top=10.0)
+                self.assertIsNotNone(h, f"({x}, {z:.2f}) で、すのこの下へ落ちる")
+                self.assertAlmostEqual(h[0].y, xmas.SLED_DECK_TOP, delta=0.15, msg=f"({x}, {z:.2f})")
+                z += 0.1
+
     def test_ice_is_flat_and_at_ground_level(self):
         ob = xmas.make_ice()
         tree = bvh(ob)

@@ -206,6 +206,31 @@ namespace Shakutori.Tests
         }
 
         [UnityTest, Timeout(240000)]
+        public IEnumerator Sled_DeckCanBeWalkedWithoutFallingBetweenPlanks()
+        {
+            yield return GoTo(Areas.Xmas);
+            // そりのすのこの上を、うしろから前へ歩く（板のあいだに落ちない）
+            Quaternion rot = Quaternion.Euler(0f, XmasLayout.SledYaw, 0f);
+            Vector3 along = rot * Vector3.forward, side = rot * Vector3.right;
+            Vector3 c = XmasLayout.Ground(XmasLayout.Sled.x, XmasLayout.Sled.y);
+            foreach (float x in new[] { -2.5f, 0f, 2.5f })
+            {
+                Vector3 start = c + along * -10f + side * x + Vector3.up * 8f;
+                Assert.IsTrue(Physics.Raycast(start, Vector3.down, out var deck, 10f, ShakuConst.SurfaceMask), "すのこの上");
+                Assert.AreEqual("Xmas_Sled", deck.collider.name);
+                float deckY = deck.point.y;
+                Worm.Spawn(deck.point, along);
+                yield return FaceCamera(along);
+                float lowest = float.MaxValue;
+                yield return Hold(Vector2.up, 4f, () => lowest = Mathf.Min(lowest, Worm.CenterPosition.y));
+                ResetInput();
+                Vector3 now = Worm.CenterPosition;
+                Assert.Greater(Vector3.Dot(now - deck.point, along), 2f, $"x={x}：前へ進む");
+                Assert.Greater(lowest, deckY - 0.3f, $"x={x}：板のあいだに落ちない");
+            }
+        }
+
+        [UnityTest, Timeout(240000)]
         public IEnumerator Treetop_IsAPlaceToStandBesideTheStar()
         {
             yield return GoTo(Areas.Xmas);

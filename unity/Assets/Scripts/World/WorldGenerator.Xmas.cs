@@ -106,8 +106,12 @@ namespace Shakutori
             }
             {
                 Vector3 g = XG(XmasLayout.Sled);
-                Place("Xmas_Sled", prop, g + Vector3.down * 0.1f, Quaternion.Euler(0f, 144f, 0f), 1f, true, true, 400f);
-                Occupy(XmasLayout.Sled, 8f);
+                Quaternion rot = Quaternion.Euler(0f, XmasLayout.SledYaw, 0f);
+                Place("Xmas_Sled", prop, g + Vector3.down * 0.1f, rot, 1f, true, true, 400f);
+                // そりは長い（すべり木の前のまがりから、ひもまで 29）：長さにそって、物を置かない所にする
+                Vector3 along = rot * Vector3.forward;
+                foreach (float s in new[] { -9f, -2f, 5f, 12f })
+                    Occupy(XmasLayout.Sled + new Vector2(along.x, along.z) * s, 7f);
                 _xmasTops.Add(g + new Vector3(0f, 20f, 0f));
             }
 
@@ -353,8 +357,19 @@ namespace Shakutori
 
         void PlaceXmasCreatures()
         {
-            // トナカイ：そり置き場のまわりの、雪の原（2 頭）
-            AddMob("tonakai", XG(XmasLayout.Sled + new Vector2(-1f, -7f)), 2, 8f);
+            // トナカイ：そり置き場のまわりの、ひらけた雪の原（2 頭。1 頭ずつ、大きな体が、そり・木・吹きだまりに重ならない所から）
+            Vector2 first = new Vector2(999f, 999f);
+            int deer = 0;
+            foreach (var start in new[] { XmasLayout.Sled + new Vector2(14f, -4f), XmasLayout.Sled + new Vector2(8f, -12f), XmasLayout.Sled + new Vector2(-6f, 16f) })
+            {
+                if (deer >= 2) break;
+                var probe = new MobGroup { species = "tonakai", count = 1, radius = 6f };
+                Vector2 f0 = first;
+                if (!Spiral(start, 22f, q => (q - f0).sqrMagnitude > 10f * 10f && GroundProblem(probe, q, false) == null, out var p, 400)) continue;
+                AddMob("tonakai", XG(p), 1, 6f);
+                first = p;
+                deer++;
+            }
             // ユキウサギ：村のはしの、吹きだまりとモミのかげ
             AddMob("yukiusagi", XG(new Vector2(-46f, 4f)), 1, 5f);
             AddMob("yukiusagi", XG(new Vector2(46f, 22f)), 1, 5f);

@@ -32,6 +32,7 @@ namespace Shakutori
         public static readonly Vector2 Snowman = new Vector2(-31f, -7f);
         public const float SnowmanYaw = -62f;      // にんじんの鼻を、広場の南へ
         public static readonly Vector2 Sled = new Vector2(-40f, -30f);
+        public const float SledYaw = 144f;
         /// <summary>こおった池（東。だ円の氷。水ではないので、上を歩ける）</summary>
         public static readonly Vector2 Pond = new Vector2(33f, -15f);
         public static readonly Vector2 PondRadii = new Vector2(16f, 11f);

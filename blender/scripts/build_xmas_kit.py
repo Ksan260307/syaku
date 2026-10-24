@@ -482,8 +482,13 @@ def make_mailbox():
     return build(mb, "Xmas_Mailbox", sharp_deg=50)
 
 
+SLED_DECK = (-12.0, 8.4)    # すのこの、うしろと前のはし（z）
+SLED_DECK_TOP = 4.25        # すのこの上の面の高さ
+
+
 def make_sled():
-    """木のそり：赤い 2 本のすべり木（前がくるりと上へまがる）・木のすのこ・ひも"""
+    """木のそり：赤い 2 本のすべり木（前がくるりと上へまがる）・木のすのこ・ひも。
+    すのこの板は、すき間なくならぶ（しゃくとりむしが板のあいだに落ちない）。板のさかいめは、色のこい線だけ"""
     mb = MB()
     for sx in (-1, 1):
         x = 5.0 * sx
@@ -496,7 +501,11 @@ def make_sled():
         beam(mb, Vector((x, 3.3, -11.2)), Vector((x, 3.3, 8.6)), 0.9, 0.6, lambda n: mixc(RED_DARK, RED, 0.6))
     for i in range(7):
         z = -10.5 + i * 2.9
-        gbox(mb, (0, 3.9, z), (12.4, 0.7, 2.3), lambda p, n: mixc(WOOD, WOOD_LIGHT, 0.5 + 0.3 * math.sin(p.x * 2.0)), n=3)
+
+        def plank(p, n, z=z, i=i):
+            c = mixc(WOOD, WOOD_LIGHT, 0.5 + 0.3 * math.sin(p.x * 2.0 + i * 1.7))
+            return mixc(c, WOOD_DARK, 0.75 * sstep(1.1, 1.47, abs(p.z - z)))   # 板のさかいめ
+        gbox(mb, (0, SLED_DECK_TOP - 0.35, z), (12.4, 0.7, 2.94), plank, n=6)
     utube(mb, [Vector((-4.8, 3.9, 7.0)), Vector((-4.8, 4.1, 8.0)), Vector((-3.0, 2.0, 14.0)), Vector((0.0, 1.0, 16.5)), Vector((3.0, 2.0, 14.0)),
                Vector((4.8, 4.1, 8.0)), Vector((4.8, 3.9, 7.0))],
           [0.0, 0.28, 0.25, 0.25, 0.25, 0.28, 0.0], 6, lambda t, a, p, d: hexc("#d8c8a0"))

@@ -187,6 +187,15 @@ namespace Shakutori.Tests
             foreach (var moth in _gen.Mobs.Where(m => m.species == "fuyushaku"))
                 Assert.AreEqual(_gen.XmasLamps.Count, moth.path.Count);
             Assert.AreEqual(2, _gen.Mobs.Where(m => m.species == "tonakai").Sum(m => m.count), "トナカイは 2 頭");
+            // トナカイは、大きな体が、そりや木に重ならない所から（1 頭ずつ、群れのまん中から出る）
+            foreach (var deer in _gen.Mobs.Where(m => m.species == "tonakai"))
+            {
+                Assert.AreEqual(1, deer.count);
+                Vector3 g = deer.center;
+                Assert.IsFalse(Physics.CheckCapsule(g + Vector3.up * 5.55f, g + Vector3.up * 11f, 5.5f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore),
+                    $"トナカイ {g} の体のまわりに、物がある");
+                Assert.Greater(Vector2.Distance(new Vector2(g.x, g.z), XmasLayout.Sled), 12f, "そりから、はなれている");
+            }
             foreach (var g in _gen.Mobs) Assert.IsTrue(XmasLayout.InPlayArea(g.center), $"{g.species} {g.center}");
         }
 

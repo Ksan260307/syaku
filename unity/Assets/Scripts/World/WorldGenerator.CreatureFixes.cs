@@ -186,6 +186,9 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // 地面のいきもの
         // ------------------------------------------------------------------
+        /// <summary>体の大きないきもの：体のまわり（半径・高さ）にも、物がないこと（そりや木に、体が重ならない）。</summary>
+        static readonly Dictionary<string, Vector2> BigBodies = new Dictionary<string, Vector2> { ["tonakai"] = new Vector2(5.5f, 11f) };
+
         /// <summary>地面のいきものの居場所の決まり。合わないときは、理由を返す（合えば null）。</summary>
         public string GroundProblem(MobGroup g, Vector2 p, bool needWater)
         {
@@ -199,6 +202,7 @@ namespace Shakutori
             if (DewWithin(ground, CreatureDewKeep)) return "dew";
             if (Area.Normal(p.x, p.y).y < 0.8f) return "slope";
             if (!FreeAt(ground) || InsideSolid(ground + Vector3.up * 0.3f)) return "solid";
+            if (BigBodies.TryGetValue(g.species, out var body) && !FreeAt(ground, body.x, body.y)) return "solid";
             if (CrowdedBy(ground, g)) return "crowd";
             if (needWater && !WaterWithin(p, 4f)) return "dry";
             return null;
