@@ -231,6 +231,38 @@ namespace Shakutori.Tests
         }
 
         [UnityTest, Timeout(240000)]
+        public IEnumerator Presents_AreClimbedNotWalkedInto()
+        {
+            yield return GoTo(Areas.Xmas);
+            // プレゼントの箱へ、まっすぐ歩くと、かべを登る（箱の中へは入らない）
+            foreach (var c in Object.FindObjectsByType<MeshCollider>(FindObjectsSortMode.None))
+            {
+                if (!c.name.StartsWith("Xmas_Present") || c.transform.lossyScale.x < 0.9f) continue;   // 大きな箱（A・B・C）
+                Vector3 cen = c.bounds.center;
+                Quaternion rot = c.transform.rotation;
+                Vector3 front = rot * Vector3.back;
+                Vector3 local = Vector3.Scale(c.sharedMesh.bounds.extents, c.transform.lossyScale);
+                Vector3 start = cen + front * (local.z + 2f);
+                Worm.Spawn(XmasLayout.Ground(start.x, start.z) + Vector3.up * 0.05f, -front);
+                yield return FaceCamera(-front);
+                float maxY = 0f;
+                bool inside = false;
+                yield return Hold(Vector2.up, 9f, () =>
+                {
+                    // 箱の中：上へのレイが、箱の面の裏（上を向いた面）に当たる
+                    bool prev = Physics.queriesHitBackfaces;
+                    Physics.queriesHitBackfaces = true;
+                    if (c.Raycast(new Ray(Worm.CenterPosition, Vector3.up), out var up, 20f) && up.normal.y > 0.2f) inside = true;
+                    Physics.queriesHitBackfaces = prev;
+                    maxY = Mathf.Max(maxY, Worm.CenterPosition.y - XmasLayout.Height(start.x, start.z));
+                });
+                ResetInput();
+                Assert.IsFalse(inside, c.name + "：箱の中へ入らない");
+                Assert.Greater(maxY, 2f, c.name + "：かべを登る");
+            }
+        }
+
+        [UnityTest, Timeout(240000)]
         public IEnumerator Treetop_IsAPlaceToStandBesideTheStar()
         {
             yield return GoTo(Areas.Xmas);

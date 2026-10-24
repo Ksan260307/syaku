@@ -89,6 +89,7 @@ namespace Shakutori.Tests
         [UnityTest, Timeout(14400000)] public IEnumerator Coast_GridWalk() => Walk("coast");
         [UnityTest, Timeout(14400000)] public IEnumerator Shrine_GridWalk() => Walk("shrine");
         [UnityTest, Timeout(14400000)] public IEnumerator Night_GridWalk() => Walk("night");
+        [UnityTest, Timeout(14400000)] public IEnumerator Xmas_GridWalk() => Walk("xmas");
         // 斜めの網の目（北東・南東へ向かう 45 度の線）。東西・南北の線では、いつも同じ向きから物に当たるので、ななめからも
         [UnityTest, Timeout(14400000)] public IEnumerator Forest_GridWalkDiagonal() => Walk("forest", true);
         [UnityTest, Timeout(14400000)] public IEnumerator River_GridWalkDiagonal() => Walk("river", true);
@@ -98,6 +99,7 @@ namespace Shakutori.Tests
         [UnityTest, Timeout(14400000)] public IEnumerator Coast_GridWalkDiagonal() => Walk("coast", true);
         [UnityTest, Timeout(14400000)] public IEnumerator Shrine_GridWalkDiagonal() => Walk("shrine", true);
         [UnityTest, Timeout(14400000)] public IEnumerator Night_GridWalkDiagonal() => Walk("night", true);
+        [UnityTest, Timeout(14400000)] public IEnumerator Xmas_GridWalkDiagonal() => Walk("xmas", true);
 
         IEnumerator Walk(string areaId, bool diagonal = false)
         {

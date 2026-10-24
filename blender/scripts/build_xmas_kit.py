@@ -179,7 +179,7 @@ def make_xmas_tree():
     # 木のおけ（たてのいたと、2 本の鉄のたが）
     ulathe(mb, (0, -1.0, 0), [(0.0, 0.0), (6.0, 0.0), (6.6, TUB_H + 1.0), (6.1, TUB_H + 1.2), (0.0, TUB_H + 0.9)], 36,
            lambda t, a, p: IRON if abs(p.z - 1.6) < 0.45 or abs(p.z - 5.3) < 0.45 else mixc(WOOD, WOOD_LIGHT, 0.5 + 0.5 * math.sin(a * 18.0)))
-    ucyl(mb, (0, TUB_H - 0.4, 0), 1.4, 3.5, lambda t, a, p: TRUNK, seg=12)
+    ucyl(mb, (0, TUB_H - 0.02, 0), 1.4, 3.15, lambda t, a, p: TRUNK, seg=12)   # 幹は、おけのふたの上から（おけの中に物を入れない）
     for k in range(7):
         z0, z1 = TREE_TIERS[k], TREE_TIERS[k + 1]
         rim_r, rim_z = tier_rim(k)
@@ -213,7 +213,7 @@ def make_xmas_tree():
             rr = 1.05 - 0.06 * k
             usphere(mb, c, rr, lambda nn, col_b=col_b: shiny(col_b, bn(nn)), seg=14, rings=9)
             ucyl(mb, c + Vector((0, rr * 0.75, 0)), rr * 0.32, rr * 0.55, lambda t, a, p: GOLD, seg=8)
-    return build(mb, "Xmas_Tree")
+    return build(mb, "Xmas_Tree", sharp_deg=60)   # おけの角は、かどのまま（なめらかにすると、しゃくとりむしには、ひさしに見える）
 
 
 def make_xmas_tree_lights():
@@ -288,7 +288,7 @@ def make_present(key):
                 knot + Vector((0.2 * sx, 0.0, 0.0))]
         utube(mb, loop, [0.0, 0.42, 0.48, 0.42, 0.0], 10, lambda t, a, p, dd_: mixc(d["ribbon"], WHITE, 0.15 * math.sin(t * math.pi)))
         beam(mb, knot + Vector((0.2 * sx, -0.3, 0.2)), Vector((1.9 * sx, h + 0.08, 1.8)), 0.9, 0.12, lambda n: d["ribbon"])
-    return build(mb, f"Xmas_Present_{key}")
+    return build(mb, f"Xmas_Present_{key}", sharp_deg=40)   # 箱の角は、かどのまま（かべが、ひさしに見えない）
 
 
 # ---------------------------------------------------------------------------
@@ -336,7 +336,7 @@ def make_snowman():
         utube(mb, [a0, a0.lerp(tip, 0.5) + Vector((0, 0.3, 0)), tip], [0.45, 0.3, 0.0], 8, lambda t, a, p, d: WOOD_DARK)
         f0 = a0.lerp(tip, 0.65)
         utube(mb, [f0 - Vector((0.3 * sx, 0, 0)), f0 + Vector((1.2 * sx, 1.6, -0.2))], [0.2, 0.0], 6, lambda t, a, p, d: WOOD_DARK)
-    return build(mb, "Xmas_Snowman")
+    return build(mb, "Xmas_Snowman", sharp_deg=60)
 
 
 # ---------------------------------------------------------------------------
@@ -505,11 +505,11 @@ def make_sled():
         def plank(p, n, z=z, i=i):
             c = mixc(WOOD, WOOD_LIGHT, 0.5 + 0.3 * math.sin(p.x * 2.0 + i * 1.7))
             return mixc(c, WOOD_DARK, 0.75 * sstep(1.1, 1.47, abs(p.z - z)))   # 板のさかいめ
-        gbox(mb, (0, SLED_DECK_TOP - 0.35, z), (12.4, 0.7, 2.94), plank, n=6)
+        gbox(mb, (0, SLED_DECK_TOP - 0.35, z), (11.0, 0.7, 2.94), plank, n=6)   # はばは、すべり木の外がわまで（横から見て、ひさしにならない）
     utube(mb, [Vector((-4.8, 3.9, 7.0)), Vector((-4.8, 4.1, 8.0)), Vector((-3.0, 2.0, 14.0)), Vector((0.0, 1.0, 16.5)), Vector((3.0, 2.0, 14.0)),
                Vector((4.8, 4.1, 8.0)), Vector((4.8, 3.9, 7.0))],
           [0.0, 0.28, 0.25, 0.25, 0.25, 0.28, 0.0], 6, lambda t, a, p, d: hexc("#d8c8a0"))
-    return build(mb, "Xmas_Sled")
+    return build(mb, "Xmas_Sled", sharp_deg=40)
 
 
 MITTEN_CUFF = Vector((0.0, 1.9, 4.2))     # 手ぶくろの口（ヤマネがねむる所）
@@ -594,7 +594,7 @@ def make_fence():
         x = lerp(-(FENCE_HALF - 0.7), FENCE_HALF - 0.7, u)
         pts.append(Vector((x, 10.3 - 1.6 * math.sin(math.pi * u), FENCE_WIRE_Z)))
     utube(mb, pts, [0.12] * 13, 5, lambda t, a, p, d: hexc("#2a3a2a"))
-    return build(mb, "Xmas_Fence")
+    return build(mb, "Xmas_Fence", sharp_deg=40)
 
 
 def make_fence_lights():
@@ -646,7 +646,7 @@ def make_fir():
     """雪のモミの木（高さ 85cm ほど）：5 段の枝に、雪がたっぷり"""
     mb = MB()
     fir_tiers(mb, [(4.0, 9.0), (10.0, 7.4), (16.0, 5.8), (21.5, 4.2), (26.5, 2.8)], 34.0, 1.0, seed=3)
-    return build(mb, "Xmas_Fir")
+    return build(mb, "Xmas_Fir", sharp_deg=60)
 
 
 def make_holly():
@@ -671,6 +671,16 @@ def make_holly():
             r = 3.0 * math.sqrt(max(0.0, 1.0 - ((y - 2.0) / 2.4) ** 2)) - 0.1
             usphere(mb, Vector((math.cos(a) * r, y, math.sin(a) * r)), 0.42, lambda n: shiny(RED, bn(n)), seg=8, rings=5)
     return build(mb, "Xmas_Holly")
+
+
+HOLLY_COL = [(0.0, -1.6), (3.7, -1.6), (3.7, 0.15), (3.3, 1.7), (2.5, 3.3), (1.3, 4.4), (0.0, 4.7)]   # ヒイラギの当たり判定のドーム（半径, 高さ。下は、地面の深くまで）
+
+
+def make_holly_col():
+    """ヒイラギの当たり判定（見えない）：しげみをつつむ、なめらかなドーム。とげとげの葉のすき間や、下のくびれにはさまらず、登ってこえられる"""
+    mb = MB()
+    ulathe(mb, (0, 0, 0), HOLLY_COL, 20, lambda t, a, p: FIR_DARK)
+    return build(mb, "Xmas_Holly_Col", sharp_deg=40)   # 下のかどは、かどのまま（ひさしに見えない）
 
 
 def make_snow_drift():
@@ -701,7 +711,7 @@ def make_ice():
     lathe(mb, prof, 48, lambda t, a, p: hexc("#8fb4cc"), center=Vector((0, 0, 0)))
     mb.xform(Matrix.Diagonal((ICE_RX, ICE_RZ, 1.0, 1.0)))
     mb.recolor(lambda p, c: col(1.0, 0.0, p) if p.z > -0.01 else c)
-    return build(mb, "Xmas_Ice")
+    return build(mb, "Xmas_Ice", sharp_deg=60)
 
 
 RING_C = Vector((0.0, 4.4, 0.0))
@@ -730,7 +740,7 @@ def make_warp_lights():
 MAKERS = [make_xmas_tree, make_xmas_tree_lights, make_xmas_tree_star,
           lambda: make_present("A"), lambda: make_present("B"), lambda: make_present("C"),
           make_snowman, make_cottage, make_cottage_window, make_mailbox, make_sled, make_mitten, make_lamp, make_lamp_glow,
-          make_fence, make_fence_lights, make_candy_cane, make_fir, make_holly, make_snow_drift, make_ice, make_warp_ring, make_warp_lights]
+          make_fence, make_fence_lights, make_candy_cane, make_fir, make_holly, make_holly_col, make_snow_drift, make_ice, make_warp_ring, make_warp_lights]
 # 光る所（Unity で光る材質にする。部品のつながりは、のせる物の方で見る）
 GLOW = ("Xmas_TreeLights", "Xmas_TreeStar", "Xmas_CottageWindow", "Xmas_LampGlow", "Xmas_FenceLights", "Xmas_WarpLights")
 

@@ -1097,6 +1097,8 @@ MonoBehaviour:
     mesh: {fileID: 8143440790065027929, guid: 03378fd7cbf2a1b458a7115354e5767c, type: 3}
   - name: Xmas_Holly
     mesh: {fileID: 5909724304235170401, guid: b4c8e5bf71c657444b8f949eda8a025f, type: 3}
+  - name: Xmas_Holly_Col
+    mesh: {fileID: -8534520434913482900, guid: 02c4aec1e71ede74c9153f91e7f248fb, type: 3}
   - name: Xmas_Ice
     mesh: {fileID: -2166462208622893097, guid: a6d9e871b3d7ccc40a91cdbc699b0d50, type: 3}
   - name: Xmas_Lamp

@@ -146,6 +146,16 @@ class XmasKitTests(unittest.TestCase):
                 self.assertAlmostEqual(h[0].y, xmas.SLED_DECK_TOP, delta=0.15, msg=f"({x}, {z:.2f})")
                 z += 0.1
 
+    def test_holly_collider_dome_covers_the_bush_and_has_no_undercut(self):
+        bush = xmas.make_holly()
+        lo, hi = size(bush)
+        col = xmas.make_holly_col()
+        clo, chi = size(col)
+        self.assertGreater(chi.z, hi.z - 0.6, "しげみのてっぺんまで")
+        # 下から上へ、半径は小さくなるだけ（くびれ・ひさしがない）
+        rs = [r for r, z in xmas.HOLLY_COL]
+        self.assertTrue(all(rs[i + 1] <= rs[i] + 1e-6 for i in range(1, len(rs) - 1)), rs)
+
     def test_ice_is_flat_and_at_ground_level(self):
         ob = xmas.make_ice()
         tree = bvh(ob)
@@ -205,6 +215,27 @@ class XmasKitTests(unittest.TestCase):
                         vol += vs[0].dot(vs[i].cross(vs[i + 1])) / 6.0
                 self.assertGreaterEqual(vol, -1e-9, f"{ob.name} に裏返った部品がある（面が {len(comp)} 枚）")
             bm.free()
+
+    def test_box_walls_are_not_smoothed_into_overhangs(self):
+        # 箱やおけのかべは、かどで法線を分ける：なめらかにすると、地面のすぐ上のかべが下向きの「ひさし」に見えて、
+        # しゃくとりむしが乗りこえようとして、箱の中へ入ってしまう
+        # （名前・作る関数・かべを見る高さの範囲（Blender の z ＝ Unity の y））
+        cases = [(f"Xmas_Present_{k}", (lambda k=k: xmas.make_present(k)), (0.1, xmas.PRESENTS[k]["size"][1] - 0.2)) for k in "ABC"]
+        cases += [("Xmas_Holly_Col", xmas.make_holly_col, (-1.5, 0.1)),
+                  ("Xmas_Tree", xmas.make_xmas_tree, (-0.9, xmas.TUB_H - 1.5)),
+                  ("Xmas_Sled", xmas.make_sled, (xmas.SLED_DECK_TOP - 0.65, xmas.SLED_DECK_TOP - 0.05))]
+        for name, mk, (z0, z1) in cases:
+            reset()
+            ob = mk()
+            me = ob.data
+            normals = [cn.vector for cn in me.corner_normals]
+            worst = 0.0
+            for poly in me.polygons:
+                if abs(poly.normal.z) > 0.2 or not (z0 < poly.center.z < z1):
+                    continue   # 地面のすぐ上の、たてのかべだけ
+                for li in poly.loop_indices:
+                    worst = max(worst, abs(normals[li].z))
+            self.assertLess(worst, 0.35, f"{name} のかべの法線が、上下にかたむいている（{worst:.2f}）")
 
     def test_parts_are_joined_without_open_ends(self):
         for mk in xmas.MAKERS:

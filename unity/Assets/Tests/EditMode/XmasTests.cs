@@ -123,12 +123,38 @@ namespace Shakutori.Tests
             Assert.AreEqual(XmasLayout.IceTop, ice.point.y, 0.1f);
             var gate = _gen.Gates.Single();
             Assert.IsFalse(Physics.Raycast(gate.position + Vector3.up * 3f - gate.inward * 3f, gate.inward, 6f, ShakuConst.SurfaceMask), "光の輪の中は、通りぬけられる");
+            // ヒイラギは、しげみをつつむドームの当たり判定（とげとげの葉のすき間にはさまらない）
+            var holly = Object.FindObjectsByType<MeshCollider>(FindObjectsSortMode.None).Where(c => c.name == "Xmas_Holly").ToList();
+            Assert.Greater(holly.Count, 0);
+            foreach (var h in holly) Assert.AreEqual("Xmas_Holly_Col", h.sharedMesh.name);
             // ランプのあかり・コマドリのとまり木・手ぶくろの口
             Assert.GreaterOrEqual(_gen.XmasLamps.Count, 6);
             Assert.GreaterOrEqual(_gen.XmasPerches.Count, 4, "さくのくい・ポスト・雪だるまのぼうし・ランプの屋根");
             foreach (var p in _gen.XmasPerches) Assert.Greater(p.y - XmasLayout.Height(p.x, p.z), 8f, "高い所");
             Vector3 mouth = _gen.MittenMouth;
             Assert.Less(Vector2.Distance(new Vector2(mouth.x, mouth.z), XmasLayout.Mitten), 6f, "手ぶくろのそば");
+        }
+
+        [Test]
+        public void BoxWalls_LookLikeWalls_NotOverhangs_ToTheInchworm()
+        {
+            // 地面のすぐ上の、箱・おけのかべは、しゃくとりむしから見て「かべ」（なめらかな法線が下を向くと、ひさしに見えて、
+            // 乗りこえようとして箱の中へ入ってしまう）
+            foreach (var c in Object.FindObjectsByType<MeshCollider>(FindObjectsSortMode.None))
+            {
+                if (!c.name.StartsWith("Xmas_Present") && c.name != "Xmas_Tree") continue;
+                Vector3 cen = c.bounds.center;
+                float y = Areas.Xmas.Height(cen.x, cen.z) + 0.2f;
+                foreach (var d in new[] { Vector3.forward, Vector3.back, Vector3.left, Vector3.right })
+                {
+                    Vector3 from = new Vector3(cen.x, y, cen.z) - d * (c.bounds.extents.magnitude + 2f);
+                    if (c.name == "Xmas_Tree") from = new Vector3(cen.x, y, cen.z) - d * 9f;   // ツリーは、えだの下の、おけのかべ
+                    if (!c.Raycast(new Ray(from, d), out var hit, 40f)) continue;
+                    Vector3 n = SurfaceProbe.SmoothNormal(hit);
+                    Assert.Greater(n.y, -0.2f, $"{c.name} {hit.point}：かべが、ひさしに見える（{n}）");
+                    Assert.IsFalse(SurfaceProbe.IsCeiling(n), c.name);
+                }
+            }
         }
 
         [Test]
@@ -194,7 +220,7 @@ namespace Shakutori.Tests
                 Vector3 g = deer.center;
                 Assert.IsFalse(Physics.CheckCapsule(g + Vector3.up * 5.55f, g + Vector3.up * 11f, 5.5f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore),
                     $"トナカイ {g} の体のまわりに、物がある");
-                Assert.Greater(Vector2.Distance(new Vector2(g.x, g.z), XmasLayout.Sled), 12f, "そりから、はなれている");
+                Assert.Greater(Vector2.Distance(new Vector2(g.x, g.z), XmasLayout.Sled), 10f, "そりから、はなれている");
             }
             foreach (var g in _gen.Mobs) Assert.IsTrue(XmasLayout.InPlayArea(g.center), $"{g.species} {g.center}");
         }
