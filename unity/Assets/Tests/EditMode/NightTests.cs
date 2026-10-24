@@ -184,7 +184,7 @@ namespace Shakutori.Tests
             {
                 CollectionAssert.Contains(ids, id, $"{id} が夜の森にいる");
                 var sp = SpeciesCatalog.Get(id);
-                Assert.AreEqual("夜の森", sp.areaLabel, id);
+                Assert.IsTrue(GameUI.LivesIn(sp, "夜の森"), id);
                 Assert.IsFalse(sp.IsRare, id);
                 Assert.IsNotNull(_gen.assets.TryGet(sp.body), $"{id} の体のメッシュ");
                 Assert.IsNotNull(_gen.assets.Portrait(id), $"{id} の図鑑の絵");
@@ -193,7 +193,7 @@ namespace Shakutori.Tests
                 Assert.IsTrue(GameUI.LivesIn(sp, "夜の森"), id);
                 Assert.IsFalse(GameUI.LivesIn(sp, "森"), id + "：昼の森のしぼりこみには入らない");
             }
-            foreach (var id in new[] { "firefly", "koumori", "frog", "snail" })
+            foreach (var id in new[] { "firefly", "koumori", "frog", "snail", "fukurou", "tanuki", "beetle", "korogi" })
             {
                 CollectionAssert.Contains(ids, id);
                 Assert.IsTrue(GameUI.LivesIn(SpeciesCatalog.Get(id), "夜の森"), id + "：図鑑のすみかに夜の森");

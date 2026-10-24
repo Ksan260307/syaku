@@ -202,6 +202,15 @@ namespace Shakutori.Tests
                 Assert.IsTrue(GameUI.LivesIn(sp, "クリスマス村"), id);
                 Assert.AreEqual(3, Friends.BehaviorsOf(id).Length, id);
             }
+            // ほかのエリアのいきものも：キツネ・シマエナガ・スズメ・リス（図鑑のすみかに、クリスマス村）
+            foreach (var id in new[] { "kitsune", "shimaenaga", "sparrow", "risu" })
+            {
+                CollectionAssert.Contains(ids, id, $"{id} もクリスマス村にいる");
+                Assert.IsTrue(GameUI.LivesIn(SpeciesCatalog.Get(id), "クリスマス村"), id);
+            }
+            var tit = _gen.Mobs.Single(m => m.species == "shimaenaga");
+            Assert.GreaterOrEqual(tit.path.Count, 3, "モミの木の段をとびうつる");
+            foreach (var p in tit.path) Assert.Greater(p.y - XmasLayout.Height(p.x, p.z), 10f, "モミの木の高い段");
             // ヤマネは、手ぶくろの口で冬眠（決めた所のまま）
             var dor = _gen.Mobs.Single(m => m.species == "yamane");
             Assert.AreEqual(WorldGenerator.CreatureHome.Hanging, _gen.HomeOf(dor));

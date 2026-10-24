@@ -490,6 +490,23 @@ namespace Shakutori
             AddMob("frog", NG(NightLayout.Pond + new Vector2(-NightLayout.PondRadii.x - 1.2f, -2f)), 1, 2f);
             AddMob("frog", NG(NightLayout.Pond + new Vector2(2f, NightLayout.PondRadii.y + 1.4f)), 1, 2f);
             AddMob("snail", TopSurface(NightLayout.GlowLog + new Vector2(3f, 2f)), 1, 2f);
+            // ほかのエリアからも：夜の鳥・夜に歩くけもの・夜の虫
+            // フクロウ：星見の岩・ねぐらの木の高い枝・丸木橋の上を、音もなく飛びうつる（シマエナガとは、ちがう所から）
+            {
+                var spots = new List<Vector3> { TopSurface(NightLayout.StarRock) };
+                foreach (var p in _roostPerches)
+                    if (p.y - NightLayout.Height(p.x, p.z) > 12f) spots.Add(p);
+                spots.Add(TopSurface(NightLayout.BridgeCenter));
+                var g = AddMob("fukurou", spots[0], 1, 1.5f);
+                foreach (var p in spots) g.path.Add(p);
+                g.showcase = true;
+            }
+            // ホンドタヌキ：竹やぶとミノムシの木のあいだの、林の中
+            AddMob("tanuki", NG(new Vector2(-27f, 31f)), 1, 6f);
+            // カブトムシ：ツキヨタケの倒木の上（夜に、樹液や朽ち木に集まる）
+            AddMob("beetle", TopSurface(NightLayout.GlowLog + new Vector2(-4f, -1.5f)), 1, 1.5f);
+            // エンマコオロギ：月見の池の南の、ススキの原（キリギリスとは反対がわ）
+            AddMob("korogi", NG(NightLayout.Pond + new Vector2(4f, -12f)), 2, 2.5f);
         }
 
         // ------------------------------------------------------------------

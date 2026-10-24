@@ -395,6 +395,48 @@ namespace Shakutori
                 g.face = _mittenFace;
                 g.showcase = true;
             }
+            // ほかのエリアからも：雪の上のけものと、冬の小鳥
+            // ホンドギツネ：西の雪の原（雪の下のネズミをねらって、ジャンプ）
+            AddMob("kitsune", XG(new Vector2(-46f, -6f)), 1, 8f);
+            // シマエナガ：雪のモミの木の、段の上をとびうつる
+            {
+                var spots = FirPerches(5);
+                if (spots.Count > 1)
+                {
+                    var g = AddMob("shimaenaga", spots[0], 1, 1.5f);
+                    foreach (var p in spots) g.path.Add(p);
+                    g.showcase = true;
+                }
+            }
+            // スズメ：ふくらすずめ。ひらけた雪の上を、とびまわる
+            {
+                var g = AddMob("sparrow", XG(new Vector2(-12f, -30f)), 3, 3f);
+                Vector2[] spots = { new Vector2(-12f, -30f), new Vector2(-24f, 18f), new Vector2(22f, 22f), new Vector2(-30f, -16f), new Vector2(26f, -32f) };
+                foreach (var p in spots) g.path.Add(XG(p));
+            }
+            // ニホンリス：北西のモミの木の根もと（まつぼっくりが落ちている所）
+            AddMob("risu", XG(new Vector2(-32f, 45f)), 1, 5f);
+        }
+
+        /// <summary>雪のモミの木の、段の上（小鳥がとまる所）。上からのレイで、さがす。</summary>
+        List<Vector3> FirPerches(int max)
+        {
+            var list = new List<Vector3>();
+            Physics.SyncTransforms();
+            foreach (var f in _xmasFirs)
+            {
+                foreach (var a in new[] { 0.6f, 2.6f, 4.4f })
+                {
+                    Vector3 from = XG(f) + new Vector3(Mathf.Cos(a) * 3.2f, 70f, Mathf.Sin(a) * 3.2f);
+                    if (!Physics.Raycast(from, Vector3.down, out var hit, 80f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)) continue;
+                    if (!hit.collider.name.StartsWith("Xmas_Fir") || hit.normal.y < 0.5f) continue;
+                    if (hit.point.y - XmasLayout.Height(hit.point.x, hit.point.z) < 10f) continue;
+                    list.Add(hit.point);
+                    break;
+                }
+                if (list.Count >= max) break;
+            }
+            return list;
         }
 
         // ------------------------------------------------------------------

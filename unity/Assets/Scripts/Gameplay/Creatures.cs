@@ -3220,7 +3220,7 @@ namespace Shakutori
                 {
                     int next = (m.landIndex + 1 + _rng.Next(spots.Count - 1)) % spots.Count;
                     m.landIndex = next;
-                    dest = spots[next] + new Vector3(R(-1.5f, 1.5f), 0f, R(-1.5f, 1.5f)) * (crow ? 2f : m.sp.id == "robin" ? 0f : m.sp.id == "tsubame" || m.sp.id == "shimaenaga" ? 0.3f : 1f);
+                    dest = spots[next] + new Vector3(R(-1.5f, 1.5f), 0f, R(-1.5f, 1.5f)) * (crow ? 2f : m.sp.id == "robin" || m.sp.id == "fukurou" ? 0f : m.sp.id == "tsubame" || m.sp.id == "shimaenaga" ? 0.3f : 1f);
                 }
                 else
                 {
@@ -3229,7 +3229,8 @@ namespace Shakutori
                 }
                 if (Vector2.Distance(new Vector2(dest.x, dest.z), new Vector2(_head.x, _head.z)) > avoid) break;
             }
-            float spread = crow ? 3f : m.sp.id == "robin" ? 0.2f : 1.5f;   // コマドリは、小さなとまり木（くいの頭・ランプの屋根）の上に、そのまま
+            // コマドリ・フクロウは、とまり木（くいの頭・ランプの屋根・枝・岩の上）の上に、そのまま（まわりの平らな地面をえらばない）
+            float spread = crow ? 3f : m.sp.id == "robin" || m.sp.id == "fukurou" ? 0.2f : 1.5f;
             if (FlatLanding(dest, spread, out var spot)) dest = spot;
             else if (spots.Count > 0 && FlatLanding(spots[m.landIndex], spread, out spot)) dest = spot;
             m.from = m.pos;

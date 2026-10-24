@@ -170,7 +170,7 @@ namespace Shakutori.Tests
             {
                 CollectionAssert.Contains(ids, id, $"{id} が神社にいる");
                 var sp = SpeciesCatalog.Get(id);
-                Assert.AreEqual("神社", sp.areaLabel, id);
+                Assert.IsTrue(GameUI.LivesIn(sp, "神社"), id);
                 Assert.IsFalse(sp.IsRare, id);
                 Assert.IsNotNull(_gen.assets.TryGet(sp.body), $"{id} の体のメッシュ");
                 Assert.IsNotNull(_gen.assets.Portrait(id), $"{id} の図鑑の絵");

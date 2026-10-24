@@ -158,7 +158,7 @@ namespace Shakutori.Tests
                 CollectionAssert.Contains(ids, id, $"{id} が山にいる");
                 var sp = SpeciesCatalog.Get(id);
                 Assert.IsNotNull(sp, id);
-                Assert.AreEqual("山", sp.areaLabel, id);
+                Assert.IsTrue(GameUI.LivesIn(sp, "山"), id);
                 Assert.IsFalse(sp.IsRare, id);
                 Assert.IsNotNull(_gen.assets.TryGet(sp.body), $"{id} の体のメッシュ");
                 Assert.IsNotNull(_gen.assets.Portrait(id), $"{id} の図鑑の絵");
