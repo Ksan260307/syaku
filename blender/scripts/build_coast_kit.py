@@ -145,6 +145,25 @@ def make_islet():
     """遠くの小島（灯台の土台）：大きな岩"""
     mb = MB()
     reef_blob(mb, (0, 0, 2.0), (22.0, 16.0, 7.0), 777, cuts=8, flat_top=0.55, floor=-0.5, wet=0.3, barnacles=0)
+    top = max(p.z for p in mb.V)
+    for i, p in enumerate(mb.V):
+        c = mb.C[i]
+        if p.z > top - 1.6:
+            g = sstep(top - 1.6, top - 0.6, p.z) * (0.7 + 0.3 * noise.noise(p * 0.3))
+            c = mixc(c, mixc(hexc("#5e7a3a"), hexc("#8aa452"), 0.5 + 0.5 * noise.noise(p * 0.5)), g)   # 上の草地
+        elif p.z < 1.2:
+            c = mixc(c, hexc("#2e2c2a"), 0.5 * sstep(1.2, -0.5, p.z))                                # 波でぬれた、黒いすそ
+        if abs(math.sin(p.x * 0.9 + noise.noise(p * 0.2) * 3.0)) < 0.06 and 1.5 < p.z < top - 1.0:
+            c = mixc(c, hexc("#e8e4da"), 0.7)                                                        # 海鳥のふんの、白いすじ
+        mb.C[i] = c
+    rnd = random.Random(778)
+    for k in range(7):
+        a = rnd.uniform(0, TAU)
+        r = rnd.uniform(0, 8.0)
+        c = Vector((math.cos(a) * r, math.sin(a) * r * 0.7, top - 0.3))
+        s = rnd.uniform(1.6, 3.2)
+        uv_sphere(mb, c, 1.0, lambda n: mixc(hexc("#2f4a26"), hexc("#5e7a3a"), sstep(-0.3, 0.9, n.z)), seg=12, rings=7,
+                  scale=Vector((s, s * 0.85, s * 0.6)))
     return build(mb, "Coast_Islet")
 
 
@@ -491,10 +510,37 @@ def make_lighthouse():
         if z > 22.15:
             return hexc("#3c4a52")
         return scalec(hexc("#f4f2ec"), 0.92 + 0.08 * math.cos(a))
-    lathe(mb, prof, 20, cf)
-    # 明かりの部屋（ガラス）と屋根
-    lathe(mb, [(0.0, 23.2), (1.7, 23.2), (1.7, 25.6), (0.0, 25.6)], 14, lambda t, a, p: hexc("#fff3b0"))
-    lathe(mb, [(0.0, 25.6), (2.1, 25.6), (0.25, 27.6), (0.0, 28.2)], 14, lambda t, a, p: hexc("#c43b33"))
+    lathe(mb, prof, 32, cf)
+    # 入り口のとびらと、らせん階段の小さな窓（塔の表面に、うすい板）
+    def wall_r(z):
+        for (r0, z0), (r1, z1) in zip(prof, prof[1:]):
+            if z0 <= z <= z1 and z1 > z0:
+                return lerp(r0, r1, (z - z0) / (z1 - z0))
+        return 2.5
+    for (a, z, w, h, col) in ((0.0, 1.6, 1.3, 2.6, hexc("#4a5a6a")), (0.6, 7.0, 0.55, 1.0, hexc("#2e3a44")), (2.4, 11.0, 0.55, 1.0, hexc("#2e3a44")),
+                              (4.2, 15.0, 0.55, 1.0, hexc("#2e3a44")), (0.3, 19.5, 0.55, 1.0, hexc("#f2f0e8"))):
+        r = wall_r(z) + 0.04
+        d = Vector((math.cos(a), math.sin(a), 0))
+        t = Vector((-d.y, d.x, 0))
+        q = [d * r + t * (w * sx) + Vector((0, 0, z + h * sz)) for sx, sz in ((-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5))]
+        vs = [mb.v(p, col) for p in q]
+        mb.f(*vs)
+    # 明かりの部屋の前の、まわり廊下の手すり（輪と、柱）
+    for z in (23.0, 23.9):
+        tube(mb, [Vector((math.cos(TAU * k / 32) * 2.8, math.sin(TAU * k / 32) * 2.8, z)) for k in range(33)], [0.06] * 33, 4,
+             lambda t, a, p, d: hexc("#2a2e34"))
+    for k in range(16):
+        a = TAU * k / 16
+        b0 = Vector((math.cos(a) * 2.8, math.sin(a) * 2.8, 22.9))
+        tube(mb, [b0, b0 + Vector((0, 0, 1.1))], [0.06, 0.06], 4, lambda t, a2, p, d: hexc("#2a2e34"))
+    # 明かりの部屋（ガラス）と、ガラスのわく
+    lathe(mb, [(0.0, 23.2), (1.7, 23.2), (1.7, 25.6), (0.0, 25.6)], 24, lambda t, a, p: hexc("#fff3b0"))
+    for k in range(8):
+        a = TAU * k / 8
+        b0 = Vector((math.cos(a) * 1.74, math.sin(a) * 1.74, 23.2))
+        tube(mb, [b0, b0 + Vector((0, 0, 2.4))], [0.07, 0.07], 4, lambda t, a2, p, d: hexc("#2a2e34"))
+    lathe(mb, [(0.0, 25.6), (2.1, 25.6), (0.25, 27.6), (0.0, 28.2)], 24, lambda t, a, p: hexc("#c43b33"))
+    uv_sphere(mb, Vector((0, 0, 28.3)), 0.35, lambda n: hexc("#2a2e34"), seg=10, rings=6)   # 屋根の上の、風見の玉
     return build(mb, "Coast_Lighthouse")
 
 
@@ -582,15 +628,26 @@ def make_kelp(name, seed):
         h = rnd.uniform(1.6, 2.8)
         la = rnd.uniform(0, TAU)
         lean = Vector((math.cos(la), math.sin(la), 0))
-        n = 9
-        pts, ws, sides = [], [], []
+        n = 20
+        pts, ws, sides, nrms = [], [], [], []
         for s in range(n):
             t = s / (n - 1)
             pts.append(base + Vector((0, 0, h * t)) + lean * (0.5 * t * t) + Vector((math.sin(t * 7 + k) * 0.12, 0, 0)))
-            ws.append(0.42 * math.sin(math.pi * min(1.0, t * 1.1 + 0.05)) * (1.0 + 0.2 * math.sin(t * 13 + k)))
-            sides.append(Vector((-lean.y, lean.x, 0)))
+            # 羽のように切れこんだ、はばの広い葉（ふちのでこぼこ）
+            ws.append(0.55 * math.sin(math.pi * min(1.0, t * 1.1 + 0.05)) ** 0.7 * (1.0 + 0.12 * math.sin(t * 15 + k)))
+            tw = 0.35 * math.sin(t * 5 + k)                     # ゆるく、ねじれる
+            side = Vector((-lean.y, lean.x, 0))
+            side = (side * math.cos(tw) + Vector((0, 0, 1)).cross(side) * math.sin(tw)).normalized()
+            sides.append(side)
+            nrms.append(side.cross(Vector((0, 0, 1))).normalized())
         ws[-1] = 0.0
-        ribbon(mb, pts, ws, sides, lambda t, v, p: with_alpha(mixc(hexc("#4a5e22"), hexc("#8a8a3a"), t * 0.8), t), fold=0.1)
+
+        def kelp_col(t, v, p):
+            c = mixc(hexc("#4e4a1e"), hexc("#8e8636"), 0.25 + 0.6 * t)
+            c = mixc(c, hexc("#b8ac5a"), 0.45 * sstep(0.35, 0.0, abs(v)))          # 中すじ
+            c = mixc(c, hexc("#3a3818"), 0.3 * sstep(0.7, 1.0, abs(v)))            # ふちは、こい
+            return with_alpha(c, t)
+        ribbon(mb, pts, ws, sides, kelp_col, fold=0.14, normal_vecs=nrms)
     return build(mb, name)
 
 
@@ -598,19 +655,38 @@ def make_wrack(name, seed):
     """打ち上げられた海藻のかたまり（砂の上に、ぺたりと）"""
     rnd = random.Random(seed)
     mb = MB()
-    for k in range(8):
+    tints = [(hexc("#2e2a16"), hexc("#5a5424")), (hexc("#3d3a1e"), hexc("#6b6a2c")), (hexc("#6a5a2a"), hexc("#b8a258")), (hexc("#24301a"), hexc("#4e6a2a"))]
+    bladders = []
+    for k in range(14):
         a = rnd.uniform(0, TAU)
         d = Vector((math.cos(a), math.sin(a), 0))
         side = Vector((-d.y, d.x, 0))
-        L = rnd.uniform(1.2, 2.4)
-        pts = [d * (L * s / 6) + side * 0.25 * math.sin(s * 1.3 + k) + Vector((0, 0, 0.05 + 0.04 * math.sin(s + k))) for s in range(7)]
-        ws = [0.25, 0.3, 0.32, 0.28, 0.24, 0.16, 0.0]
-        ribbon(mb, pts, ws, [side] * 7,
-               lambda t, v, p: with_alpha(mixc(hexc("#3d3a1e"), hexc("#6b6a2c"), 0.3 + 0.5 * t), 0.0), fold=0.05,
-               normal_vecs=[Vector((0, 0, 1))] * 7)
+        L = rnd.uniform(1.0, 2.6)
+        lift = rnd.uniform(0.0, 0.25)                                   # 下の葉に、上の葉が重なって、ふっくら
+        n = 10
+        st = Vector((rnd.uniform(-0.9, 0.9), rnd.uniform(-0.7, 0.7), 0)) - d * L * 0.5   # かたまりの中に、ばらばらの向きで
+        pts = [st + d * (L * s / (n - 1)) + side * 0.25 * math.sin(s * 0.8 + k) +
+               Vector((0, 0, 0.05 + lift * math.sin(math.pi * s / (n - 1)) + 0.04 * math.sin(s * 0.7 + k))) for s in range(n)]
+        ws = [0.22 + 0.12 * math.sin(math.pi * s / (n - 1)) * (1.0 + 0.4 * math.sin(s * 2.1 + k)) for s in range(n)]
+        ws[-1] = 0.0
+        c0, c1 = tints[k % len(tints)]
+        ribbon(mb, pts, ws, [side] * n,
+               lambda t, v, p, c0=c0, c1=c1: with_alpha(mixc(mixc(c0, c1, 0.3 + 0.5 * t), hexc("#1e1c10"), 0.3 * sstep(0.6, 1.0, abs(v))), 0.0),
+               fold=0.08, normal_vecs=[Vector((0, 0, 1))] * n)
+        if k % 2 == 0:
+            for s in range(2, n - 1, 3):
+                bladders.append(pts[s] + side * rnd.uniform(-0.15, 0.15) + Vector((0, 0, 0.05)))
+    for q in bladders:
+        uv_sphere(mb, q, rnd.uniform(0.05, 0.08), lambda n: mixc(hexc("#4a4020"), hexc("#8a7638"), sstep(-0.2, 0.9, n.z)), seg=6, rings=4)
+    # 細長いアマモの葉（緑から、かれた黄土色）
     for k in range(5):
-        uv_sphere(mb, Vector((rnd.uniform(-0.8, 0.8), rnd.uniform(-0.8, 0.8), 0.08)), 0.09,
-                  lambda n: hexc("#5a4e22"), seg=6, rings=4)
+        a = rnd.uniform(0, TAU)
+        d = Vector((math.cos(a), math.sin(a), 0))
+        side = Vector((-d.y, d.x, 0))
+        L = rnd.uniform(2.0, 3.0)
+        pts = [d * (L * s / 7 - 0.6) + side * 0.4 * math.sin(s * 0.6 + k) + Vector((0, 0, 0.1 + 0.05 * math.sin(s + k))) for s in range(8)]
+        ribbon(mb, pts, [0.07] * 7 + [0.0], [side] * 8,
+               lambda t, v, p: with_alpha(mixc(hexc("#4e6a2a"), hexc("#c8b070"), t), 0.0), fold=0.02, normal_vecs=[Vector((0, 0, 1))] * 8)
     return build(mb, name)
 
 

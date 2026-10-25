@@ -919,7 +919,9 @@ def make_hollow_log():
             p = Vector((x, math.cos(a) * r, math.sin(a) * r))
             up = math.sin(a)
             c = bark_color(Vector((x, p.y, p.z)), a, g * 0.75, 3.0)
-            m = sstep(0.1, 0.55, up + 0.35 * noise.noise(Vector((x * 0.15, a * 2, 1.0))))
+            # 苔は、上がわに、まだらの島のように（樹皮のすじが、あいだから見える。丸太ぜんたいを緑の箱にしない）
+            patch = noise.noise(Vector((x * 0.11, math.cos(a) * 1.6, math.sin(a) * 1.6 + 2.0))) + 0.5 * noise.noise(p * 0.5)
+            m = sstep(0.25, 0.6, up * 0.7 + 0.55 * patch) * (1.0 - 0.6 * g)
             c = mixc(c, mixc(MOSS_A, MOSS_B, 0.5 + 0.5 * noise.noise(p * 0.8)), m)
             ro.append(mb.v(p, c))
             rin = Ri * (1.0 + 0.06 * noise.noise(Vector((x * 0.2, math.cos(a) * 2, math.sin(a) * 2))))
@@ -1001,7 +1003,10 @@ def log_berms(mb, Ro, L):
                 p = Vector((x, s * py, pz))
                 top = sstep(g + 0.5, g + 2.5, pz)
                 c = mixc(hexc("#6b5236"), hexc("#8a6a44"), 0.5 + 0.5 * noise.noise(p * 0.9))   # 土と落ち葉
-                c = mixc(c, mixc(MOSS_A, MOSS_B, 0.5 + 0.5 * noise.noise(p * 1.3)), 0.35 + 0.55 * top)
+                leaf = noise.noise(p * 1.7 + Vector((5.0, 0, 0)))
+                c = mixc(c, hexc("#b8783a") if leaf > 0.25 else hexc("#9a5a2e"), sstep(0.15, 0.45, abs(leaf)) * 0.6)   # 赤茶・黄土の落ち葉
+                moss = sstep(-0.1, 0.35, noise.noise(p * 0.45 + Vector((0, 7.0, 0))) + 0.4 * top)
+                c = mixc(c, mixc(MOSS_A, MOSS_B, 0.5 + 0.5 * noise.noise(p * 1.3)), (0.25 + 0.5 * top) * moss)
                 ring.append(mb.v(p, c))
             rings.append(ring)
         for i in range(nx):
@@ -1186,15 +1191,19 @@ def make_oak_leaf(name, base_col, edge_col, seed, length=5.0):
 
 def make_maple_leaf(name, base_col, edge_col, seed, size=2.6):
     mb = MB()
-    lobes = [(-1.9, 0.55), (-1.05, 0.78), (0.0, 1.0), (1.05, 0.78), (1.9, 0.55)]
+    # イロハモミジ：てのひらの形に、深く 7 つに切れこむ（根もとの 2 つは小さい）。ふちは、こまかなギザギザ
+    lobes = [(-2.4, 0.3), (-1.68, 0.6), (-0.86, 0.86), (0.0, 1.0), (0.86, 0.86), (1.68, 0.6), (2.4, 0.3)]
 
     def rfn(th):
-        r = 0.32
+        r = 0.34
+        best, bd = 0.0, 9.0
         for c, s in lobes:
             d = wrap_angle(th - c)
-            r = max(r, s * math.exp(-(d / 0.33) ** 2) + 0.3 * math.exp(-(d / 0.6) ** 2))
-            # 鋸歯
-        r *= 1.0 + 0.05 * math.sin(th * 26)
+            r = max(r, s * math.exp(-(d / 0.3) ** 2) + 0.26 * math.exp(-(d / 0.55) ** 2))
+            if abs(d) < bd:
+                best, bd = s, abs(d)
+        # ギザギザは、切れこみの奥ではなく、葉のへりに
+        r *= 1.0 + 0.045 * math.sin(th * 52) * sstep(0.35, 0.6, r / max(best, 0.3))
         return r * size
 
     def zfn(rho, th):
@@ -1203,12 +1212,16 @@ def make_maple_leaf(name, base_col, edge_col, seed, size=2.6):
     def cf(rho, th, p):
         vein = 0.0
         for c, s in lobes:
-            vein = max(vein, sstep(0.07, 0.0, abs(wrap_angle(th - c))) * sstep(0.95, 0.1, rho))
+            d = wrap_angle(th - c)
+            vein = max(vein, sstep(0.05, 0.0, abs(d)) * sstep(0.95, 0.1, rho))
+            # 主脈から、ななめに分かれる細い脈
+            side = abs(math.sin((rho * 9.0 - abs(d) * 5.0) * math.pi * 0.5))
+            vein = max(vein, 0.5 * sstep(0.08, 0.0, side) * sstep(0.2, 0.05, abs(d)) * sstep(0.9, 0.3, rho))
         col = mixc(base_col, edge_col, sstep(0.45, 1.0, rho))
         col = scalec(col, 0.93 + 0.12 * noise.noise(p * 1.1 + Vector((0, 0, seed))))
         col = mixc(col, mixc(base_col, hexc("#fff0c0"), 0.45), vein * 0.7)
         return col
-    polar_sheet(mb, rfn, cf, n_ang=120, n_rad=7, zfn=zfn)
+    polar_sheet(mb, rfn, cf, n_ang=208, n_rad=12, zfn=zfn)
     pts = [Vector((0, -0.3 * size * t, 0.02 + 0.1 * t)) for t in (0, 0.4, 0.8, 1.0)]
     tube(mb, pts, [0.07, 0.06, 0.05, 0.0], 6, lambda t, a, p, d: scalec(base_col, 0.75))
     return build(mb, name, solidify=0.05)
@@ -1788,7 +1801,7 @@ def make_shelf_fungus(name="ShelfFungus", R=2.2, D=1.7):
     """木の幹にはえる、棚のようなキノコ（サルノコシカケ）。背中（y=0）を幹につけ、-Y（Unity の +Z）へ張り出す。
     上はほぼ平らで、しゃくとりむしが乗って休める"""
     mb = MB()
-    n_ang, n_rad = 24, 6
+    n_ang, n_rad = 48, 18
 
     def rim(th):
         return 1.0 + 0.05 * math.sin(th * 5.0) + 0.03 * math.sin(th * 11.0 + 1.0)
@@ -1804,13 +1817,18 @@ def make_shelf_fungus(name="ShelfFungus", R=2.2, D=1.7):
         return Vector((x, y, z))
 
     def top_col(rho, th):
-        band = 0.5 + 0.5 * math.sin(rho * 22.0)
-        c = mixc(hexc("#5e3c22"), hexc("#b07a45"), 0.35 + 0.45 * rho)
-        c = mixc(c, hexc("#d6a46a"), band * 0.35 * rho)
-        return mixc(c, hexc("#f1dfb8"), sstep(0.86, 1.0, rho) * 0.8)
+        # 年輪のような、こい茶・赤茶・黄土の帯（ふちほど、新しくて明るい）
+        w = rho * 7.0 + 0.25 * math.sin(th * 5.0 + rho * 3.0)
+        band = w - math.floor(w)
+        c = mixc(hexc("#4a2e1a"), hexc("#9a6236"), 0.25 + 0.55 * rho)
+        c = mixc(c, hexc("#c88a4e") if int(w) % 2 else hexc("#6e4024"), 0.55 * sstep(0.15, 0.45, band) * sstep(0.95, 0.7, band))
+        c = scalec(c, 0.92 + 0.12 * noise.noise(Vector((math.cos(th) * rho * 4, math.sin(th) * rho * 4, 2.0))))
+        return mixc(c, hexc("#f4e6c4"), sstep(0.88, 0.98, rho) * 0.9)   # 白っぽい、生えている所のふち
 
     def bot_col(rho, th):
-        return mixc(hexc("#efe2c6"), hexc("#d8c6a0"), 0.5 * (1.0 - rho))
+        c = mixc(hexc("#f2e8d0"), hexc("#d8c6a0"), 0.5 * (1.0 - rho))
+        dots = noise.noise(Vector((math.cos(th) * rho * 30, math.sin(th) * rho * 30, 1.0)))
+        return mixc(c, hexc("#c8b48c"), 0.4 * sstep(0.3, 0.6, dots))   # うらの、小さな穴（管孔）
 
     top_rings, bot_rings = [], []
     for k in range(n_rad + 1):
@@ -1847,16 +1865,26 @@ def make_shelf_fungus(name="ShelfFungus", R=2.2, D=1.7):
 def make_puffball(name="Mushroom_Puffball"):
     """ホコリタケ（ころんと丸いキノコ。てっぺんに胞子の出る穴）"""
     mb = MB()
-    prof = [(0.0, 0.0), (0.38, 0.0), (0.55, 0.12), (0.82, 0.45), (0.92, 0.85), (0.86, 1.2), (0.6, 1.48), (0.22, 1.6), (0.0, 1.58)]
-    rnd = random.Random(7)
+    # 洋なしの形：下は細い柄のよう（しわのある根もと）で、上がまるくふくらむ
+    base = [(0.0, 0.0), (0.4, 0.0), (0.46, 0.14), (0.56, 0.32), (0.78, 0.55), (0.92, 0.86), (0.9, 1.18), (0.66, 1.46), (0.26, 1.6), (0.0, 1.58)]
+    prof = []
+    for (r0, z0), (r1, z1) in zip(base, base[1:]):
+        for k in range(6):
+            prof.append((lerp(r0, r1, k / 6), lerp(z0, z1, k / 6)))
+    prof.append(base[-1])
+
+    def wart(p):
+        # 上半分に、とがった小さないぼ（さわると落ちる）
+        return sstep(0.25, 0.55, noise.noise(p * 11.0 + Vector((3, 1, 0)))) * sstep(0.4, 0.9, p.z)
 
     def col(t, a, p):
-        c = mixc(hexc("#d9c7a2"), hexc("#f4ead2"), sstep(0.1, 1.0, p.z))
-        wart = sstep(0.62, 0.8, noise.noise(p * 6.0 + Vector((3, 1, 0))))
-        c = mixc(c, hexc("#b39a70"), wart * 0.6)
+        c = mixc(hexc("#c4ae86"), hexc("#f2e6cc"), sstep(0.1, 1.0, p.z))
+        c = mixc(c, hexc("#8e7448"), wart(p) * 0.85)
+        if p.z < 0.45:
+            c = mixc(c, hexc("#b8a27a"), 0.5 * sstep(0.6, 0.9, abs(math.sin(math.atan2(p.y, p.x) * 9))))   # 根もとの、たてのしわ
         hole = sstep(0.3, 0.05, math.hypot(p.x, p.y)) * sstep(1.4, 1.58, p.z)
         return mixc(c, hexc("#6d5a3e"), hole)
-    lathe(mb, prof, 24, col, rfn=lambda t, a: 1.0 + 0.04 * math.sin(a * 3 + 1.0))
+    lathe(mb, prof, 48, col, rfn=lambda t, a: 1.0 + 0.04 * math.sin(a * 3 + 1.0) + 0.05 * wart(Vector((math.cos(a), math.sin(a), lerp(0.0, 1.6, t)))))
     return build(mb, name)
 
 
@@ -1865,20 +1893,38 @@ def make_drift_log(name="DriftLog", length=9.0, seed=4):
     rnd = random.Random(seed)
     mb = MB()
     n = 18
-    pts, rad = [], []
+    pts0, rad0 = [], []
     for i in range(n):
         t = i / (n - 1)
-        pts.append(Vector(((t - 0.5) * length, 0.35 * math.sin(t * 2.6 + seed), 0.45 + 0.08 * math.sin(t * math.pi))))
-        rad.append(lerp(0.55, 0.36, t) * (1.0 + 0.06 * math.sin(t * 17.0)))
+        pts0.append(Vector(((t - 0.5) * length, 0.35 * math.sin(t * 2.6 + seed), 0.45 + 0.08 * math.sin(t * math.pi))))
+        rad0.append(lerp(0.55, 0.36, t) * (1.0 + 0.06 * math.sin(t * 17.0)))
+    # 形はそのままで、輪を細かくする（木目・ひび・節の色が見えるように）
+    pts, rad = [], []
+    for i in range(n - 1):
+        for k in range(3):
+            pts.append(pts0[i].lerp(pts0[i + 1], k / 3))
+            rad.append(lerp(rad0[i], rad0[i + 1], k / 3))
+    pts.append(pts0[-1])
+    rad.append(rad0[-1])
+    n = len(pts)
+    knots = (-2.6, 1.4, 3.3)
 
     def bc(t, a, p, d):
-        grain = 0.5 + 0.5 * math.sin(a * 9.0 + p.x * 1.4)
-        c = mixc(hexc("#bdb3a0"), hexc("#ddd5c4"), grain * 0.6 + 0.2 * noise.noise(p * 1.3))
-        return mixc(c, hexc("#8f8574"), sstep(0.8, 1.0, grain) * 0.4)
-    rings = tube(mb, pts, rad, 14, bc)
+        # 水と日に洗われた、銀白色の木目：ねじれた、こまかなすじと、ふかいひび
+        tw = a + p.x * 0.18
+        grain = 0.5 + 0.5 * math.sin(tw * 16.0 + 1.2 * noise.noise(p * 0.8))
+        c = mixc(hexc("#a49a86"), hexc("#e8e1d2"), grain * 0.7 + 0.25 * noise.noise(p * 1.3))
+        c = mixc(c, hexc("#776c5a"), sstep(0.85, 1.0, grain) * 0.6)
+        crack = abs(math.sin(tw * 5.0 + 0.6 * noise.noise(p * 0.5 + Vector((2, 0, 0)))))
+        c = mixc(c, hexc("#4e4538"), sstep(0.09, 0.0, crack) * sstep(0.1, 0.4, noise.noise(p * 0.3)))
+        for kx in knots:
+            dd = math.hypot(p.x - kx, wrap_angle(a - 1.2) * 0.5)
+            c = mixc(c, hexc("#6a5a46"), sstep(0.45, 0.2, dd) * 0.8)   # 枝の節
+        return c
+    rings = tube(mb, pts, rad, 28, bc)
     for end in (0, len(rings) - 1):
         ring = rings[end]
-        c = mb.v(pts[end] + (pts[end] - pts[1 if end == 0 else end - 1]).normalized() * 0.04, hexc("#e8dcc0"))
+        c = mb.v(pts[end] + (pts[end] - pts[1 if end == 0 else end - 1]).normalized() * 0.04, hexc("#cdb994"))   # 切り口の、まん中はこい
         cnt = len(ring)
         for j in range(cnt):
             if end == 0:

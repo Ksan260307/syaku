@@ -445,7 +445,7 @@ def make_butterfly_wing():
             c = hexc("#ff9a3a")
         vein = sstep(0.04, 0.0, abs(math.sin(th * 7)) - 0.0) * 0.25
         return scalec(c, 1.0 - vein)
-    polar_sheet(mb, rfn, cf, n_ang=60, n_rad=8, a0=0.05, a1=3.05, zfn=lambda rho, th: 0.03 * rho * rho, full=False)
+    polar_sheet(mb, rfn, cf, n_ang=100, n_rad=20, a0=0.05, a1=3.05, zfn=lambda rho, th: 0.03 * rho * rho, full=False)
     return build(mb, "Butterfly_Wing")
 
 
@@ -1571,7 +1571,8 @@ def make_bird_wing(name, L, crow):
     for i in range(cols):
         for j in range(rows):
             mb.f(grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1])
-    nf = 12 if crowish else 10
+    nf = 14 if crowish else 13
+    feathers = []
     for k in range(nf):
         u = k / (nf - 1)
         x0 = span * 0.6 * u
@@ -1581,17 +1582,43 @@ def make_bird_wing(name, L, crow):
         flen = (0.17 if crowish else 0.12 if slim else 0.15) + (0.2 if crowish else 0.24 if slim else 0.16) * u ** 1.2
         d = Vector((math.sin(ang), -math.cos(ang), 0.0))
         tip = root + d * flen
-        mid = root.lerp(tip, 0.55)
-        wid = 0.05 if crowish else 0.034 if slim else 0.045
-        if crowish and u > 0.75:
+        wid = 0.06 if crowish else 0.04 if slim else 0.054
+        finger = crowish and u > 0.75
+        if finger:
             wid *= 0.7
         fc = mixc(flight, edge, 0.4 * u)
         if gull and u > 0.6:
             fc = edge   # 外がわの羽は黒い
         if style == "flamingo" and u < 0.35:
             fc = mixc(cov, hexc("#ff7f8f"), 0.4)   # 内がわの羽はピンク、外がわの羽は黒
-        ribbon(mb, [root, mid, tip], [wid, wid * 1.05, wid * 0.45], [Vector((math.cos(ang), math.sin(ang), 0))] * 3,
+        feathers.append((u, root, tip, ang, wid, fc, finger))
+    # 風切り羽の下の、つながった面（羽と羽のすきまから、むこうが見えない。くしの歯のように見せない）。
+    # 羽の先の近くまで。カラスの、指のように分かれた先の羽のあいだは、あけておく
+    under = []
+    for u, root, tip, ang, wid, fc, finger in feathers:
+        reach = 0.42 if finger else 0.8
+        line = []
+        for s in (0.0, 0.5, 1.0):
+            p = root.lerp(tip, s * reach) + Vector((0, 0, 0.006 - 0.004 * s))
+            line.append(mb.v(p, mixc(fc, edge, 0.15 * s)))
+        under.append(line)
+    for k in range(nf - 1):
+        a, b = under[k], under[k + 1]
+        for s in range(2):
+            mb.f(a[s], a[s + 1], b[s + 1], b[s])
+    for u, root, tip, ang, wid, fc, finger in feathers:
+        mid = root.lerp(tip, 0.55)
+        ribbon(mb, [root, mid, tip], [wid, wid * 1.1, wid * 0.7], [Vector((math.cos(ang), math.sin(ang), 0))] * 3,
                lambda tt, v, p, fc=fc, u=u: (hexc("#f2f4f6") if gull and u > 0.6 and tt > 0.9 else mixc(fc, edge, sstep(0.75, 1.0, tt) * 0.6)), fold=0.08,
+               normal_vecs=[Vector((0, 0, 1))] * 3)
+    # 大雨おおい羽：風切り羽の根もとに重なる、短くて広い羽の列（翼の色の帯の、ふちのギザギザ）
+    for u, root, tip, ang, wid, fc, finger in feathers[:-3]:
+        r0 = root + Vector((0, 0.01, 0.008))
+        t0 = root.lerp(tip, 0.42) + Vector((0, 0, 0.01))
+        cc = mixc(cov, fc, 0.35)
+        tipc = hexc("#f2ece0") if style == "sparrow" else mixc(cc, edge, 0.35)   # スズメは、大雨おおいの先が白い帯
+        ribbon(mb, [r0, r0.lerp(t0, 0.5), t0], [wid * 1.15, wid * 1.2, wid * 0.8], [Vector((math.cos(ang), math.sin(ang), 0))] * 3,
+               lambda tt, v, p, cc=cc, tipc=tipc: mixc(cc, tipc, sstep(0.7, 0.95, tt)), fold=0.06,
                normal_vecs=[Vector((0, 0, 1))] * 3)
     mb.xform(Matrix.Diagonal((L, L, L, 1)))
     return build(mb, name, solidify=0.012 * L)
@@ -1915,13 +1942,14 @@ def make_monshiro_wing():
         c = mixc(hexc("#e9ecd8"), hexc("#fbfbf4"), sstep(0.1, 0.6, rho))
         if th > 1.75:
             c = mixc(c, hexc("#f6efc2"), 0.4 * sstep(0.2, 0.0, abs(rho - 0.3)))   # うしろばねは、少しクリーム色
-        if th < 1.3 and rho > 0.78:
-            c = mixc(c, hexc("#3a3a40"), 0.85)                                    # 前ばねの先は黒
-        for (r0, t0) in ((0.55, 1.05), (0.42, 1.55)):
-            if math.hypot(rho - r0, (th - t0) * 0.5) < 0.07:
-                c = hexc("#3a3a40")
+        if 0.5 < th < 1.2 and rho > 0.8:
+            c = mixc(c, hexc("#3a3a40"), 0.85 * sstep(0.5, 0.75, th) * sstep(1.2, 1.0, th))   # 前ばねの先（かど）だけ黒
+        for (r0, t0) in ((0.5, 0.95), (0.36, 1.35)):
+            q = Vector((math.sin(t0) * r0, math.cos(t0) * r0))
+            dist = (Vector((p.x, p.y)) - q).length
+            c = mixc(c, hexc("#3a3a40"), sstep(0.085, 0.055, dist))              # まるい黒い点が 2 つ
         return c
-    polar_sheet(mb, rfn, cf, n_ang=60, n_rad=8, a0=0.05, a1=3.05, zfn=lambda rho, th: 0.03 * rho * rho, full=False)
+    polar_sheet(mb, rfn, cf, n_ang=100, n_rad=20, a0=0.05, a1=3.05, zfn=lambda rho, th: 0.03 * rho * rho, full=False)
     return build(mb, "Monshiro_Wing")
 
 
@@ -2730,10 +2758,15 @@ def make_hanakamakiri():
     for sx in (-1, 1):
         uv_sphere(mb, Vector((0.09 * sx, 0.37, 0.52)), 0.04, lambda n: mixc(pink, deep, 0.3), seg=12, rings=8)
         uv_sphere(mb, Vector((0.11 * sx, 0.39, 0.53)), 0.013, lambda n: BLACK, seg=6, rings=4)
-        # 腹のわきの、花びらのようなひらひら
+        # 目の上の、とがった先（ハナカマキリの目は、円すいの形）
+        e = Vector((0.09 * sx, 0.37, 0.52))
+        tube(mb, [e + Vector((0, 0, 0.02)), e + Vector((0.02 * sx, 0.0, 0.06)), e + Vector((0.035 * sx, -0.01, 0.1))], [0.03, 0.018, 0.0], 8,
+             lambda t, a, p, d: mixc(pink, deep, 0.4 * t))
+        # 腹のわきの、花びらのようなひらひら（まん中はこいピンク、ふちは白）
         for k in range(3):
-            c = Vector((0.2 * sx, -0.2 - 0.18 * k, 0.3))
-            uv_sphere(mb, c, 1.0, lambda n: mixc(white, pink, 0.5), seg=10, rings=6, scale=Vector((0.12, 0.09, 0.025)))
+            c = Vector((0.21 * sx, -0.2 - 0.19 * k, 0.31 + 0.02 * k))
+            uv_sphere(mb, c, 1.0, lambda n: mixc(deep, white, 0.3 + 0.7 * sstep(0.1, 0.8, abs(n.x) + abs(n.y))), seg=14, rings=6,
+                      scale=Vector((0.14, 0.1, 0.028)))
     # 脚：ふとももに、花びらのようなうすいふくらみ（脚といっしょに動く）
     for (b, k, t) in (((0.04, -0.02, 0.3), (0.22, 0.06, 0.36), (0.3, 0.18, 0.0)),
                       ((0.04, -0.14, 0.3), (0.25, -0.26, 0.38), (0.34, -0.48, 0.0))):
@@ -2748,7 +2781,7 @@ def make_hanakamakiri():
                 along = (knee - base).normalized()
                 c = base.lerp(knee, 0.58) + Vector((0, 0, 0.02))
                 rot = Vector((1, 0, 0)).rotation_difference(Vector((along.x, along.y, 0)).normalized() if abs(along.x) + abs(along.y) > 1e-4 else Vector((1, 0, 0)))
-                for off, sc in ((0.0, (0.11, 0.075, 0.018)), (0.05, (0.07, 0.055, 0.016))):
+                for off, sc in ((0.0, (0.13, 0.09, 0.018)), (0.055, (0.09, 0.066, 0.016))):
                     uv_sphere(m, c + along * off - Vector((0, 0, 0.004)) * off * 20, 1.0,
                               lambda n: mixc(deep, white, 0.25 + 0.75 * sstep(0.2, 0.9, abs(n.x) + abs(n.y))), seg=12, rings=6,
                               scale=Vector(sc), rot=rot)
@@ -3050,11 +3083,15 @@ def make_okojo():
     cream = hexc("#f6eccf")
 
     def col(t, a, p, d):
-        return cream if d.y > 0.15 else mixc(brown, hexc("#a8703f"), 0.5 + 0.5 * noise.noise(p * 2.0))
-    # 立ち上がった体（下はすみかの穴の中へ）
-    pts = [Vector((0, -0.3, -1.6)), Vector((0, -0.3, 0.0)), Vector((0, -0.1, 1.5)), Vector((0, 0.15, 2.7)), Vector((0, 0.3, 3.6)),
-           Vector((0, 0.36, 4.25)), Vector((0, 0.4, 4.75))]
-    tube(mb, pts, [0.9, 0.98, 1.02, 0.98, 0.78, 0.6, 0.58], 22, col, up_hint=Vector((0, 1, 0)), oval=(0.95, 1.0))
+        # おなかのクリーム色と、せなかの茶色のさかいは、波うつ線（くっきり）
+        edge = 0.12 + 0.12 * math.sin(p.z * 3.1)
+        if d.y > edge:
+            return cream
+        return mixc(brown, hexc("#a8703f"), 0.5 + 0.5 * noise.noise(p * 2.0))
+    # 立ち上がった体（下はすみかの穴の中へ）：腰は細く、胸はあつく、細長い首。少し前かがみ（ボウリングのピンのような筒にしない）
+    pts = [Vector((0, -0.35, -1.6)), Vector((0, -0.35, 0.0)), Vector((0, -0.2, 1.3)), Vector((0, 0.1, 2.5)), Vector((0, 0.35, 3.4)),
+           Vector((0, 0.45, 4.1)), Vector((0, 0.5, 4.75))]
+    tube(mb, pts, [0.85, 0.92, 0.8, 0.98, 0.84, 0.54, 0.54], 22, col, up_hint=Vector((0, 1, 0)), oval=(0.92, 1.0))
     hc = Vector((0, 0.55, 5.2))
     uv_sphere(mb, hc, 0.85, lambda n: cream if n.z < -0.25 and n.y > 0.0 else mixc(brown, hexc("#a8703f"), 0.3), seg=20, rings=12,
               scale=Vector((1.0, 1.15, 0.85)))
@@ -3223,18 +3260,24 @@ def make_sanshouuo():
     dark = hexc("#3a2c34")
     stripe = hexc("#c8a050")
     belly = hexc("#8a7a80")
-    pts = [Vector((0, -3.3, 0.18)), Vector((0, -2.6, 0.22)), Vector((0, -1.8, 0.28)), Vector((0, -1.0, 0.36)), Vector((0, -0.3, 0.42)),
-           Vector((0, 0.5, 0.44)), Vector((0, 1.2, 0.44)), Vector((0, 1.7, 0.42)), Vector((0, 2.15, 0.44)), Vector((0, 2.6, 0.42)),
-           Vector((0, 2.95, 0.36))]
-    radii = [0.0, 0.15, 0.25, 0.36, 0.46, 0.5, 0.48, 0.42, 0.46, 0.4, 0.0]
-
     def col(t, a, p, d):
         if d.z < -0.4:
             return belly
-        if d.z > 0.55 and t > 0.3 and abs(d.x) < 0.45:
+        if d.z > 0.55 and p.y > -1.6 and abs(d.x) < 0.45:
             return mixc(stripe, hexc("#e0c070"), 0.5 + 0.5 * noise.noise(p * 4))   # せなかのすじ
-        return mixc(dark, hexc("#5a4450"), 0.5 + 0.5 * noise.noise(p * 3))
+        c = mixc(dark, hexc("#5a4450"), 0.5 + 0.5 * noise.noise(p * 3))
+        if -0.8 < p.y < 1.4 and abs(d.z) < 0.5 and abs(math.sin(p.y * 7.5)) < 0.22:
+            c = scalec(c, 0.7)                                                       # わき腹の、たてのみぞ（肋条）
+        return c
+    # 胴：首で少しくびれ、頭は平たく、鼻先はまるい
+    pts = [Vector((0, -1.0, 0.36)), Vector((0, -0.3, 0.42)), Vector((0, 0.5, 0.44)), Vector((0, 1.2, 0.44)), Vector((0, 1.7, 0.42)),
+           Vector((0, 2.15, 0.44)), Vector((0, 2.6, 0.42)), Vector((0, 2.95, 0.36))]
+    radii = [0.34, 0.46, 0.5, 0.48, 0.4, 0.46, 0.4, 0.0]
     tube(mb, pts, radii, 26, col, oval=(1.15, 0.9))
+    uv_sphere(mb, Vector((0, 2.42, 0.42)), 1.0, lambda n: dark if n.z > -0.3 else belly, seg=18, rings=10, scale=Vector((0.5, 0.6, 0.3)))
+    # しっぽ：たてに平たい（泳ぐときの、かじ）。付け根は胴の中
+    tail = [Vector((0, -0.5, 0.42)), Vector((0, -1.3, 0.36)), Vector((0, -2.1, 0.3)), Vector((0, -2.8, 0.24)), Vector((0, -3.4, 0.2))]
+    tube(mb, tail, [0.4, 0.34, 0.26, 0.15, 0.0], 20, col, oval=(0.55, 1.1))
     for sx in (-1, 1):
         uv_sphere(mb, Vector((0.27 * sx, 2.4, 0.68)), 0.17, lambda n: dark, seg=10, rings=6)
         cute_eye(mb, (0.3 * sx, 2.48, 0.74), 0.13, (0.6 * sx, 0.8, 0.3), white=False)
@@ -3284,7 +3327,7 @@ def make_asagimadara_wing():
         if vein or rho < 0.1:
             return hexc("#2a2224") if not hind else hexc("#5a3428")
         return c
-    polar_sheet(mb, rfn, cf, n_ang=64, n_rad=10, a0=0.05, a1=3.05, zfn=lambda rho, th: 0.04 * rho * rho, full=False)
+    polar_sheet(mb, rfn, cf, n_ang=100, n_rad=20, a0=0.05, a1=3.05, zfn=lambda rho, th: 0.04 * rho * rho, full=False)
     return build(mb, "Asagimadara_Wing")
 
 
@@ -3384,17 +3427,29 @@ def make_higurashi():
     def body(t, a, p):
         c = mixc(brown, green, 0.5 + 0.5 * math.sin(p.x * 20) * math.sin(p.y * 12))
         return mixc(c, black, 0.5 if abs(p.x) < 0.03 else 0.0)
-    seg_body(mb, -0.95, 0.15, 0.3, 0.26, body, rings=26, seg=20, z0=0.22,
+    seg_body(mb, -0.95, 0.15, 0.22, 0.22, body, rings=26, seg=20, z0=0.22,
              prof=lambda t: (math.sin(math.pi * min(1.0, t * 1.0 + 0.12)) ** 0.5, math.sin(math.pi * t) ** 0.6))
-    uv_sphere(mb, Vector((0, 0.32, 0.32)), 1.0, lambda n: green if abs(n.x) > 0.3 or n.z < 0.6 else black, seg=16, rings=10,
-              scale=Vector((0.33, 0.3, 0.26)))
-    uv_sphere(mb, Vector((0, 0.62, 0.28)), 1.0, lambda n: mixc(green, brown, 0.5), seg=14, rings=9, scale=Vector((0.34, 0.14, 0.16)))
+    # 胸（前胸）：平たくて横に広い。緑のふちどりに、茶色と黒のもよう
+    def thorax(n):
+        if abs(n.x) > 0.75 or n.z < 0.2:
+            return green
+        if abs(n.x) < 0.12:
+            return black
+        return mixc(brown, green, 0.3 + 0.3 * math.sin(n.x * 9.0) * math.sin(n.y * 6.0))
+    uv_sphere(mb, Vector((0, 0.3, 0.3)), 1.0, thorax, seg=20, rings=12, scale=Vector((0.36, 0.28, 0.2)))
+    # 頭：横に広く、左右のはしに大きな複眼（セミの顔）。まん中に、3 つの小さな単眼
+    uv_sphere(mb, Vector((0, 0.6, 0.27)), 1.0, lambda n: green if n.z > 0.1 else mixc(green, brown, 0.6), seg=16, rings=9,
+              scale=Vector((0.34, 0.13, 0.14)))
     for sx in (-1, 1):
-        uv_sphere(mb, Vector((0.33 * sx, 0.64, 0.33)), 0.1, lambda n: mixc(hexc("#4a3a2a"), hexc("#b8a070"), sstep(0.2, 0.9, n.z)), seg=10, rings=7)
-        uv_sphere(mb, Vector((0.37 * sx, 0.7, 0.38)), 0.025, lambda n: WHITE, seg=6, rings=4)
+        uv_sphere(mb, Vector((0.31 * sx, 0.61, 0.3)), 0.1, lambda n: mixc(hexc("#4a3a2a"), hexc("#b8a070"), sstep(0.2, 0.9, n.z)), seg=12, rings=8)
+        uv_sphere(mb, Vector((0.35 * sx, 0.67, 0.36)), 0.026, lambda n: WHITE, seg=6, rings=4)
+    for q in ((0.0, 0.66, 0.4), (-0.05, 0.62, 0.41), (0.05, 0.62, 0.41)):
+        uv_sphere(mb, Vector(q), 0.018, lambda n: hexc("#d84a3a"), seg=6, rings=4)
+    # 口（ストロー）：顔の下から、胸の下へ
+    tube(mb, [Vector((0, 0.68, 0.18)), Vector((0, 0.6, 0.08)), Vector((0, 0.42, 0.06))], [0.03, 0.025, 0.0], 6, lambda t, a, p, d: brown)
     # たたんだ羽（屋根の形）：木の葉のような形の、すきとおった羽に、黒いすじ（はばのせまいすじが、付け根から先へ）。
     # 体の材質は裏の面を描かないので、うらにも面をはる（下からも羽が見える）
-    nu, nv = 16, 9
+    nu, nv = 32, 12
     for sx in (-1, 1):
         top, bot = [], []
         for i in range(nu + 1):
@@ -3406,14 +3461,16 @@ def make_higurashi():
                 v = j / nv
                 x = sx * lerp(0.025, w, v)
                 ridge = 0.62 - 0.2 * u                          # 背中のすじ（屋根のてっぺん）
-                drop = 0.42 * w / 0.44                          # 屋根の高さは、羽のはばに合わせる（先は木の葉のようにすぼまる）
+                drop = 0.36 * w / 0.44                          # 屋根の高さは、羽のはばに合わせる（先は木の葉のようにすぼまる。おなかは羽の下にかくれる）
                 z = ridge - drop * v ** 0.9 + 0.03 * math.sin(math.pi * v)
-                c = mixc(hexc("#9aa89c"), hexc("#c2ccbe"), v * 0.6 + 0.2 * u)          # すきとおって、白っぽく光る
-                if u < 0.22:
-                    c = mixc(c, hexc("#4a7a3a"), 0.7 * (1 - u / 0.22))                  # 付け根は緑
-                vein = j in (0, 4, nv) or (u > 0.75 and i % 4 == 0 and 0 < j < nv) or (0.25 < u < 0.29)
+                # すきとおった羽：下の体の色がうすく見えて、空をうつして白っぽく光る（ふちほど明るい）
+                c = mixc(hexc("#b4c2c0"), hexc("#e4ecee"), sstep(0.0, 1.0, v * 0.7 + 0.3 * u))
+                if u < 0.2:
+                    c = mixc(c, hexc("#4a7a3a"), 0.75 * (1 - u / 0.2))                  # 付け根は緑
+                # すじ：付け根から先へのびる太いすじと、先の小部屋をくぎる細いすじ
+                vein = j in (0, 3, 6, 9, nv) or (0.24 < u < 0.27) or (u > 0.62 and i % 3 == 0 and 0 < j < nv)
                 if vein:
-                    c = mixc(c, hexc("#23241e"), 0.85)
+                    c = mixc(c, hexc("#23241e"), 0.8 if j in (0, nv) or u < 0.3 else 0.6)
                 tr.append(mb.v((x, y, z), c))
                 br.append(mb.v((x, y, z - 0.012), c))
             top.append(tr)
@@ -4454,16 +4511,18 @@ def make_ga_body():
     uv_sphere(mb, Vector((0, 0.36, 0.16)), 0.16, lambda n: hexc("#8e3f5c"), seg=10, rings=6, scale=Vector((1.0, 0.35, 0.9)))
     for sx in (-1, 1):
         cute_eye(mb, (0.08 * sx, 0.5, 0.13), 0.045, (0.5 * sx, 1, 0), white=False)
-        # くしの形の触角（羽毛のよう）
-        a0 = Vector((0.04 * sx, 0.52, 0.2))
-        a1 = Vector((0.22 * sx, 0.85, 0.33))
-        tube(mb, [a0, a0.lerp(a1, 0.5), a1], [0.012, 0.012, 0.006], 5, lambda t, a, p, d: hexc("#c8a45a"))
-        for k in range(7):
-            q = a0.lerp(a1, 0.15 + 0.12 * k)
-            side = Vector((sx * 0.6, -0.5, 0.0)).normalized()
+        # くしの形の触角（羽毛のよう）：左右へ大きくひらく（正面から見て、1 本の角に重ならない）
+        a0 = Vector((0.05 * sx, 0.52, 0.2))
+        a1 = Vector((0.4 * sx, 0.8, 0.42))
+        tube(mb, [a0, a0.lerp(a1, 0.5) + Vector((0, 0.03, 0.03)), a1], [0.014, 0.012, 0.006], 5, lambda t, a, p, d: hexc("#c8a45a"))
+        axis = (a1 - a0).normalized()
+        for k in range(9):
+            q = a0.lerp(a1, 0.12 + 0.095 * k)
             for sgn in (-1, 1):
-                tube(mb, [q, q + (side if sgn > 0 else Vector((-side.x * 0.4, -side.y, 0.0))) * 0.07 * (1.2 - 0.12 * k)], [0.006, 0.0], 3,
-                     lambda t, a, p, d: hexc("#d9b46a"))
+                # 枝は、触角の軸から前うしろへ（羽の羽枝のように）
+                side = axis.cross(Vector((0, 0, 1))).normalized() * sgn
+                tip = q + (side * 0.8 + axis * 0.4).normalized() * 0.1 * (1.15 - 0.09 * k)
+                tube(mb, [q, tip], [0.007, 0.0], 3, lambda t, a, p, d: hexc("#e2c27a"))
         # 6 本の白い脚（体の下に）
         for y in (0.3, 0.15, -0.0):
             tube(mb, [Vector((0.06 * sx, y, 0.05)), Vector((0.2 * sx, y + 0.04, 0.02)), Vector((0.28 * sx, y + 0.06, -0.08))], [0.018, 0.014, 0.0], 4,
@@ -4499,7 +4558,7 @@ def make_ga_wing():
         if abs(math.sin(th * (8.0 if not hind else 6.0) + 0.3)) < 0.06:
             c = scalec(c, 0.9)                                 # すじ
         return c
-    polar_sheet(mb, rfn, cf, n_ang=96, n_rad=10, a0=0.05, a1=2.95, zfn=lambda rho, th: 0.03 * rho * rho, full=False)
+    polar_sheet(mb, rfn, cf, n_ang=128, n_rad=22, a0=0.05, a1=2.95, zfn=lambda rho, th: 0.03 * rho * rho, full=False)
     return build(mb, "Ga_Wing")
 
 
@@ -4862,14 +4921,14 @@ BOAR_SHAPES = {
                 head=[(8.5, 21.5, 0.0), (11.0, 21.0, 10.5), (16.0, 19.5, 8.8), (21.0, 16.5, 6.2), (25.5, 14.0, 4.0), (28.0, 13.2, 3.4),
                       (28.4, 13.1, 0.0)],
                 thighs=[((5.4, 8.0, 18.5), (3.2, 5.5, 7.0)), ((5.6, -12.0, 17.5), (3.4, 6.0, 6.5))], ear=2.4, ear_at=0.24,
-                legs=[((6.0, 8.0, 14.0), (6.4, 6.5, 7.5), (6.4, 8.2, 2.2), 1.4), ((6.6, -12.0, 14.5), (7.0, -9.5, 8.0), (7.0, -12.5, 2.2), 1.4)],
+                legs=[((6.0, 8.0, 14.0), (6.4, 9.3, 7.5), (6.4, 8.2, 2.2), 1.4), ((6.6, -12.0, 14.5), (7.0, -13.8, 8.0), (7.0, -12.0, 2.2), 1.4)],
                 radii=(4.0, 2.6, 2.3, 1.6, 1.8), eye=1.15, tail=(-20.0, 19.0)),
     True: dict(k=0.4, body=[(-18.0, 15.0, 0.0), (-15.5, 17.5, 9.5), (-8.0, 19.0, 12.0), (1.0, 19.5, 12.5), (8.0, 19.0, 11.5), (11.5, 18.5, 9.0),
                              (13.5, 18.4, 0.0)],
                head=[(8.0, 19.2, 0.0), (10.0, 19.0, 9.5), (14.0, 18.3, 8.4), (17.5, 16.6, 6.0), (20.0, 15.2, 4.2), (21.3, 14.8, 3.8),
                      (21.7, 14.7, 0.0)],
                thighs=[((5.0, 7.0, 16.0), (3.4, 5.0, 6.0)), ((5.2, -10.5, 15.5), (3.6, 5.5, 6.0))], ear=2.6, ear_at=0.14,
-               legs=[((5.5, 7.0, 12.0), (5.8, 5.8, 6.5), (5.8, 7.4, 2.2), 1.3), ((5.8, -10.5, 12.5), (6.2, -8.5, 7.0), (6.2, -11.0, 2.2), 1.3)],
+               legs=[((5.5, 7.0, 12.0), (5.8, 8.2, 6.5), (5.8, 7.4, 2.2), 1.3), ((5.8, -10.5, 12.5), (6.2, -12.0, 7.0), (6.2, -10.6, 2.2), 1.3)],
                radii=(4.2, 2.8, 2.4, 1.7, 1.9), eye=1.5, tail=(-17.0, 17.0)),
 }
 
@@ -5000,32 +5059,41 @@ def make_boar(name, piglet):
     return build(mb, name)
 
 
-def boar_legs(mb, legs_def, upper_col, lower_col, hoof_col, radii):
-    """イノシシの 4 本の足（ひざで曲がる）：太いももと、細いすねの先に、2 つに分かれたひづめ"""
+def boar_legs(mb, legs_def, upper_col, lower_col, hoof_col, radii, sock=None):
+    """イノシシ・トナカイの 4 本の足（ひざで曲がる）：太いももから、ひざへ細くなり、細いすねの先に、2 つに分かれたひづめ。
+    ひざ・足首は、となりの筒と同じ太さの玉（こぶに見せない）。sock があれば、ひづめの上に、その色の輪"""
     ru0, ru1, rl0, rl1, rh = radii
     for (sh, el, wr, fl) in legs_def:
         for sx in (-1, 1):
             a = Vector((sh[0] * sx, sh[1], sh[2]))
             b = Vector((el[0] * sx, el[1], el[2]))
             c = Vector((wr[0] * sx, wr[1], wr[2]))
+            rk = (ru1 + rl0) * 0.5   # ひざの太さ（ももの先と、すねの付け根のあいだ）
 
-            def up(m, a=a, b=b):
-                # 付け根は、体の中まで太く（脚をふっても、体とのあいだにすき間ができない）
+            def up(m, a=a, b=b, rk=rk):
+                # 付け根は、体の中まで太く（脚をふっても、体とのあいだにすき間ができない）。ももは上が太く、ひざへすぼまる
                 top = a + (a - b).normalized() * ru0 * 0.6
-                tube(m, [top, a, a.lerp(b, 0.45), b], [ru0 * 0.8, ru0, (ru0 + ru1) * 0.5, ru1], 12, lambda t, aa, p, d: upper_col(p))
+                tube(m, [top, a, a.lerp(b, 0.3), a.lerp(b, 0.7), b], [ru0 * 0.8, ru0, ru0 * 0.88, (ru1 + rk) * 0.5, rk], 12,
+                     lambda t, aa, p, d: upper_col(p))
                 uv_sphere(m, a, ru0, lambda n: upper_col(a), seg=12, rings=8)
-                uv_sphere(m, b, ru1, lambda n: upper_col(b), seg=10, rings=6)
+                uv_sphere(m, b, rk, lambda n: upper_col(b), seg=10, rings=6)
 
-            def lo(m, b=b, c=c):
-                col = lambda t, aa, p, d: mixc(upper_col(p), lower_col, sstep(0.0, 0.5, t))
-                tube(m, [b, b.lerp(c, 0.5), c], [rl0, (rl0 + rl1) * 0.5, rl1], 10, col)
+            def lo(m, b=b, c=c, rk=rk):
+                def col(t, aa, p, d):
+                    k = mixc(upper_col(p), lower_col, sstep(0.0, 0.45, t))
+                    if sock is not None:
+                        k = mixc(k, sock, sstep(0.72, 0.9, t))
+                    return k
+                # すねは、ひざのすぐ下で細くなり、足首（けづめの所）で少しふくらむ
+                tube(m, [b, b.lerp(c, 0.2), b.lerp(c, 0.6), c], [rk, rl0 * 0.95, rl1 * 0.85, rl1], 10, col)
                 joint_ball(m, c, rl1, col)   # 足首
 
             def ft(m, c=c, fl=fl):
+                base = sock if sock is not None else lower_col
                 for hx in (-1, 1):
                     tip = c + Vector((rh * 0.42 * hx, fl, -c.z + rh * 0.375))
                     tube(m, [c, c.lerp(tip, 0.5), tip + Vector((0, 0, rh * 0.1))], [rl1 * 0.8, rh * 0.55, rh * 0.36], 8,
-                         lambda t, aa, p, d: mixc(lower_col, hoof_col, t))
+                         lambda t, aa, p, d: mixc(base, hoof_col, sstep(0.2, 0.6, t)))
                     uv_sphere(m, tip, rh * 0.5, lambda n: hoof_col, seg=8, rings=5, scale=Vector((0.9, 1.3, 0.75)))
             limb(mb, a, b, c, up, lo, ft)
 
@@ -5087,23 +5155,30 @@ def make_tonakai():
 
     def body_col(t, a, p, d):
         c = mixc(fur, fur2, 0.5 + 0.5 * noise.noise(p * 0.16))
-        c = mixc(c, dark, 0.3 * sstep(0.5, 0.95, d.z))           # せなかは、少しこい
-        if d.z < -0.45:
-            c = mixc(c, cream, 0.5)                                # おなかは、うすい色
-        if p.y < -22.0 and d.z > -0.7:
-            c = mixc(c, white, sstep(-22.0, -25.0, p.y))           # 白いおしり
+        c = mixc(c, dark, 0.45 * sstep(0.45, 0.95, d.z))          # せなかは、こい
+        # わき腹の下の、うすい色のすじ（トナカイの、あかるい帯）と、こい茶色のおなか
+        c = mixc(c, mixc(cream, fur, 0.35), 0.75 * sstep(-0.05, -0.25, d.z) * sstep(-0.62, -0.42, d.z))
+        if d.z < -0.62:
+            c = mixc(c, dark, 0.55)
+        if p.y > 4.0:
+            c = mixc(c, mixc(cream, fur, 0.3), 0.6 * sstep(4.0, 14.0, p.y) * sstep(-0.3, 0.2, d.z))   # 肩は、首に向かって白っぽく
+        if p.y < -21.0 and d.z > -0.7:
+            c = mixc(c, white, sstep(-21.0, -24.5, p.y))           # 白いおしり
         return c
+    # 胴：胸は深く（下へ）、腰は細くしまり、おしりはまるい（樽のような筒にしない）
     body = [(Vector((0, y, z)), r) for y, z, r in
-            [(-27.5, 41.0, 0.0), (-25.5, 42.0, 9.6), (-17.0, 43.0, 12.8), (-3.0, 43.5, 13.2), (8.0, 44.5, 13.2), (14.5, 45.5, 11.2),
-             (18.0, 46.0, 0.0)]]
+            [(-27.5, 42.0, 0.0), (-26.0, 42.6, 8.6), (-21.5, 43.0, 11.8), (-15.0, 43.4, 12.4), (-7.0, 44.6, 11.2), (1.0, 43.6, 12.6),
+             (8.0, 42.6, 13.8), (13.5, 44.4, 12.0), (17.5, 46.0, 7.5), (19.0, 46.5, 0.0)]]
     fine = densify(body)
-    tube(mb, [p for p, r in fine], [r for p, r in fine], 28, body_col, oval=(0.92, 0.9), rfn=fur_bumps(30.0))
+    tube(mb, [p for p, r in fine], [r for p, r in fine], 28, body_col, oval=(0.9, 0.92), rfn=fur_bumps(30.0))
+    # 肩の上の、もり上がり（き甲）
+    uv_sphere(mb, Vector((0, 10.0, 52.5)), 1.0, lambda n: mixc(mixc(fur, cream, 0.35), dark, 0.25), seg=16, rings=10, scale=Vector((7.5, 9.0, 4.8)))
     # 首：前上へのびる。のどの下は、クリーム色の長い毛
     neck = [(Vector((0, 9.0, 45.0)), 8.4), (Vector((0, 15.0, 50.0)), 7.2), (Vector((0, 20.0, 55.5)), 5.9), (Vector((0, 23.5, 59.5)), 5.0)]
 
     def neck_col(t, a, p, d):
-        c = body_col(0.5, a, p, d)
-        return mixc(c, cream, 0.85 * sstep(0.15, -0.35, d.z))
+        c = mixc(mixc(fur, cream, 0.45), fur2, 0.25 * noise.noise(p * 0.3))   # 首は、白っぽい灰茶色
+        return mixc(c, cream, 0.9 * sstep(0.15, -0.35, d.z))
     nf = densify(neck, 3)
     tube(mb, [p for p, r in nf], [r for p, r in nf], 22, neck_col, rfn=fur_bumps(18.0))
     uv_sphere(mb, Vector((0, 23.5, 59.5)), 5.3, lambda n: mixc(fur, fur2, 0.4), seg=18, rings=12)
@@ -5166,9 +5241,11 @@ def make_tonakai():
     # 短い白いしっぽ
     uv_sphere(mb, Vector((0, -27.6, 42.8)), 1.0, lambda n: white, seg=12, rings=8, scale=Vector((2.0, 1.6, 3.0)))
     # 長い足と、大きなひづめ（ひざで曲がる手足）
-    legs_def = [((7.0, 11.0, 33.0), (7.6, 8.4, 17.5), (7.6, 11.0, 4.4), 2.4),
-                ((7.4, -19.0, 34.0), (8.2, -14.5, 18.5), (8.0, -20.5, 4.4), 2.4)]
-    boar_legs(mb, legs_def, lambda p: mixc(fur, fur2, 0.5), dark, hoof, (5.0, 3.1, 2.6, 1.9, 2.8))
+    # ひづめのある動物の足：前足のひざ（手首）は前へ、うしろ足のかかと（ひざに見える所）は、うしろへ曲がる
+    legs_def = [((5.8, 11.0, 34.0), (6.4, 12.4, 17.5), (6.4, 10.8, 4.4), 2.4),
+                ((6.2, -19.0, 34.5), (7.0, -24.2, 16.5), (6.8, -21.0, 4.4), 2.4)]
+    # 足：ももは体の色、すねは、こい茶色。ひづめの上に、白い輪
+    boar_legs(mb, legs_def, lambda p: mixc(fur, fur2, 0.5), hexc("#3e3026"), hoof, (4.8, 2.8, 2.3, 1.7, 2.8), sock=hexc("#ece4d4"))
     return build(mb, "Tonakai")
 
 
@@ -5271,8 +5348,42 @@ def make_fuyushaku_wing():
         if rho > 0.93:
             c = mixc(c, hexc("#d8d0c0"), 0.5)                          # へりの、ふさ
         return c
-    polar_sheet(mb, rfn, cf, n_ang=64, n_rad=8, a0=0.1, a1=2.85, zfn=lambda rho, th: 0.01 * rho * rho, full=False)
+    polar_sheet(mb, rfn, cf, n_ang=100, n_rad=20, a0=0.1, a1=2.85, zfn=lambda rho, th: 0.01 * rho * rho, full=False)
     return build(mb, "Fuyushaku_Wing")
+
+
+def make_fuyushaku_female():
+    """フユシャクのメス（体は 1cm ほど）：はねがなく（小さなはねのなごりだけ）、飛べない。ずんぐりした、灰茶色の毛の体。
+    ランプのはしらにとまって、オスを待つ（見た目だけの小物）。原点は、はしらにつくおなかの所。
+    頭は上（Unity の +Y = Blender の +Z）、おなかは、はしらの方（Unity の -Z = Blender の +Y）"""
+    mb = MB()
+    c0 = hexc("#7a6e5e")
+    c1 = hexc("#a69a86")
+    dark = hexc("#3a3228")
+
+    def fur(t, a, p, d):
+        c = mixc(c0, c1, 0.5 + 0.5 * noise.noise(p * 30.0))
+        if noise.noise(p * 55.0 + Vector((3, 0, 0))) > 0.45:
+            c = mixc(c, dark, 0.6)                      # こまかな黒い点
+        return mixc(c, c1, 0.4 * sstep(0.6, 1.0, t))    # 頭の近くは、明るい
+    axis = [Vector((0, -0.09, 0.0)), Vector((0, -0.11, 0.1)), Vector((0, -0.11, 0.25)), Vector((0, -0.09, 0.38)), Vector((0, -0.08, 0.46))]
+    tube(mb, axis, [0.0, 0.1, 0.11, 0.075, 0.0], 14, fur)
+    head = Vector((0, -0.075, 0.48))
+    uv_sphere(mb, head, 0.06, lambda n: c1, seg=10, rings=6)
+    for sx in (-1, 1):
+        cute_eye(mb, head + Vector((0.035 * sx, -0.03, 0.02)), 0.02, (0.5 * sx, -1, 0.3), white=False)
+        a0 = head + Vector((0.02 * sx, -0.03, 0.04))
+        a1 = head + Vector((0.11 * sx, -0.06, 0.16))
+        tube(mb, [a0, a0.lerp(a1, 0.5), a1], [0.007, 0.006, 0.0], 4, lambda t, a, p, d: dark)
+        # はねのなごり（小さな、うすい板）
+        w0 = Vector((0.07 * sx, -0.16, 0.36))
+        uv_sphere(mb, w0, 1.0, lambda n: mixc(c0, dark, 0.3), seg=8, rings=4, scale=Vector((0.05, 0.012, 0.035)))
+        # はしらをつかむ、長い 6 本の脚（はしらの方へ、まわりこむ）
+        for z in (0.36, 0.26, 0.14):
+            b0 = Vector((0.05 * sx, -0.05, z))
+            tube(mb, [b0, Vector((0.17 * sx, -0.02, z + 0.02)), Vector((0.21 * sx, 0.04, z - 0.04))], [0.012, 0.009, 0.0], 4,
+                 lambda t, a, p, d: mixc(c0, dark, 0.4))
+    return build(mb, "Fuyushaku_Female")
 
 
 def make_yamane():
@@ -5288,18 +5399,21 @@ def make_yamane():
 
     def col(n):
         c = mixc(fur, fur2, 0.5 + 0.5 * noise.noise(n * 3.0))
-        if abs(n.x) < 0.11 and n.z > -0.3 and n.y < 0.55:
-            c = stripe                                                 # せなかの黒いすじ
+        if n.z > -0.4 and n.y < 0.75:
+            c = mixc(c, stripe, sstep(0.16, 0.1, abs(n.x)))            # せなかの黒いすじ（頭から、おしりまで）
         if n.z < -0.55:
             c = mixc(c, belly, 0.8)
         return c
-    uv_sphere(mb, C, 1.0, col, seg=28, rings=18, scale=Vector((1.0, 1.08, 0.95)))
+    uv_sphere(mb, C, 1.0, col, seg=56, rings=24, scale=Vector((1.0, 1.08, 0.95)))
     H = YAMANE_HEAD
 
     def head_col(n):
         if n.z < -0.2 and n.y > -0.2:
             return belly
-        return mixc(fur, fur2, 0.3 + 0.3 * n.z)
+        c = mixc(fur, fur2, 0.3 + 0.3 * n.z)
+        if n.z > 0.1 and n.y < 0.45:
+            c = mixc(c, stripe, sstep(0.17, 0.1, abs(n.x)))            # すじは、頭の上から始まる
+        return c
     uv_sphere(mb, H, YAMANE_HEAD_R, head_col, seg=20, rings=12)
     uv_sphere(mb, H + Vector((0, 0.43, -0.1)), 0.06, lambda n: pink, seg=8, rings=5)   # 鼻
     for sx in (-1, 1):
@@ -5314,15 +5428,24 @@ def make_yamane():
                   scale=Vector((0.16, 0.06, 0.16)))
         # あごの下に、そろえた前足
         uv_sphere(mb, H + Vector((0.14 * sx, 0.3, -0.36)), 0.085, lambda n: pink, seg=8, rings=5)
-    # ふさふさのしっぽ：おしりから、せなかの上をまわって、頭の上へ（体にまきつける）
+        # 鼻のわきの、ひげ
+        for k in range(3):
+            w0 = H + Vector((0.09 * sx, 0.4, -0.12 + 0.04 * k))
+            w1 = w0 + Vector((0.32 * sx, 0.12, 0.05 * (k - 1)))
+            tube(mb, [w0, w0.lerp(w1, 0.5) + Vector((0, 0.02, 0.01)), w1], [0.008, 0.006, 0.0], 3, lambda t, a, p, d: hexc("#3a3028"))
+    # ふさふさのしっぽ：おしりから、体の右わきにそって前へまわり、そろえた前足の前で終わる（顔とせなかのすじは、かくさない）
     tail = []
-    for i in range(12):
-        th = math.radians(lerp(205.0, 48.0, i / 11))
-        rad = 1.02 if 0 < i < 11 else 0.8
-        tail.append(C + Vector((0.5 * math.sin(i / 11 * math.pi), math.cos(th) * rad * 1.06, math.sin(th) * rad * 0.95)))
-    tube(mb, tail, [0.0] + [0.24 + 0.08 * math.sin(math.pi * i / 10) for i in range(10)] + [0.0], 12,
-         lambda t, a, p, d: mixc(fur2, hexc("#d8c4a0"), sstep(0.7, 1.0, t)),
-         rfn=lambda t, a: 1.0 + 0.12 * noise.noise(Vector((math.cos(a) * 3, math.sin(a) * 3, t * 14))))
+    n_t = 14
+    for i in range(n_t):
+        u = i / (n_t - 1)
+        phi = math.radians(lerp(185.0, 18.0, u))
+        dz = lerp(-0.2, -0.78, u ** 0.8)
+        rs = math.sqrt(max(0.0, 1.0 - (dz / 0.95) ** 2))
+        r = rs * 0.97 + (0.2 if 0 < i < n_t - 1 else 0.05)
+        tail.append(C + Vector((math.sin(phi) * r, math.cos(phi) * r * 1.06, dz)))
+    tube(mb, tail, [0.0] + [0.25 + 0.09 * math.sin(math.pi * k / (n_t - 3)) for k in range(n_t - 2)] + [0.0], 14,
+         lambda t, a, p, d: mixc(mixc(fur2, fur, 0.3 + 0.3 * math.cos(a * 2.0)), hexc("#e2d2b0"), sstep(0.75, 1.0, t)),
+         rfn=lambda t, a: 1.0 + 0.2 * abs(noise.noise(Vector((math.cos(a) * 4, math.sin(a) * 4, t * 26)))))   # 毛の房
     return build(mb, "Yamane")
 
 
@@ -5416,7 +5539,7 @@ def main():
         lambda: make_bird_wing_folded("Shimaenaga_WingFolded", 4.8, "enaga"),
         lambda: make_bird_wing("Robin_Wing", 5.6, "robin"),
         lambda: make_bird_wing_folded("Robin_WingFolded", 5.6, "robin"),
-        make_fuyushaku_body, make_fuyushaku_wing, make_yamane, make_yamane_eye,
+        make_fuyushaku_body, make_fuyushaku_wing, make_yamane, make_yamane_eye, make_fuyushaku_female,
     ]
     objs = {}
     for mk, name, variant in walkers:

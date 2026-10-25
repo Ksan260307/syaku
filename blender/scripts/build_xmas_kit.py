@@ -22,7 +22,7 @@ from mathutils import Matrix, Vector, noise
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_forest_kit as kit  # noqa: E402
-from build_forest_kit import MB, build, connect_rings, hexc, lathe, lerp, mixc, scalec, sstep, uv_sphere  # noqa: E402
+from build_forest_kit import MB, build, connect_rings, hexc, lathe, lerp, mixc, polar_sheet, ribbon, scalec, sstep, uv_sphere  # noqa: E402
 from build_shrine_kit import UV, beam, prism, ubox, ucyl, ulathe, usphere, utube  # noqa: E402
 
 
@@ -121,6 +121,21 @@ def gbox(mb, c, s, colfn, n=6):
                 mb.f(*q)
 
 
+def finer(prof, k=3):
+    """回転体の輪郭の点のあいだに、点を足す（形は同じ折れ線のまま、色やでこぼこを細かく）"""
+    out = []
+    for (r0, z0), (r1, z1) in zip(prof, prof[1:]):
+        for i in range(k):
+            out.append((lerp(r0, r1, i / k), lerp(z0, z1, i / k)))
+    out.append(prof[-1])
+    return out
+
+
+def needle_tint(c, a, t, k):
+    """モミの葉の、こまかなすじ（枝の先は明るく、すきまは、こい）"""
+    return scalec(c, 0.86 + 0.2 * (0.5 + 0.5 * math.sin(a * 64.0 + t * 30.0 + k)))
+
+
 def torus(mb, c, axis, R, r, colfn, nu=40, nv=12):
     """Unity の座標の、とじた輪（まん中 c・軸 axis・輪の半径 R・太さ r）。colfn(Unity の点, Unity の外向き, u)"""
     c, axis = Vector(c), Vector(axis).normalized()
@@ -172,9 +187,10 @@ def tier_rim(k):
     return tree_master(z0) + TREE_SKIRT * lerp(1.0, 0.55, k / 6), z0 + 0.5
 
 
-def make_xmas_tree():
+def make_xmas_tree(look=True):
     """大きなクリスマスツリー（高さ 1.3m ほど）：木のおけに立ち、7 段の枝のすそ（まわりがぎざぎざ）。
-    すそには、赤・金・青・銀のオーナメントと、金のモール（輪）。段の上は、しゃくとりむしが登れる坂"""
+    すそには、赤・金・青・銀のオーナメントと、金のモール。段の上は、しゃくとりむしが登れる坂。
+    look=False は当たり判定（_Col）：前の、なめらかな段のまま（登る道・しずくの場所を変えない）"""
     mb = MB()
     # 木のおけ（たてのいたと、2 本の鉄のたが）
     ulathe(mb, (0, -1.0, 0), [(0.0, 0.0), (6.0, 0.0), (6.6, TUB_H + 1.0), (6.1, TUB_H + 1.2), (0.0, TUB_H + 0.9)], 36,
@@ -200,10 +216,40 @@ def make_xmas_tree():
             if 0.3 < t < 0.55 and noise.noise(Vector((math.cos(a) * 3, math.sin(a) * 3, k * 1.7))) > 0.15:
                 c = mixc(c, SNOW, 0.75)
             return c
-        lathe(mb, prof, 44, col, center=UV((0, 0, 0)), rfn=rfn)
-        # すそのふちの、金のモール（輪。半分は、すその中）
-        torus(mb, (0, rim_z + 0.45, 0), (0, 1, 0), rim_r - 0.55, 0.38,
-              lambda p, d, u: mixc(GOLD, GOLD_LIGHT, 0.5 + 0.5 * math.sin(u * 300.0)), nu=48, nv=8)
+        if not look:
+            lathe(mb, prof, 44, col, center=UV((0, 0, 0)), rfn=rfn)
+            # すそのふちの、金のモール（輪。半分は、すその中）
+            torus(mb, (0, rim_z + 0.45, 0), (0, 1, 0), rim_r - 0.55, 0.38,
+                  lambda p, d, u: mixc(GOLD, GOLD_LIGHT, 0.5 + 0.5 * math.sin(u * 300.0)), nu=48, nv=8)
+        else:
+            # 見た目：すそは、枝の先が何重にもかさなる（大きなぎざぎざに、小さなぎざぎざ）。葉のすじと、枝先の明るい色
+            def rfn2(t, a, k=k):
+                jag = 0.09 if 0.25 < t < 0.6 else 0.025
+                big = 0.5 + 0.5 * math.cos(a * (11 - k))
+                small = 0.5 + 0.5 * math.cos(a * (33 - 3 * k) + 0.7)
+                return 1.0 + jag * (0.65 * big + 0.35 * small)
+
+            def col2(t, a, p, k=k):
+                c = col(t, a, p)
+                if t >= 0.3:
+                    c = needle_tint(c, a, t, k)
+                    c = mixc(c, FIR_LIGHT, 0.35 * sstep(0.7, 1.0, 0.5 + 0.5 * math.cos(a * (11 - k))) * sstep(0.25, 0.45, t))
+                return c
+            lathe(mb, finer(prof, 3), 110, col2, center=UV((0, 0, 0)), rfn=rfn2)
+            # 金のモール：すそのふちに、ゆるく弧をえがいて、たれさがる（つなぎ目は、すその中）
+            m = 8 - k // 2
+            for i in range(m):
+                a0 = (i + 0.15 * k) / m * math.tau
+                a1 = (i + 1 + 0.15 * k) / m * math.tau
+                pts = []
+                for s in range(13):
+                    u = s / 12
+                    a = lerp(a0, a1, u)
+                    sag = math.sin(math.pi * u)
+                    rr = rim_r - 0.75 + 0.75 * sag ** 0.5
+                    pts.append(Vector((math.cos(a) * rr, rim_z + 0.5 - 1.4 * sag, math.sin(a) * rr)))
+                utube(mb, pts, [0.0] + [0.36] * 11 + [0.0], 8,
+                      lambda t, a, p, d: mixc(GOLD, GOLD_LIGHT, sstep(0.3, 1.0, 0.5 + 0.5 * math.sin(a * 3.0 + t * 90.0))))
         # オーナメント（すそのふちに、ぶらさがる。上は、すその中）
         n = 9 - k
         for i in range(n):
@@ -213,7 +259,7 @@ def make_xmas_tree():
             rr = 1.05 - 0.06 * k
             usphere(mb, c, rr, lambda nn, col_b=col_b: shiny(col_b, bn(nn)), seg=14, rings=9)
             ucyl(mb, c + Vector((0, rr * 0.75, 0)), rr * 0.32, rr * 0.55, lambda t, a, p: GOLD, seg=8)
-    return build(mb, "Xmas_Tree", sharp_deg=60)   # おけの角は、かどのまま（なめらかにすると、しゃくとりむしには、ひさしに見える）
+    return build(mb, "Xmas_Tree" + ("" if look else "_Col"), sharp_deg=60)   # おけの角は、かどのまま（なめらかにすると、しゃくとりむしには、ひさしに見える）
 
 
 def make_xmas_tree_lights():
@@ -271,12 +317,25 @@ def make_present(key):
 
     def box_col(p, n):
         c = mixc(d["box2"], d["box"], 0.6 + 0.4 * max(0.0, n.y))
-        if d["dots"] is not None:
-            fx, fy = p.x * 0.55 + p.z * 0.55, p.y * 0.55 + (0.5 if (int(math.floor(p.x * 0.55 + p.z * 0.55)) % 2) else 0.0)
-            if (fx - math.floor(fx) - 0.5) ** 2 + (fy - math.floor(fy) - 0.5) ** 2 < 0.06:
-                c = d["dots"]
+        u = p.x + p.z if abs(n.y) < 0.5 else p.x
+        v = p.y if abs(n.y) < 0.5 else p.z
+        if key == "B":
+            # 白い水玉（ならびを、1 列ずつずらす）
+            fx, fy = u * 0.32, v * 0.32
+            fx += 0.5 if int(math.floor(fy)) % 2 else 0.0
+            dist = math.hypot(fx - math.floor(fx) - 0.5, fy - math.floor(fy) - 0.5)
+            c = mixc(c, d["dots"], sstep(0.3, 0.16, dist))
+        elif key == "C":
+            # ななめの、金のしま
+            s = (u + v) * 0.35
+            c = mixc(c, d["dots"], 0.9 * sstep(0.34, 0.42, abs(s - math.floor(s) - 0.5)))
+        else:
+            # こい赤の、ひし形のもよう
+            s1, s2 = (u + v) * 0.3, (u - v) * 0.3
+            line = min(abs(s1 - round(s1)), abs(s2 - round(s2)))
+            c = mixc(c, d["box2"], 0.6 * sstep(0.06, 0.02, line))
         return c
-    gbox(mb, (0, h / 2, 0), (w, h, dd), box_col, n=10)
+    gbox(mb, (0, h / 2, 0), (w, h, dd), box_col, n=34)
     rc = lambda p, n: mixc(scalec(d["ribbon"], 0.8), d["ribbon"], 0.6 + 0.4 * max(0.0, n.y))
     gbox(mb, (0, h / 2, 0), (w + 0.14, h + 0.12, rib_w), rc, n=4)
     gbox(mb, (0, h / 2, 0), (rib_w, h + 0.12, dd + 0.14), rc, n=4)
@@ -356,13 +415,23 @@ def eave_wire_y(x):
     return HOUSE_EAVE - 0.9 - 1.4 * math.sin(u * math.pi)
 
 
-def make_cottage():
+def make_cottage(look=True):
     """丸太の家（前の面のはばは 1.6m）：横に積んだ丸太のかべ・石の土台・白いわくの窓と、登れる窓台・赤いとびらとリース・
-    雪の積もった屋根と、つらら・えんとつ。うしろ半分は、村の外（見えない）"""
+    雪の積もった屋根と、つらら・えんとつ。うしろ半分は、村の外（見えない）。
+    look=False は当たり判定（_Col）：屋根の雪の、でこぼこのない、前の形"""
     mb = MB()
     hw = HOUSE_W / 2
-    # 家の体（箱）と石の土台
-    gbox(mb, (0, HOUSE_EAVE / 2, 0), (HOUSE_W, HOUSE_EAVE, 30.0), lambda p, n: mixc(LOG_DARK, LOG, 0.5), n=4)
+    # 家の体（箱）と石の土台。見た目では、横のかべにも、丸太のすじ（形は同じ箱）
+
+    def wall_col(p, n):
+        c = mixc(LOG_DARK, LOG, 0.5)
+        if look and abs(n.x) > 0.5:
+            f = (p.y - 3.4) / 3.3
+            band = abs(f - round(f))
+            c = mixc(mixc(LOG, WOOD_LIGHT, 0.3), LOG_DARK, sstep(0.3, 0.5, band))
+            c = scalec(c, 0.92 + 0.12 * noise.noise(Vector((p.z * 0.3, p.y * 2.0, 1.0))))
+        return c
+    gbox(mb, (0, HOUSE_EAVE / 2, 0), (HOUSE_W, HOUSE_EAVE, 30.0), wall_col, n=24 if look else 4)
     gbox(mb, (0, 0.5, 0), (HOUSE_W + 2.0, 4.0, 32.0), lambda p, n: mixc(STONE, scalec(STONE, 1.15), 0.5 + 0.5 * noise.noise(p * 0.4)), n=8)
     # 前の面の、横に積んだ丸太（半分は、かべの中）
     wx0, wx1, wy0, wy1 = WINDOW_X - 8.0, WINDOW_X + 8.0, SILL_Y + 0.5, SILL_Y + 15.5
@@ -423,9 +492,34 @@ def make_cottage():
         up = Vector((0.0, d.z, -d.y))
         if up.y < 0:
             up = -up
-        prism(mb, [e - up * 0.3, r - up * 0.3, r + up * 1.8, e + up * 1.8], (HOUSE_W + 7, 0, 0), lambda n: snow_col(n))
+        if not look:
+            prism(mb, [e - up * 0.3, r - up * 0.3, r + up * 1.8, e + up * 1.8], (HOUSE_W + 7, 0, 0), lambda n: snow_col(n))
+        else:
+            snow_sheet(mb, e, r, up, HOUSE_W + 7, 1.8, seed=3 if ez < 0 else 7)
         usphere(mb, Vector((0.0, e.y, e.z)) + up * 0.75, 1.0, lambda n: snow_col(bn(n)), scale=(hw + 3.5, 1.15, 1.15), seg=28, rings=8)
     usphere(mb, Vector((0, ridge_y + 1.2, 0)), 1.0, lambda n: snow_col(bn(n)), scale=(hw + 3.5, 1.3, 2.0), seg=28, rings=8)
+    if look:
+        # のきのふちの、波うつ雪のふち
+        lr = random.Random(41)
+        for ez in (eave_z, -eave_z):
+            e = Vector((0.0, HOUSE_EAVE - 1.0, ez))
+            r = Vector((0.0, ridge_y, 0.0))
+            d = (r - e).normalized()
+            up = Vector((0.0, d.z, -d.y))
+            if up.y < 0:
+                up = -up
+            for i in range(22):
+                x = lerp(-hw - 3.0, hw + 3.0, i / 21)
+                c = Vector((x, e.y, e.z)) + up * 0.6 - d * 0.4
+                rr = lr.uniform(1.2, 1.7)
+                usphere(mb, c, 1.0, lambda n: snow_col(bn(n)), scale=(2.2, rr, rr), seg=12, rings=7)
+        # 切り妻のはしの、雪のふち
+        for sx in (-1, 1):
+            for s in (0.15, 0.4, 0.65, 0.9):
+                for ez in (eave_z, -eave_z):
+                    e = Vector((sx * (hw + 3.3), HOUSE_EAVE - 1.0, ez))
+                    r = Vector((sx * (hw + 3.3), ridge_y, 0.0))
+                    usphere(mb, e.lerp(r, s) + Vector((0, 1.0, 0)), 1.0, lambda n: snow_col(bn(n)), scale=(1.3, 1.3, 2.6), seg=10, rings=6)
     rnd = random.Random(12)
     x = -hw - 1.5
     while x < hw + 1.5:
@@ -445,7 +539,51 @@ def make_cottage():
     # えんとつ（屋根の上。雪のぼうし）
     gbox(mb, (hw - 14.0, ridge_y - 2.0, -4.0), (6.0, 16.0, 6.0), lambda p, n: mixc(hexc("#9a4a3a"), hexc("#b8604a"), 0.5 + 0.5 * math.sin(p.y * 1.6)), n=6)
     usphere(mb, Vector((hw - 14.0, ridge_y + 6.2, -4.0)), 1.0, lambda n: snow_col(bn(n)), scale=(3.6, 1.0, 3.6), seg=14, rings=8)
-    return build(mb, "Xmas_Cottage", sharp_deg=50)
+    return build(mb, "Xmas_Cottage" + ("" if look else "_Col"), sharp_deg=50)
+
+
+def snow_sheet(mb, e, r, up, length, thick, seed=0):
+    """屋根の雪（見た目）：のき e から、むね r まで、x へ length。上の面は、ふきよせた雪のように、やわらかくうねる。
+    下の面と、まわりの面もはる（とじた形）"""
+    nx, nv = 48, 12
+    off = Vector((seed * 2.1, seed * 0.7, 0.0))
+    top, bot = [], []
+    for i in range(nx + 1):
+        x = e.x + length * i / nx
+        tr, br = [], []
+        for j in range(nv + 1):
+            v = j / nv
+            base = Vector((x, 0, 0)) + Vector((0, e.y, e.z)).lerp(Vector((0, r.y, r.z)), v)
+            edge = min(i, nx - i, j, nv - j)
+            hump = 0.55 * noise.noise(Vector((x * 0.09, v * 2.2, 0)) + off) + 0.25 * noise.noise(Vector((x * 0.3, v * 6.0, 1.0)) + off)
+            h = thick + max(-0.5, hump) * min(1.0, edge / 2.0)
+            p_top = base + up * h
+            n_top = up.copy()
+            tr.append(mb.v(UV(p_top), snow_col(n_top) if hump < 0.25 else mixc(snow_col(n_top), hexc("#ffffff"), 0.4)))
+            br.append(mb.v(UV(base - up * 0.3), SNOW_SHADE))
+        top.append(tr)
+        bot.append(br)
+    for i in range(nx):
+        for j in range(nv):
+            q = [top[i][j], top[i + 1][j], top[i + 1][j + 1], top[i][j + 1]]
+            a0, a1, a2 = mb.V[q[0]], mb.V[q[1]], mb.V[q[2]]
+            if (a1 - a0).cross(a2 - a0).dot(UV(up) - UV(Vector((0, 0, 0)))) < 0:
+                q.reverse()
+            mb.f(*q)
+            mb.f(*reversed([bot[i][j], bot[i + 1][j], bot[i + 1][j + 1], bot[i][j + 1]]) if (mb.V[bot[i + 1][j]] - mb.V[bot[i][j]]).cross(
+                mb.V[bot[i + 1][j + 1]] - mb.V[bot[i][j]]).dot(UV(up) - UV(Vector((0, 0, 0)))) > 0 else
+                [bot[i][j], bot[i + 1][j], bot[i + 1][j + 1], bot[i][j + 1]])
+    # まわりの面（はしの、あつみ）
+    ring = [(i, 0) for i in range(nx)] + [(nx, j) for j in range(nv)] + [(i, nv) for i in range(nx, 0, -1)] + [(0, j) for j in range(nv, 0, -1)]
+    center = UV(Vector((e.x + length / 2, 0, 0)) + Vector((0, e.y, e.z)).lerp(Vector((0, r.y, r.z)), 0.5))
+    for k in range(len(ring)):
+        a, b = ring[k], ring[(k + 1) % len(ring)]
+        q = [bot[a[0]][a[1]], bot[b[0]][b[1]], top[b[0]][b[1]], top[a[0]][a[1]]]
+        a0, a1, a2 = mb.V[q[0]], mb.V[q[1]], mb.V[q[2]]
+        fc = (a0 + a1 + a2) / 3
+        if (a1 - a0).cross(a2 - a0).dot(fc - center) < 0:
+            q.reverse()
+        mb.f(*q)
 
 
 def make_cottage_window():
@@ -623,8 +761,8 @@ def make_candy_cane():
     return build(mb, "Xmas_CandyCane")
 
 
-def fir_tiers(mb, tiers, top, trunk_r, snow=0.75, seed=0):
-    """雪のつもったモミ：段の円すい（上の面に雪）"""
+def fir_tiers(mb, tiers, top, trunk_r, snow=0.75, seed=0, look=False):
+    """雪のつもったモミ：段の円すい（上の面に雪）。look=True で、枝先のかさなりと、葉のすじ、雪のかたまり（見た目）"""
     ucyl(mb, (0, -2.0, 0), trunk_r, tiers[0][0] + 3.0, lambda t, a, p: TRUNK, seg=10)
     for k, (z0, r0) in enumerate(tiers):
         z1 = tiers[k + 1][0] if k + 1 < len(tiers) else top
@@ -638,38 +776,84 @@ def fir_tiers(mb, tiers, top, trunk_r, snow=0.75, seed=0):
             c = mixc(FIR, FIR_LIGHT, 0.3 * (0.5 + 0.5 * math.cos(a * 9)))
             nv = noise.noise(Vector((math.cos(a) * 2.5, math.sin(a) * 2.5, k * 2.3 + seed)))
             return mixc(c, SNOW, snow * sstep(-0.3, 0.2, nv)) if t > 0.4 else c
-        lathe(mb, prof, 28, col, center=UV((0, 0, 0)),
-              rfn=lambda t, a, k=k: 1.0 + (0.09 if 0.25 < t < 0.6 else 0.02) * (0.5 + 0.5 * math.cos(a * (9 + k))))
+        if not look:
+            lathe(mb, prof, 28, col, center=UV((0, 0, 0)),
+                  rfn=lambda t, a, k=k: 1.0 + (0.09 if 0.25 < t < 0.6 else 0.02) * (0.5 + 0.5 * math.cos(a * (9 + k))))
+            continue
+
+        def rfn2(t, a, k=k):
+            jag = 0.11 if 0.25 < t < 0.6 else 0.025
+            return 1.0 + jag * (0.6 * (0.5 + 0.5 * math.cos(a * (9 + k))) + 0.4 * (0.5 + 0.5 * math.cos(a * (27 + 2 * k) + 1.3)))
+
+        def col2(t, a, p, k=k):
+            c = col(t, a, p)
+            if t >= 0.3 and c != SNOW:
+                c = needle_tint(c, a, t, k)
+            return c
+        lathe(mb, finer(prof, 3), 72, col2, center=UV((0, 0, 0)), rfn=rfn2)
 
 
-def make_fir():
-    """雪のモミの木（高さ 85cm ほど）：5 段の枝に、雪がたっぷり"""
+
+def make_fir(look=True):
+    """雪のモミの木（高さ 85cm ほど）：5 段の枝に、雪がたっぷり。look=False は当たり判定（_Col：前の、なめらかな段）"""
     mb = MB()
-    fir_tiers(mb, [(4.0, 9.0), (10.0, 7.4), (16.0, 5.8), (21.5, 4.2), (26.5, 2.8)], 34.0, 1.0, seed=3)
-    return build(mb, "Xmas_Fir", sharp_deg=60)
+    fir_tiers(mb, [(4.0, 9.0), (10.0, 7.4), (16.0, 5.8), (21.5, 4.2), (26.5, 2.8)], 34.0, 1.0, seed=3, look=look)
+    return build(mb, "Xmas_Fir" + ("" if look else "_Col"), sharp_deg=60)
 
 
 def make_holly():
     """ヒイラギ（高さ 15cm ほど）：とげとげの、つやのある葉と、赤い実"""
     rnd = random.Random(5)
     mb = MB()
-    usphere(mb, Vector((0, 2.0, 0)), 1.0, lambda n: FIR_DARK, scale=(3.0, 2.4, 3.0), seg=12, rings=8)
-    for i in range(26):
-        a = rnd.uniform(0, math.tau)
-        h = rnd.uniform(0.6, 3.8)
-        r = 2.6 * math.sin(math.pi * min(1.0, h / 4.8)) + 0.4
-        c = Vector((math.cos(a) * r, h, math.sin(a) * r))
-        d = Vector((math.cos(a), rnd.uniform(-0.2, 0.6), math.sin(a))).normalized()
-        rot = Vector((0, 1, 0)).rotation_difference(UV(d) - UV(Vector((0, 0, 0))))
-        uv_sphere(mb, UV(c + d * 0.6), 1.0, lambda n: mixc(hexc("#1f5a2c"), hexc("#4e8a4a"), 0.5 + 0.5 * n.z), seg=8, rings=4,
-                  scale=Vector((0.75, 1.6, 0.14)), rot=rot)
+    usphere(mb, Vector((0, 2.0, 0)), 1.0, lambda n: hexc("#16301c"), scale=(2.3, 2.0, 2.3), seg=12, rings=8)   # 中の、こいかげ
+    # 葉：ふちに、とがったとげが並ぶ、波うつ、つやのある葉。表は、こい緑で、光るすじ
+    def holly_r(th):
+        base = 1.0 / math.sqrt((math.sin(th) / 0.5) ** 2 + (math.cos(th) / 1.0) ** 2)
+        spike = max(0.0, math.cos(th * 8.0)) ** 6 * sstep(0.95, 0.75, abs(math.cos(th)))
+        return base * (0.86 + 0.28 * spike)
+    lr = random.Random(55)
+    for i in range(72):
+        z = lr.uniform(-0.75, 0.85)
+        a = lr.uniform(0, math.tau)
+        out_u = Vector((math.cos(a) * math.sqrt(1 - z * z), z, math.sin(a) * math.sqrt(1 - z * z)))
+        c = Vector((0, 2.0, 0)) + Vector((out_u.x * 2.3, out_u.y * 2.0, out_u.z * 2.3)) * lr.uniform(0.86, 1.0)   # 葉の付け根は、しげみの中
+        tang = out_u.cross(Vector((0, 1, 0)))
+        tang = tang.normalized() if tang.length > 1e-3 else Vector((1, 0, 0))
+        tw = lr.uniform(0, math.tau)
+        tang = (tang * math.cos(tw) + out_u.cross(tang) * math.sin(tw)).normalized()
+        dvec = (tang * 0.85 + out_u * 0.35).normalized()         # 葉の先の向き（Unity）
+        nvec = out_u - dvec * out_u.dot(dvec)
+        nvec = nvec.normalized()
+        L = lr.uniform(0.9, 1.25)
+        # うすい、とじた葉（平たい玉を、とげのあるふちの形に広げる）
+        leaf = MB()
+        uv_sphere(leaf, Vector((0, 0, 0)), 1.0, lambda n: FIR_DARK, seg=36, rings=6)
+        for vi, v in enumerate(leaf.V):
+            rxy = math.hypot(v.x, v.y)
+            th = math.atan2(v.x, v.y)
+            k = holly_r(th) * L
+            px, py = (v.x / rxy * rxy * k, v.y / rxy * rxy * k) if rxy > 1e-6 else (0.0, 0.0)
+            rho = rxy
+            pz = v.z * 0.06 + 0.12 * L * math.sin(th * 4.0) * rho + 0.1 * L * rho * rho
+            leaf.V[vi] = Vector((px, py, pz))
+            midrib = abs(math.sin(th)) < 0.07 and rho > 0.1
+            leaf.C[vi] = hexc("#7aa86a") if midrib and v.z > 0 else mixc(hexc("#1e4a26"), hexc("#3f7a3e"), 0.3 + 0.5 * rho) if v.z > 0                 else hexc("#2e5a30")
+        bx, by, bz = UV(Vector((0, 0, 0))), UV(dvec), UV(nvec)
+        side_b = by.cross(bz).normalized()
+        m = Matrix((
+            (side_b.x, by.x, bz.x, 0.0),
+            (side_b.y, by.y, bz.y, 0.0),
+            (side_b.z, by.z, bz.z, 0.0),
+            (0.0, 0.0, 0.0, 1.0)))
+        mb.add(leaf, Matrix.Translation(UV(c + dvec * L * 0.45)) @ m)
     # 赤い実（3 つずつ。しげみの面に、半分うまる）
     for (a0, y0) in ((-0.7, 3.6), (2.8, 3.1), (1.35, 3.8)):
         for k in range(3):
             a = a0 + (k - 1) * 0.2
             y = y0 + 0.25 * (k % 2)
-            r = 3.0 * math.sqrt(max(0.0, 1.0 - ((y - 2.0) / 2.4) ** 2)) - 0.1
+            r = 3.0 * math.sqrt(max(0.0, 1.0 - ((y - 2.0) / 2.4) ** 2)) + 0.25
             usphere(mb, Vector((math.cos(a) * r, y, math.sin(a) * r)), 0.42, lambda n: shiny(RED, bn(n)), seg=8, rings=5)
+            usphere(mb, Vector((math.cos(a) * (r + 0.4), y + 0.05, math.sin(a) * (r + 0.4))), 0.08, lambda n: hexc("#2a1a14"), seg=5, rings=3)   # 実の先の、黒い点
     return build(mb, "Xmas_Holly")
 
 
@@ -683,20 +867,46 @@ def make_holly_col():
     return build(mb, "Xmas_Holly_Col", sharp_deg=40)   # 下のかどは、かどのまま（ひさしに見えない）
 
 
-def make_snow_drift():
-    """雪の吹きだまり（なだらかな山。下は雪の中）"""
+def make_snow_drift(look=True):
+    """雪の吹きだまり（なだらかな山。下は雪の中）。見た目は、風下にせり出す雪のへり（雪庇）と、風のつけた、さざなみのすじ。
+    look=False は当たり判定（_Col：前の、2 つのまるい山）"""
     mb = MB()
-    usphere(mb, Vector((0, -1.2, 0)), 1.0, lambda n: snow_col(bn(n)), scale=(7.5, 3.4, 5.2), seg=24, rings=12)
-    usphere(mb, Vector((3.2, -0.8, 1.6)), 1.0, lambda n: snow_col(bn(n)), scale=(4.0, 2.4, 3.2), seg=18, rings=10)
+    if not look:
+        usphere(mb, Vector((0, -1.2, 0)), 1.0, lambda n: snow_col(bn(n)), scale=(7.5, 3.4, 5.2), seg=24, rings=12)
+        usphere(mb, Vector((3.2, -0.8, 1.6)), 1.0, lambda n: snow_col(bn(n)), scale=(4.0, 2.4, 3.2), seg=18, rings=10)
+        return build(mb, "Xmas_SnowDrift_Col")
+
+    def drift_col(n, pb):
+        c = snow_col(n)
+        ripple = 0.5 + 0.5 * math.sin(pb.x * 2.4 + pb.y * 1.1 + 0.8 * noise.noise(pb * 0.4))
+        c = mixc(c, SNOW_SHADE, 0.3 * sstep(0.7, 1.0, ripple) * sstep(0.2, 0.7, n.y))   # 風の、さざなみ
+        return mixc(c, hexc("#ffffff"), 0.4 * sstep(0.6, 0.75, noise.noise(pb * 3.0)))   # きらきらする、こまかな雪
+    for c, sc, seg, rings in ((Vector((0, -1.2, 0)), (7.5, 3.4, 5.2), 40, 18), (Vector((3.2, -0.8, 1.6)), (4.0, 2.4, 3.2), 28, 14),
+                              (Vector((1.8, -0.6, 0.9)), (4.6, 2.3, 3.4), 28, 12)):   # 3 つめは、2 つの山の、つなぎ
+        n0 = len(mb.V)
+        usphere(mb, c, 1.0, lambda n: SNOW, scale=sc, seg=seg, rings=rings)
+        cb = UV(c)
+        sb = Vector((sc[0], sc[2], sc[1]))
+        for i in range(n0, len(mb.V)):
+            q = mb.V[i] - cb
+            nb = Vector((q.x / sb.x ** 2, q.y / sb.y ** 2, q.z / sb.z ** 2)).normalized()
+            mb.C[i] = drift_col(bn(nb), mb.V[i])
+            # 風下（Unity の -z = Blender の +y）の上の方は、少し外へせり出す（雪庇）
+            if q.y > 0:
+                h = sstep(0.25, 0.85, (q.z + sb.z) / (2 * sb.z))
+                mb.V[i] = mb.V[i] + Vector((0, 0.7 * h * (q.y / sb.y), 0.12 * h))
     return build(mb, "Xmas_SnowDrift")
 
 
 ICE_RX, ICE_RZ = 16.0, 11.0
 
 
-def make_ice():
-    """こおった池の氷（だ円。上はつるつるで、白いひびと、ふちの雪）。水ではないので、歩ける"""
+def make_ice(look=True):
+    """こおった池の氷（だ円。上はつるつるで、白いひびと、ふちの雪）。水ではないので、歩ける。
+    look=False は当たり判定（_Col：前の、あらい形）"""
     mb = MB()
+    if look:
+        return make_ice_look()
 
     def col(t, a, p):
         n = noise.noise(Vector((p.x * 0.12, p.y * 0.12, 3.0)))
@@ -711,6 +921,47 @@ def make_ice():
     lathe(mb, prof, 48, lambda t, a, p: hexc("#8fb4cc"), center=Vector((0, 0, 0)))
     mb.xform(Matrix.Diagonal((ICE_RX, ICE_RZ, 1.0, 1.0)))
     mb.recolor(lambda p, c: col(1.0, 0.0, p) if p.z > -0.01 else c)
+    return build(mb, "Xmas_Ice_Col", sharp_deg=60)
+
+
+def make_ice_look():
+    """氷の見た目：上の面は細かく分けて、深さの色のむらと、白い泡。ひびは、上の面にそった細い白い帯（中心から枝分かれ）"""
+    mb = MB()
+
+    def col(p):
+        n = noise.noise(Vector((p.x * 0.12, p.y * 0.12, 3.0)))
+        c = mixc(ICE_DEEP, ICE, 0.5 + 0.5 * n)
+        c = mixc(c, hexc("#d8ecf8"), 0.35 * sstep(0.1, 0.5, noise.noise(Vector((p.x * 0.05, p.y * 0.05, 11.0)))))   # 白っぽくくもった所
+        if noise.noise(Vector((p.x * 1.6, p.y * 1.6, 5.0))) > 0.55:
+            c = mixc(c, hexc("#eef6fc"), 0.7)                                                                        # とじこめられた泡
+        return mixc(c, SNOW, sstep(0.93, 1.0, math.hypot(p.x / ICE_RX, p.y / ICE_RZ)))
+    prof = [(0.0, -0.8), (1.0, -0.8), (1.0, -0.05)] + [(1.0 - 0.025 * i, 0.0) for i in range(1, 40)] + [(0.0, 0.0)]
+    lathe(mb, prof, 96, lambda t, a, p: hexc("#8fb4cc"), center=Vector((0, 0, 0)))
+    mb.xform(Matrix.Diagonal((ICE_RX, ICE_RZ, 1.0, 1.0)))
+    mb.recolor(lambda p, c: col(p) if p.z > -0.01 else c)
+    # ひび：氷の上に、うすい白い帯（上の面から 0.01 だけ上）
+    rnd = random.Random(23)
+    for root in (Vector((-4.0, 2.0, 0)), Vector((6.0, -3.0, 0))):
+        for k in range(7):
+            a = k / 7 * math.tau + rnd.uniform(-0.3, 0.3)
+            p = root.copy()
+            d = Vector((math.cos(a), math.sin(a), 0))
+            pts = [p.copy()]
+            for s in range(rnd.randint(4, 7)):
+                d = (d + Vector((rnd.uniform(-0.5, 0.5), rnd.uniform(-0.5, 0.5), 0))).normalized()
+                p = p + d * rnd.uniform(1.2, 2.2)
+                if (p.x / (ICE_RX * 0.9)) ** 2 + (p.y / (ICE_RZ * 0.9)) ** 2 > 1.0:
+                    break
+                pts.append(p.copy())
+            if len(pts) < 2:
+                continue
+            ws = [lerp(0.16, 0.05, i / (len(pts) - 1)) for i in range(len(pts))]
+            sides = []
+            for i in range(len(pts)):
+                dd = pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]
+                sides.append(Vector((-dd.y, dd.x, 0)).normalized())
+            ribbon(mb, [q + Vector((0, 0, 0.012)) for q in pts], ws, sides, lambda t, v, q: mixc(hexc("#f2f8fc"), hexc("#cfe4f2"), t),
+                   normal_vecs=[Vector((0, 0, 1))] * len(pts))
     return build(mb, "Xmas_Ice", sharp_deg=60)
 
 
@@ -740,7 +991,9 @@ def make_warp_lights():
 MAKERS = [make_xmas_tree, make_xmas_tree_lights, make_xmas_tree_star,
           lambda: make_present("A"), lambda: make_present("B"), lambda: make_present("C"),
           make_snowman, make_cottage, make_cottage_window, make_mailbox, make_sled, make_mitten, make_lamp, make_lamp_glow,
-          make_fence, make_fence_lights, make_candy_cane, make_fir, make_holly, make_holly_col, make_snow_drift, make_ice, make_warp_ring, make_warp_lights]
+          make_fence, make_fence_lights, make_candy_cane, make_fir, make_holly, make_holly_col, make_snow_drift, make_ice, make_warp_ring, make_warp_lights,
+          # 当たり判定（見えない）：見た目を細かくした物は、前の形のまま（登る道・しずくの場所を変えない）
+          lambda: make_xmas_tree(False), lambda: make_cottage(False), lambda: make_fir(False), lambda: make_snow_drift(False), lambda: make_ice(False)]
 # 光る所（Unity で光る材質にする。部品のつながりは、のせる物の方で見る）
 GLOW = ("Xmas_TreeLights", "Xmas_TreeStar", "Xmas_CottageWindow", "Xmas_LampGlow", "Xmas_FenceLights", "Xmas_WarpLights")
 

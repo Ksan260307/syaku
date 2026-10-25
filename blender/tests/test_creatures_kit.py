@@ -140,6 +140,7 @@ MAKERS = {
     "Robin_Wing": lambda: cr.make_bird_wing("Robin_Wing", 5.6, "robin"),
     "Fuyushaku_Body": cr.make_fuyushaku_body,
     "Fuyushaku_Wing": cr.make_fuyushaku_wing,
+    "Fuyushaku_Female": cr.make_fuyushaku_female,
     "Yamane": cr.make_yamane,
     "Yamane_Eye": cr.make_yamane_eye,
 }
@@ -358,7 +359,11 @@ class CreatureKitTests(unittest.TestCase):
                 hit = tree.ray_cast(Vector((hip.x * 0.6, hip.y, -50.0)), Vector((0, 0, 1)), 200.0)
                 self.assertIsNotNone(hit[0], f"{up} の上に体がない")
                 self.assertGreater(top, hit[0].z + 0.3, f"{up} の付け根が、体の中に入っていない")
-        for name, r, tol in (("Tonakai", 0.3, 0.05), ("Yukiusagi", 0.08, 0.02), ("Fuyushaku_Body", 0.004, 0.002), ("Yamane", 0.02, 0.005),
+        # フユシャクのメスは、はねがなく、オスより、ずんぐり（しゃくとりむしより小さい）
+        fem = size(cr.make_fuyushaku_female())
+        self.assertLess(max(fem), 1.0, fem)
+        self.assertLess(fem[0], 0.5, "はねがない（横に広がらない）")
+        for name, r, tol in (("Tonakai", 0.3, 0.05), ("Yukiusagi", 0.08, 0.02), ("Fuyushaku_Body", 0.004, 0.002), ("Fuyushaku_Female", 0.004, 0.002), ("Yamane", 0.02, 0.005),
                              ("Yamane_Eye", 0.01, 0.002)):
             reset()
             ob = MAKERS[name]()

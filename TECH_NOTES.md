@@ -58,6 +58,12 @@ Unity 側で毎フレームこの曲線に沿って曲げています（`Inchwor
 雪の上は、足音が砂の音で、足あとがのこります（`AreaProps.Refine`。ほこりっぽくはならない）。
 いきもの（`Creatures.Xmas.cs`）：ユキウサギは `behavesLike` ナキウサギ、コマドリは `behavesLike` スズメで、シマエナガと同じとまり木めぐり（`UpdateTit`）、
 フユシャクは、オオミズアオと同じランプのまわり（`UpdateMoth`）。ヤマネは `MobGroup.face` の向きで手ぶくろの口に置き（`CreatureHome.Hanging` で動かさない）、うす目は別のメッシュ（`Yamane_Eye`）です。
+はねのないフユシャクのメス（`Fuyushaku_Female`）は、オスが回るランプのはしらにとまる、見た目だけの小物です。
+
+**モデルの見た目と当たり判定**：歩ける物の見た目をこまかくするときは、前の形を `<名前>_Col` として書き出します（`Place` は `_Col` があれば、それを当たり判定にする）。
+登る道・しずくの場所・とまり木は、前の形のままです。いまの `_Col`：`Xmas_Tree`・`Xmas_Fir`・`Xmas_Cottage`・`Xmas_SnowDrift`・`Xmas_Ice`・`Park_Kunugi`・`Hut_Backpack`（どれも前の見た目と同じ形）と、
+登りやすくした `Shrine_Fox_A_Col`・`Xmas_Holly_Col`・`Hut_Walls_Col`・`Hut_Roof_Col`。夜の森の木の葉（`Night_LeavesRoost` / `Night_LeavesMino`）は、
+木と同じ所に重ねる、花・シダの材質（`assets.flowers`：遠くまで消えない）の別のメッシュです（両面・風でゆれる・輪郭線なし。当たり判定なし）。
 
 チュートリアルの「練習の森」（`TutorialLayout.cs` / `WorldGenerator.Tutorial.cs`）は、森と同じ物（切り株・赤キノコ・岩・落ち葉・草花・背景の幹）で作った小さなエリアです。
 `Areas.Tutorial` は `Areas.All` に入れないので、しずく・名所の数、地図のエリアのボタン、図鑑のすみか、デモ映像には出ません（`Areas.Get("tutorial")` では取れる）。

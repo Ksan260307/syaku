@@ -388,6 +388,16 @@ namespace Shakutori
                 foreach (var l in _xmasLamps) g.path.Add(l);
                 g.showcase = true;
             }
+            // フユシャクのメス：はねがなく飛べないので、オスが回るランプのはしらにとまって、待っている（見た目だけの小物）
+            if (assets.TryGet("Fuyushaku_Female") != null)
+                foreach (int i in new[] { 1, 4 })
+                {
+                    if (i >= _xmasLamps.Count) continue;
+                    Vector3 foot = _xmasLamps[i] - Vector3.up * LampGlowY;
+                    float a = 0.7f + 2.1f * i;
+                    Vector3 dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                    Place("Fuyushaku_Female", assets.creature, foot + Vector3.up * 4.5f + dir * 0.42f, Quaternion.LookRotation(dir), 1f, false, false, 60f, asRenderer: true);
+                }
             // ヤマネ：手ぶくろの口で、冬眠中
             if (_mittenMouth != Vector3.zero)
             {

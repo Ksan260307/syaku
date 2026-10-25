@@ -23,7 +23,7 @@ from mathutils import Vector, noise
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_forest_kit as kit  # noqa: E402
 from build_forest_kit import (MB, TAU, bark_color, build, hexc, lathe, lerp, mixc, polar_sheet, scalec, sstep,  # noqa: E402
-                              trunk_mesh, tube, uv_sphere)
+                              ribbon, trunk_mesh, tube, uv_sphere)
 
 
 def parse_args():
@@ -91,6 +91,54 @@ def _face(mb, ps_b, center_b, col):
     nu = to_unity_n(n.normalized() if n.length > 1e-9 else Vector((0, 0, 1)))
     c = col(nu) if callable(col) else col
     mb.f(*[mb.v(p, c) for p in ps_b])
+
+
+def grid_box(mb, c, s, colfn, n=(8, 2, 4)):
+    """Unity の座標の直方体（まん中 c・大きさ s）。面をこまかく分けて、colfn(Unity の点, Unity の法線) の色をつける（形は ubox と同じ）"""
+    c = Vector(c)
+    h = Vector(s) * 0.5
+    center_b = UV(c)
+    axes = [Vector((1, 0, 0)), Vector((0, 1, 0)), Vector((0, 0, 1))]
+    for ai in range(3):
+        for sgn in (-1, 1):
+            N = axes[ai] * sgn
+            ui, vi = [k for k in range(3) if k != ai]
+            nu, nv = n[ui], n[vi]
+            grid = []
+            for i in range(nu + 1):
+                row = []
+                for j in range(nv + 1):
+                    p = c.copy()
+                    p[ai] += h[ai] * sgn
+                    p[ui] += h[ui] * (-1 + 2 * i / nu)
+                    p[vi] += h[vi] * (-1 + 2 * j / nv)
+                    row.append(mb.v(UV(p), colfn(p, N)))
+                grid.append(row)
+            for i in range(nu):
+                for j in range(nv):
+                    q = [grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]]
+                    a0, a1, a2 = mb.V[q[0]], mb.V[q[1]], mb.V[q[2]]
+                    if (a1 - a0).cross(a2 - a0).dot(UV(c + N * h[ai]) - center_b) < 0:
+                        q.reverse()
+                    mb.f(*q)
+
+
+def worn_stone(seed, base=STONE, moss=0.3):
+    """古い石：まだらの色・こまかなざらざら・地衣類の白い点・すみにたまった苔・欠けた、こい所。f(Unity の点, 法線)"""
+    off = Vector((seed * 3.1, seed * 1.7, seed * 2.3))
+
+    def f(p, n):
+        q = p + off
+        c = mixc(base, STONE_LIGHT, 0.5 + 0.4 * noise.noise(q * 0.5))
+        c = mixc(c, STONE_DARK, 0.35 * sstep(0.2, 0.6, noise.noise(q * 1.7 + Vector((5, 0, 0)))))
+        c = scalec(c, 0.94 + 0.1 * noise.noise(q * 5.0))
+        c = mixc(c, hexc("#e6e4d8"), 0.6 * sstep(0.55, 0.7, noise.noise(q * 2.6 + Vector((0, 9, 0)))))   # 地衣類
+        if n.y > 0.5:
+            c = mixc(c, MOSS, moss * sstep(0.1, 0.5, noise.noise(q * 0.8 + Vector((0, 0, 4)))))
+        elif n.y < -0.5:
+            c = scalec(c, 0.78)
+        return c
+    return f
 
 
 def hexa(mb, P, col):
@@ -939,19 +987,43 @@ def make_fence():
 def make_slab():
     mb = MB()
     top = 0.18
-    st = stone_col(8.0, 0.08, STONE_LIGHT)
-    ubox(mb, (0.0, -0.2, 0.0), (3.0, 0.6, 2.0), st)
-    P = [Vector((-1.5, top - 0.1, -1.0)), Vector((1.5, top - 0.1, -1.0)), Vector((1.5, top - 0.1, 1.0)), Vector((-1.5, top - 0.1, 1.0))]
-    Q = [Vector((-1.38, top, -0.88)), Vector((1.38, top, -0.88)), Vector((1.38, top, 0.88)), Vector((-1.38, top, 0.88))]
-    hexa(mb, P + Q, st)
+    st = worn_stone(8.0, STONE_LIGHT, moss=0.35)
+    grid_box(mb, (0.0, -0.2, 0.0), (3.0, 0.6, 2.0), st, n=(10, 2, 7))
+    # 上の、角をおとした面（まん中ほど、すりへって明るい）
+    nx, nz = 12, 8
+    rows = []
+    for i in range(nx + 1):
+        row = []
+        for j in range(nz + 1):
+            u, v = -1 + 2 * i / nx, -1 + 2 * j / nz
+            inset = 0.12 * max(abs(u), abs(v)) ** 8
+            p = Vector((u * (1.5 - inset), top - 0.1 * max(abs(u), abs(v)) ** 10, v * (1.0 - inset)))
+            c = st(p, Vector((0, 1, 0)))
+            c = mixc(c, STONE_LIGHT, 0.25 * (1.0 - max(abs(u), abs(v))))
+            row.append(mb.v(UV(p), c))
+        rows.append(row)
+    for i in range(nx):
+        for j in range(nz):
+            mb.f(rows[i][j], rows[i][j + 1], rows[i + 1][j + 1], rows[i + 1][j])
     return build(mb, "Shrine_Slab", smooth=False)
 
 
 def make_step():
     mb = MB()
-    st = stone_col(9.0, 0.12)
-    ubox(mb, (0.0, -1.675, 0.0), (16.0, 3.65, 1.9), st)   # 下は地面の中まで（石段のはしで、坂の横の低い地面から浮かない）
-    ubox(mb, (0.0, 0.2, -0.05), (15.6, 0.2, 1.8), stone_col(10.0, 0.18, STONE_LIGHT))
+    st = worn_stone(9.0, moss=0.2)
+    grid_box(mb, (0.0, -1.675, 0.0), (16.0, 3.65, 1.9), st, n=(32, 6, 4))   # 下は地面の中まで（石段のはしで、坂の横の低い地面から浮かない）
+    top = worn_stone(10.0, STONE_LIGHT, moss=0.3)
+
+    def tread(p, n):
+        c = top(p, n)
+        if n.y > 0.5:
+            c = mixc(c, hexc("#d4d0c4"), 0.35 * sstep(7.5, 2.0, abs(p.x)) * sstep(0.9, 0.2, abs(p.z + 0.05)))   # 人の歩く所は、すりへる
+            c = mixc(c, MOSS, 0.5 * sstep(0.55, 0.88, p.z) * sstep(0.0, 0.4, kit.noise.noise(p * 0.9)))          # うしろのすみの苔
+            c = mixc(c, MOSS, 0.4 * sstep(6.6, 7.8, abs(p.x)))                                                      # はしの苔
+        if n.z < -0.5 and kit.noise.noise(p * 1.4 + Vector((2, 0, 0))) > 0.35:
+            c = scalec(c, 0.75)                                                                                     # ふちの、欠けた所
+        return c
+    grid_box(mb, (0.0, 0.2, -0.05), (15.6, 0.2, 1.8), tread, n=(40, 1, 6))
     return build(mb, "Shrine_Step", smooth=False)
 
 
@@ -1004,12 +1076,23 @@ def make_sasa(name, seed, stems=6):
             d = Vector((math.cos(la), -0.25, math.sin(la))).normalized()
             L = rnd.uniform(1.6, 2.4)
             side = Vector((0, 1, 0)).cross(d).normalized()
-            leaf = [at, at + d * L * 0.5 + Vector((0, 0.15, 0)), at + d * L]
-            # 葉は、うすい箱を 2 つ（どちらから見ても見える）
-            for i in range(2):
-                a3, b3 = leaf[i], leaf[i + 1]
-                w = 0.42 if i == 0 else 0.3
-                beam(mb, tuple(a3), tuple(b3), w, 0.04, lambda n: mixc(hexc("#5d8f36"), hexc("#a7c766"), 0.4 + 0.3 * n.y), up=tuple(side.cross(d)))
+            # 葉：付け根は細く、まん中が広く、先はとがる。先へ行くほど、少したれる
+            nl = 7
+            pts, ws = [], []
+            for i in range(nl):
+                t2 = i / (nl - 1)
+                pts.append(UV(at + d * (L * t2) + Vector((0, 0.15 * math.sin(math.pi * t2) - 0.25 * t2 * t2, 0))))
+                ws.append(0.62 * math.sin(math.pi * min(1.0, 0.08 + t2 * 0.98)) ** 0.7)
+            ws[-1] = 0.0
+            nrm_u = side.cross(d).normalized()
+            if nrm_u.y < 0:
+                nrm_u = -nrm_u
+            dark = mixc(hexc("#3f6e2a"), hexc("#5d8f36"), rnd.random())
+
+            def sasa_col(t2, v, p, dark=dark):
+                c = mixc(dark, hexc("#8ab45a"), 0.35 * (1.0 - abs(v)))                 # 中すじは明るく
+                return mixc(c, hexc("#ece6c8"), 0.85 * sstep(0.62, 0.95, abs(v)) * sstep(0.1, 0.3, t2))   # ふちの、白い「くま」
+            ribbon(mb, pts, ws, [UV(side) * 1.0] * nl, sasa_col, fold=0.12, normal_vecs=[UV(nrm_u)] * nl)
     return build(mb, name, smooth=False)
 
 

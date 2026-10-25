@@ -14,6 +14,33 @@ namespace Shakutori.Tests
 
         static readonly string[] ShrineSpecies = { "kitsune", "fukurou", "tanuki", "ga", "kanabun", "suzumushi", "korogi" };
 
+        /// <summary>フクロウが、とまり木へ飛んだときに下りる所（Creatures.TakeOff / FlatLanding と同じ決まり）。</summary>
+        static Vector3 OwlLanding(Vector3 perch)
+        {
+            bool Flat(float spread, float minY, out Vector3 spot)
+            {
+                spot = perch;
+                float best = -1f;
+                for (int i = 0; i < 9; i++)
+                {
+                    float a = i * 2.39996f;
+                    float r = i == 0 ? 0f : spread * Mathf.Sqrt(i / 8f);
+                    Vector3 p = perch + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * r;
+                    if (!Physics.Raycast(p + Vector3.up * 60f, Vector3.down, out var hit, 120f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)) continue;
+                    if (hit.point.y < minY) continue;
+                    if (hit.normal.y > best) { best = hit.normal.y; spot = hit.point; }
+                    if (best > 0.97f) break;
+                }
+                return best > 0.85f;
+            }
+            if (Flat(0.2f, float.NegativeInfinity, out var s1)) return s1;
+            bool hasTop = Physics.Raycast(perch + Vector3.up * 60f, Vector3.down, out var h, 120f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore);
+            float top = hasTop ? h.point.y : perch.y;
+            if (Flat(1.5f, top - 2f, out var s2)) return s2;
+            // 平らな所がなければ、とまり木の点へ。着地で、近くの面にすいつく（SnapToSurface は 6 まで下）。とどかなければ、空中から下へ落ちる
+            return hasTop && perch.y - top < 6f ? h.point : new Vector3(perch.x, ShrineLayout.Height(perch.x, perch.z), perch.z);
+        }
+
         [OneTimeSetUp]
         public void Generate()
         {
@@ -187,6 +214,12 @@ namespace Shakutori.Tests
             var owl = _gen.Mobs.Single(m => m.species == "fukurou");
             Assert.GreaterOrEqual(owl.path.Count, 4);
             Assert.Greater(owl.center.y - ShrineLayout.Height(owl.center.x, owl.center.z), 10f, "高い所");
+            // どのとまり木へ飛んでも、高い所に下りる（屋根の上の点は、むねの平らな所へ。空中や、下の地面ではない）
+            foreach (var perch in owl.path)
+            {
+                Vector3 land = OwlLanding(perch);
+                Assert.Greater(land.y - ShrineLayout.Height(land.x, land.z), 8f, $"とまり木 {perch} から下りる所 {land}");
+            }
             // オオミズアオは、灯籠のあかりのそば
             foreach (var g in _gen.Mobs.Where(m => m.species == "ga"))
             {

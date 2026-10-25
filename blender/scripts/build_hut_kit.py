@@ -661,21 +661,57 @@ def make_boots():
     return build(mb, "Hut_Boots", smooth=True, sharp_deg=50)
 
 
-def make_backpack():
-    """かべにもたれたリュック（前は +z。せなかは -z のかべがわ）"""
+def make_backpack(look=True):
+    """かべにもたれたリュック（前は +z。せなかは -z のかべがわ）。look=False は当たり判定（_Col：前の、まるい形）"""
     mb = MB()
     canvas = hexc("#3f7a8c")
     dark = hexc("#2e5866")
     tmp = MB()
-    uv_sphere(tmp, Vector((0, 0, 14.0)), 1.0, lambda n: scalec(canvas, 0.85 + 0.15 * n.z), seg=18, rings=12, scale=Vector((10.0, 6.5, 14.0)))
-    uv_sphere(tmp, Vector((0, -5.2, 20.0)), 1.0, lambda n: dark, seg=14, rings=8, scale=Vector((9.0, 3.2, 6.0)))   # 上のふた
-    uv_sphere(tmp, Vector((0, -6.2, 8.0)), 1.0, lambda n: dark, seg=14, rings=8, scale=Vector((6.5, 2.4, 5.0)))    # 前のポケット
+    if not look:
+        uv_sphere(tmp, Vector((0, 0, 14.0)), 1.0, lambda n: canvas, seg=18, rings=12, scale=Vector((10.0, 6.5, 14.0)))
+        uv_sphere(tmp, Vector((0, -5.2, 20.0)), 1.0, lambda n: dark, seg=14, rings=8, scale=Vector((9.0, 3.2, 6.0)))
+        uv_sphere(tmp, Vector((0, -6.2, 8.0)), 1.0, lambda n: dark, seg=14, rings=8, scale=Vector((6.5, 2.4, 5.0)))
+        for sx in (-1, 1):
+            tube(tmp, [Vector((sx * 5.0, 2.6, 24.0)), Vector((sx * 5.8, 5.6, 19.0)), Vector((sx * 6.0, 6.0, 14.0)), Vector((sx * 5.6, 5.4, 8.0)),
+                       Vector((sx * 5.0, 1.8, 3.0))], [0.8] * 5, 6, lambda t, a, p, d: hexc("#2a2a2a"))
+        tube(tmp, [Vector((-5.5, -4.8, 15.0)), Vector((-3.0, -6.4, 15.0)), Vector((0.0, -6.8, 15.0)), Vector((3.0, -6.4, 15.0)), Vector((5.5, -4.8, 15.0))],
+             [0.5] * 5, 5, lambda t, a, p, d: hexc("#e8c040"))
+        mb.add(tmp, Matrix.Rotation(math.radians(-10), 4, "X"))
+        return build(mb, "Hut_Backpack_Col", smooth=True)
+
+    def boxy(center, scale, colfn, seg=18, rings=12, pw=0.55):
+        """角のまるい、箱に近い形（布のかばんの、ふくらみ）"""
+        part = MB()
+        uv_sphere(part, Vector((0, 0, 0)), 1.0, colfn, seg=seg, rings=rings)
+        part.V = [Vector((math.copysign(abs(v.x) ** pw, v.x) * scale.x, math.copysign(abs(v.y) ** pw, v.y) * scale.y,
+                          math.copysign(abs(v.z) ** pw, v.z) * scale.z)) + center for v in part.V]
+        tmp.add(part, Matrix.Identity(4))
+    boxy(Vector((0, 0, 14.0)), Vector((9.2, 6.0, 13.0)), lambda n: scalec(canvas, 0.85 + 0.15 * n.z), seg=24, rings=16)
+    boxy(Vector((0, -4.6, 22.5)), Vector((8.6, 3.0, 4.2)), lambda n: dark, seg=16, rings=10, pw=0.7)   # 上のふた
+    boxy(Vector((0, -6.2, 8.0)), Vector((6.2, 2.2, 4.6)), lambda n: dark, seg=16, rings=10, pw=0.65)   # 前のポケット
     # かたひもとバンドは、体の面にそわせ、両はしは体の中へ（前は体からはなれて、うかんで見えた）
     for sx in (-1, 1):
         tube(tmp, [Vector((sx * 5.0, 2.6, 24.0)), Vector((sx * 5.8, 5.6, 19.0)), Vector((sx * 6.0, 6.0, 14.0)), Vector((sx * 5.6, 5.4, 8.0)),
                    Vector((sx * 5.0, 1.8, 3.0))], [0.8] * 5, 6, lambda t, a, p, d: hexc("#2a2a2a"))
     tube(tmp, [Vector((-5.5, -4.8, 15.0)), Vector((-3.0, -6.4, 15.0)), Vector((0.0, -6.8, 15.0)), Vector((3.0, -6.4, 15.0)), Vector((5.5, -4.8, 15.0))],
          [0.5] * 5, 5, lambda t, a, p, d: hexc("#e8c040"))
+    # わきのポケット（両がわ。上に、ふたのへり）
+    for sx in (-1, 1):
+        uv_sphere(tmp, Vector((sx * 8.9, -0.6, 9.0)), 1.0, lambda n: scalec(dark, 0.95 + 0.1 * n.z), seg=12, rings=8, scale=Vector((2.4, 3.6, 4.6)))
+        uv_sphere(tmp, Vector((sx * 9.3, -0.6, 12.6)), 1.0, lambda n: canvas, seg=10, rings=6, scale=Vector((1.6, 3.2, 1.0)))
+    # ふたをとめる 2 本のベルト（ふたから、前のポケットの上まで）と、金具
+    for bx in (-3.2, 3.2):
+        strap = [Vector((bx, -7.6, 21.0)), Vector((bx, -8.1, 17.5)), Vector((bx * 1.05, -7.9, 13.2)), Vector((bx * 0.95, -8.4, 10.5))]
+        tube(tmp, strap, [0.0, 0.55, 0.55, 0.0], 6, lambda t, a, p, d: hexc("#2a2a2a"), oval=(1.6, 0.5))
+        uv_sphere(tmp, Vector((bx, -8.5, 13.0)), 1.0, lambda n: hexc("#c8b070"), seg=8, rings=5, scale=Vector((0.9, 0.35, 0.7)))
+    # 前のポケットのファスナー（明るい線）
+    tube(tmp, [Vector((-5.2, -7.4, 10.2)), Vector((-2.0, -8.5, 10.8)), Vector((2.0, -8.5, 10.8)), Vector((5.2, -7.4, 10.2))],
+         [0.0, 0.22, 0.22, 0.0], 5, lambda t, a, p, d: hexc("#d8d0b8"))
+    # 下の、こい色の、じょうぶな布（底）
+    uv_sphere(tmp, Vector((0, 0, 3.4)), 1.0, lambda n: hexc("#24343a"), seg=16, rings=8, scale=Vector((9.2, 5.8, 3.4)))
+    # かべにかける持ち手（せなかの上）
+    tube(tmp, [Vector((-2.0, 4.0, 25.2)), Vector((-1.6, 5.2, 27.4)), Vector((1.6, 5.2, 27.4)), Vector((2.0, 4.0, 25.2))],
+         [0.0, 0.45, 0.45, 0.0], 6, lambda t, a, p, d: hexc("#2a2a2a"))
     # かべ（せなか）の方へ、少しかたむける
     mb.add(tmp, Matrix.Rotation(math.radians(-10), 4, "X"))
     return build(mb, "Hut_Backpack", smooth=True)
@@ -721,7 +757,27 @@ def make_map():
 
 def make_book():
     mb = MB()
-    ubox(mb, (0, 1.2, 0), (9.0, 2.4, 12.0), lambda n: hexc("#f2ead6") if abs(n.x) > 0.5 else hexc("#8a3a32"))
+    cover = hexc("#8a3a32")
+    ubox(mb, (0.15, 0.15, 0), (9.3, 0.3, 12.4), lambda n: scalec(cover, 0.9))          # うらの表紙
+    ubox(mb, (0.15, 2.25, 0), (9.3, 0.3, 12.4), lambda n: cover)                       # 表の表紙
+    # ページ：小口（切り口）に、紙のかさなりのすじ
+    ubox(mb, (0.3, 1.2, 0), (8.8, 1.9, 11.8), lambda n: hexc("#f2ead6"))
+    for k in range(5):
+        y = 0.45 + k * 0.35
+        ubox(mb, (4.71, y, 0), (0.02, 0.05, 11.6), lambda n: hexc("#d8ccb0"))
+    # まるい背（背表紙）と、金の帯
+    for i in range(12):
+        a0, a1 = math.pi * i / 12, math.pi * (i + 1) / 12
+        p0 = (-4.5 - 0.5 * math.sin(a0), 1.2 + 1.2 * math.cos(a0))
+        p1 = (-4.5 - 0.5 * math.sin(a1), 1.2 + 1.2 * math.cos(a1))
+        for z0, z1 in ((-6.2, 6.2),):
+            v = [mb.v(U(p0[0], p0[1], z0), cover), mb.v(U(p1[0], p1[1], z0), cover), mb.v(U(p1[0], p1[1], z1), cover), mb.v(U(p0[0], p0[1], z1), cover)]
+            mb.f(v[0], v[1], v[2], v[3])
+    for zb in (-4.6, -3.9, 3.9, 4.6):
+        ubox(mb, (-4.85, 1.2, zb), (0.4, 2.0, 0.22), lambda n: hexc("#d8b04a"))
+    # 表紙の、金の四角いかざり
+    ubox(mb, (0.3, 2.41, 0), (5.6, 0.02, 0.3), lambda n: hexc("#d8b04a"))
+    ubox(mb, (0.3, 2.41, 3.0), (5.6, 0.02, 0.3), lambda n: hexc("#d8b04a"))
     return build(mb, "Hut_Book", smooth=False)
 
 
@@ -819,10 +875,13 @@ def make_nest():
     mb = MB()
     mud = hexc("#8a6a4a")
     prof = [(0.0, 0.0), (3.0, 0.0), (5.2, 1.6), (6.0, 4.0), (5.4, 4.4), (4.6, 2.4), (0.0, 1.8)]
-    lathe(mb, prof, 24, lambda t, a, p: scalec(mixc(mud, hexc("#a8865c"), 0.5 + 0.5 * noise.noise(p * 0.8)), 0.9 + 0.1 * math.sin(p.z * 6.0)),
+    def pellet(p):
+        # どろのつぶ（口にくわえて運んだ、まるいつぶを、だんだんに積む）
+        return 0.5 + 0.5 * math.sin(p.z * 3.2) * math.sin(math.atan2(p.y, p.x) * 14.0 + p.z * 1.7)
+    lathe(mb, prof, 48, lambda t, a, p: scalec(mixc(mud, hexc("#a8865c"), 0.5 + 0.5 * noise.noise(p * 0.8)), 0.82 + 0.22 * pellet(p)),
           rfn=lambda t, a: 1.0 + 0.06 * noise.noise(Vector((math.cos(a) * 2, math.sin(a) * 2, t * 4))))
     rnd = random.Random(17)
-    for k in range(14):
+    for k in range(34):
         a = rnd.uniform(0, TAU)
         r = rnd.uniform(4.6, 6.2)
         p0 = U(math.cos(a) * r, rnd.uniform(2.0, 4.4), math.sin(a) * r)
@@ -890,7 +949,7 @@ def make_button():
 MAKERS = [
     make_walls, make_walls_col, make_roof, make_roof_col, make_beams, make_door, make_view,
     make_stove, make_stove_fire, make_kettle, make_firewood, make_table, make_bench, make_bunk, make_shelf,
-    make_rug, make_doormat, make_boots, make_backpack, make_mug, make_bread, make_map, make_book,
+    make_rug, make_doormat, make_boots, make_backpack, lambda: make_backpack(False), make_mug, make_bread, make_map, make_book,
     make_lamp, make_lamp_glow, make_clock, make_bucket, make_broom, make_herbs, make_nest, make_mouse_hole,
     make_crumb, make_seed, make_match, make_button,
 ]

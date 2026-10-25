@@ -125,6 +125,22 @@ class NightKitTests(unittest.TestCase):
             self.assertEqual(open_ends(ob, r), [], f"{ob.name} に、口があいたまま見える筒")
             self.assertEqual(floating_parts(ob, tol), [], f"{ob.name} に、浮いた部品")
 
+    def test_tree_leaves_cover_the_leaf_clumps(self):
+        # 葉のかたまりの表面に、1 まいずつの葉（草の材質で重ねる。まるい玉に見せない）。木の形（当たり判定）は、葉のない、前のまま
+        for tree_mk, leaf_mk in ((night.make_roost_tree, night.make_roost_leaves), (night.make_mino_tree, night.make_mino_leaves)):
+            reset()
+            tree = tree_mk()
+            leaves = leaf_mk()
+            self.assertGreater(len(leaves.data.polygons), 3000, leaves.name)
+            tlo, thi = size(tree)
+            llo, lhi = size(leaves)
+            self.assertLess(abs(lhi.z - thi.z), 3.0, "葉は、かたまりの表面")
+            self.assertGreater(llo.z, tlo.z + 5.0, "葉は、高い所（幹のまわりにはない）")
+            bvt = bvh(tree)
+            sample = [v.co for v in leaves.data.vertices][::97]
+            near = sum(1 for co in sample if bvt.find_nearest(co)[3] < 2.5)
+            self.assertGreater(near, len(sample) * 0.9, "葉は、かたまりにくっついている")
+
 
 def main():
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(NightKitTests)

@@ -388,11 +388,23 @@ DOKAN_LEN = 10.0
 def make_dokan():
     mb = MB()
     ro, ri, L = DOKAN_R, DOKAN_R - 0.5, DOKAN_LEN
-    prof = [(ri, 0.0), (ro, 0.0), (ro, L), (ri, L)]
+    n = 24
+    prof = [(ri, 0.0)] + [(ro, L * k / n) for k in range(n + 1)] + [(ri, L * (n - k) / n) for k in range(n)]
 
     def col(t, a, p):
-        stain = 0.5 + 0.5 * math.sin(p.z * 1.3 + a * 2)
-        return mixc(CONCRETE, CONCRETE_DARK, 0.15 + 0.2 * stain)
+        r = math.hypot(p.x, p.y)
+        q = Vector((p.x, p.y, p.z)) * 0.9
+        c = mixc(CONCRETE, CONCRETE_DARK, 0.2 + 0.3 * (0.5 + 0.5 * kit.noise.noise(q)))
+        c = scalec(c, 0.94 + 0.1 * kit.noise.noise(q * 6.0))                        # こまかな、ざらざら
+        down = sstep(0.0, -0.8, p.y / max(r, 1e-6))                              # 下がわは、土と雨のよごれ
+        c = mixc(c, hexc("#7e735f"), 0.45 * down * (0.6 + 0.4 * kit.noise.noise(q * 2.0)))
+        streak = sstep(0.85, 1.0, abs(math.sin(a * 23.0 + 0.5 * kit.noise.noise(q))))   # 雨だれの、たてのすじ
+        c = mixc(c, CONCRETE_DARK, 0.35 * streak * sstep(0.2, 0.8, p.y / max(r, 1e-6)))
+        end = min(p.z, L - p.z)
+        c = mixc(c, hexc("#6f9a4a"), 0.6 * sstep(0.9, 0.0, end) * sstep(0.0, -0.6, p.y / max(r, 1e-6)))   # はしの下に、苔
+        if r < ro - 0.05:
+            c = scalec(c, 0.8)                                                  # 中は、かげ
+        return c
     tmp = MB()
     lathe(tmp, prof, 40, col, closed=True)
     # Z に長い形を、X に長くねかせる（まん中を原点に）
@@ -539,13 +551,42 @@ def make_tulip(name, petal, petal_tip):
         pts = [Vector((0, 0, 0.1)), d * 0.5 + Vector((0, 0, 1.4)), d * 0.9 + Vector((0, 0, 2.6))]
         side = Vector((-d.y, d.x, 0))
         kit.ribbon(mb, pts, [0.55, 0.6, 0.0], [side] * 3, lambda t, v, p: with_alpha(mixc(stem, hexc("#7cc25a"), t), t * 0.6), fold=0.3)
-    # 花：6 つにふくらんだカップ（上が少し開く）
-    prof = [(0.0, -0.05), (0.42, 0.05), (0.72, 0.45), (0.78, 0.95), (0.68, 1.4), (0.6, 1.62)]
-
-    def cup(t, a, p):
-        return with_alpha(mixc(petal, petal_tip, sstep(0.35, 1.0, t)), 1.0)
-    lathe(mb, prof, 24, cup, center=Vector((0, 0.05, h - 0.05)),
-          rfn=lambda t, a: 1.0 + 0.16 * t * abs(math.cos(a * 3)) ** 0.6)
+    # 花：6 枚の花びらのカップ（外の 3 枚と、そのあいだの内の 3 枚）。花びらの先は、とがって少し上へ
+    prof = [(0.0, -0.05), (0.42, 0.05), (0.62, 0.22), (0.72, 0.45), (0.77, 0.7), (0.78, 0.95), (0.74, 1.18), (0.68, 1.4), (0.62, 1.56), (0.58, 1.66)]
+    seg = 48
+    center = Vector((0, 0.05, h - 0.05))
+    rings = []
+    for i, (r, z) in enumerate(prof):
+        t = i / (len(prof) - 1)
+        if r <= 1e-7:
+            rings.append([mb.v(center + Vector((0, 0, z)), with_alpha(scalec(petal, 0.7), 1.0))])
+            continue
+        ring = []
+        for j in range(seg):
+            a = TAU * j / seg
+            k = abs(math.cos(a * 3.0))                    # 1 = 外の花びらのまん中
+            k2 = abs(math.cos(a * 3.0 + math.pi / 2))     # 1 = 内の花びらのまん中
+            petal_c = max(k, k2 * 0.92)
+            rr = r * (1.0 + 0.14 * t * k ** 0.6 + 0.05 * t * k2)
+            zz = z + 0.32 * t ** 4 * (k ** 3 + 0.6 * k2 ** 3) - 0.1 * t ** 3   # 花びらの先は高く、さかいは低い
+            p = center + Vector((math.cos(a) * rr, math.sin(a) * rr, zz))
+            c = mixc(petal, petal_tip, sstep(0.35, 1.0, t))
+            c = mixc(c, scalec(petal, 0.72), 0.5 * sstep(0.35, 0.0, petal_c) * sstep(0.1, 0.4, t))   # 花びらのさかいの、こいすじ
+            if t < 0.2:
+                c = mixc(c, hexc("#4f9a3c"), 0.5 * (1 - t / 0.2))                                    # がくの近くは緑がかる
+            ring.append(mb.v(p, with_alpha(c, 1.0)))
+        rings.append(ring)
+    kit.connect_rings(mb, rings)
+    # 内がわ（上から見える）：花のまん中の、こい色と、黄色いおしべ
+    inner = [(0.52, 1.6), (0.6, 1.2), (0.5, 0.7), (0.0, 0.5)]
+    tmp = MB()
+    lathe(tmp, list(reversed([(r * 0.95, z) for r, z in inner])), 24,
+          lambda t, a, p: with_alpha(mixc(scalec(petal, 0.6), hexc("#3a2a1e"), sstep(0.5, 0.0, t)), 1.0))
+    mb.add(tmp, Matrix.Translation(center))
+    for k in range(6):
+        a = TAU * k / 6
+        q = center + Vector((math.cos(a) * 0.14, math.sin(a) * 0.14, 0.55))
+        tube(mb, [q, q + Vector((math.cos(a) * 0.08, math.sin(a) * 0.08, 0.45))], [0.03, 0.025], 4, lambda t, a2, p, d: with_alpha(hexc("#f2d24a"), 1.0))
     return build(mb, name)
 
 
@@ -664,8 +705,9 @@ def kunugi_leaf(mb, rnd, base, direction, length, up=Vector((0, 0, 1))):
            fold=0.18, normal_vecs=[nrm] * n)
 
 
-def make_kunugi():
-    """公園の大きなクヌギ：ごつごつの幹（樹液のしみ・根）に、登ってわたれる太い枝と、葉のしげみ"""
+def make_kunugi(look=True):
+    """公園の大きなクヌギ：ごつごつの幹（樹液のしみ・根）に、登ってわたれる太い枝と、葉のしげみ。
+    look=False は当たり判定（_Col）：上の樹冠は、前の、小さな形のまま"""
     rnd = random.Random(31)
     mb = MB()
     R = 4.2
@@ -706,16 +748,33 @@ def make_kunugi():
                 base = c + dirv * rnd.uniform(0.5, 3.5)
                 kunugi_leaf(mb, rnd, base, dirv + Vector((0, 0, -0.25)), rnd.uniform(4.0, 6.0))
     # 上の樹冠：高い所に、大きな葉のかたまり（遠くからも木に見える）
-    for k in range(9):
-        a = TAU * k / 9 + rnd.uniform(-0.2, 0.2)
-        c = Vector((math.cos(a) * rnd.uniform(8, 16), math.sin(a) * rnd.uniform(8, 16), rnd.uniform(74, 100)))
-        tube(mb, [Vector((0, 0, c.z - 6)), c * 0.5 + Vector((0, 0, c.z * 0.5)), c], [2.0, 1.4, 0.4], 10,
+    if not look:
+        for k in range(9):
+            a = TAU * k / 9 + rnd.uniform(-0.2, 0.2)
+            c = Vector((math.cos(a) * rnd.uniform(8, 16), math.sin(a) * rnd.uniform(8, 16), rnd.uniform(74, 100)))
+            tube(mb, [Vector((0, 0, c.z - 6)), c * 0.5 + Vector((0, 0, c.z * 0.5)), c], [2.0, 1.4, 0.4], 10,
+                 lambda t, a2, p, dd: bark_color(p * 0.5, a2, 0.25, 31.0, 0.1, 0.1))
+            for j in range(50):
+                th = rnd.uniform(0, TAU)
+                ph = rnd.uniform(-0.8, 1.2)
+                dirv = Vector((math.cos(th) * math.cos(ph), math.sin(th) * math.cos(ph), math.sin(ph)))
+                kunugi_leaf(mb, rnd, c + dirv * rnd.uniform(1.0, 6.0), dirv + Vector((0, 0, -0.2)), rnd.uniform(5.0, 7.0))
+        return build(mb, "Park_Kunugi_Col")
+    # （枝わかれして、横に広がった、まるい樹冠。葉のかたまりは、こみあって、あいだから空が少し見えるくらい）
+    for k in range(16):
+        a = TAU * k / 15 + rnd.uniform(-0.15, 0.15)
+        far = rnd.uniform(8, 26) if k % 3 else rnd.uniform(4, 10)
+        c = Vector((math.cos(a) * far, math.sin(a) * far, rnd.uniform(66, 104) - 0.25 * far))
+        if k == 15:
+            c = Vector((0.0, 0.0, 109.0))   # 幹のてっぺんも、葉でおおう
+        mid = c * 0.5 + Vector((0, 0, c.z * 0.5 + 2.0))
+        tube(mb, [Vector((0, 0, c.z - 10)), mid, c], [2.2, 1.4, 0.4], 10,
              lambda t, a2, p, dd: bark_color(p * 0.5, a2, 0.25, 31.0, 0.1, 0.1))
-        for j in range(50):
+        for j in range(64):
             th = rnd.uniform(0, TAU)
-            ph = rnd.uniform(-0.8, 1.2)
+            ph = rnd.uniform(-0.7, 1.2)
             dirv = Vector((math.cos(th) * math.cos(ph), math.sin(th) * math.cos(ph), math.sin(ph)))
-            kunugi_leaf(mb, rnd, c + dirv * rnd.uniform(1.0, 6.0), dirv + Vector((0, 0, -0.2)), rnd.uniform(5.0, 7.0))
+            kunugi_leaf(mb, rnd, c + dirv * rnd.uniform(1.0, 7.5), dirv + Vector((0, 0, -0.2)), rnd.uniform(6.0, 9.0))
     return build(mb, "Park_Kunugi")
 
 
@@ -794,16 +853,46 @@ def make_paper_plane():
     mb = MB()
     white = hexc("#fbfaf4")
     shade = hexc("#e2e0d6")
+    line = hexc("#a8c4e6")
     L = 4.0
     nose = Vector((0, L * 0.5, 0.25))
     tail_l, tail_r = Vector((-1.4, -L * 0.5, 0.55)), Vector((1.4, -L * 0.5, 0.55))
     keel_t, keel_b = Vector((0, -L * 0.5, 0.45)), Vector((0, -L * 0.42, 0.0))
-    def tri(a, b, c, col):
-        mb.f(mb.v(a, col), mb.v(b, col), mb.v(c, col))
-        mb.f(mb.v(a, col), mb.v(c, col), mb.v(b, col))   # 両面
-    tri(nose, tail_l, keel_t, white)
-    tri(nose, keel_t, tail_r, white)
-    tri(nose, keel_t, keel_b, shade)
+
+    def paper(p, base):
+        # ノートの紙の、横の線（紙ひこうきの長さの方向）と、ふちの赤い線
+        u = (p.y + L * 0.5) / L
+        x = abs(p.x)
+        c = base
+        c = mixc(c, line, 0.75 * sstep(0.3, 0.08, abs(math.sin(x * 9.0))) * sstep(0.08, 0.2, x))
+        c = mixc(c, hexc("#e89a9a"), 0.7 * sstep(0.08, 0.02, abs(x - 1.0)))
+        return mixc(c, shade, 0.25 * (1.0 - u))
+
+    def sheet(a, b, c, base, nu=12, nv=24, flip=False):
+        """三角形 a-b-c を、こまかく分けた紙（両面）"""
+        rows = []
+        for i in range(nu + 1):
+            u = i / nu
+            row = []
+            for j in range(nv + 1):
+                v = j / nv
+                p = a.lerp(b, u).lerp(a.lerp(c, u), v)
+                row.append(p)
+            rows.append(row)
+        for i in range(nu):
+            for j in range(nv):
+                q = [rows[i][j], rows[i + 1][j], rows[i + 1][j + 1], rows[i][j + 1]]
+                ids = [mb.v(p, paper(p, base)) for p in q]
+                ids2 = [mb.v(p, paper(p, scalec(base, 0.94))) for p in q]
+                if flip:
+                    mb.f(*ids)
+                    mb.f(*reversed(ids2))
+                else:
+                    mb.f(*reversed(ids))
+                    mb.f(*ids2)
+    for sx, tail in ((-1, tail_l), (1, tail_r)):
+        sheet(nose, keel_t, tail, white, flip=sx > 0)
+    sheet(nose, keel_t, keel_b, shade, nu=8, nv=3)
     return build(mb, "Park_PaperPlane", smooth=False)
 
 
@@ -821,16 +910,33 @@ def make_white_clover():
         tube(mb, [base, top], [0.04, 0.03], 5, lambda t, a2, p, d: with_alpha(mixc(hexc("#5c8f3a"), hexc("#86c25a"), t), t * 0.6))
         for k in range(3):
             lf = MB()
-            polar_sheet(lf, lambda th: 0.36 * (0.7 + 0.3 * math.cos(th)), lambda rho, th, p: with_alpha(mixc(dark, light, 0.4 + 0.4 * rho), 0.7),
-                        n_ang=12, n_rad=2, a0=-1.5, a1=1.5, full=False, zfn=lambda rho, th: 0.06 * rho)
+
+            def leaf_col(rho, th, p):
+                c = mixc(dark, light, 0.4 + 0.4 * rho)
+                chevron = abs(rho - 0.55 - 0.25 * abs(th))   # 葉の中ほどの、白っぽい V
+                return with_alpha(mixc(c, hexc("#d8ecc8"), 0.6 * sstep(0.09, 0.02, chevron)), 0.7)
+            # 先が少しへこんだ、たまご形の小葉
+            polar_sheet(lf, lambda th: 0.36 * (0.7 + 0.3 * math.cos(th)) * (1.0 - 0.18 * math.exp(-(th / 0.22) ** 2)), leaf_col,
+                        n_ang=16, n_rad=4, a0=-1.5, a1=1.5, full=False, zfn=lambda rho, th: 0.06 * rho)
             mb.add(lf, Matrix.Translation(top) @ Matrix.Rotation(k * TAU / 3 + a, 4, "Z") @ Matrix.Rotation(-0.2, 4, "X"))
     for i in range(3):
         a = rnd.uniform(0, TAU)
         base = Vector((math.cos(a) * 0.5, math.sin(a) * 0.5, -0.05))
         top = base + Vector((rnd.uniform(-0.2, 0.2), rnd.uniform(-0.2, 0.2), rnd.uniform(1.6, 2.1)))
         tube(mb, [base, top], [0.045, 0.035], 5, lambda t, a2, p, d: with_alpha(hexc("#6a9a44"), t * 0.7))
-        uv_sphere(mb, top + Vector((0, 0, 0.22)), 0.32,
-                  lambda n: with_alpha(mixc(hexc("#fbfbf4"), hexc("#f2d8e0"), sstep(-0.2, -0.8, n.z)), 0.8), seg=12, rings=7)
+        head = top + Vector((0, 0, 0.22))
+        uv_sphere(mb, head, 0.22, lambda n: with_alpha(mixc(hexc("#f6f8ee"), hexc("#b8a880"), sstep(0.0, -0.8, n.z)), 0.8), seg=10, rings=6)
+        # 小さな花（ちょうの形の花）を、まるく：上の花は白く上へ、下の花は、うす茶色で下へたれる
+        for f in range(34):
+            zf = 1.0 - 2.0 * (f + 0.5) / 34
+            ph = f * 2.39996
+            d = Vector((math.cos(ph) * math.sqrt(1 - zf * zf), math.sin(ph) * math.sqrt(1 - zf * zf), zf))
+            if zf < -0.15:
+                d = (d + Vector((0, 0, -0.6))).normalized()
+            old = sstep(0.0, -0.6, zf)
+            fc = mixc(mixc(hexc("#fbfbf4"), hexc("#f6dfe6"), 0.3 * (1 - zf)), hexc("#c8b08a"), old * 0.8)
+            uv_sphere(mb, head + d * 0.25, 1.0, lambda n, fc=fc: with_alpha(fc, 0.8), seg=6, rings=4,
+                      scale=Vector((0.065, 0.065, 0.13)), rot=Vector((0, 0, 1)).rotation_difference(d))
     return build(mb, "Park_WhiteClover")
 
 
@@ -871,7 +977,7 @@ def main():
         lambda: make_tire("Park_Tire_Red", hexc("#e2483a")),
         lambda: make_tire("Park_Tire_Blue", hexc("#3a7fd0")),
         lambda: make_tire("Park_Tire_Yellow", hexc("#f2c232")),
-        make_ball, make_fence, make_lamp, make_kunugi,
+        make_ball, make_fence, make_lamp, make_kunugi, lambda: make_kunugi(False),
         make_marble, make_block_cube, make_block_roof, make_watering_can, make_paper_plane, make_white_clover, make_sand_castle,
     ]
     objs = []

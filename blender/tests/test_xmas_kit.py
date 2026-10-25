@@ -237,6 +237,18 @@ class XmasKitTests(unittest.TestCase):
                     worst = max(worst, abs(normals[li].z))
             self.assertLess(worst, 0.35, f"{name} のかべの法線が、上下にかたむいている（{worst:.2f}）")
 
+    def test_detailed_looks_keep_their_old_shape_as_the_collider(self):
+        # 見た目を細かくした物（枝先のかさなり・屋根の雪のうねり・ひび・雪庇）は、当たり判定（_Col）を前の形のままにする
+        for mk in (xmas.make_xmas_tree, xmas.make_cottage, xmas.make_fir, xmas.make_snow_drift, xmas.make_ice):
+            reset()
+            look = mk()
+            col = mk(False)
+            self.assertEqual(col.name, look.name + "_Col")
+            self.assertGreater(len(look.data.vertices), len(col.data.vertices), f"{look.name} の見た目は、こまかい")
+            lo, hi = size(look)
+            clo, chi = size(col)
+            self.assertLess((lo - clo).length + (hi - chi).length, 5.0, f"{look.name} の見た目と当たり判定は、ほぼ同じ大きさ")
+
     def test_parts_are_joined_without_open_ends(self):
         for mk in xmas.MAKERS:
             reset()

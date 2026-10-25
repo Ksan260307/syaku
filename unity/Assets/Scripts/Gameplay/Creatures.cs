@@ -3187,7 +3187,7 @@ namespace Shakutori
         }
 
         /// <summary>鳥が下りられる平らな場所（中心のまわりで、いちばん平らで上を向いた所）。</summary>
-        bool FlatLanding(Vector3 around, float spread, out Vector3 spot)
+        bool FlatLanding(Vector3 around, float spread, out Vector3 spot, float minY = float.NegativeInfinity)
         {
             spot = around;
             float best = -1f;
@@ -3197,6 +3197,7 @@ namespace Shakutori
                 float r = i == 0 ? 0f : spread * Mathf.Sqrt(i / 8f);
                 Vector3 p = around + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * r;
                 if (!Physics.Raycast(p + Vector3.up * 60f, Vector3.down, out var hit, 120f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)) continue;
+                if (hit.point.y < minY) continue;                                   // 高い所から、下の地面へは下りない
                 if (_area.IsUnderwater(hit.point + Vector3.up * 0.02f)) continue;   // 水の上には下りない
                 if (hit.normal.y > best)
                 {
@@ -3206,6 +3207,12 @@ namespace Shakutori
                 if (best > 0.97f) break;
             }
             return best > 0.85f;
+        }
+
+        /// <summary>真上から見た、その場所のいちばん上の面の高さ（なければ、その点の高さ）。</summary>
+        static float TopBelow(Vector3 p)
+        {
+            return Physics.Raycast(p + Vector3.up * 60f, Vector3.down, out var hit, 120f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore) ? hit.point.y : p.y;
         }
 
         void TakeOff(Mob m, bool crow)
@@ -3232,6 +3239,8 @@ namespace Shakutori
             // コマドリ・フクロウは、とまり木（くいの頭・ランプの屋根・枝・岩の上）の上に、そのまま（まわりの平らな地面をえらばない）
             float spread = crow ? 3f : m.sp.id == "robin" || m.sp.id == "fukurou" ? 0.2f : 1.5f;
             if (FlatLanding(dest, spread, out var spot)) dest = spot;
+            // とまり木の上が平らでない（屋根の上の点など）ときは、少し広く、同じくらい高い、平らな所（屋根のむね）
+            else if (spread < 1.5f && FlatLanding(dest, 1.5f, out spot, TopBelow(dest) - 2f)) dest = spot;
             else if (spots.Count > 0 && FlatLanding(spots[m.landIndex], spread, out spot)) dest = spot;
             m.from = m.pos;
             m.to = dest;

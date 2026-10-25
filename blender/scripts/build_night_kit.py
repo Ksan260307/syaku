@@ -22,7 +22,7 @@ from mathutils import Vector, noise
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_forest_kit as kit  # noqa: E402
 from build_forest_kit import (MB, TAU, bark_color, build, connect_rings, hexc, lathe, lerp, mixc, scalec, sstep,  # noqa: E402
-                              trunk_mesh, tube, uv_sphere)
+                              trunk_mesh, tube, uv_sphere, with_alpha)
 
 
 def parse_args():
@@ -259,17 +259,31 @@ def trunk_at(pts, total, z):
     return on_poly(pts, min(1.0, max(0.0, (z + 2.5) / total)))
 
 
-def crown(mb, c, r, cols, seed):
-    """葉のかたまり：大きなかたまりに、小さなかたまりを 2 つ重ねた房"""
+def crown(mb, c, r, cols, seed, leaf_mb=None):
+    """葉のかたまり：大きなかたまりに、小さなかたまりを 2 つ重ねた房。leaf_mb があれば、その表面の葉 1 まいずつを、そちらに"""
     rnd = random.Random(int(seed * 100))
-    blob(mb, c, r, cols, seed)
+    blob(mb, c, r, cols, seed, leaf_mb)
     for k in range(2):
         a = rnd.uniform(0, TAU)
         d = Vector((math.cos(a), math.sin(a), rnd.uniform(-0.3, 0.5))).normalized()
-        blob(mb, c + d * (r * 0.62), r * rnd.uniform(0.55, 0.7), cols, seed + 7.3 * (k + 1))
+        blob(mb, c + d * (r * 0.62), r * rnd.uniform(0.55, 0.7), cols, seed + 7.3 * (k + 1), leaf_mb)
 
 
-def blob(mb, c, r, cols, seed):
+def leaf_card(mb, base, d, nrm, L, W, col, sway):
+    """葉 1 まい（たまご形で、先がとがる。花・シダの材質で、両面から見える）。base は付け根、d は先の向き、nrm は表の向き"""
+    side = d.cross(nrm).normalized()
+    nrm = side.cross(d).normalized()
+    rows = []
+    for t, w, lift in ((0.0, 0.06, 0.0), (0.3, 0.48, 0.05), (0.65, 0.4, 0.06), (1.0, 0.0, -0.02)):
+        p = base + d * (L * t) + nrm * (L * lift)
+        k = 0.9 + 0.16 * t
+        rows.append([mb.v(p + side * (W * w * s), with_alpha(scalec(col, k * (1.08 if s == 0 else 1.0)), sway * t)) for s in (-1, 0, 1)])
+    for i in range(3):
+        for j in range(2):
+            mb.f(rows[i][j], rows[i][j + 1], rows[i + 1][j + 1], rows[i + 1][j])
+
+
+def blob(mb, c, r, cols, seed, leaf_mb=None):
     """葉のかたまり（でこぼこの、まるいかたまり。秋の色のまだらで、下がわは少し暗い）"""
     n0 = len(mb.V)
 
@@ -284,6 +298,28 @@ def blob(mb, c, r, cols, seed):
         v = mb.V[i] - c
         k = 1.0 + 0.16 * noise.noise(v / max(r, 1e-3) * 2.2 + Vector((seed, seed, 0))) + 0.06 * noise.noise(v / max(r, 1e-3) * 6.0)
         mb.V[i] = c + v * k
+    if leaf_mb is None:
+        return
+    # かたまりの表面に、外へ向いた葉を 1 まいずつ（まるい玉に見せない。森の木と同じ、葉の木に）
+    lr = random.Random(int(seed * 1000) + 17)
+    n = int(100 * (r / 3.8) ** 2) + 24
+    for k in range(n):
+        z = lr.uniform(-0.6, 1.0)
+        a = lr.uniform(0, TAU)
+        dirv = Vector((math.cos(a) * math.sqrt(1 - z * z), math.sin(a) * math.sqrt(1 - z * z), z))
+        kk = 1.0 + 0.16 * noise.noise(dirv * 2.2 + Vector((seed, seed, 0)))
+        base = c + Vector((dirv.x, dirv.y, dirv.z * 0.8)) * (r * kk * lr.uniform(0.8, 0.98))
+        tang = dirv.cross(Vector((0, 0, 1)))
+        tang = tang.normalized() if tang.length > 1e-3 else Vector((1, 0, 0))
+        tw = lr.uniform(0, TAU)
+        tang = (tang * math.cos(tw) + dirv.cross(tang) * math.sin(tw)).normalized()
+        d = (dirv * 0.7 + tang * 0.7 + Vector((0, 0, -0.2))).normalized()
+        L = r * lr.uniform(0.36, 0.5)
+        cc = mixc(cols[0], cols[1], lr.random())
+        if lr.random() < 0.22:
+            cc = mixc(cc, cols[2], 0.65)
+        cc = mixc(cc, scalec(cc, 0.68), sstep(0.1, -0.6, dirv.z))
+        leaf_card(leaf_mb, base, d, dirv, L, L * 0.58, cc, 0.3)
 
 
 def branch(mb, base, d, L, r0, rise, seed, twigs, rnd):
@@ -316,15 +352,17 @@ ROOST_H = 30.0
 MINO_H = 19.0
 
 
-def make_tree(name, R, H, branches, r0, crown_r, top_r, cols, seed):
+def make_tree(name, R, H, branches, r0, crown_r, top_r, cols, seed, leaves=False):
+    """leaves=True なら、木の形はそのまま作って捨て、葉のかたまりの表面の葉だけを、べつのメッシュにする（花・シダの材質・当たり判定なし）"""
     rnd = random.Random(int(seed * 10))
     mb = MB()
+    leaf_mb = MB() if leaves else None
     pts, total = tree_trunk(mb, R, H, seed)
     for k, (a, y, L, rise) in enumerate(branches):
         d = Vector((math.cos(a), math.sin(a), 0))
         base = trunk_at(pts, total, y)
         tip = branch(mb, base + d * (R * 0.4), d, L, r0, rise, seed + k, 2, rnd)
-        crown(mb, tip + Vector((0, 0, crown_r * 0.35)) - d * (crown_r * 0.25), crown_r * rnd.uniform(0.9, 1.1), cols, seed + k * 3.1)
+        crown(mb, tip + Vector((0, 0, crown_r * 0.35)) - d * (crown_r * 0.25), crown_r * rnd.uniform(0.9, 1.1), cols, seed + k * 3.1, leaf_mb)
     # てっぺんの、細い枝先と、いちばん大きな葉のかたまり
     top = trunk_at(pts, total, H - 2.0)
     for k in range(3):
@@ -332,8 +370,8 @@ def make_tree(name, R, H, branches, r0, crown_r, top_r, cols, seed):
         d = Vector((math.cos(a), math.sin(a), 1.2)).normalized()
         tip = top + d * (top_r * 0.9)
         tube(mb, [top - d * 0.3, top.lerp(tip, 0.5), tip], [R * 0.3, R * 0.18, 0.0], 6, lambda t, aa, p, dd: bark_color(p * 0.5, aa, 0.3, seed + 9))
-    crown(mb, top + Vector((0, 0, top_r * 0.45)), top_r, cols, seed + 20.0)
-    return build(mb, name)
+    crown(mb, top + Vector((0, 0, top_r * 0.45)), top_r, cols, seed + 20.0, leaf_mb)
+    return build(leaf_mb if leaves else mb, name)
 
 
 def make_roost_tree():
@@ -343,11 +381,23 @@ def make_roost_tree():
                      (LEAF_YELLOW, LEAF_ORANGE, hexc("#8a9a3a")), 3.3)
 
 
+def make_roost_leaves():
+    """ねぐらの木の、葉のかたまりの表面の葉（木と同じ所に、花・シダの材質で重ねる）"""
+    return make_tree("Night_LeavesRoost", 2.2, ROOST_H, ROOST_BRANCHES, 1.2, 3.8, 6.0,
+                     (LEAF_YELLOW, LEAF_ORANGE, hexc("#8a9a3a")), 3.3, leaves=True)
+
+
 def make_mino_tree():
     """ミノムシの木（高さ 50cm ほどの、サクラの若い木）：低い所から、横へ長い枝が 4 本（ミノムシは、この枝の下にぶらさがる）。
     枝の先とてっぺんに、赤くなりはじめた葉のかたまり"""
     return make_tree("Night_MinoTree", 1.5, MINO_H, MINO_BRANCHES, 0.8, 2.6, 4.2,
                      (LEAF_RED, LEAF_ORANGE, hexc("#7e8a3a")), 6.1)
+
+
+def make_mino_leaves():
+    """ミノムシの木の、葉のかたまりの表面の葉"""
+    return make_tree("Night_LeavesMino", 1.5, MINO_H, MINO_BRANCHES, 0.8, 2.6, 4.2,
+                     (LEAF_RED, LEAF_ORANGE, hexc("#7e8a3a")), 6.1, leaves=True)
 
 
 # ---------------------------------------------------------------------------
@@ -429,6 +479,7 @@ def make_susuki():
 
 MAKERS = [
     make_bamboo, make_bamboo_shoot, make_log_bridge, make_rot_log, make_roost_tree, make_mino_tree, make_star_rock, make_susuki,
+    make_roost_leaves, make_mino_leaves,
 ]
 
 

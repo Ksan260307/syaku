@@ -148,6 +148,25 @@ def needle_pad(mb, center, rx, ry, rz, seed):
         tmp.V[i] = Vector((p.x * rx, p.y * ry, z * rz + bump))
     mb.add(tmp, Matrix.Translation(Vector(center)))
     PINE_PADS.append((Vector(center), (rx + ry) * 0.5, rz))
+    needle_fringe(mb, Vector(center), rx, ry, rz, rnd)
+
+
+def needle_fringe(mb, center, rx, ry, rz, rnd):
+    """葉のかたまりのふち（横腹から下）に、外へ・少し下へつき出す、針の葉の房。皿のような、のっぺりしたふちにしない"""
+    n = int(10 + 5 * (rx + ry))
+    for k in range(n):
+        a = TAU * (k + rnd.uniform(-0.3, 0.3)) / n
+        d = Vector((math.cos(a), math.sin(a), 0.0))
+        zr = rnd.uniform(-0.55, -0.05)                     # 横腹より下（上の、乗る面には出さない）
+        base = center + Vector((d.x * rx * 0.86, d.y * ry * 0.86, zr * rz))
+        out = (d * 1.0 + Vector((0, 0, rnd.uniform(-0.55, -0.1)))).normalized()
+        L = rnd.uniform(0.7, 1.2) * (0.6 + 0.12 * (rx + ry))
+        side = Vector((-d.y, d.x, 0.0))
+        tip = base + out * L
+        c0 = mixc(NEEDLE_DARK, NEEDLE, rnd.random() * 0.6)
+        ribbon(mb, [base, base.lerp(tip, 0.5), tip], [0.42, 0.34, 0.0], [side] * 3,
+               lambda t, v, p, c0=c0: with_alpha(mixc(c0, NEEDLE_TIP, 0.55 * t), 1.0), fold=0.25,
+               normal_vecs=[Vector((0, 0, 1))] * 3)
 
 
 def make_pine():
@@ -380,9 +399,12 @@ def make_snow_mound(name, seed, size):
     prof = [(0.0, -0.3), (1.0, -0.3), (1.0, 0.05), (0.92, 0.35), (0.72, 0.68), (0.42, 0.9), (0.0, 1.0)]
 
     def col(t, a, p):
-        c = mixc(SNOW_SHADE, SNOW, sstep(0.0, 0.6, p.z))
-        if noise.noise(p * 0.6 + off) > 0.42:
-            c = mixc(c, hexc("#c9c0b0"), 0.35)   # 少しよごれた所
+        c = mixc(hexc("#c4d4e8"), SNOW, sstep(-0.1, 0.7, p.z))                      # すそは、空をうつした青いかげ
+        c = mixc(c, hexc("#e2ebf6"), 0.5 * sstep(0.2, 0.6, noise.noise(p * 2.2 + off)))   # ざらめ雪の、こまかなむら
+        dirt = noise.noise(p * 0.6 + off)
+        c = mixc(c, hexc("#b8ad98"), 0.5 * sstep(0.3, 0.55, dirt))                  # とけたくぼみに、たまったよごれ
+        if p.z < 0.1:
+            c = mixc(c, hexc("#a8b8cc"), 0.35)                                      # 地面との、さかいの、ぬれた所
         return c
     lathe(mb, prof, 32, col, rfn=lambda t, a: 1.0 + 0.18 * noise.noise(Vector((math.cos(a) * 1.6, math.sin(a) * 1.6, t * 2)) + off))
     mb.V = [Vector((p.x * size[0], p.y * size[1], p.z * size[2] + 0.12 * noise.noise(p * 2.0 + off))) for p in mb.V]
@@ -402,9 +424,21 @@ def make_haimatsu():
         for s in (2, 3, 4):
             c = bp[s] + Vector((0, 0, 0.3))
             r = 1.3 - 0.15 * s
-            uv_sphere(mb, c, 1.0,
-                      lambda n, s=s: with_alpha(mixc(NEEDLE_DARK, NEEDLE_TIP, sstep(-0.4, 0.9, n.z) * 0.8), 0.4 + 0.15 * s),
-                      seg=12, rings=7, scale=Vector((r, r * 0.85, r * 0.55)))
+            # 房の中の、こい色の芯（すき間から、むこうが見えすぎない）
+            uv_sphere(mb, c, 1.0, lambda n, s=s: with_alpha(mixc(NEEDLE_DARK, NEEDLE, 0.3 + 0.3 * n.z), 0.4 + 0.15 * s),
+                      seg=8, rings=5, scale=Vector((r * 0.55, r * 0.5, r * 0.32)))
+            for j in range(26):
+                th = rnd.uniform(0, TAU)
+                ph = rnd.uniform(0.05, 1.2)
+                out = Vector((math.cos(th) * math.cos(ph), math.sin(th) * math.cos(ph), math.sin(ph)))
+                base = c + out * r * 0.25
+                tip = base + out * r * rnd.uniform(0.7, 1.05)
+                side = out.cross(Vector((0, 0, 1)))
+                side = side.normalized() if side.length > 1e-3 else Vector((1, 0, 0))
+                c0 = mixc(NEEDLE_DARK, NEEDLE, rnd.random() * 0.7)
+                ribbon(mb, [base, base.lerp(tip, 0.5), tip], [0.16, 0.13, 0.0], [side] * 3,
+                       lambda t, v, p, c0=c0, s=s: with_alpha(mixc(c0, NEEDLE_TIP, 0.6 * t), 0.4 + 0.15 * s), fold=0.2,
+                       normal_vecs=[side.cross(out).normalized()] * 3)
     return build(mb, "Mtn_Haimatsu", smooth=True)
 
 
@@ -668,10 +702,31 @@ def make_sign_arrow():
             mb.f(a, c, b)
         else:
             mb.f(a, b, c)
+    rnd = random.Random(12)
     for k in range(3):
+        strokes = glyph_strokes(rnd)
         for sy in (-1, 1):
-            box(mb, (-1.0 - k * 0.9, sy * 0.11, 0), (0.5, 0.02, 0.12), lambda n: hexc("#3a2a1e"))
+            for (cx, cz, w, h) in strokes:
+                box(mb, (-1.0 - k * 0.9 + cx * (-sy), sy * 0.11, cz), (w, 0.02, h), lambda n: hexc("#3a2a1e"))
     return build(mb, "Mtn_SignArrow", smooth=False)
+
+
+def glyph_strokes(rnd, size=0.5):
+    """筆で書いた漢字のように見える、たて・よこの線の組み合わせ（遠くから見て、字に見える）。[(x, z, はば, 高さ)]"""
+    s = size
+    t = 0.07
+    out = []
+    kind = rnd.randrange(4)
+    if kind == 0:     # 山
+        out += [(0, 0, t, s), (-s * 0.4, -s * 0.12, t, s * 0.7), (s * 0.4, -s * 0.12, t, s * 0.7), (0, -s * 0.46, s * 0.9, t)]
+    elif kind == 1:   # 口に、たて線
+        out += [(-s * 0.36, 0, t, s * 0.8), (s * 0.36, 0, t, s * 0.8), (0, s * 0.36, s * 0.78, t), (0, -s * 0.36, s * 0.78, t), (0, 0, s * 0.5, t)]
+    elif kind == 2:   # 十に、よこ線 2 本
+        out += [(0, 0, t, s), (0, s * 0.3, s * 0.9, t), (0, -s * 0.05, s * 0.7, t), (0, -s * 0.4, s * 0.5, t)]
+    else:             # へんと、つくり
+        out += [(-s * 0.3, 0, t, s), (-s * 0.3, s * 0.2, s * 0.35, t), (s * 0.15, s * 0.35, s * 0.5, t), (s * 0.15, 0, t, s * 0.7),
+                (s * 0.35, -s * 0.1, t, s * 0.5), (s * 0.15, -s * 0.42, s * 0.5, t)]
+    return out
 
 
 def main():

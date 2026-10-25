@@ -201,6 +201,8 @@ MonoBehaviour:
     mesh: {fileID: 6419295772318745594, guid: 38a62b88da9503a4b9fdb47a7076557d, type: 3}
   - name: Fuyushaku_Body
     mesh: {fileID: -5400235235864943796, guid: f4c511c1b7ce6b04da9e3a8352dc3603, type: 3}
+  - name: Fuyushaku_Female
+    mesh: {fileID: -4263004911817825592, guid: 7a4407a2b1bc0e347906bda7df73458e, type: 3}
   - name: Fuyushaku_Wing
     mesh: {fileID: 7397761505483033332, guid: 73e3dd5d144b7e448b47caf75b064a2f, type: 3}
   - name: Ga_Body
@@ -309,6 +311,8 @@ MonoBehaviour:
     mesh: {fileID: 7579281221193300042, guid: a35edf4e078fcb746ad6a38cb90a21a9, type: 3}
   - name: Hut_Backpack
     mesh: {fileID: 3037102642021213594, guid: 547d583ca3624a44ea76f039ebc77cef, type: 3}
+  - name: Hut_Backpack_Col
+    mesh: {fileID: -3137340432738727175, guid: 6fb46fc80df5f3f4d9e9daa1f8539002, type: 3}
   - name: Hut_Beams
     mesh: {fileID: -5563540803067684953, guid: 4ad1ea4f1b56c434e9f3ab50556a6209, type: 3}
   - name: Hut_Bench
@@ -675,6 +679,10 @@ MonoBehaviour:
     mesh: {fileID: -6492960113557390424, guid: 64fbf8b00b758f343a404bdd5a0ec2b0, type: 3}
   - name: Night_BambooShoot
     mesh: {fileID: 3901237300217567034, guid: 779d1cd1be0cefd4bb8fe549f258ca91, type: 3}
+  - name: Night_LeavesMino
+    mesh: {fileID: 4585509629988061375, guid: f9deaf6083680b04db27d23badf29dbe, type: 3}
+  - name: Night_LeavesRoost
+    mesh: {fileID: 3147352784817409483, guid: 67398fd201347804f89b596e3911e4c7, type: 3}
   - name: Night_LogBridge
     mesh: {fileID: 8202713441087369012, guid: 9e02d1fa517ead5478c1811c95d3cd86, type: 3}
   - name: Night_MinoTree
@@ -737,6 +745,8 @@ MonoBehaviour:
     mesh: {fileID: -2030937518881133064, guid: dbd4b4faba03d2f4bac3a1a3dc1ca522, type: 3}
   - name: Park_Kunugi
     mesh: {fileID: 2353660286966578705, guid: aa5aa05e5db3de94fb6b6a5e14f0c7ff, type: 3}
+  - name: Park_Kunugi_Col
+    mesh: {fileID: 1102274721080295259, guid: 704d14cb15d7c0043971133b872801a5, type: 3}
   - name: Park_Lamp
     mesh: {fileID: 3601151012992296162, guid: 23db8678624867448b84ee016a9ed4a5, type: 3}
   - name: Park_Marble
@@ -1087,6 +1097,8 @@ MonoBehaviour:
     mesh: {fileID: -8131957263069150820, guid: 41630117820141d47b8cad891e230b57, type: 3}
   - name: Xmas_Cottage
     mesh: {fileID: -8055898722323045350, guid: 98ad018eeb6e5e94a8c1f3d8bf419284, type: 3}
+  - name: Xmas_Cottage_Col
+    mesh: {fileID: 7798275838225207830, guid: 64d1a88acac287543987795a33ccc5bb, type: 3}
   - name: Xmas_CottageWindow
     mesh: {fileID: -8504428850357210129, guid: f1fa181eaffa33249aa4a4fa6b3c585e, type: 3}
   - name: Xmas_Fence
@@ -1095,12 +1107,16 @@ MonoBehaviour:
     mesh: {fileID: -8179300201985679586, guid: b51eba0bf94807643ac60b8964c51ab0, type: 3}
   - name: Xmas_Fir
     mesh: {fileID: 8143440790065027929, guid: 03378fd7cbf2a1b458a7115354e5767c, type: 3}
+  - name: Xmas_Fir_Col
+    mesh: {fileID: -1128034017923217416, guid: b67f0b4e389e4ce47bb4bc74c031f65f, type: 3}
   - name: Xmas_Holly
     mesh: {fileID: 5909724304235170401, guid: b4c8e5bf71c657444b8f949eda8a025f, type: 3}
   - name: Xmas_Holly_Col
     mesh: {fileID: -8534520434913482900, guid: 02c4aec1e71ede74c9153f91e7f248fb, type: 3}
   - name: Xmas_Ice
     mesh: {fileID: -2166462208622893097, guid: a6d9e871b3d7ccc40a91cdbc699b0d50, type: 3}
+  - name: Xmas_Ice_Col
+    mesh: {fileID: 721775739031655470, guid: 88b20be958e841a4b8f8e4234cced372, type: 3}
   - name: Xmas_Lamp
     mesh: {fileID: 5282390492943261399, guid: 8288528acb02a6e47be07193e2d392d8, type: 3}
   - name: Xmas_LampGlow
@@ -1119,10 +1135,14 @@ MonoBehaviour:
     mesh: {fileID: -5081653335162721433, guid: 79505bbe2e17ecf49b4612786a7f21ea, type: 3}
   - name: Xmas_SnowDrift
     mesh: {fileID: -6044112753211353421, guid: d7ea5e259dc02d74387b3f8800a41405, type: 3}
+  - name: Xmas_SnowDrift_Col
+    mesh: {fileID: 5148112645307938824, guid: 497d690d19356d0488ff2bcdfd46ab17, type: 3}
   - name: Xmas_Snowman
     mesh: {fileID: 8298141810100436216, guid: e26bcd981cdb91642851febc189d3e2f, type: 3}
   - name: Xmas_Tree
     mesh: {fileID: -5570951721586977093, guid: 157a66e1f067fe94b9a3affd16fffb38, type: 3}
+  - name: Xmas_Tree_Col
+    mesh: {fileID: 1073809920103923244, guid: 545ef06147b8a6f49bef7bff2bbd1ed7, type: 3}
   - name: Xmas_TreeLights
     mesh: {fileID: 4969820968417756244, guid: d2a78f8ac2c4024478194ee410202178, type: 3}
   - name: Xmas_TreeStar

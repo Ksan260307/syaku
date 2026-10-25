@@ -79,6 +79,7 @@ namespace Shakutori
                 Vector3 o = NG(NightLayout.RoostTree);
                 Quaternion rot = Quaternion.Euler(0f, 35f, 0f);
                 Place("Night_RoostTree", bark, o + Vector3.down * 0.3f, rot, 1f, true, true, 600f, asRenderer: true);
+                Place("Night_LeavesRoost", assets.flowers, o + Vector3.down * 0.3f, rot, 1f, false, false, 600f, asRenderer: true);   // 葉のかたまりの表面の葉（見た目だけ）
                 Occupy(NightLayout.RoostTree, 5f);
                 Physics.SyncTransforms();
                 foreach (var b in RoostBranches)
@@ -103,6 +104,7 @@ namespace Shakutori
                 Vector3 o = NG(NightLayout.MinoTree);
                 Quaternion rot = Quaternion.Euler(0f, -20f, 0f);
                 Place("Night_MinoTree", bark, o + Vector3.down * 0.3f, rot, 1f, true, true, 500f, asRenderer: true);
+                Place("Night_LeavesMino", assets.flowers, o + Vector3.down * 0.3f, rot, 1f, false, false, 500f, asRenderer: true);
                 Occupy(NightLayout.MinoTree, 3.5f);
                 Physics.SyncTransforms();
                 foreach (var b in MinoBranches)
@@ -185,7 +187,9 @@ namespace Shakutori
                 if (!IsFree(p, 4f)) continue;
                 bool roost = i % 3 == 1;
                 float s = R(0.85f, 1.25f);
-                Place(roost ? "Night_RoostTree" : "Night_MinoTree", bark, NG(p) + Vector3.down * 0.3f, Quaternion.Euler(0f, R(0f, 360f), 0f), s, true, true, 600f, asRenderer: true);
+                Quaternion rotT = Quaternion.Euler(0f, R(0f, 360f), 0f);
+                Place(roost ? "Night_RoostTree" : "Night_MinoTree", bark, NG(p) + Vector3.down * 0.3f, rotT, s, true, true, 600f, asRenderer: true);
+                Place(roost ? "Night_LeavesRoost" : "Night_LeavesMino", assets.flowers, NG(p) + Vector3.down * 0.3f, rotT, s, false, false, 600f, asRenderer: true);
                 Occupy(p, (roost ? 3.5f : 2.6f) * s);
             }
         }

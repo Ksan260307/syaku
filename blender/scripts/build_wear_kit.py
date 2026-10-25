@@ -361,7 +361,7 @@ COLORS = {
     "wakaba": dict(hue=0.0), "kimidori": dict(hue=-22.0, sat=1.1, val=1.12), "sakura": dict(hue=-110.0, sat=0.55, val=1.18),
     "sorairo": dict(hue=115.0, sat=0.75, val=1.12), "momiji": dict(hue=-75.0, sat=1.2), "yozora": dict(hue=175.0, sat=0.85, val=0.8),
     "kogane": dict(hue=-45.0, sat=1.35, val=1.25), "ruri": dict(hue=130.0, sat=1.05, val=0.85), "fuji": dict(hue=-170.0, sat=0.5, val=1.15),
-    "niji": dict(hue=0.0, sat=1.1, val=1.1, along=360.0),
+    "niji": dict(hue=0.0, sat=1.1, val=1.1, along=360.0, bands=7),   # ゲームでは体ぜんたいの色が時間で七色にかわる：絵は 7 色の帯（レインボーの、なめらかな色の流れと見分ける）
     "mint": dict(hue=62.0, sat=0.62, val=1.18), "yuki": dict(hue=0.0, sat=0.12, val=1.38), "sumi": dict(hue=0.0, sat=0.12, val=0.3),
     "ichigo": dict(hue=-118.0, sat=0.78, val=1.2, dots=0.85), "shima": dict(hue=-48.0, sat=1.35, val=1.25, stripes=13.0, dark=0.72),
     "rainbow": dict(hue=-90.0, sat=1.25, val=1.15, along=360.0),
@@ -382,11 +382,13 @@ def l2s(x):
     return x * 12.92 if x <= 0.0031308 else 1.055 * x ** (1 / 2.4) - 0.055
 
 
-def skin_color(c_srgb, s, ang01, hue=0.0, sat=1.0, val=1.0, along=0.0, stripes=0.0, dark=0.0, dots=0.0):
-    """ゲームのシェーダー（ShakuAlbedo の _HUE_SHIFT）と同じ色の変え方。s は体のどこか、ang01 は体のまわりの角度"""
+def skin_color(c_srgb, s, ang01, hue=0.0, sat=1.0, val=1.0, along=0.0, stripes=0.0, dark=0.0, dots=0.0, bands=0):
+    """ゲームのシェーダー（ShakuAlbedo の _HUE_SHIFT）と同じ色の変え方。s は体のどこか、ang01 は体のまわりの角度。
+    bands > 0 なら、体にそった色相を、その数の帯に分ける（絵だけ）"""
     lin = [s2l(c_srgb[i]) for i in range(3)]
     h, sa, v = colorsys.rgb_to_hsv(*lin)
-    h = (h + (hue + along * s) / 360.0) % 1.0
+    k = (math.floor(max(0.0, min(0.999, s)) * bands) / bands) if bands else s
+    h = (h + (hue + along * k) / 360.0) % 1.0
     r, g, b = colorsys.hsv_to_rgb(h, min(1.0, sa * sat), v * val)
     if stripes > 0.0 and (s * stripes) % 1.0 >= 0.5:
         r, g, b = r * (1 - dark), g * (1 - dark), b * (1 - dark)
