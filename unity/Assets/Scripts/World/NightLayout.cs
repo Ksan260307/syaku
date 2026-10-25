@@ -89,7 +89,12 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // 地形
         // ------------------------------------------------------------------
-        public static float Height(float x, float z)
+        static readonly Vector2[] ReliefGates = { Gate, XmasGate };
+
+        public static float Height(float x, float z) =>
+            CoreHeight(x, z) + ShakuMath.OuterRelief(x, z, 7.2f, ReliefGates) * SmoothStep(GullyTopHalf + 2f, GullyTopHalf + 16f, Mathf.Abs(z - GullyZ(x)));
+
+        static float CoreHeight(float x, float z)
         {
             Vector2 p = new Vector2(x, z);
             float r = p.magnitude;
@@ -258,6 +263,7 @@ namespace Shakutori
                     _landmarks[7].view = new ArrivalView(new Vector2(37f, 23f), new Vector3(RoostTree.x, 10f, RoostTree.y), 4f, 5.2f);                           // ねぐらの木を見上げる（光る倒木のはしの、東）
                     _landmarks[8].view = new ArrivalView(new Vector2(4f, 31f), new Vector3(StarRock.x, hillTop + 3f, StarRock.y), 6f, 5f);                        // 丘の上の岩
                     // 地図や図鑑から移動したときに始める所
+                    _landmarks[3].travel = new ArrivalView(new Vector2(BridgeX + 6f, bc.y - 6f), new Vector3(BridgeX, 0f, bc.y), 10f, 5.5f);   // 谷の土手から、丸木橋（近くから）
                     _landmarks[8].travel = new ArrivalView(new Vector2(StarRock.x - 1f, StarRock.y - 1.5f), new Vector3(0f, 0f, -12f), 6f, 5f, onTop: true);   // 星見の岩の上から、森を見わたす
                 }
                 return _landmarks;

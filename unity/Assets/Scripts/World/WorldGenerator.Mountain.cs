@@ -187,14 +187,26 @@ namespace Shakutori
             cloud.SetFloat("_RimStrength", 0.5f);
             if (cloud.HasProperty("_RimColor")) cloud.SetColor("_RimColor", Color.white);
             cloud.SetShaderPassEnabled("SRPDefaultUnlit", false);
-            for (int k = 0; k < 26; k++)
+            for (int k = 0; k < 30; k++)
             {
-                float a = k / 26f * Mathf.PI * 2f + Rn(-0.1f, 0.1f);
-                float d = Rn(118f, 190f);
+                float a = k / 30f * Mathf.PI * 2f + Rn(-0.12f, 0.12f);
+                float d = Rn(112f, 200f);
                 Vector2 p = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * d;
                 float y = Area.Height(p.x / d * 90f, p.y / d * 90f) + Rn(-2f, 6f);
-                var puff = Place("Mtn_CloudPuff", cloud, new Vector3(p.x, y, p.y), Quaternion.Euler(0f, Rn(0f, 360f), 0f), Rn(1.4f, 2.4f), false, false, 700f, asRenderer: true);
-                if (puff != null && puff.TryGetComponent<MeshRenderer>(out var pr)) pr.receiveShadows = false;
+                // 4 つの形：ふつうの雲・横に長くうすい層雲・高くもり上がる積雲・小さな雲のかたまり
+                int kind = k % 4;
+                Vector3 shape = kind == 1 ? new Vector3(Rn(2.4f, 3.4f), Rn(0.35f, 0.55f), Rn(1.2f, 1.8f))
+                              : kind == 2 ? new Vector3(Rn(1.1f, 1.5f), Rn(1.5f, 2.1f), Rn(1.1f, 1.5f))
+                              : kind == 3 ? new Vector3(Rn(0.7f, 1.0f), Rn(0.6f, 0.9f), Rn(0.7f, 1.0f))
+                              : new Vector3(Rn(1.4f, 2.2f), Rn(0.8f, 1.2f), Rn(1.3f, 2.0f));
+                if (kind == 2) y += Rn(6f, 16f);
+                if (kind == 3) y += Rn(14f, 30f);
+                var puff = Place("Mtn_CloudPuff", cloud, new Vector3(p.x, y, p.y), Quaternion.Euler(0f, Rn(0f, 360f), 0f), 1f, false, false, 700f, asRenderer: true);
+                if (puff != null)
+                {
+                    puff.transform.localScale = shape;
+                    if (puff.TryGetComponent<MeshRenderer>(out var pr)) pr.receiveShadows = false;
+                }
             }
         }
 
@@ -653,6 +665,34 @@ namespace Shakutori
                     Occupy(p, 1.4f);
                     Mark("cairn", MG(p));
                 }
+            // 岩場：高い所と急な所に、灰色の平たい岩がかさなる露頭（高い山らしさ。乱数は、ほかの小物と分ける）
+            {
+                var rr = new System.Random(seed * 7 + 31);
+                float Rr(float a, float b) => a + (b - a) * (float)rr.NextDouble();
+                var spots = new List<Vector2>();
+                for (int tries = 0; tries < 500 && spots.Count < 10; tries++)
+                {
+                    float ang = Rr(0f, Mathf.PI * 2f), rad = Mathf.Sqrt(Rr(0.05f, 1f)) * 56f;
+                    Vector2 p = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * rad;
+                    float h = MountainLayout.Height(p.x, p.y);
+                    Vector3 nrm = MountainLayout.Normal(p.x, p.y);
+                    if (h < MountainLayout.SummitRise * 0.3f && nrm.y > 0.86f) continue;   // ふもとの平らな草地には置かない
+                    if (MountainBare(p) || !IsLand(p, 0.1f) || !ExtraOk(p, 3.2f, true) || MountainLayout.DistToTrail(p) < 6.5f) continue;   // 岩は、小道にかからない
+                    if (spots.Exists(s => Vector2.Distance(s, p) < 11f)) continue;
+                    spots.Add(p);
+                    int n = 2 + rr.Next(3);
+                    for (int k = 0; k < n; k++)
+                    {
+                        Vector2 q = p + new Vector2(Rr(-2.2f, 2.2f), Rr(-2.2f, 2.2f));
+                        float s = Rr(0.45f, 0.95f) * (k == 0 ? 1.25f : 1f);
+                        Vector3 g = MG(q) + Vector3.down * (0.35f * s);
+                        Quaternion rot = Quaternion.FromToRotation(Vector3.up, Vector3.Lerp(Vector3.up, nrm, 0.6f)) * Quaternion.Euler(Rr(-12f, 12f), Rr(0f, 360f), Rr(-12f, 12f));
+                        Place(Slabs[(k + spots.Count) % Slabs.Length], prop, g, rot, s, true, true, 220f);
+                    }
+                    Occupy(p, 3.2f);
+                    Mark("outcrop", MG(p));
+                }
+            }
             // チングルマの綿毛（花畑のはしと、雪渓のそば）
             for (int i = 0; i < 18; i++)
             {

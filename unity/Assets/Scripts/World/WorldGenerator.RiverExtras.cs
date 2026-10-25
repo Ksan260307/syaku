@@ -348,6 +348,60 @@ namespace Shakutori
                     Mark("dock", RiverLayout.Ground(p.x, p.y));
                 }
             }
+
+            RiverBarsAndBoulders();
+        }
+
+        /// <summary>
+        /// 川の景色に、変化をつける（はばが同じ用水路に見えないように）：
+        /// 曲がりの内がわの、小石の河原（水の中まで、うすく広がる）と、流れの中から顔を出す大きな石。乱数は、ほかの小物と分ける。
+        /// </summary>
+        void RiverBarsAndBoulders()
+        {
+            var rr = new System.Random(seed * 5 + 77);
+            float Rr(float a, float b) => a + (b - a) * (float)rr.NextDouble();
+            Material prop = assets.prop;
+            string[] pebbles = { "RiverStone_A", "RiverStone_B", "RiverStone_C" };
+            bool Busy(float z) => Mathf.Abs(z - RiverLayout.FallZ) < 7f || Mathf.Abs(z - RiverLayout.StonesZ) < 6f
+                                  || Mathf.Abs(z - RiverLayout.BridgeZ) < 6f || Mathf.Abs(z - RiverLayout.IslandZ) < 10f;
+            // 曲がりの内がわ（川の中心線が、まがっていく方）の河原
+            foreach (float z0 in new[] { -52f, -34f, -6f, 22f, 42f })
+            {
+                if (Busy(z0)) continue;
+                float bend = RiverLayout.CenterX(z0 + 2f) - 2f * RiverLayout.CenterX(z0) + RiverLayout.CenterX(z0 - 2f);
+                float side = bend > 0f ? 1f : -1f;
+                float edge = RiverLayout.CenterX(z0) + side * (RiverLayout.HalfWidth(z0) - 1.2f);
+                for (int k = 0; k < 34; k++)
+                {
+                    float u = Rr(-1f, 1f), v = Rr(-1f, 1f);
+                    if (u * u + v * v > 1f) continue;
+                    float z = z0 + u * 7f;
+                    float x = RiverLayout.CenterX(z) + side * (RiverLayout.HalfWidth(z) - 1.2f - v * 2.6f);
+                    Vector2 p = new Vector2(x, z);
+                    if (!ExtraOk(p, 0.3f, false)) continue;
+                    float y = Mathf.Max(RiverLayout.Height(x, z), RiverLayout.WaterLevel(z) - 0.25f);
+                    float s = Rr(0.12f, 0.32f);
+                    PutDeco(pebbles[rr.Next(pebbles.Length)], prop, new Vector3(x, y - 0.05f, z), Quaternion.Euler(Rr(-6f, 6f), Rr(0f, 360f), Rr(-6f, 6f)), s, false, 120f);
+                }
+                Mark("gravelbar", new Vector3(edge, RiverLayout.WaterLevel(z0), z0));
+            }
+            // 流れの中の大きな石（上は水の上に出る。のぼって休める）
+            int placed = 0;
+            for (int tries = 0; tries < 60 && placed < 6; tries++)
+            {
+                float z = Rr(-58f, 52f);
+                if (Busy(z)) continue;
+                float x = RiverLayout.CenterX(z) + Rr(-0.55f, 0.55f) * RiverLayout.HalfWidth(z);
+                Vector2 p = new Vector2(x, z);
+                if (!ExtraOk(p, 2.4f, true)) continue;
+                float bed = RiverLayout.Height(x, z), level = RiverLayout.WaterLevel(z);
+                float s = Rr(1.0f, 1.6f);
+                // 石の上が、水面から少し出るように（深い所ほど、下へうめる）
+                Vector3 g = new Vector3(x, Mathf.Max(bed, level - 0.9f * s), z);
+                PutSolid(Rocks[rr.Next(Rocks.Length)], prop, g, Quaternion.Euler(Rr(-8f, 8f), Rr(0f, 360f), Rr(-8f, 8f)), s, 2.4f, 200f);
+                Mark("boulder", g);
+                placed++;
+            }
         }
 
         bool NearDew(Vector2 p, float r)

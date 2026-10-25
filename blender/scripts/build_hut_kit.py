@@ -23,8 +23,9 @@ from mathutils import Matrix, Vector, noise
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_forest_kit as kit  # noqa: E402
-from build_forest_kit import MB, TAU, build, hexc, lathe, mixc, scalec, sstep, tube, uv_sphere  # noqa: E402
+from build_forest_kit import MB, TAU, build, hexc, lathe, lerp, mixc, scalec, sstep, tube, uv_sphere  # noqa: E402
 from build_park_kit import box  # noqa: E402
+from build_shrine_kit import grid_box  # noqa: E402
 
 
 def parse_args():
@@ -489,11 +490,25 @@ BENCH_W, BENCH_D, BENCH_H = 10.0, 48.0, 17.0
 
 def make_table():
     mb = MB()
-    # 天板は、たての板 6 枚
+    # 天板は、たての板 6 枚。上の面に、もくめと、まん中に織りの布（テーブルランナー：あい色に白と赤のすじ）
     for k in range(6):
         x = -TABLE_W / 2 + (k + 0.5) * TABLE_W / 6
-        ubox(mb, (x, TABLE_H - 1.25, 0), (TABLE_W / 6 - 0.25, 2.5, TABLE_D),
-             lambda n, k=k: scalec(mixc(WOOD_LIGHT, WOOD, 0.25 + 0.2 * math.sin(k * 2.6)), 1.0 if n.z > 0.5 else 0.8))
+
+        def top(p, n, k=k):
+            c = scalec(mixc(WOOD_LIGHT, WOOD, 0.25 + 0.2 * math.sin(k * 2.6)), 1.0 if n.y > 0.5 else 0.8)
+            if n.y > 0.5:
+                c = scalec(c, 0.92 + 0.1 * math.sin(p.z * 1.7 + 2.0 * math.sin(p.z * 0.23 + k)))   # もくめ
+                if abs(p.x) < 9.0:
+                    band = abs(p.x)
+                    c = hexc("#2f4a86")
+                    if 3.0 < band < 4.0 or 7.0 < band < 7.6:
+                        c = hexc("#f2ece0")
+                    elif band < 1.2:
+                        c = hexc("#c8443a")
+                    if band > 8.4:
+                        c = hexc("#e8dcc0")                                                     # ふさ
+            return c
+        grid_box(mb, (x, TABLE_H - 1.25, 0), (TABLE_W / 6 - 0.25, 2.5, TABLE_D), top, n=(6, 1, 48))
     for sx in (-1, 1):
         for sz in (-1, 1):
             ubox(mb, (sx * (TABLE_W / 2 - 3.5), (TABLE_H - 2.5) / 2, sz * (TABLE_D / 2 - 4.0)), (3.4, TABLE_H - 2.5, 3.4),
@@ -542,10 +557,8 @@ def make_bunk():
     # マットレス・毛布・まくら（下は赤いチェック、上は緑のチェック）
     for y0, a, b in ((BUNK_LOW - 5.0, hexc("#b8433a"), hexc("#e8c8a0")), (BUNK_UP - 5.0, hexc("#3f7a4a"), hexc("#e8dcb0"))):
         ubox(mb, (0, y0 + 2.5, 0), (BUNK_L - 6.0, 5.0, BUNK_D - 6.0), WOOL)
-        bl = MB()
-        ubox(bl, (6.0, y0 + 5.3, 0), (BUNK_L - 18.0, 0.8, BUNK_D - 4.0), a)
-        bl.recolor(lambda p, c, a=a, b=b: plaid(a, b, p))
-        mb.add(bl)
+        grid_box(mb, (6.0, y0 + 5.3, 0), (BUNK_L - 18.0, 0.8, BUNK_D - 4.0), lambda p, n, a=a, b=b: plaid(a, b, Vector((p.x, p.z, 0.0))),
+                 n=(60, 1, 26))
         uv_sphere(mb, U(-BUNK_L / 2 + 9.0, y0 + 6.8, 0), 1.0, lambda n: hexc("#f6f2ea"), seg=14, rings=8,
                   scale=Vector((6.0, 9.0, 2.4)))
     # 上の段の、落ちないための手すり（前がわ）
@@ -772,7 +785,7 @@ def make_book():
         p1 = (-4.5 - 0.5 * math.sin(a1), 1.2 + 1.2 * math.cos(a1))
         for z0, z1 in ((-6.2, 6.2),):
             v = [mb.v(U(p0[0], p0[1], z0), cover), mb.v(U(p1[0], p1[1], z0), cover), mb.v(U(p1[0], p1[1], z1), cover), mb.v(U(p0[0], p0[1], z1), cover)]
-            mb.f(v[0], v[1], v[2], v[3])
+            mb.f(v[3], v[2], v[1], v[0])   # 外向き（Unity の座標は、Blender では左右がうら返る）
     for zb in (-4.6, -3.9, 3.9, 4.6):
         ubox(mb, (-4.85, 1.2, zb), (0.4, 2.0, 0.22), lambda n: hexc("#d8b04a"))
     # 表紙の、金の四角いかざり
@@ -946,12 +959,58 @@ def make_button():
     return build(mb, "Hut_Button", smooth=True)
 
 
+def make_curtains():
+    """窓のカーテン（左右 2 まい）とカーテンレール。原点は、窓のまん中の下のかべの面（床の高さ）。前（部屋の方）は +z。
+    赤と白のチェックの布に、ひだ。まん中の高さで、ひもでたばねる（見た目だけ。当たり判定なし）"""
+    mb = MB()
+    w = 40.0
+    top, bottom = 73.0, 30.0
+    red, white = hexc("#c23a36"), hexc("#f4efe4")
+
+    def cloth(p):
+        s = (math.sin(p.x * 0.9) > 0.0) + (math.sin(p.y * 0.9) > 0.0)
+        return mixc(white, red, 0.15 if s == 0 else 0.55 if s == 1 else 0.95)
+    for sx in (-1, 1):
+        x_in, x_out = sx * (w / 2 - 3.0), sx * (w / 2 + 9.0)   # 窓のわくに少しかかる
+        nx, ny = 18, 30
+        # 布は両面（表と、少しかべ寄りのうら。どちらから見ても見える）
+        for back in (False, True):
+            rows = []
+            for j in range(ny + 1):
+                v = j / ny
+                y = lerp(bottom, top, v)
+                tie = 1.0 - 0.55 * math.exp(-((y - 48.0) / 7.0) ** 2)   # たばねた所は、細くしぼる
+                row = []
+                for i in range(nx + 1):
+                    u = i / nx
+                    x = lerp(x_out, lerp(x_out, x_in, tie), u)
+                    z = 0.5 + 0.9 * (0.5 + 0.5 * math.sin(u * nx * 0.9)) * (0.6 + 0.4 * tie) + 1.2 * (1.0 - tie) - (0.12 if back else 0.0)
+                    c = cloth(Vector((x * 1.0, y, 0.0)))
+                    row.append(mb.v(U(x, y, z), scalec(c, 0.8) if back else c))
+                rows.append(row)
+            for j in range(ny):
+                for i in range(nx):
+                    q = [rows[j][i], rows[j][i + 1], rows[j + 1][i + 1], rows[j + 1][i]]
+                    if (sx > 0) != back:
+                        q.reverse()
+                    mb.f(*q)
+        # たばねる、ひも
+        tx = lerp(x_out, lerp(x_out, x_in, 0.45), 0.5)
+        tube(mb, [U(x_out, 48.0, 0.3), U(tx, 48.4, 2.6), U(lerp(x_out, x_in, 0.45), 48.0, 0.6)], [0.6, 0.6, 0.6], 6, lambda t, a, p, d: hexc("#7a2a26"))
+    # カーテンレール（木の丸棒）と、はしの玉
+    tube(mb, [U(-w / 2 - 11.0, top + 1.0, 1.4), U(w / 2 + 11.0, top + 1.0, 1.4)], [0.7, 0.7], 8, lambda t, a, p, d: WOOD_DARK)
+    for sx in (-1, 1):
+        uv_sphere(mb, U(sx * (w / 2 + 11.5), top + 1.0, 1.4), 1.1, lambda n: WOOD_DARK, seg=8, rings=6)
+        tube(mb, [U(sx * (w / 2 + 9.0), top + 1.0, 1.4), U(sx * (w / 2 + 9.0), top + 1.0, -0.4)], [0.5, 0.5], 6, lambda t, a, p, d: WOOD_DARK)   # かべの金具
+    return build(mb, "Hut_Curtains", smooth=True)
+
+
 MAKERS = [
     make_walls, make_walls_col, make_roof, make_roof_col, make_beams, make_door, make_view,
     make_stove, make_stove_fire, make_kettle, make_firewood, make_table, make_bench, make_bunk, make_shelf,
     make_rug, make_doormat, make_boots, make_backpack, lambda: make_backpack(False), make_mug, make_bread, make_map, make_book,
     make_lamp, make_lamp_glow, make_clock, make_bucket, make_broom, make_herbs, make_nest, make_mouse_hole,
-    make_crumb, make_seed, make_match, make_button,
+    make_crumb, make_seed, make_match, make_button, make_curtains,
 ]
 
 

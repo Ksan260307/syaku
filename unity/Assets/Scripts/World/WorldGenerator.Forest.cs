@@ -59,7 +59,7 @@ namespace Shakutori
                 Vector2 p = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * d;
                 if (Vector2.Distance(p, ForestLayout.GreatTree) < 45f) continue;
                 Vector3 g = ForestLayout.Ground(p.x, p.y) + Vector3.down * 2f;
-                Place(i % 2 == 0 ? "BgTrunk_A" : "BgTrunk_B", assets.bark, g, Quaternion.Euler(0f, R(0f, 360f), 0f), R(0.9f, 1.6f), false, true, 500f, asRenderer: true);
+                Place(BgTrunkFor(i), assets.bark, g, Quaternion.Euler(0f, R(0f, 360f), 0f) * BgTilt(i), R(0.9f, 1.6f), false, true, 500f, asRenderer: true);
             }
             for (int i = 0; i < 6; i++)
             {

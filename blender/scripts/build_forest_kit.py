@@ -1092,9 +1092,64 @@ def make_great_tree():
     return build(mb, "GreatTree")
 
 
-def make_bg_trunk(name, seed):
+def make_bg_trunk(name, seed, fork=False):
+    """遠くの大きな幹：たての樹皮のみぞに、北がわの苔のすじと、白っぽい地衣類のまだら。折れた枝のあとと、
+    高い所の枝（樹冠は、ゲームで足す）。fork=True は、とちゅうで 2 本に分かれ、根もとにツタがからむ"""
+    rnd = random.Random(int(seed * 100) + 7)
     mb = MB()
-    trunk_mesh(mb, 11.0, 240.0, 48, 18, 5, 0.6, 6.0, seed, moss=0.35)
+    n0 = len(mb.V)
+    trunk_mesh(mb, 11.0, 240.0, 48, 40, 5, 0.6, 6.0, seed, moss=0.35)
+    moss_dir = rnd.uniform(0, TAU)
+    for i in range(n0, len(mb.V)):
+        p = mb.V[i]
+        a = math.atan2(p.y, p.x)
+        side = 0.5 + 0.5 * math.cos(a - moss_dir)
+        streak = sstep(0.45, 0.8, side + 0.35 * noise.noise(Vector((p.x * 0.05, p.y * 0.05, p.z * 0.02 + seed))))
+        c = mb.C[i]
+        c = mixc(c, mixc(MOSS_A, MOSS_B, 0.5 + 0.5 * noise.noise(p * 0.08)), streak * 0.85 * sstep(210.0, 30.0, p.z))   # 北がわの苔
+        lich = sstep(0.38, 0.55, noise.noise(p * 0.07 + Vector((seed * 3, 0, 0))))
+        c = mixc(c, hexc("#c2c7b0"), lich * 0.55)                                                                    # 地衣類
+        mb.C[i] = c
+
+    def radius_at(z):
+        return 11.0 * (1.0 + 6.0 / 11.0 * math.exp(-(z + 3.0) / (11.0 * 0.45)))
+    # 折れた枝のあと（短く、先は折れて明るい木目）と、高い所の枝
+    for k in range(6):
+        z = rnd.uniform(35.0, 200.0)
+        a = rnd.uniform(0, TAU)
+        d = Vector((math.cos(a), math.sin(a), rnd.uniform(0.15, 0.6))).normalized()
+        r0 = rnd.uniform(1.6, 3.0) * (1.4 if z > 150 else 1.0)
+        L = rnd.uniform(5.0, 12.0) * (2.5 if z > 150 else 1.0)
+        base = Vector((math.cos(a) * radius_at(z) * 0.6, math.sin(a) * radius_at(z) * 0.6, z))
+        tip = base + d * (radius_at(z) * 0.4 + L)
+        tube(mb, [base, base.lerp(tip, 0.5), tip], [r0, r0 * 0.8, r0 * 0.55], 10,
+             lambda t, a2, p, dd: bark_color(p * 0.4, a2, 0.2, seed + 5.0, 0.2, 0.01))
+        lathe(mb, [(r0 * 0.55, 0.0), (r0 * 0.3, 0.15), (0.0, 0.25)], 10,
+              lambda t, a2, p: hexc("#c8a77a"), center=tip)
+    if fork:
+        # とちゅうから分かれる、もう 1 本の幹
+        a = rnd.uniform(0, TAU)
+        b0 = Vector((0, 0, 95.0))
+        pts = [b0, b0 + Vector((math.cos(a) * 9, math.sin(a) * 9, 40)), b0 + Vector((math.cos(a) * 22, math.sin(a) * 22, 140))]
+        tube(mb, pts, [9.0, 7.5, 3.5], 24, lambda t, a2, p, dd: bark_color(p * 0.4, a2, 0.3, seed + 9.0, 0.3, 0.01))
+        # 根もとにからむ、ツタ（らせんの茎と、葉）
+        for v in range(2):
+            ph = rnd.uniform(0, TAU)
+            stem = []
+            for s in range(40):
+                z = -1.0 + s * 1.6
+                ang = ph + s * 0.18
+                rr = radius_at(z) * 1.0 + 0.4
+                stem.append(Vector((math.cos(ang) * rr, math.sin(ang) * rr, z)))
+            tube(mb, stem, [0.35] * len(stem), 5, lambda t, a2, p, dd: hexc("#4a3a26"))
+            for s in range(2, 40, 2):
+                q = stem[s]
+                out = Vector((q.x, q.y, 0)).normalized()
+                side = out.cross(Vector((0, 0, 1)))
+                tip = q + out * 1.6 + side * rnd.uniform(-1.2, 1.2) + Vector((0, 0, rnd.uniform(-0.6, 0.8)))
+                kit_leaf_color = mixc(hexc("#2f5a2a"), hexc("#5f8f3a"), rnd.random())
+                ribbon(mb, [q, q.lerp(tip, 0.5), tip], [0.4, 1.4, 0.0], [side] * 3,
+                       lambda t, v2, p, c=kit_leaf_color: c, fold=0.15, normal_vecs=[out] * 3)
     return build(mb, name)
 
 
@@ -2034,6 +2089,7 @@ def main():
         make_great_tree,
         lambda: make_bg_trunk("BgTrunk_A", 0.3),
         lambda: make_bg_trunk("BgTrunk_B", 2.1),
+        lambda: make_bg_trunk("BgTrunk_C", 4.7, fork=True),
         lambda: make_twig("Twig_A", 1),
         lambda: make_twig("Twig_B", 2, 10.0),
         lambda: make_oak_leaf("Leaf_Oak_Orange", hexc("#e8892e"), hexc("#b4501f"), 1),

@@ -15,7 +15,7 @@ namespace Shakutori.Tests
                 float h = ForestLayout.Height(x, z);
                 Assert.IsFalse(float.IsNaN(h) || float.IsInfinity(h), $"({x},{z})");
                 Assert.AreEqual(h, ForestLayout.Height(x, z));
-                Assert.That(h, Is.InRange(-6f, 20f));
+                Assert.That(h, Is.InRange(-6f, 46f));   // 外の、遊べない所には、高い丘もある
             }
         }
 

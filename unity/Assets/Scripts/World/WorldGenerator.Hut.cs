@@ -90,6 +90,15 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // 押すと動く小さな物：パンくず・ひまわりのたね・マッチ・ボタン
         // ------------------------------------------------------------------
+        /// <summary>しずくを置いたあとの、見た目の小物：窓の赤と白のチェックのカーテン（部屋に色を足す。当たり判定なし）。</summary>
+        void BuildHutExtras()
+        {
+            if (assets.TryGet("Hut_Curtains") == null) return;
+            float wall = HutLayout.WallFace + 0.05f;
+            Place("Hut_Curtains", HutMaterial("Hut_Curtains"), new Vector3(HutLayout.WindowS.x, 0f, HutLayout.WindowS.y + wall), Quaternion.identity, 1f, false, true, 600f, asRenderer: true);
+            Place("Hut_Curtains", HutMaterial("Hut_Curtains"), new Vector3(HutLayout.WindowE.x - wall, 0f, HutLayout.WindowE.y), Quaternion.Euler(0f, -90f, 0f), 1f, false, true, 600f, asRenderer: true);
+        }
+
         void ScatterHutProps()
         {
             Material prop = assets.prop;

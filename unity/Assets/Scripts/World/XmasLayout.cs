@@ -98,7 +98,11 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // 地形
         // ------------------------------------------------------------------
-        public static float Height(float x, float z)
+        static readonly Vector2[] ReliefGates = { Gate };
+
+        public static float Height(float x, float z) => CoreHeight(x, z) + ShakuMath.OuterRelief(x, z, 8.6f, ReliefGates, 0.8f);
+
+        static float CoreHeight(float x, float z)
         {
             Vector2 p = new Vector2(x, z);
             float r = p.magnitude;
@@ -235,7 +239,12 @@ namespace Shakutori
                     _landmarks[7].view = new ArrivalView(new Vector2(-30f, -38f), new Vector3(Sled.x, 2f, Sled.y), 8f, 5f);                                    // そり置き場
                     _landmarks[8].view = new ArrivalView(new Vector2(Tree.x, Tree.y - 4.3f), new Vector3(0f, 20f, -30f), 6f, 5f, onTop: true);               // ツリーの上の段から、村を見わたす
                     // 地図や図鑑から移動したときに始める所
-                    _landmarks[1].travel = new ArrivalView(new Vector2(-21f, -3f), new Vector3(Tree.x, 10f, Tree.y), 4f, 5f);
+                    _landmarks[1].travel = new ArrivalView(Snowman, new Vector3(Tree.x, 24f, Tree.y), 4f, 6f, onTop: true);   // 雪だるまの頭の上から、ツリーのぜんたい（地面の高さからでは、すその下しか見えない）
+                    _landmarks[3].travel = new ArrivalView(new Vector2(-29.5f, 8f), new Vector3(Snowman.x, 12f, Snowman.y), 6f, 6f, onTop: true);   // そばのランプの屋根の上から、雪だるまの顔とバケツのぼうし
+                    _landmarks[4].travel = new ArrivalView(new Vector2(24f, -23f), new Vector3(Pond.x, 0f, Pond.y), 26f, 6f);         // 池のほとりから、氷を見下ろす
+                    _landmarks[5].travel = new ArrivalView(door + (Tree - door).normalized * 24f, new Vector3(door.x, 12f, door.y), 4f, 6f);   // 家の前庭から、とびらと窓のあかり
+                    _landmarks[7].travel = new ArrivalView(new Vector2(-55f, -24f), new Vector3(Sled.x, 2f, Sled.y), 7f, 6f);             // 西から、そりの全体（トナカイのいる東がわをよける）
+                    _landmarks[8].travel = new ArrivalView(new Vector2(Tree.x, Tree.y - 4.3f), new Vector3(0f, 20f, -30f), 24f, 7f, onTop: true);   // ツリーの上から、村を見わたす（電球が目の前をふさがない）
                 }
                 return _landmarks;
             }

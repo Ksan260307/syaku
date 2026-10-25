@@ -108,6 +108,16 @@ class HutKitTests(unittest.TestCase):
         for p in dark:
             self.assertGreater(unity_normal(p).z, 0.9, "穴は部屋の方を向く")
 
+    def test_book_spine_faces_out(self):
+        # 本のまるい背は、外を向く（うら返ると、ゲームでは見えない）
+        from mathutils.bvhtree import BVHTree
+        ob = hut.make_book()
+        tree = BVHTree.FromObject(ob, bpy.context.evaluated_depsgraph_get())
+        d = (hut.U(1.0, 0.0, 0.0) - hut.U(0.0, 0.0, 0.0)).normalized()
+        hit = tree.ray_cast(hut.U(-10.0, 1.2, 0.0), d, 30.0)
+        self.assertIsNotNone(hit[0])
+        self.assertGreater(hit[1].dot(-d), 0.9, "背表紙が、内を向いている")
+
     def test_door_opens_into_the_room(self):
         lo, hi = ub(hut.make_door())
         self.assertGreater(hi.z, -hut.HALF_Z + 20.0, "とびらは、部屋の中（北）へひらく")

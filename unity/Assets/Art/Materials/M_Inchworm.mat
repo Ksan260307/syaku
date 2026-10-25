@@ -45,9 +45,9 @@ Material:
     - _NearFade: 0
     - _NearFadeDistance: 1
     - _OutlineSmoothNormals: 0
-    - _OutlineWidth: 0.55
-    - _RimStrength: 0.5
-    - _RimWidth: 0.32
+    - _OutlineWidth: 0.7
+    - _RimStrength: 0.62
+    - _RimWidth: 0.34
     - _SatMul: 1
     - _ShadowBrightness: 1.1
     - _ShadowSoftness: 0.05
@@ -64,8 +64,8 @@ Material:
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _OutlineColor: {r: 0.3, g: 0.36, b: 0.22, a: 1}
-    - _RimColor: {r: 1, g: 0.96999997, b: 0.88, a: 1}
+    - _OutlineColor: {r: 0.2, g: 0.25, b: 0.14, a: 1}
+    - _RimColor: {r: 1, g: 0.97, b: 0.8, a: 1}
     - _ShadowTint: {r: 0.7, g: 0.78, b: 0.95, a: 1}
     - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

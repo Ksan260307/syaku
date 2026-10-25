@@ -527,6 +527,15 @@ namespace Shakutori
             mr.shadowCastingMode = ShadowCastingMode.Off;
         }
 
+        /// <summary>背景の幹の形（3 種類から、番号で選ぶ。乱数は使わない：しずくの場所を変えない）。</summary>
+        static string BgTrunkFor(int i) => i % 3 == 0 ? "BgTrunk_A" : i % 3 == 1 ? "BgTrunk_B" : "BgTrunk_C";
+
+        /// <summary>背景の幹の形（0〜1 の数で選ぶ。もとの乱数 1 つだけ）。</summary>
+        static string BgTrunkPick(float u) => u < 0.36f ? "BgTrunk_A" : u < 0.72f ? "BgTrunk_B" : "BgTrunk_C";
+
+        /// <summary>背景の幹の、少しのかたむき（まっすぐな柱が、ならんで見えない。乱数は使わない）。</summary>
+        static Quaternion BgTilt(int i) => Quaternion.Euler(((i * 37) % 7 - 3) * 1.1f, 0f, ((i * 53) % 5 - 2) * 1.2f);
+
         // 背景の大きな幹（森の奥行き）
         void BuildBackgroundTrunks(Func<Vector2, bool> skip)
         {
@@ -537,7 +546,7 @@ namespace Shakutori
                 Vector2 p = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * d;
                 if (skip(p)) continue;
                 Vector3 g = Area.Ground(p.x, p.y) + Vector3.down * 2f;
-                Place(i % 2 == 0 ? "BgTrunk_A" : "BgTrunk_B", assets.bark, g, Quaternion.Euler(0f, R(0f, 360f), 0f), R(0.9f, 1.6f), false, true, 500f, asRenderer: true);
+                Place(BgTrunkFor(i), assets.bark, g, Quaternion.Euler(0f, R(0f, 360f), 0f) * BgTilt(i), R(0.9f, 1.6f), false, true, 500f, asRenderer: true);
             }
             for (int i = 0; i < 6; i++)
             {

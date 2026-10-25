@@ -202,8 +202,8 @@ namespace Shakutori
                 float a = i / 22f * Mathf.PI * 2f + R(-0.08f, 0.08f);
                 Vector2 p = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * R(82f, 100f);
                 if (Vector2.Distance(p, NightLayout.Gate * 1.5f) < 14f) continue;
-                Place(R01() < 0.5f ? "BgTrunk_A" : "BgTrunk_B", assets.bark, new Vector3(p.x, NightLayout.Height(p.x * 0.96f, p.y * 0.96f) - 4f, p.y),
-                    Quaternion.Euler(0f, R(0f, 360f), 0f), R(0.5f, 0.75f), false, true, 900f, asRenderer: true);
+                Place(BgTrunkPick(R01()), assets.bark, new Vector3(p.x, NightLayout.Height(p.x * 0.96f, p.y * 0.96f) - 4f, p.y),
+                    Quaternion.Euler(0f, R(0f, 360f), 0f) * BgTilt(i), R(0.5f, 0.75f), false, true, 900f, asRenderer: true);
             }
         }
 

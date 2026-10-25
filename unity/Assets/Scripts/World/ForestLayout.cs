@@ -140,7 +140,7 @@ namespace Shakutori
             _landmarks[8].view = new ArrivalView(LogCenter - LogDir * 31f, new Vector3(LogCenter.x, 3f, LogCenter.y), 4f, 4f); // 丸太のトンネルの入り口
             // 地図や図鑑から移動したときに始める所（カメラが地面や物にぶつからず、名所がよく見える、少し上からの景色）
             _landmarks[0].travel = new ArrivalView(new Vector2(1.5f, -5f), new Vector3(0f, 0f, 40f), 7f, 4.6f);                 // 苔原から、奥の大樹の方
-            _landmarks[1].travel = new ArrivalView(new Vector2(10f, 30f), new Vector3(2f, 0f, 76f), 4f, 6.5f);                 // 山脈のような大樹の根の下
+            _landmarks[1].travel = new ArrivalView(new Vector2(14f, 17f), new Vector3(1f, 0f, 76f), 3f, 6.5f);                 // 山脈のような大樹の根と、幹のすそ（少しはなれて、大きさがわかる所から）
             _landmarks[3].travel = new ArrivalView(new Vector2(30f, 3f), new Vector3(46f, 0f, 8f), 6f, 4.6f);                  // 赤キノコの林
             _landmarks[5].travel = new ArrivalView(new Vector2(6.5f, -30.5f), new Vector3(3f, 0f, -48f), 16f, 4.6f);           // 水たまりを見下ろす
             _landmarks[8].travel = new ArrivalView(LogCenter - LogDir * 27f, new Vector3(LogCenter.x, 0f, LogCenter.y), 6f, 4.4f);   // 丸太のトンネルの口の前（うしろの大きな葉にカメラが当たらない所）
@@ -211,7 +211,13 @@ namespace Shakutori
             return h;
         }
 
-        public static float Height(float x, float z)
+        static readonly Vector2[] ReliefGates = { Gate, ParkGate };
+
+        // 外の起伏は、大樹の根のまわりにはつけない（大樹は外周の近くに立ち、根の上にもしずくがある）
+        public static float Height(float x, float z) =>
+            CoreHeight(x, z) + ShakuMath.OuterRelief(x, z, 1.3f, ReliefGates) * ShakuMath.SmoothStep(48f, 72f, Vector2.Distance(new Vector2(x, z), GreatTree));
+
+        static float CoreHeight(float x, float z)
         {
             float h = BaseHeight(x, z);
             Vector2 p = new Vector2(x, z);

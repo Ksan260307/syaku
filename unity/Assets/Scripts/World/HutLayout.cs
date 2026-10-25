@@ -169,11 +169,11 @@ namespace Shakutori
                     // 高い所の名所（テーブル・ベッド・棚・窓台・はり・巣）は、その上に着く
                     _landmarks[0].travel = new ArrivalView(new Vector2(-44f, -33f), new Vector3(10f, 0f, 20f), 4f, 6f);
                     _landmarks[1].travel = new ArrivalView(Stove + new Vector2(26f, -14f), new Vector3(Stove.x, 0f, Stove.y), 3f, 6f);
-                    _landmarks[2].travel = new ArrivalView(Table + new Vector2(-6f, 0f), new Vector3(0f, 0f, -6f), 16f, 5f, onTop: true);
-                    _landmarks[3].travel = new ArrivalView(Bunk + new Vector2(4f, -2f), new Vector3(Bunk.x + 31f, 0f, Bunk.y), 8f, 5f, onTop: true);   // 上の段の毛布の上、まくらの方を向く
-                    _landmarks[4].travel = new ArrivalView(Shelf + new Vector2(8f, -3f), new Vector3(Shelf.x - 6f, 0f, Shelf.y + 1f), 14f, 5f, onTop: true);   // いちばん上の段、ロープの輪のそば
-                    _landmarks[5].travel = new ArrivalView(WindowS + new Vector2(-8f, 3f), new Vector3(WindowS.x - 8f, 0f, 0f), 12f, 5f, onTop: true);     // 日のあたる窓台から、部屋を見わたす（はりの下はよける）
-                    _landmarks[6].travel = new ArrivalView(new Vector2(0f, -10f), new Vector3(0f, 0f, 40f), 22f, 5f, onTop: true);
+                    _landmarks[2].travel = new ArrivalView(Table + new Vector2(-6f, 0f), new Vector3(0f, 0f, -6f), 8f, 7f, onTop: true);   // テーブルの上から、部屋を見わたす（板だけで画面をうめない）
+                    _landmarks[3].travel = new ArrivalView(Bunk + new Vector2(4f, -2f), new Vector3(Bunk.x + 31f, 0f, Bunk.y), 5f, 6.5f, onTop: true);   // 上の段の毛布の上、まくらの方を向く
+                    _landmarks[4].travel = new ArrivalView(Shelf + new Vector2(8f, -3f), new Vector3(Shelf.x - 6f, 0f, Shelf.y + 1f), 9f, 6.5f, onTop: true);   // いちばん上の段、ロープの輪のそば
+                    _landmarks[5].travel = new ArrivalView(WindowS + new Vector2(-8f, 3f), new Vector3(WindowS.x - 8f, 0f, 0f), 7f, 6.5f, onTop: true);     // 日のあたる窓台から、部屋を見わたす（はりの下はよける）
+                    _landmarks[6].travel = new ArrivalView(new Vector2(0f, -10f), new Vector3(0f, 0f, 40f), 12f, 7f, onTop: true);   // はりの上から、下の部屋が見える角度
                     _landmarks[7].travel = new ArrivalView(Nest + new Vector2(0f, 16f), new Vector3(Nest.x, 0f, Nest.y), 8f, 5.5f, onTop: true);   // はりの上から、巣のおわんがまるごと見える所
                 }
                 return _landmarks;

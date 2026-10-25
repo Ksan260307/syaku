@@ -307,8 +307,8 @@ namespace Shakutori
                     _landmarks[1].travel = new ArrivalView(new Vector2(10.5f, -20.4f), new Vector3(0f, 0f, -50f), 18f, 5f, onTop: true);   // 岩の階段のいちばん上から、ふもとを見下ろす
                     _landmarks[3].travel = new ArrivalView(Meadow + new Vector2(4f, 7f), new Vector3(Meadow.x - 4f, 0f, Meadow.y - 6f), 16f, 4.6f);   // 上から、花畑を見下ろす
                     _landmarks[4].travel = new ArrivalView(Pine + new Vector2(2f, -6f), new Vector3(0f, 0f, -50f), 10f, 5f, onTop: true);   // 松の葉のかたまりの上から、ふもとを見わたす
-                    _landmarks[5].travel = new ArrivalView(SnowPatch + new Vector2(8f, -6f), new Vector3(SnowPatch.x, 0f, SnowPatch.y), 14f, 4.6f);
-                    _landmarks[7].travel = new ArrivalView(RockArch + new Vector2(-16f, 1f), new Vector3(RockArch.x, 0f, RockArch.y), 8f, 6f);   // 岩のトンネルを、西からながめる
+                    _landmarks[5].travel = new ArrivalView(SnowPatch + new Vector2(0f, -13f), new Vector3(SnowPatch.x, 0f, SnowPatch.y), 8f, 5.5f);   // 南から、雪渓と、まわりの花（ナキウサギのいる南東の岩場をよける）
+                    _landmarks[7].travel = new ArrivalView(RockArch + new Vector2(-17f, 2f), new Vector3(RockArch.x, 0f, RockArch.y), 10f, 5.5f);   // 岩のトンネルを、西からながめる（上の岩まで見える所。うしろの坂にカメラが当たらない）
                     _landmarks[8].travel = new ArrivalView(Summit + new Vector2(0f, -1f), new Vector3(0f, 0f, -40f), 18f, 5f);          // 山頂のてっぺんから、ふもとを見下ろす
                 }
                 return _landmarks;
@@ -334,6 +334,9 @@ namespace Shakutori
         static readonly Color SnowShade = C("#c9d6e6");
         static readonly Color WetSoil = C("#5e5a48");
         static readonly Color Meadow1 = C("#9bc865");
+        static readonly Color Scree = C("#9c988d");
+        static readonly Color ScreeLight = C("#bdb8ab");
+        static readonly Color ShrubGreen = C("#3f6236");
 
         public static Color GroundColor(float x, float z, float h, Vector3 n)
         {
@@ -344,8 +347,18 @@ namespace Shakutori
             Color c = Color.Lerp(Color.Lerp(GrassDeep, Grass, n1), Color.Lerp(Alpine * 0.92f, Alpine, n1), up);
             // 花畑は、明るい緑
             c = Color.Lerp(c, Meadow1, SmoothStep(14f, 8f, Vector2.Distance(new Vector2(x, z), Meadow)) * 0.6f);
-            // 岩はだ
-            c = Color.Lerp(c, Color.Lerp(RockDark, Rock, n2), RockMask(x, z, h, n) * (0.55f + 0.45f * n1));
+            // 山の帯：低い所は、ハイマツのような、こい緑のまだら。高い所は、くずれた石のガレ場
+            float shrub = SmoothStep(3f, 10f, h) * SmoothStep(SummitRise * 0.62f, SummitRise * 0.42f, h)
+                          * SmoothStep(0.55f, 0.7f, Mathf.PerlinNoise(x * 0.12f + 13f, z * 0.12f + 6f));
+            c = Color.Lerp(c, Color.Lerp(ShrubGreen, GrassDeep, n2 * 0.5f), shrub * 0.6f);
+            float scree = SmoothStep(SummitRise * 0.3f, SummitRise * 0.62f, h)
+                          * SmoothStep(0.45f, 0.62f, Mathf.PerlinNoise(x * 0.09f + 5f, z * 0.09f + 1f));
+            c = Color.Lerp(c, Color.Lerp(Scree, ScreeLight, n2), scree * 0.7f);
+            // 岩はだ（急な所は、地層の横すじ）
+            float rk = RockMask(x, z, h, n);
+            Color rockC = Color.Lerp(RockDark, Rock, n2);
+            rockC *= 0.9f + 0.12f * Mathf.Sin(h * 2.3f + n1 * 3f);
+            c = Color.Lerp(c, rockC, rk * (0.55f + 0.45f * n1));
             // 小道
             c = Color.Lerp(c, Color.Lerp(Path, Path * 0.9f, n2), TrailMask(x, z) * 0.75f);
             // 泉のまわりは、ぬれた土

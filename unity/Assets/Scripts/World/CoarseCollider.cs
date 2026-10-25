@@ -24,6 +24,7 @@ namespace Shakutori
             { "GreatTree", Shape.Relax },
             { "BgTrunk_A", Shape.Relax },
             { "BgTrunk_B", Shape.Relax },
+            { "BgTrunk_C", Shape.Relax },
             { "HollowLog", Shape.Relax },
             { "Mushroom_Cluster", Shape.Relax },
             { "Rock_A", Shape.Relax }, { "Rock_B", Shape.Relax }, { "Rock_C", Shape.Relax }, { "Rock_D", Shape.Relax },

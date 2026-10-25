@@ -47,6 +47,8 @@ MonoBehaviour:
     mesh: {fileID: -672235871324121875, guid: 958e622505befe843a8f6f6b8fb3f2c4, type: 3}
   - name: BgTrunk_B
     mesh: {fileID: 3625745103105099721, guid: 530c5a00165a92345a772294b512d973, type: 3}
+  - name: BgTrunk_C
+    mesh: {fileID: 3128122470597839468, guid: 852a4118fabc785478641c05119b1339, type: 3}
   - name: Butterfly_Body
     mesh: {fileID: -4666602664778142010, guid: 88c92ca68e5c1aa45aff6cf70048a055, type: 3}
   - name: Butterfly_Wing
@@ -335,6 +337,8 @@ MonoBehaviour:
     mesh: {fileID: -7845109675285125482, guid: b3a7f7a4031d3ef4884308ca33f53200, type: 3}
   - name: Hut_Crumb
     mesh: {fileID: 1129125243152551854, guid: 88cca4812a371854aa2c499a214fd2f2, type: 3}
+  - name: Hut_Curtains
+    mesh: {fileID: -6031299387133975350, guid: 92f920999636d92439843fda0da54576, type: 3}
   - name: Hut_Door
     mesh: {fileID: 6467218386576151353, guid: 7a1179f3b26ef1244bd8a44384263aac, type: 3}
   - name: Hut_DoorMat

@@ -42,7 +42,7 @@ namespace Shakutori
             if (Area.Id == "forest") BuildForestExtras();
             else if (Area.Id == "park") BuildParkExtras();
             else if (Area.Id == "mountain") BuildMountainExtras();
-            else if (Area.Id == "hut") { }   // 小屋の中は、家具と小物で足りている
+            else if (Area.Id == "hut") BuildHutExtras();
             else if (Area.Id == "coast") { }   // 海辺は、組み立てたときの物で足りている
             else if (Area.Id == "shrine") { }   // 神社も、組み立てたときの物で足りている
             else if (Area.Id == "night") { }    // 夜の森も、組み立てたときの物で足りている
@@ -256,7 +256,7 @@ namespace Shakutori
                 Vector2 p = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * XR(r0, r1);
                 if (skip(p)) continue;
                 Vector3 g = Area.Ground(p.x, p.y) + Vector3.down * 2f;
-                Place(i % 2 == 0 ? "BgTrunk_B" : "BgTrunk_A", assets.bark, g, Quaternion.Euler(0f, XR(0f, 360f), 0f), XR(0.7f, 1.2f), false, true, 500f, asRenderer: true);
+                Place(BgTrunkFor(i + 1), assets.bark, g, Quaternion.Euler(0f, XR(0f, 360f), 0f) * BgTilt(i + 5), XR(0.7f, 1.2f), false, true, 500f, asRenderer: true);
                 Mark("trunk", g);
             }
         }

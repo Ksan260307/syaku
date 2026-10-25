@@ -207,6 +207,17 @@ class ShrineKitTests(unittest.TestCase):
                     self.assertLessEqual(x, prev + 0.005, f"高さ {i * 0.1:.1f} で、台座が上の方へ張り出している")
                 prev = x
 
+    def test_paving_and_steps_face_up(self):
+        # しき石・石段の上の面は、上を向く（うら返ると、かげの色で暗く見える）
+        for mk in (shrine.make_slab, shrine.make_step):
+            reset()
+            ob = mk()
+            tree = BVHTree.FromObject(ob, bpy.context.evaluated_depsgraph_get())
+            for x, y in ((0.0, 0.0), (0.6, 0.3), (-0.8, -0.2)):
+                hit = tree.ray_cast(Vector((x, y, 20.0)), Vector((0, 0, -1)), 40.0)
+                self.assertIsNotNone(hit[0], ob.name)
+                self.assertGreater(hit[1].z, 0.9, f"{ob.name} の上の面が、下を向いている")
+
     def test_parts_are_joined_without_open_ends(self):
         # 筒の口があいたまま見える所や、宙に浮いた部品がない（前はキツネの像の首が胴からはなれ、鍵が鼻先に浮き、
         # 絵馬かけの屋根がはりの上に浮いていた）

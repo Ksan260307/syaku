@@ -1004,7 +1004,7 @@ def make_slab():
         rows.append(row)
     for i in range(nx):
         for j in range(nz):
-            mb.f(rows[i][j], rows[i][j + 1], rows[i + 1][j + 1], rows[i + 1][j])
+            mb.f(rows[i][j], rows[i + 1][j], rows[i + 1][j + 1], rows[i][j + 1])   # 上向き（Unity の座標は、Blender では左右がうら返る）
     return build(mb, "Shrine_Slab", smooth=False)
 
 

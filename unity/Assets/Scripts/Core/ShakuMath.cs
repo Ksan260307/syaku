@@ -62,6 +62,31 @@ namespace Shakutori
             return x * x / (2f * w);
         }
 
+        /// <summary>遊べる所の外の起伏が始まる半径（この内がわは、地形を変えない）。</summary>
+        public const float OuterReliefStart = 68f;
+
+        /// <summary>
+        /// 遊べる所の外の、高さのちがう丘と、低い切れ目（外まわりが、どこも同じ高さの、まるいすりばちに見えないように）。
+        /// r が OuterReliefStart より内がわは 0（しずくの場所や、歩く所は変えない）。gates（トンネルの口）の先のあたりは、低くする。
+        /// </summary>
+        public static float OuterRelief(float x, float z, float seed, Vector2[] gates, float amp = 1f)
+        {
+            float r = Mathf.Sqrt(x * x + z * z);
+            float k = SmoothStep(OuterReliefStart, OuterReliefStart + 18f, r);
+            if (k <= 0f) return 0f;
+            float a = Mathf.Atan2(z, x);
+            float lobes = Mathf.Clamp01(0.5f + 0.32f * Mathf.Sin(a * 3f + seed) + 0.18f * Mathf.Sin(a * 5f + seed * 2.3f));
+            float n = Mathf.PerlinNoise(x * 0.03f + seed * 3.1f, z * 0.03f + seed * 1.7f);
+            float h = 4f + 20f * lobes * lobes + 7f * (n - 0.5f);
+            if (gates != null)
+                foreach (var g in gates)
+                {
+                    float dx = x - g.x * 1.15f, dz = z - g.y * 1.15f;
+                    h *= SmoothStep(12f, 26f, Mathf.Sqrt(dx * dx + dz * dz));
+                }
+            return k * h * amp;
+        }
+
         /// <summary>0..1 のなめらかな山型（中心で 1、半径で 0）。</summary>
         public static float Bump(float dist, float radius)
         {

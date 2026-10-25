@@ -82,6 +82,32 @@ half3 ShakuAlbedo(half4 vcolor, float2 uv, float3 positionWS)
     half d = (d1 * 0.6h + d2 * 0.4h) - 0.5h;
     albedo *= 1.0h + d * _DetailStrength * 2.0h;
     albedo = lerp(albedo, albedo * half3(1.06h, 1.02h, 0.9h), saturate(d2 - 0.5h) * _DetailStrength);
+    // 近くの地面の、こまかな模様（しゃくとりむしの目の高さで、手前の地面がのっぺりしないように）。
+    // 遠くは、ちらつかないように消す。色で、草・砂・雪を見分ける
+    float camDist = distance(positionWS, _WorldSpaceCameraPos.xyz);
+    half nearK = saturate(1.6h - camDist / 28.0h);
+    half4 fa = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, positionWS.xz * 0.55);
+    half4 fb = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, positionWS.xz * 1.7 + 0.37);
+    half greenK = saturate((albedo.g - max(albedo.r, albedo.b)) * 10.0h);
+    half whiteK = saturate((min(albedo.r, min(albedo.g, albedo.b)) - 0.5h) * 5.0h);
+    half sandK = saturate((albedo.r - albedo.b) * 4.0h - 0.35h) * (1.0h - greenK) * (1.0h - whiteK);
+    // つぶのざらつきと、小石・土くれ（緑でない所に、こい点）
+    half grain = (fa.r * 0.5h + fb.r * 0.5h) - 0.5h;
+    albedo *= 1.0h + grain * _ShakuGround.x * nearK * 1.4h;
+    half pb = max(SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, positionWS.xz * 0.13).b,
+                  SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, positionWS.xz * 0.29 + 0.61).b * 0.75h);
+    albedo *= 1.0h - pb * (1.0h - greenK * 0.7h) * (1.0h - whiteK) * _ShakuGround.x * nearK * 0.45h;
+    // 草の株のむら（緑の所：明るい株と、こいすき間。細長くすると、手前で流れたように見える）
+    half st = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, float2(positionWS.x * 1.25 + positionWS.z * 0.2, positionWS.z * 1.05 - positionWS.x * 0.15)).g - 0.5h;
+    albedo *= 1.0h + st * greenK * _ShakuGround.y * nearK * 1.6h;
+    // 砂紋（風のつけた、ゆるい波の線）
+    half rip = sin(dot(positionWS.xz, float2(0.83, 0.55)) * 2.6 + d2 * 10.0) * 0.5h + 0.5h;
+    albedo *= 1.0h - rip * rip * sandK * _ShakuGround.z * saturate(1.4h - camDist / 50.0h) * 0.16h;
+    // 雪のきらめき（見る所がかわると、光る点もかわる）
+    // （光る点は動かさず、見る所によって、点く点がかわる）
+    half sp = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, positionWS.xz * 0.07).a;
+    half tw = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, positionWS.xz * 0.21 + _WorldSpaceCameraPos.xz * 0.08).g;
+    albedo += sp * smoothstep(0.5h, 0.65h, tw) * whiteK * _ShakuGround.w * nearK * 2.0h;
 #endif
     return albedo;
 }

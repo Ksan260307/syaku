@@ -237,6 +237,16 @@ class XmasKitTests(unittest.TestCase):
                     worst = max(worst, abs(normals[li].z))
             self.assertLess(worst, 0.35, f"{name} のかべの法線が、上下にかたむいている（{worst:.2f}）")
 
+    def test_roof_snow_faces_up(self):
+        # 屋根の雪（見た目の、うねる雪）の上の面は、上を向く
+        ob = xmas.make_cottage()
+        tree = bvh(ob)
+        for x in (-20.0, 0.0, 20.0):
+            for z in (xmas.HOUSE_FRONT + 2.0, -xmas.HOUSE_FRONT - 2.0):
+                h = drop(tree, x, z, top=120.0)
+                self.assertIsNotNone(h)
+                self.assertGreater(h[1].y, 0.3, f"屋根の雪 ({x}, {z}) が、下を向いている")
+
     def test_detailed_looks_keep_their_old_shape_as_the_collider(self):
         # 見た目を細かくした物（枝先のかさなり・屋根の雪のうねり・ひび・雪庇）は、当たり判定（_Col）を前の形のままにする
         for mk in (xmas.make_xmas_tree, xmas.make_cottage, xmas.make_fir, xmas.make_snow_drift, xmas.make_ice):

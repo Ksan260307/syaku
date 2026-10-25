@@ -205,6 +205,33 @@ namespace Shakutori.EditorTools
             return s / norm;
         }
 
+        /// <summary>
+        /// くりかえしても、つなぎ目の見えない点のもよう（n×n のますに 1 つずつ、ずらした点。そのうち rate の割合だけ見える）。
+        /// 点のまん中で 1、半径 outer で 0（inner より内は 1）。
+        /// </summary>
+        static float TileSpots(float u, float v, int n, float outer, float inner, float rate, float seed)
+        {
+            float x = u * n, y = v * n;
+            int cx = Mathf.FloorToInt(x), cy = Mathf.FloorToInt(y);
+            float best = 0f;
+            for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                int gx = cx + dx, gy = cy + dy;
+                int wx = ((gx % n) + n) % n, wy = ((gy % n) + n) % n;
+                float h1 = Hash01(wx * 127.1f + wy * 311.7f + seed);
+                float h2 = Hash01(wx * 269.5f + wy * 183.3f + seed * 1.7f);
+                float h3 = Hash01(wx * 419.2f + wy * 371.9f + seed * 2.3f);
+                if (h3 > rate) continue;
+                float px = gx + 0.15f + 0.7f * h1, py = gy + 0.15f + 0.7f * h2;
+                float d = Mathf.Sqrt((x - px) * (x - px) + (y - py) * (y - py));
+                best = Mathf.Max(best, Mathf.InverseLerp(outer, inner, d));
+            }
+            return best;
+        }
+
+        static float Hash01(float k) => Mathf.Repeat(Mathf.Sin(k) * 43758.5453f, 1f);
+
         static Texture2D WriteTexture(string path, int size, Func<float, float, Color> fn, bool srgb, TextureWrapMode wrap)
         {
             if (!File.Exists(path))
@@ -232,11 +259,14 @@ namespace Shakutori.EditorTools
         static Tex SetupTextures()
         {
             var tex = new Tex();
-            tex.detail = WriteTexture($"{Textures}/DetailNoise.png", 256, (u, v) =>
+            // r・g：地面のむら（ゆるやかな fbm）。b：小石・土くれの点。a：雪のきらめきの、まばらな点
+            tex.detail = WriteTexture($"{Textures}/DetailNoise2.png", 256, (u, v) =>
             {
                 float a = TileFbm(u, v, 8f, 4, 1.7f);
                 float b = TileFbm(u, v, 4f, 3, 9.3f);
-                return new Color(a, b, 0.5f, 1f);
+                float pebble = TileSpots(u, v, 16, 0.42f, 0.16f, 0.6f, 3.1f);
+                float spark = TileSpots(u, v, 40, 0.16f, 0.03f, 0.3f, 7.7f);
+                return new Color(a, b, pebble, spark);
             }, false, TextureWrapMode.Repeat);
             tex.cookie = WriteTexture($"{Textures}/SunCookie.png", 256, (u, v) =>
             {
@@ -398,11 +428,13 @@ namespace Shakutori.EditorTools
             });
             assets.worm = Mat("M_Inchworm", "Shakutori/ToonLit", m =>
             {
-                m.SetFloat("_OutlineWidth", 0.55f);
+                // 草や苔の緑の中でも見つけやすいように：こい輪郭と、あたたかい白のふちの光
+                m.SetFloat("_OutlineWidth", 0.7f);
                 m.SetFloat("_OutlineSmoothNormals", 0f);
-                m.SetColor("_OutlineColor", new Color(0.3f, 0.36f, 0.22f));
-                m.SetFloat("_RimStrength", 0.5f);
-                m.SetFloat("_RimWidth", 0.32f);
+                m.SetColor("_OutlineColor", new Color(0.2f, 0.25f, 0.14f));
+                m.SetFloat("_RimStrength", 0.62f);
+                m.SetColor("_RimColor", new Color(1f, 0.97f, 0.8f));
+                m.SetFloat("_RimWidth", 0.34f);
                 m.SetFloat("_SpecularStrength", 0.45f);
                 m.SetFloat("_SpecularSize", 0.045f);
                 m.SetColor("_ShadowTint", new Color(0.7f, 0.78f, 0.95f));

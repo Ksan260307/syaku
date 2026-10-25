@@ -113,7 +113,11 @@ namespace Shakutori
             return best;
         }
 
-        public static float Height(float x, float z)
+        static readonly Vector2[] ReliefGates = { Gate, NightGate };
+
+        public static float Height(float x, float z) => CoreHeight(x, z) + ShakuMath.OuterRelief(x, z, 5.8f, ReliefGates);
+
+        static float CoreHeight(float x, float z)
         {
             Vector2 p = new Vector2(x, z);
             float r = p.magnitude;
@@ -279,7 +283,7 @@ namespace Shakutori
                     _landmarks[2].travel = new ArrivalView(new Vector2(0f, -32f), new Vector3(0f, 0f, 0f), 10f, 6f);                          // 灯籠のならぶ参道
                     _landmarks[3].travel = new ArrivalView(new Vector2(-12f, 2f), new Vector3(Chozuya.x, 0f, Chozuya.y), 10f, 5.5f);          // 北の広場から、手水舎
                     _landmarks[5].travel = new ArrivalView(new Vector2(0f, -12f), new Vector3(0f, 0f, 70f), 2f, 5f);                         // 参道の先、灯籠のあいだから、石段の上のお社
-                    _landmarks[6].travel = new ArrivalView(new Vector2(-14f, 20.1f), new Vector3(-11f, 0f, 21.2f), 4f, 6.5f, onTop: true);    // 西のキツネの像の台座の上（キツネと同じ高さ）
+                    _landmarks[6].travel = new ArrivalView(new Vector2(-14f, 20.1f), new Vector3(11f, 9f, 21.2f), 4f, 6.5f, onTop: true);    // 西のキツネの像の台座の上から、参道の向かいの、東のキツネの像（キツネと同じ高さ）
                 }
                 return _landmarks;
             }

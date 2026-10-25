@@ -8,6 +8,8 @@
 float4 _ShakuPlayerPos;   // xyz = しゃくとりむしの位置, w = 草をかき分ける半径
 float4 _ShakuPlayerHead;  // xyz = しゃくとりむしの頭, w = 頭で草をかき分ける半径（0 なら、かき分けない）
 float4 _ShakuWind;        // xy = 風向き(XZ), z = 強さ, w = ゆれの位相（スクリプトで、速さを時間で積み上げたもの）
+float4 _ShakuGround;      // エリアごとの、近くの地面のこまかな模様：x = つぶのざらつき・小石, y = 草のすじ, z = 砂紋, w = 雪のきらめき
+float4 _ShakuShade;       // エリアごとの、かげの色：x = かげを明るく（0 で、そのまま）, y = かげの色みをうすく（0〜1）
 
 // 4x4 ベイヤー行列によるディザ（カメラ近くのフェード用）
 static const float kShakuBayer[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
@@ -108,7 +110,8 @@ half3 ShakuToonLighting(half3 albedo, float3 positionWS, float3 N, float3 V, Sha
 
     half3 ambient = max(SampleSH(N), half3(0.05h, 0.05h, 0.05h));
     half3 baseLight = _MainLightColor.rgb;
-    half3 shadowLight = (baseLight * 0.42h + ambient * 0.85h) * p.shadowTint * p.shadowBrightness;
+    half3 shadowLight = (baseLight * 0.42h + ambient * 0.85h) * p.shadowTint * p.shadowBrightness * (1.0h + _ShakuShade.x);
+    shadowLight = lerp(shadowLight, dot(shadowLight, half3(0.3333h, 0.3333h, 0.3333h)).xxx, _ShakuShade.y);
     half3 directLight = mainLight.color + ambient * 0.28h;
     half3 lighting = lerp(shadowLight, directLight, lit);
     half3 col = albedo * lighting;

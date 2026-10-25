@@ -54,7 +54,12 @@ namespace Shakutori
 
         public static float DistToRiver(float x, float z) => Mathf.Abs(x - CenterX(z));
 
-        public static float Height(float x, float z)
+        static readonly Vector2[] ReliefGates = { Gate, MountainGate, CoastGate };
+
+        public static float Height(float x, float z) =>
+            CoreHeight(x, z) + ShakuMath.OuterRelief(x, z, 2.9f, ReliefGates) * ShakuMath.SmoothStep(HalfWidth(z) + 8f, HalfWidth(z) + 22f, DistToRiver(x, z));
+
+        static float CoreHeight(float x, float z)
         {
             float r = new Vector2(x, z).magnitude;
             float d = DistToRiver(x, z);
