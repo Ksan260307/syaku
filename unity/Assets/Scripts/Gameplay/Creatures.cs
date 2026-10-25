@@ -895,7 +895,14 @@ namespace Shakutori
             Camera cam = Camera.main;
             Vector3 camPos = cam != null ? cam.transform.position : Vector3.zero;
             _viewReady = cam != null && Application.isPlaying;
-            if (_viewReady) GeometryUtility.CalculateFrustumPlanes(cam, _viewPlanes);
+            if (_viewReady)
+            {
+                // カメラのレンズを上へずらしている（構図）ときは、ずらさない、少し広い画角で見る（足もとのいきものも、動きを止めない）
+                if (cam.usePhysicalProperties && cam.lensShift.sqrMagnitude > 1e-6f)
+                    GeometryUtility.CalculateFrustumPlanes(Matrix4x4.Perspective(cam.fieldOfView + 16f, cam.aspect, cam.nearClipPlane, cam.farClipPlane) * cam.worldToCameraMatrix, _viewPlanes);
+                else
+                    GeometryUtility.CalculateFrustumPlanes(cam, _viewPlanes);
+            }
             for (int step = 0; step < steps; step++) Simulate(dt, worm, wormPlatform, camPos);
             UpdateColliders();
             Draw(camPos);

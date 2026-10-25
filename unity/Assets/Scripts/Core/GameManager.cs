@@ -288,6 +288,7 @@ namespace Shakutori
             if (area != Areas.Tutorial) Habitats.Record(area, world.Mobs);   // 図鑑で見られるように、いきもののすみかを記録（練習の森はのぞく）
             fx.BuildArea(world);
             AreaAtmosphere.Apply(area, world.sun);   // エリアの空気と光
+            ApplyGrade();
             if (GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset urpNow)
                 urpNow.shadowDistance = AreaAtmosphere.ShadowDistance(area.Id, _qualityNow);   // 山小屋の中は、部屋の奥まで影
             _areaProps?.Build(world, fx);
@@ -1295,6 +1296,33 @@ namespace Shakutori
             var tint = worm.BodyTint;
             Skins.ApplyTint(_wormRenderer, tint.value, tint.saturation, tint.rim, tint.rimColor);
             if (_wear != null) _wear.Set(Skins.Worn(WearKind.Hat), Skins.Worn(WearKind.Glasses));
+        }
+
+        float _gradeExposure = float.NaN, _gradeContrast, _gradeSaturation, _gradeTemperature;
+
+        /// <summary>エリアごとの、画面ぜんたいの色の調整（もとのポストエフェクトの値に、エリアの分を足す）。</summary>
+        void ApplyGrade()
+        {
+            if (postVolume == null) return;
+            var profile = postVolume.profile;   // このボリュームだけのコピー（アセットは書きかえない）
+            if (profile == null) return;
+            profile.TryGet<ColorAdjustments>(out var ca);
+            profile.TryGet<WhiteBalance>(out var wb);
+            if (float.IsNaN(_gradeExposure))
+            {
+                _gradeExposure = ca != null ? ca.postExposure.value : 0f;
+                _gradeContrast = ca != null ? ca.contrast.value : 0f;
+                _gradeSaturation = ca != null ? ca.saturation.value : 0f;
+                _gradeTemperature = wb != null ? wb.temperature.value : 0f;
+            }
+            Vector4 g = AreaAtmosphere.CurrentGrade;
+            if (ca != null)
+            {
+                ca.postExposure.Override(_gradeExposure + g.x);
+                ca.contrast.Override(_gradeContrast + g.y);
+                ca.saturation.Override(_gradeSaturation + g.z);
+            }
+            if (wb != null) wb.temperature.Override(_gradeTemperature + g.w);
         }
 
         /// <summary>

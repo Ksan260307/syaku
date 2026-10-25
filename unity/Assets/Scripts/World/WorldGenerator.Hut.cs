@@ -97,6 +97,30 @@ namespace Shakutori
             float wall = HutLayout.WallFace + 0.05f;
             Place("Hut_Curtains", HutMaterial("Hut_Curtains"), new Vector3(HutLayout.WindowS.x, 0f, HutLayout.WindowS.y + wall), Quaternion.identity, 1f, false, true, 600f, asRenderer: true);
             Place("Hut_Curtains", HutMaterial("Hut_Curtains"), new Vector3(HutLayout.WindowE.x - wall, 0f, HutLayout.WindowE.y), Quaternion.Euler(0f, -90f, 0f), 1f, false, true, 600f, asRenderer: true);
+            // 緑と青の差し色：窓台の鉢植え（ゼラニウム）と、テーブルの青いホーローの水さし（しずくと物から、はなして）
+            void OnTop(string mesh, Vector2[] spots, float topY, float r, int count)
+            {
+                int placed = 0;
+                foreach (var p in spots)
+                {
+                    if (placed >= count) break;
+                    if (assets.TryGet(mesh) == null || !ExtraOk(p, r, true)) continue;
+                    if (!Physics.Raycast(new Vector3(p.x, topY + 6f, p.y), Vector3.down, out var hit, 10f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)) continue;
+                    if (Mathf.Abs(hit.point.y - topY) > 0.8f || hit.normal.y < 0.9f) continue;
+                    if (Physics.CheckSphere(hit.point + Vector3.up * (r + 0.3f), r, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore)) continue;
+                    PutSolid(mesh, assets.prop, hit.point, Quaternion.Euler(0f, (p.x * 37f + p.y * 11f) % 360f, 0f), 1f, r);
+                    Mark("hutaccent", hit.point);
+                    placed++;
+                }
+            }
+            float sillZ = HutLayout.WindowS.y + 3.6f, sillX = HutLayout.WindowE.x - 3.6f;
+            OnTop("Hut_Plant", new[] { new Vector2(HutLayout.WindowS.x - 17f, sillZ), new Vector2(HutLayout.WindowS.x + 17f, sillZ), new Vector2(HutLayout.WindowS.x - 12f, sillZ) },
+                  HutLayout.WindowSillS, 3.4f, 1);
+            OnTop("Hut_Plant", new[] { new Vector2(sillX, HutLayout.WindowE.y + 19f), new Vector2(sillX, HutLayout.WindowE.y - 19f), new Vector2(sillX, HutLayout.WindowE.y + 14f) },
+                  HutLayout.WindowSillE, 3.4f, 1);
+            OnTop("Hut_Pitcher", new[] { new Vector2(HutLayout.Table.x - 12f, HutLayout.Table.y - 20f), new Vector2(HutLayout.Table.x + 12f, HutLayout.Table.y + 24f),
+                                          new Vector2(HutLayout.Table.x - 12f, HutLayout.Table.y + 22f), new Vector2(HutLayout.Table.x + 10f, HutLayout.Table.y - 24f) },
+                  HutLayout.TableHeight, 3.4f, 1);
         }
 
         void ScatterHutProps()

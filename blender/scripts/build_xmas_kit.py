@@ -63,6 +63,7 @@ ICE = hexc("#a9cbe0")
 ICE_DEEP = hexc("#6f9dbd")
 WARM = hexc("#ffd27a")             # あかり（光る材質）
 WARM_WHITE = hexc("#fff0c8")
+AMBER = hexc("#ffa53c")             # 窓とランプの、あたたかい琥珀色のあかり（雪の夜の寒色と対比）
 BULBS = [hexc("#ffd060"), hexc("#ff6a5a"), hexc("#7ee08a"), hexc("#7ab4ff"), hexc("#ffa8e0")]
 
 
@@ -589,8 +590,10 @@ def snow_sheet(mb, e, r, up, length, thick, seed=0):
 def make_cottage_window():
     """家の窓のあかり（光る材質）：窓ガラスと、のきの下の電球"""
     mb = MB()
-    gbox(mb, (WINDOW_X, SILL_Y + 8.0, HOUSE_FRONT - 0.4), (15.6, 14.6, 0.6), lambda p, n: mixc(WARM, WARM_WHITE, 0.4 * sstep(0.0, 1.0, (p.y - SILL_Y) / 15.0)), n=4)
-    gbox(mb, (DOOR_X, 27.0, HOUSE_FRONT - 1.75), (10.0, 2.2, 0.3), lambda p, n: WARM, n=2)   # とびらの上の、小さなあかりまど
+    # 窓のあかり：下は琥珀色、上ほど明るく（部屋の中の、だんろの火の色）
+    gbox(mb, (WINDOW_X, SILL_Y + 8.0, HOUSE_FRONT - 0.4), (15.6, 14.6, 0.6),
+         lambda p, n: mixc(AMBER, WARM, 0.25 + 0.5 * sstep(0.0, 1.0, (p.y - SILL_Y) / 15.0)), n=8)
+    gbox(mb, (DOOR_X, 27.0, HOUSE_FRONT - 1.75), (10.0, 2.2, 0.3), lambda p, n: AMBER, n=2)   # とびらの上の、小さなあかりまど
     hw = HOUSE_W / 2
     for i in range(22):
         x = -hw + (i + 0.5) * HOUSE_W / 22
@@ -702,7 +705,7 @@ def make_lamp():
 def make_lamp_glow():
     """ランプのガラスのあかり（光る材質）"""
     mb = MB()
-    gbox(mb, tuple(LAMP_GLOW_C), (2.8, 3.8, 2.8), lambda p, n: mixc(WARM, WARM_WHITE, 0.5), n=2)
+    gbox(mb, tuple(LAMP_GLOW_C), (2.8, 3.8, 2.8), lambda p, n: mixc(AMBER, WARM, 0.4 + 0.3 * sstep(-1.9, 1.9, p.y - LAMP_GLOW_C.y)), n=4)
     return build(mb, "Xmas_LampGlow")
 
 

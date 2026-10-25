@@ -1100,15 +1100,19 @@ def make_bg_trunk(name, seed, fork=False):
     n0 = len(mb.V)
     trunk_mesh(mb, 11.0, 240.0, 48, 40, 5, 0.6, 6.0, seed, moss=0.35)
     moss_dir = rnd.uniform(0, TAU)
+    # 色は、ほかの物の記号的なタッチにそろえて、3 つの明るさの、たてのすじ（こまかなまだらにしない）と、平らな苔の帯
+    tones = (hexc("#5a4632"), hexc("#7a5e42"), hexc("#977856"))
+    moss_flat, moss_hi = hexc("#5f8e3e"), hexc("#7fae4e")
     for i in range(n0, len(mb.V)):
         p = mb.V[i]
         a = math.atan2(p.y, p.x)
+        stripe = 0.5 + 0.5 * math.sin(a * 7.0 + 0.35 * math.sin(p.z * 0.03 + seed))
+        c = tones[0] if stripe < 0.3 else tones[1] if stripe < 0.75 else tones[2]
+        c = mixc(c, hexc("#8a9488"), 0.4 * sstep(40.0, 200.0, p.z))                                                  # 高い所は、空気の色
         side = 0.5 + 0.5 * math.cos(a - moss_dir)
-        streak = sstep(0.45, 0.8, side + 0.35 * noise.noise(Vector((p.x * 0.05, p.y * 0.05, p.z * 0.02 + seed))))
-        c = mb.C[i]
-        c = mixc(c, mixc(MOSS_A, MOSS_B, 0.5 + 0.5 * noise.noise(p * 0.08)), streak * 0.85 * sstep(210.0, 30.0, p.z))   # 北がわの苔
-        lich = sstep(0.38, 0.55, noise.noise(p * 0.07 + Vector((seed * 3, 0, 0))))
-        c = mixc(c, hexc("#c2c7b0"), lich * 0.55)                                                                    # 地衣類
+        streak = sstep(0.55, 0.6, side + 0.2 * math.sin(p.z * 0.05 + seed))
+        c = mixc(c, moss_hi if stripe > 0.6 else moss_flat, streak * sstep(170.0, 120.0, p.z))                       # 北がわの苔の帯
+        c = mixc(c, moss_flat, sstep(14.0, 2.0, p.z) * 0.85)                                                          # 根もとの苔
         mb.C[i] = c
 
     def radius_at(z):
@@ -1123,7 +1127,7 @@ def make_bg_trunk(name, seed, fork=False):
         base = Vector((math.cos(a) * radius_at(z) * 0.6, math.sin(a) * radius_at(z) * 0.6, z))
         tip = base + d * (radius_at(z) * 0.4 + L)
         tube(mb, [base, base.lerp(tip, 0.5), tip], [r0, r0 * 0.8, r0 * 0.55], 10,
-             lambda t, a2, p, dd: bark_color(p * 0.4, a2, 0.2, seed + 5.0, 0.2, 0.01))
+             lambda t, a2, p, dd: hexc("#6e543a") if math.sin(a2 * 3.0) > 0.2 else hexc("#8a6a4a"))
         lathe(mb, [(r0 * 0.55, 0.0), (r0 * 0.3, 0.15), (0.0, 0.25)], 10,
               lambda t, a2, p: hexc("#c8a77a"), center=tip)
     if fork:
@@ -1131,7 +1135,8 @@ def make_bg_trunk(name, seed, fork=False):
         a = rnd.uniform(0, TAU)
         b0 = Vector((0, 0, 95.0))
         pts = [b0, b0 + Vector((math.cos(a) * 9, math.sin(a) * 9, 40)), b0 + Vector((math.cos(a) * 22, math.sin(a) * 22, 140))]
-        tube(mb, pts, [9.0, 7.5, 3.5], 24, lambda t, a2, p, dd: bark_color(p * 0.4, a2, 0.3, seed + 9.0, 0.3, 0.01))
+        tube(mb, pts, [9.0, 7.5, 3.5], 24, lambda t, a2, p, dd: (hexc("#5a4632"), hexc("#7a5e42"), hexc("#977856"))[
+            0 if math.sin(a2 * 7.0) < -0.4 else 1 if math.sin(a2 * 7.0) < 0.5 else 2])
         # 根もとにからむ、ツタ（らせんの茎と、葉）
         for v in range(2):
             ph = rnd.uniform(0, TAU)

@@ -135,7 +135,7 @@ namespace Shakutori
                 float a = XR(0f, Mathf.PI * 2f);
                 Vector2 p = ic + new Vector2(Mathf.Cos(a) * 3.6f, Mathf.Sin(a) * 6.3f);
                 if (!IsLand(p, 0f) || !ExtraOk(p, 0.3f, false)) continue;
-                PutDeco(XR01() < 0.6f ? "Reed" : "Iris", flw, RiverLayout.Ground(p.x, p.y) + Vector3.down * 0.15f, Quaternion.Euler(0f, XR(0f, 360f), 0f), XR(0.45f, 0.75f), true, 130f);
+                PutDeco(XR01() < 0.6f ? "Reed" : IrisAt(p), flw, RiverLayout.Ground(p.x, p.y) + Vector3.down * 0.15f, Quaternion.Euler(0f, XR(0f, 360f), 0f), XR(0.45f, 0.75f), true, 130f);
             }
 
             // 44. 滝の上の台地のデイジーとタンポポ・45. 背の高い草むら・52. 滝の上の水ぎわのカキツバタ・64. 上流の岸の背の高い草とシダ
@@ -154,7 +154,7 @@ namespace Shakutori
                 float side = XR01() < 0.5f ? -1f : 1f;
                 Vector2 p = new Vector2(RiverBankEdgeX(z, side) + side * XR(0.3f, 1.8f), z);
                 if (p.magnitude > 63f || !IsLand(p, 0f) || !ExtraOk(p, 0.3f, false)) continue;
-                PutDeco("Iris", flw, RiverLayout.Ground(p.x, p.y) + Vector3.down * 0.1f, Quaternion.Euler(0f, XR(0f, 360f), 0f), XR(0.6f, 0.95f), true, 120f);
+                PutDeco(IrisAt(p), flw, RiverLayout.Ground(p.x, p.y) + Vector3.down * 0.1f, Quaternion.Euler(0f, XR(0f, 360f), 0f), XR(0.6f, 0.95f), true, 120f);
             }
 
             // 46. 森へのトンネルのまわりのシダと苔
@@ -356,6 +356,9 @@ namespace Shakutori
         /// 川の景色に、変化をつける（はばが同じ用水路に見えないように）：
         /// 曲がりの内がわの、小石の河原（水の中まで、うすく広がる）と、流れの中から顔を出す大きな石。乱数は、ほかの小物と分ける。
         /// </summary>
+        /// <summary>むらさきのアヤメと、黄色いキショウブを、場所で分ける（乱数は使わない）。黄色は、川辺の、あたたかい差し色。</summary>
+        static string IrisAt(Vector2 p) => Mathf.Repeat(Mathf.Sin(p.x * 12.9898f + p.y * 78.233f) * 43758.5453f, 1f) < 0.55f ? "Iris_Yellow" : "Iris";
+
         void RiverBarsAndBoulders()
         {
             var rr = new System.Random(seed * 5 + 77);
@@ -384,6 +387,15 @@ namespace Shakutori
                     PutDeco(pebbles[rr.Next(pebbles.Length)], prop, new Vector3(x, y - 0.05f, z), Quaternion.Euler(Rr(-6f, 6f), Rr(0f, 360f), Rr(-6f, 6f)), s, false, 120f);
                 }
                 Mark("gravelbar", new Vector3(edge, RiverLayout.WaterLevel(z0), z0));
+                // 河原のうしろの岸に、キショウブのかぶ（黄色い花の、あたたかい差し色）
+                for (int k = 0; k < 3; k++)
+                {
+                    float z = z0 + Rr(-6f, 6f);
+                    float x = RiverLayout.CenterX(z) + side * (RiverLayout.HalfWidth(z) + Rr(2.5f, 4.5f));
+                    Vector2 p = new Vector2(x, z);
+                    if (!IsLand(p, 0.15f) || !ExtraOk(p, 0.6f, false)) continue;
+                    PutDeco("Iris_Yellow", assets.flowers, RiverLayout.Ground(x, z) + Vector3.down * 0.1f, Quaternion.Euler(0f, Rr(0f, 360f), 0f), Rr(0.6f, 0.95f), true, 120f);
+                }
             }
             // 流れの中の大きな石（上は水の上に出る。のぼって休める）
             int placed = 0;

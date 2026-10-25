@@ -959,6 +959,50 @@ def make_button():
     return build(mb, "Hut_Button", smooth=True)
 
 
+def make_potted_plant():
+    """窓台の鉢植え（ゼラニウム）：素焼きの鉢に、まるい緑の葉と、赤い花のかたまり。木の色ばかりの部屋の、緑と赤の差し色"""
+    mb = MB()
+    clay, clay_dark = hexc("#c8693e"), hexc("#9a4a2a")
+    lathe(mb, [(0.0, 0.0), (2.0, 0.0), (2.3, 0.3), (2.9, 4.6), (3.3, 4.8), (3.3, 5.6), (2.85, 5.6), (2.7, 5.2), (0.0, 5.2)], 24,
+          lambda t, a, p: mixc(clay_dark, clay, sstep(0.0, 4.8, p.z)) if p.z < 4.7 else mixc(clay, hexc("#e08a5a"), 0.3), center=U(0, 0, 0))
+    rnd = random.Random(21)
+    leaf, leaf2 = hexc("#3d7a34"), hexc("#6aa84a")
+    # まるい葉（ふちが波うつ、うすい円ばん）を、鉢から外と上へ
+    for k in range(16):
+        a = rnd.uniform(0, TAU)
+        out = Vector((math.cos(a), math.sin(a), 0))
+        base = U(0, 5.0, 0) + out * rnd.uniform(0.3, 1.5)
+        tip = base + out * rnd.uniform(1.8, 3.2) + Vector((0, 0, rnd.uniform(0.8, 2.6)))
+        tube(mb, [base, base.lerp(tip, 0.5) + Vector((0, 0, 0.4)), tip], [0.12, 0.1, 0.08], 4, lambda t, aa, p, d: leaf)
+        c = leaf if k % 2 else leaf2
+        uv_sphere(mb, tip + Vector((0, 0, 0.1)), 1.0, lambda n, c=c: mixc(c, hexc("#2a5a26"), 0.35 if n.z < 0 else 0.0), seg=10, rings=4,
+                  scale=Vector((1.25, 1.25, 0.18)))
+    # 赤い花のかたまり（長いくきの先に、小さな花をまるく）
+    for k in range(3):
+        a = TAU * k / 3 + 0.4
+        top = U(0, 0, 0) + Vector((math.cos(a) * 1.4, math.sin(a) * 1.4, 10.5 + k * 0.8))
+        tube(mb, [U(0, 5.0, 0), U(0, 5.0, 0).lerp(top, 0.5) + Vector((0, 0, 0.6)), top], [0.13, 0.1, 0.08], 4, lambda t, aa, p, d: leaf)
+        for f in range(14):
+            zf = 1.0 - 2.0 * (f + 0.5) / 14
+            ph = f * 2.39996
+            d = Vector((math.cos(ph) * math.sqrt(max(0.0, 1 - zf * zf)), math.sin(ph) * math.sqrt(max(0.0, 1 - zf * zf)), zf * 0.8 + 0.3))
+            uv_sphere(mb, top + d * 0.75, 0.42, lambda n: mixc(hexc("#d8303a"), hexc("#ff6a6a"), sstep(-0.2, 0.9, n.z)), seg=6, rings=4)
+    return build(mb, "Hut_Plant", smooth=True)
+
+
+def make_pitcher():
+    """青いホーローの水さし（白いふちと、取っ手）：木の色の部屋の、すずしい青の差し色"""
+    mb = MB()
+    blue, white = hexc("#3a64b0"), hexc("#f2f0ea")
+    prof = [(0.0, 0.0), (2.6, 0.0), (2.9, 0.4), (3.3, 3.0), (3.2, 5.6), (2.5, 7.8), (2.4, 8.6), (2.7, 9.2), (2.6, 9.3), (2.2, 9.0), (2.0, 1.0), (0.0, 1.0)]
+    lathe(mb, prof, 28, lambda t, a, p: white if p.z > 8.7 or p.z < 0.25 else mixc(blue, hexc("#5a84d0"), 0.35 * max(0.0, math.cos(a - 0.6))),
+          center=U(0, 0, 0))
+    # 注ぎ口（ふちの前に、少しとがる）と、取っ手
+    tube(mb, [U(2.2, 8.8, 0), U(3.2, 9.3, 0), U(3.9, 9.6, 0)], [0.5, 0.35, 0.0], 8, lambda t, a, p, d: white)
+    tube(mb, [U(-2.9, 7.8, 0), U(-4.6, 7.4, 0), U(-4.8, 4.6, 0), U(-3.2, 3.0, 0)], [0.45] * 4, 8, lambda t, a, p, d: blue)
+    return build(mb, "Hut_Pitcher", smooth=True)
+
+
 def make_curtains():
     """窓のカーテン（左右 2 まい）とカーテンレール。原点は、窓のまん中の下のかべの面（床の高さ）。前（部屋の方）は +z。
     赤と白のチェックの布に、ひだ。まん中の高さで、ひもでたばねる（見た目だけ。当たり判定なし）"""
@@ -1010,7 +1054,7 @@ MAKERS = [
     make_stove, make_stove_fire, make_kettle, make_firewood, make_table, make_bench, make_bunk, make_shelf,
     make_rug, make_doormat, make_boots, make_backpack, lambda: make_backpack(False), make_mug, make_bread, make_map, make_book,
     make_lamp, make_lamp_glow, make_clock, make_bucket, make_broom, make_herbs, make_nest, make_mouse_hole,
-    make_crumb, make_seed, make_match, make_button, make_curtains,
+    make_crumb, make_seed, make_match, make_button, make_curtains, make_potted_plant, make_pitcher,
 ]
 
 

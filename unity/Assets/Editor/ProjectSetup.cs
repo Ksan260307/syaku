@@ -549,13 +549,14 @@ namespace Shakutori.EditorTools
             });
             assets.lightGlow = Mat("M_LightGlow", "Shakutori/ToonLit", m =>
             {
-                // クリスマスの電球・窓とランプのあかり：頂点の色（赤・緑・青・金）を生かして光る
+                // クリスマスの電球・窓とランプのあかり：頂点の色（赤・緑・青・金）を生かして光る。雪の夜の寒色に対して、あたたかい琥珀色に
                 m.SetFloat("_OutlineWidth", 0f);
-                m.SetColor("_EmissionColor", new Color(1.25f, 1.15f, 1.0f) * 1.3f);
+                m.SetColor("_EmissionColor", new Color(1.45f, 1.08f, 0.62f) * 1.45f);
                 m.SetFloat("_RimStrength", 0f);
                 m.SetFloat("_ShadowBrightness", 1.5f);
                 m.SetShaderPassEnabled("SRPDefaultUnlit", false);
             });
+            assets.glowPool = Mat("M_GlowPool", "Shakutori/GlowPool", m => { m.SetFloat("_Intensity", 1.25f); });
             assets.backdrop = Mat("M_Backdrop", "Shakutori/ToonLit", m =>
             {
                 // 窓の外の景色：日ざしの向きやかげに関係なく、明るい外の色

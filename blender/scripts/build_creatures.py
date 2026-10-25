@@ -1698,7 +1698,8 @@ def make_horsetail():
     return build(mb, "Horsetail")
 
 
-def make_iris():
+def make_iris(name="Iris", petal=None, inner=None, signal=None):
+    """アヤメ（むらさき）。petal・inner・signal で色を変えると、キショウブ（黄色）など"""
     rnd = random.Random(9)
     mb = MB()
     leaf = hexc("#3f7f3a")
@@ -1715,7 +1716,9 @@ def make_iris():
     stem = quad_bezier(Vector((0, 0, -0.1)), Vector((0.2, 0, h * 0.6)), Vector((0.1, 0.1, h)), 8)
     tube(mb, stem, [0.07] * 7 + [0.05], 6, lambda t, a, p, d: with_alpha(leaf, t))
     top = stem[-1]
-    purple = hexc("#5b4ad2")
+    purple = petal if petal is not None else hexc("#5b4ad2")
+    inner = inner if inner is not None else hexc("#7a6ae8")
+    signal = signal if signal is not None else hexc("#f6e66a")
     for k in range(3):
         a = TAU * k / 3
         d = Vector((math.cos(a), math.sin(a), 0))
@@ -1723,7 +1726,7 @@ def make_iris():
         # 外花被（垂れる）
         fall = [top + d * (0.9 * s / 4) + Vector((0, 0, 0.25 * (s / 4) - 0.75 * (s / 4) ** 2)) for s in range(5)]
         ribbon(mb, fall, [0.15, 0.45, 0.6, 0.55, 0.0], [sv] * 5,
-               lambda tt, v, p: with_alpha(mixc(purple, hexc("#f6e66a"), sstep(0.35, 0.0, abs(v)) * sstep(0.2, 0.5, tt) * sstep(0.8, 0.5, tt)), 1.0),
+               lambda tt, v, p: with_alpha(mixc(purple, signal, sstep(0.35, 0.0, abs(v)) * sstep(0.2, 0.5, tt) * sstep(0.8, 0.5, tt)), 1.0),
                fold=0.15, normal_vecs=[Vector((0, 0, 1))] * 5)
         # 内花被（立つ）
         a2 = a + math.pi / 3
@@ -1731,8 +1734,8 @@ def make_iris():
         sv2 = Vector((-d2.y, d2.x, 0))
         std = [top + d2 * (0.2 * s / 3) + Vector((0, 0, 0.7 * s / 3)) for s in range(4)]
         ribbon(mb, std, [0.1, 0.28, 0.24, 0.0], [sv2] * 4,
-               lambda tt, v, p: with_alpha(mixc(hexc("#7a6ae8"), purple, tt), 1.0), fold=0.1, normal_vecs=[d2] * 4)
-    return build(mb, "Iris")
+               lambda tt, v, p: with_alpha(mixc(inner, purple, tt), 1.0), fold=0.1, normal_vecs=[d2] * 4)
+    return build(mb, name)
 
 
 def make_root_arch():
@@ -5507,10 +5510,11 @@ def main():
         lambda: make_bird_wing_folded("Sparrow_WingFolded", 5.5, False),
         lambda: make_bird_wing("Crow_Wing", 18.0, True),
         lambda: make_bird_wing_folded("Crow_WingFolded", 18.0, True),
-        lambda: make_river_stone("RiverStone_A", 1, (1.6, 1.2, 0.55), (hexc("#8d96a3"), hexc("#b7b2a5"))),
+        lambda: make_river_stone("RiverStone_A", 1, (1.6, 1.2, 0.55), (hexc("#9c948a"), hexc("#c6bba8"))),
         lambda: make_river_stone("RiverStone_B", 2, (1.3, 1.1, 0.7), (hexc("#a99a84"), hexc("#d2c4a8"))),
-        lambda: make_river_stone("RiverStone_C", 3, (1.9, 1.5, 0.45), (hexc("#7d8a86"), hexc("#a6b0a4"))),
+        lambda: make_river_stone("RiverStone_C", 3, (1.9, 1.5, 0.45), (hexc("#9a7e66"), hexc("#c2a888"))),
         make_horsetail, make_iris, make_root_arch,
+        lambda: make_iris("Iris_Yellow", hexc("#f2c62a"), hexc("#f6dc5a"), hexc("#a8641e")),   # キショウブ
         make_koumori_body, make_koumori_wing, make_mogura_hill, make_hanakamakiri_arm,
         make_harinezumi_ball,
         lambda: make_bird_wing("Hato_Wing", 13.0, "pigeon"),

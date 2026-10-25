@@ -248,6 +248,77 @@ namespace Shakutori
                 _xmasFirs.Add(p);
                 if (i == 1 || i == 6) _xmasTops.Add(XG(p) + new Vector3(4f * s, 60f, 0f));
             }
+            BuildXmasGlowPools();
+        }
+
+        /// <summary>
+        /// あかりの光だまり：ランプ・家の窓ととびら・ツリーの電球のまわりの雪を、あたたかい琥珀色にそめる（雪の夜の寒色との対比）。
+        /// 雪や氷の面にそわせた、うすい円ばんを 1 つのメッシュにまとめる（見た目だけ。当たり判定なし。乱数は使わない）。
+        /// </summary>
+        void BuildXmasGlowPools()
+        {
+            if (assets.glowPool == null) return;
+            Physics.SyncTransforms();
+            var pools = new List<(Vector2 c, Vector2 r, float yaw, Color col)>();
+            Color amber = new Color(1f, 0.52f, 0.16f);
+            foreach (var l in _xmasLamps) pools.Add((new Vector2(l.x, l.z), new Vector2(7f, 7f), 0f, amber));
+            Vector2 win = XmasLayout.CottageLocal(XmasLayout.WindowX, XmasLayout.CottageFront - 8f);
+            Vector2 door = XmasLayout.CottageLocal(XmasLayout.DoorX, XmasLayout.CottageFront - 6f);
+            pools.Add((win, new Vector2(11f, 8f), XmasLayout.CottageYaw, amber * 1.15f));
+            pools.Add((door, new Vector2(8f, 6f), XmasLayout.CottageYaw, amber * 0.8f));
+            pools.Add((XmasLayout.Tree, new Vector2(24f, 24f), 0f, new Color(1f, 0.72f, 0.36f) * 0.55f));
+            var pos = new List<Vector3>();
+            var col = new List<Color>();
+            var tris = new List<int>();
+            const int rings = 7, seg = 28;
+            foreach (var (c, r, yaw, tint) in pools)
+            {
+                Quaternion rot = Quaternion.Euler(0f, yaw, 0f);
+                int start = pos.Count;
+                for (int i = 0; i <= rings; i++)
+                {
+                    float u = i / (float)rings;
+                    int n = i == 0 ? 1 : seg;
+                    for (int s = 0; s < n; s++)
+                    {
+                        float a = s / (float)seg * Mathf.PI * 2f;
+                        Vector3 off = rot * new Vector3(Mathf.Cos(a) * r.x * u, 0f, Mathf.Sin(a) * r.y * u);
+                        Vector3 top = new Vector3(c.x + off.x, 40f, c.y + off.z);
+                        float y = Physics.Raycast(top, Vector3.down, out var hit, 60f, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore) && hit.point.y < XmasLayout.Height(top.x, top.z) + 1.5f
+                            ? hit.point.y : XmasLayout.Height(top.x, top.z);
+                        pos.Add(new Vector3(top.x, y + 0.04f, top.z));
+                        float k = 1f - ShakuMath.SmoothStep(0f, 1f, u);
+                        col.Add(new Color(tint.r, tint.g, tint.b, k));
+                    }
+                }
+                // まん中の点と、1 つ目の輪
+                for (int s = 0; s < seg; s++)
+                {
+                    tris.Add(start); tris.Add(start + 1 + (s + 1) % seg); tris.Add(start + 1 + s);
+                }
+                for (int i = 1; i < rings; i++)
+                {
+                    int a0 = start + 1 + (i - 1) * seg, b0 = start + 1 + i * seg;
+                    for (int s = 0; s < seg; s++)
+                    {
+                        int s1 = (s + 1) % seg;
+                        tris.Add(a0 + s); tris.Add(a0 + s1); tris.Add(b0 + s1);
+                        tris.Add(a0 + s); tris.Add(b0 + s1); tris.Add(b0 + s);
+                    }
+                }
+            }
+            var mesh = Own(new Mesh { name = "XmasGlowPools" });
+            mesh.SetVertices(pos);
+            mesh.SetColors(col);
+            mesh.SetTriangles(tris, 0);
+            mesh.RecalculateBounds();
+            var go = new GameObject("XmasGlowPools");
+            go.transform.SetParent(Root, false);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var mr = go.AddComponent<MeshRenderer>();
+            mr.sharedMaterial = assets.glowPool;
+            mr.shadowCastingMode = ShadowCastingMode.Off;
+            mr.receiveShadows = false;
         }
 
         /// <summary>村のまわりの、大きな雪のモミの森（遊べる場所の外）。とても高いので、影は落とさない（村じゅうが、月かげになってしまう）。</summary>

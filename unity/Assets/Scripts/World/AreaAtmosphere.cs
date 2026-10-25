@@ -18,6 +18,8 @@ namespace Shakutori
             public Color sky, equator, ground;
             public Vector4 groundDetail;   // 近くの地面のこまかな模様：x つぶ・小石, y 草のすじ, z 砂紋, w 雪のきらめき
             public Vector2 shade;          // かげ：x 明るく（0 でそのまま）, y 色みをうすく
+            public Vector4 grade;          // 画面ぜんたいの色の調整（ポストエフェクトに足す）：x 明るさ, y コントラスト, z 彩度, w 色温度
+            public Color rimBoost;         // ふちの光（夜の月あかりの逆光）：rgb 色, a 強さ
         }
 
         public static Look For(string areaId)
@@ -31,6 +33,7 @@ namespace Shakutori
                         sun = new Color(1f, 0.97f, 0.9f), sunIntensity = 1.55f,
                         sky = new Color(0.62f, 0.78f, 0.93f), equator = new Color(0.6f, 0.69f, 0.64f), ground = new Color(0.5f, 0.46f, 0.36f),
                         groundDetail = new Vector4(0.35f, 0.4f, 0.6f, 0f),
+                        grade = new Vector4(0.04f, 4f, 16f, 7f),   // くすんだ灰色の川原に、水辺の生き生きした色と、日のあたたかさ
                     };
                 case "mountain":
                     // 山は、すんだ空気（遠くまで見える）。高い所の、白っぽく強い日ざし
@@ -40,6 +43,7 @@ namespace Shakutori
                         sun = new Color(1f, 0.98f, 0.92f), sunIntensity = 1.65f,
                         sky = new Color(0.64f, 0.78f, 0.98f), equator = new Color(0.66f, 0.72f, 0.7f), ground = new Color(0.42f, 0.44f, 0.36f),
                         groundDetail = new Vector4(0.38f, 0.45f, 0f, 0.35f),
+                        grade = new Vector4(0f, 4f, 2f, -2f),
                     };
                 case "hut":
                     // 山小屋の中：まきストーブの、あたたかい空気。窓からの日ざしは、やわらかい金色
@@ -50,6 +54,7 @@ namespace Shakutori
                         sky = new Color(0.86f, 0.72f, 0.56f), equator = new Color(0.74f, 0.58f, 0.44f), ground = new Color(0.56f, 0.4f, 0.28f),
                         groundDetail = new Vector4(0.22f, 0f, 0f, 0f),
                         shade = new Vector2(-0.1f, 0f),     // 部屋のかげは少しこく（窓からの日だまりが、うきたつ）
+                        grade = new Vector4(0f, 2f, -6f, -7f),     // 木のだいだい一色にならないように、少しすずしく
                     };
                 case "coast":
                     // 海辺：すんだ空気と、まぶしい日ざし（沖の小島まで見える）。砂浜の照り返しで、下からも明るい
@@ -59,16 +64,18 @@ namespace Shakutori
                         sun = new Color(1f, 0.97f, 0.88f), sunIntensity = 1.65f,
                         sky = new Color(0.62f, 0.8f, 0.98f), equator = new Color(0.68f, 0.77f, 0.78f), ground = new Color(0.62f, 0.57f, 0.44f),
                         groundDetail = new Vector4(0.35f, 0.4f, 1f, 0f),
+                        grade = new Vector4(0f, 5f, 10f, 0f),
                     };
                 case "shrine":
                     // 神社：鎮守の森の、夕ぐれ。こもれびは金色で、木かげは青みのある緑。霧は少しあたたかい
                     return new Look
                     {
-                        fog = new Color(0.62f, 0.63f, 0.56f), fogStart = 34f, fogEnd = 185f,
-                        sun = new Color(1f, 0.82f, 0.6f), sunIntensity = 1.42f,
+                        fog = new Color(0.72f, 0.64f, 0.48f), fogStart = 36f, fogEnd = 190f,   // 黄緑ではなく、夕ぐれの金色の霞
+                        sun = new Color(1f, 0.8f, 0.55f), sunIntensity = 1.45f,
                         sky = new Color(0.7f, 0.68f, 0.64f), equator = new Color(0.56f, 0.58f, 0.5f), ground = new Color(0.36f, 0.33f, 0.26f),
                         groundDetail = new Vector4(0.4f, 0.4f, 0f, 0f),
                         shade = new Vector2(0.32f, 0.2f),    // 参道の石だたみが、かげで暗い紫にしずまない
+                        grade = new Vector4(0f, 6f, 8f, 5f),       // 朱を、にごらせない
                     };
                 case "night":
                     // 夜の森：青い月あかり。暗すぎない（足もとと、いきものが見える）。霧は、こい藍色
@@ -79,6 +86,8 @@ namespace Shakutori
                         sky = new Color(0.3f, 0.36f, 0.56f), equator = new Color(0.23f, 0.28f, 0.4f), ground = new Color(0.17f, 0.19f, 0.25f),
                         groundDetail = new Vector4(0.35f, 0.4f, 0f, 0f),
                         shade = new Vector2(0.1f, 0f),
+                        grade = new Vector4(0.08f, 20f, -4f, -6f),   // 暗い中間色にしずまない：明るい所は明るく、くらい所はくらく
+                        rimBoost = new Color(0.58f, 0.72f, 1f, 0.6f),  // 月あかりの、青白いふちどり
                     };
                 case "xmas":
                     // クリスマス村：雪の夜。月あかりと、雪の照り返しで、下からも明るい（足もとが見える）。霧は、こい藍色
@@ -89,6 +98,8 @@ namespace Shakutori
                         sky = new Color(0.47f, 0.51f, 0.6f), equator = new Color(0.44f, 0.46f, 0.51f), ground = new Color(0.52f, 0.52f, 0.54f),
                         groundDetail = new Vector4(0.18f, 0.3f, 0f, 1f),
                         shade = new Vector2(0.12f, 0.4f),    // 雪のかげは、こい青紫にしない
+                        grade = new Vector4(0.03f, 8f, 6f, 6f),    // 雪の青灰色に、あかりの琥珀色が、うきたつ
+                        rimBoost = new Color(0.62f, 0.72f, 1f, 0.22f),
                     };
                 case "park":
                     return new Look
@@ -97,6 +108,7 @@ namespace Shakutori
                         sun = new Color(1f, 0.95f, 0.82f), sunIntensity = 1.6f,
                         sky = new Color(0.66f, 0.8f, 0.96f), equator = new Color(0.64f, 0.72f, 0.58f), ground = new Color(0.38f, 0.5f, 0.28f),
                         groundDetail = new Vector4(0.3f, 0.5f, 0.5f, 0f),
+                        grade = new Vector4(0f, 3f, 4f, 0f),
                     };
                 default:
                     return new Look
@@ -105,6 +117,7 @@ namespace Shakutori
                         sun = new Color(1f, 0.92f, 0.74f), sunIntensity = 1.42f,
                         sky = new Color(0.62f, 0.78f, 0.62f), equator = new Color(0.52f, 0.62f, 0.46f), ground = new Color(0.36f, 0.31f, 0.22f),
                         groundDetail = new Vector4(0.35f, 0.45f, 0f, 0f),
+                        grade = new Vector4(0f, 6f, 2f, 0f),   // 中間の明るさにまとまらないように
                     };
             }
         }
@@ -112,6 +125,10 @@ namespace Shakutori
         static readonly int SkyOpenId = Shader.PropertyToID("_SkyOpen");
         static readonly int GroundDetailId = Shader.PropertyToID("_ShakuGround");
         static readonly int ShadeId = Shader.PropertyToID("_ShakuShade");
+        static readonly int RimBoostId = Shader.PropertyToID("_ShakuRimBoost");
+
+        /// <summary>いまのエリアの、画面ぜんたいの色の調整（GameManager がポストエフェクトに足す）。</summary>
+        public static Vector4 CurrentGrade { get; private set; }
         static readonly int NightId = Shader.PropertyToID("_Night");
 
         /// <summary>夜のエリアか（空に月と星。水の照り返しも夜の色）。</summary>
@@ -137,8 +154,10 @@ namespace Shakutori
             RenderSettings.ambientGroundColor = l.ground;
             Shader.SetGlobalVector(GroundDetailId, l.groundDetail);
             Shader.SetGlobalVector(ShadeId, new Vector4(l.shade.x, l.shade.y, 0f, 0f));
-            // 山と海辺とクリスマス村は、樹冠のない、ひらけた空（雲。夜は、うすい雪雲）
-            Shader.SetGlobalFloat(SkyOpenId, area != null && (area.Id == "mountain" || area.Id == "coast" || area.Id == "xmas") ? 1f : 0f);
+            Shader.SetGlobalVector(RimBoostId, new Vector4(l.rimBoost.r, l.rimBoost.g, l.rimBoost.b, l.rimBoost.a));
+            CurrentGrade = l.grade;
+            // 山と海辺とクリスマス村は、樹冠のない、ひらけた空（雲。夜は、うすい雪雲）。公園は、木の間から、青い空と白い雲がのぞく
+            Shader.SetGlobalFloat(SkyOpenId, area != null && (area.Id == "mountain" || area.Id == "coast" || area.Id == "xmas") ? 1f : area != null && area.Id == "park" ? 0.7f : 0f);
             // 夜の森は、月と星の夜空（木の葉は、空にうかぶ黒いかげ）
             Shader.SetGlobalFloat(NightId, area != null && IsNight(area.Id) ? 1f : 0f);
             if (sun != null)

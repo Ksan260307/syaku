@@ -16,6 +16,11 @@ namespace Shakutori
         public float minDistance = 1.3f;
         public float maxDistance = 9f;
         public float pitch = 20f;
+        /// <summary>
+        /// 画面の中で、しゃくとりむしを少し下に置く角度（度）。地面ばかりでなく、名所や景色が画面の上に入る（三分割の構図）。
+        /// カメラは回さずに、レンズを上へずらす（カメラの向きは、歩く向き・壁を上る向きに使うので、変えない）。
+        /// </summary>
+        public float framingTilt = 5f;
         public float yaw;
         public float autoFollowDelay = 2.2f;
         public bool titleMode = true;
@@ -217,6 +222,24 @@ namespace Shakutori
             }
         }
 
+        /// <summary>
+        /// レンズを上へずらして、しゃくとりむしを画面の下の 3 分の 1 の近くに（糸をねらうときは、まん中）。
+        /// 物理カメラの縦の画角（fieldOfView）は、ふつうのカメラと同じにする（GateFit.Vertical）。
+        /// </summary>
+        void ApplyFraming()
+        {
+            if (_cam == null) return;
+            float shift = 0.5f * Mathf.Tan(framingTilt * (1f - _aimBlend) * Mathf.Deg2Rad) / Mathf.Max(0.1f, Mathf.Tan(_cam.fieldOfView * 0.5f * Mathf.Deg2Rad));
+            if (!_cam.usePhysicalProperties)
+            {
+                float fov = _cam.fieldOfView;
+                _cam.usePhysicalProperties = true;
+                _cam.gateFit = Camera.GateFitMode.Vertical;
+                _cam.fieldOfView = fov;
+            }
+            _cam.lensShift = new Vector2(0f, shift);
+        }
+
         void Apply(float dt, bool snap)
         {
             Vector3 want = target.CameraFocus;
@@ -238,6 +261,7 @@ namespace Shakutori
             float ground = Areas.Current.Height(pos.x, pos.z) + 0.12f;
             if (pos.y < ground) pos.y = ground;
             transform.SetPositionAndRotation(pos, Quaternion.LookRotation(_focus - pos, Vector3.up));
+            ApplyFraming();
         }
     }
 }

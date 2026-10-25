@@ -53,9 +53,9 @@ SUSUKI_STEM = hexc("#8e9a5a")
 SUSUKI_LEAF = hexc("#7d8f4c")
 SUSUKI_PLUME = hexc("#a89e86")   # 月あかりの下で、白くかがやきすぎない、くすんだ銀色
 SUSUKI_PINK = hexc("#9c8478")
-LEAF_RED = hexc("#b5532e")
-LEAF_ORANGE = hexc("#d08a3a")
-LEAF_YELLOW = hexc("#c9a740")
+LEAF_RED = hexc("#8e4a44")       # 夜の木の葉：月あかりの下の、しずんだ赤（明るいだいだいは、夜の光にうく）
+LEAF_ORANGE = hexc("#9a6a46")
+LEAF_YELLOW = hexc("#8e8650")
 
 
 def on_poly(pts, t):

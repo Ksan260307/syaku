@@ -10,6 +10,7 @@ float4 _ShakuPlayerHead;  // xyz = しゃくとりむしの頭, w = 頭で草を
 float4 _ShakuWind;        // xy = 風向き(XZ), z = 強さ, w = ゆれの位相（スクリプトで、速さを時間で積み上げたもの）
 float4 _ShakuGround;      // エリアごとの、近くの地面のこまかな模様：x = つぶのざらつき・小石, y = 草のすじ, z = 砂紋, w = 雪のきらめき
 float4 _ShakuShade;       // エリアごとの、かげの色：x = かげを明るく（0 で、そのまま）, y = かげの色みをうすく（0〜1）
+float4 _ShakuRimBoost;    // エリアごとの、ふちの光（夜の月あかりの逆光）：rgb = 色, a = 強さ（0 で、なし）
 
 // 4x4 ベイヤー行列によるディザ（カメラ近くのフェード用）
 static const float kShakuBayer[16] = { 0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5 };
@@ -120,6 +121,10 @@ half3 ShakuToonLighting(half3 albedo, float3 positionWS, float3 N, float3 V, Sha
     half fres = 1.0h - saturate(dot(N, V));
     half rim = smoothstep(1.0h - p.rimWidth, 1.0h - p.rimWidth + 0.06h, fres);
     col += rim * p.rimColor * p.rimStrength * lerp(0.25h, 1.0h, lit) * (albedo * 0.6h + 0.4h);
+    // 夜の月あかりのふちどり（形が、暗い背景にとけないように。かげの側にも、うすくかかる）
+    // 地面や、上を向いた面にはかけない（低いカメラから見ると、地面ぜんたいが白っぽくなる）。物の横の面のふちだけ
+    half moonRim = smoothstep(0.5h, 0.8h, fres) * (0.45h + 0.55h * saturate(dot(N, L) * 0.5h + 0.5h)) * (1.0h - smoothstep(0.35h, 0.75h, N.y));
+    col += moonRim * _ShakuRimBoost.rgb * _ShakuRimBoost.a * (albedo * 0.5h + 0.5h);
 
     // アニメ風ハイライト
     half3 H = normalize(L + V);

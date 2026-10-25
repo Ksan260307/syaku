@@ -197,11 +197,11 @@ namespace Shakutori
 
         static readonly Color Grass = C("#7cbb52");
         static readonly Color GrassDeep = C("#4f8d3c");
-        static readonly Color Sand = C("#d6c49a");
-        static readonly Color Pebble = C("#a59d8c");
-        static readonly Color Wet = C("#6d6650");
-        static readonly Color Bed = C("#5d6a5a");
-        static readonly Color Cliff = C("#857a6b");
+        static readonly Color Sand = C("#e0c896");
+        static readonly Color Pebble = C("#b39c80");
+        static readonly Color Wet = C("#78684e");
+        static readonly Color Bed = C("#5e6a50");
+        static readonly Color Cliff = C("#94806a");
         static readonly Color Path = C("#c9b48a");
 
         public static Color GroundColor(float x, float z, float h, Vector3 n)

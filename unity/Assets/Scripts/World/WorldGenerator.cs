@@ -57,7 +57,7 @@ namespace Shakutori
         public readonly List<Vector3> DewdropPoints = new List<Vector3>();
         /// <summary>花の頭の位置（チョウやトンボがとまる）。</summary>
         public readonly List<Vector3> FlowerPoints = new List<Vector3>();
-        static readonly HashSet<string> FlowerMeshes = new HashSet<string> { "Daisy", "Bellflower", "Dandelion", "DandelionPuff", "Strawberry", "Iris",
+        static readonly HashSet<string> FlowerMeshes = new HashSet<string> { "Daisy", "Bellflower", "Dandelion", "DandelionPuff", "Strawberry", "Iris", "Iris_Yellow",
             "Tulip_Red", "Tulip_Yellow", "Tulip_Pink", "Park_WhiteClover", "Mtn_Komakusa", "Mtn_Chinguruma", "Mtn_Kurumayuri", "Coast_Hirugao" };
         public readonly List<MobGroup> Mobs = new List<MobGroup>();
         public readonly List<GateInstance> Gates = new List<GateInstance>();

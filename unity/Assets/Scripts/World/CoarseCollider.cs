@@ -30,7 +30,7 @@ namespace Shakutori
             { "Rock_A", Shape.Relax }, { "Rock_B", Shape.Relax }, { "Rock_C", Shape.Relax }, { "Rock_D", Shape.Relax },
             { "RiverStone_A", Shape.Relax }, { "RiverStone_B", Shape.Relax }, { "RiverStone_C", Shape.Relax },
             { "Fern_A", Shape.Blob }, { "Fern_B", Shape.Blob },
-            { "Sprout", Shape.Blob }, { "Reed", Shape.Blob }, { "Horsetail", Shape.Blob }, { "Iris", Shape.Blob },
+            { "Sprout", Shape.Blob }, { "Reed", Shape.Blob }, { "Horsetail", Shape.Blob }, { "Iris", Shape.Blob }, { "Iris_Yellow", Shape.Blob },
         };
 
         static readonly Dictionary<(Mesh, Shape), Mesh> Cache = new Dictionary<(Mesh, Shape), Mesh>();

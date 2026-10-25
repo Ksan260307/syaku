@@ -363,6 +363,10 @@ MonoBehaviour:
     mesh: {fileID: 6737071974074006938, guid: 1809bf43b857564419a600111be57f96, type: 3}
   - name: Hut_Nest
     mesh: {fileID: 7924477599602909387, guid: 87e6d0a4c5ace8f459a488bc656fed99, type: 3}
+  - name: Hut_Pitcher
+    mesh: {fileID: 3004850220774031966, guid: 90244c50fb7840c468eafbb597f4d131, type: 3}
+  - name: Hut_Plant
+    mesh: {fileID: -3702008820238375555, guid: 488b22de86c529a408cc2a1f43ac842d, type: 3}
   - name: Hut_Roof
     mesh: {fileID: -8281390367793031919, guid: db00c61749864824a8f2673ddfb04634, type: 3}
   - name: Hut_Roof_Col
@@ -403,6 +407,8 @@ MonoBehaviour:
     mesh: {fileID: -7554321311242616376, guid: e75d35fc8c02b9e45b602408943059a0, type: 3}
   - name: Iris
     mesh: {fileID: -3322546712403220151, guid: 7eebc446dcf1ce545bd5542313574479, type: 3}
+  - name: Iris_Yellow
+    mesh: {fileID: 8099691144455053473, guid: 9a4773d27a2a1504f8ad991faa0f4145, type: 3}
   - name: Kameleon
     mesh: {fileID: -8619692211896270374, guid: 98215171a63fa054f9ac19d24aeedbc3, type: 3}
   - name: Kameleon_Limb1F
@@ -1434,6 +1440,7 @@ MonoBehaviour:
   creatureGlow: {fileID: 2100000, guid: 956c42b1a60d6e84daa5718c8579b501, type: 2}
   warmGlow: {fileID: 2100000, guid: f40ff25ea8f90e6439f1d2a6209fc4f0, type: 2}
   lightGlow: {fileID: 2100000, guid: 56afbf864c59a994888e711bb2d9d277, type: 2}
+  glowPool: {fileID: 2100000, guid: 6e51bd76ab23a6e41b915e0be60051b0, type: 2}
   backdrop: {fileID: 2100000, guid: 3ec367a2002f624468b04e4600a2e7c0, type: 2}
   wear: {fileID: 2100000, guid: b5d8f704d0e9b3441a80ab01031c19f8, type: 2}
   footprint: {fileID: 2100000, guid: a7505250d018464aa8c3317b0a2e17e0, type: 2}
