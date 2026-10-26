@@ -28,9 +28,12 @@ namespace Shakutori
         static readonly HashSet<string> WasInsideOut = new HashSet<string> { "Park_Tire_Red", "Park_Tire_Blue", "Park_Tire_Yellow" };
         /// <summary>
         /// しずくを置いたあとで、登りやすい当たり判定（名前_Col）を作った物（神社のキツネの像：見た目のままだと、台座の段のすき間や、
-        /// こしの下のくさびに、しゃくとりむしが入りこんでいた）。しずくを置くまでは、前と同じ見た目のとおりの当たり判定にしておく。
+        /// こしの下のくさびに、しゃくとりむしが入りこんでいた。クリスマス村の雪だるま：下の雪玉のふくらみの下から登れず、
+        /// 玉と土台の重なりの、中の面の上へ入りこんでいた。山小屋のバケツ・長ぐつ、海辺の浮き玉も、根もとのえぐれや、
+        /// 底より外へはり出した筒の口から、中へ入りこんでいた。山の山小屋と海辺の岬の大岩は、丸太の筒やフジツボの口があいた、
+        /// とじていない形で、土台や岩の中へ入りこんでいた）。しずくを置くまでは、前と同じ見た目のとおりの当たり判定にしておく。
         /// </summary>
-        static readonly HashSet<string> ColAfterDews = new HashSet<string> { "Shrine_Fox_A", "Shrine_Fox_B" };
+        static readonly HashSet<string> ColAfterDews = new HashSet<string> { "Shrine_Fox_A", "Shrine_Fox_B", "Xmas_Snowman", "Hut_Bucket", "Hut_Boots", "Coast_Float", "Mtn_Hut", "Coast_Cape" };
         /// <summary>しずくを置いたら入れかえる当たり判定（当たり判定と、しずくのあとの形）。</summary>
         readonly List<(MeshCollider col, Mesh mesh)> _insideOut = new List<(MeshCollider, Mesh)>();
         static readonly Dictionary<Mesh, Mesh> s_insideOut = new Dictionary<Mesh, Mesh>();

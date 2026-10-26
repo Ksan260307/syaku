@@ -169,7 +169,7 @@ namespace Shakutori
                     if (Mathf.Abs(pitch - _restPitch) < 0.3f && Mathf.Abs(distance - _restDistance) < 0.02f) _viewEase = false;
                 }
 
-                float z = GameInput.Zoom;
+                float z = GameInput.CameraZoom;   // 地図・図鑑のスクロールは、カメラにはつかわない
                 if (Mathf.Abs(z) > 0.001f)
                 {
                     distance = Mathf.Clamp(distance * (1f - z * 0.12f), minDistance, maxDistance);

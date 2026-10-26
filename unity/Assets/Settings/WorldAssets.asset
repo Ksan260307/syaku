@@ -61,6 +61,8 @@ MonoBehaviour:
     mesh: {fileID: 3911780163484827454, guid: 138ac60fe2bf46c43ab3ece8e16eec02, type: 3}
   - name: Coast_Cape
     mesh: {fileID: 9103544099607745916, guid: 98b34f93233539d4fbfa8f04a8c26a12, type: 3}
+  - name: Coast_Cape_Col
+    mesh: {fileID: -8252901339438118934, guid: 2f8afea75e675fe42800a0c9a1ab4575, type: 3}
   - name: Coast_Clam
     mesh: {fileID: 2639728807695941479, guid: 36c7ec00574e96b49bc48b2096e47010, type: 3}
   - name: Coast_Conch
@@ -69,6 +71,8 @@ MonoBehaviour:
     mesh: {fileID: 3982416670378040037, guid: bbb613a258594f249b4be6e77a4dd03c, type: 3}
   - name: Coast_Float
     mesh: {fileID: 340159694381653154, guid: a96a76140a4acbd47be22a4a20befc15, type: 3}
+  - name: Coast_Float_Col
+    mesh: {fileID: 3439723540526085365, guid: 4309b019de356fe4490dc25f42995c12, type: 3}
   - name: Coast_Grass_A
     mesh: {fileID: 9087710712307697649, guid: 2512fb439b32f3c41ab6b369f52b0e95, type: 3}
   - name: Coast_Grass_B
@@ -323,12 +327,16 @@ MonoBehaviour:
     mesh: {fileID: 7221689255416707599, guid: 55f2e9e8698b7d64e9487af1b08bee62, type: 3}
   - name: Hut_Boots
     mesh: {fileID: -24656815140711979, guid: 691292dd14c08054192c1ae0951b104b, type: 3}
+  - name: Hut_Boots_Col
+    mesh: {fileID: -8305104943914160053, guid: 81f5053ff1c508247b588540e4cb5ca6, type: 3}
   - name: Hut_Bread
     mesh: {fileID: 7735767615573110529, guid: a0285496c7e4be14394a1074f1621074, type: 3}
   - name: Hut_Broom
     mesh: {fileID: -6666817232244774441, guid: 5cfd73a01567f6c43b325c17883eed94, type: 3}
   - name: Hut_Bucket
     mesh: {fileID: -8682869767205665326, guid: 8558eb8af55ca9846933a0a05a215e84, type: 3}
+  - name: Hut_Bucket_Col
+    mesh: {fileID: 206031630909937368, guid: b70a553c019b3cd4c971230857eb55a2, type: 3}
   - name: Hut_Bunk
     mesh: {fileID: 8597584058025978461, guid: 7fa543be02a3ce140aeb3bddb8efaf93, type: 3}
   - name: Hut_Button
@@ -583,6 +591,8 @@ MonoBehaviour:
     mesh: {fileID: 4490374784259951943, guid: 3e8b96fa9ec1e5a4db2639d77f125155, type: 3}
   - name: Mtn_Hut
     mesh: {fileID: -9108850890420713784, guid: c9d9f20d1f05fd04e841f6c2a69bc0b5, type: 3}
+  - name: Mtn_Hut_Col
+    mesh: {fileID: 5112974013460448729, guid: 4bd107b67eba7ff41bf645b57f3492c1, type: 3}
   - name: Mtn_Komakusa
     mesh: {fileID: 8310831527465158941, guid: 622c66c8121d3784596847cfa1ae7d48, type: 3}
   - name: Mtn_Kurumayuri
@@ -1149,6 +1159,8 @@ MonoBehaviour:
     mesh: {fileID: 5148112645307938824, guid: 497d690d19356d0488ff2bcdfd46ab17, type: 3}
   - name: Xmas_Snowman
     mesh: {fileID: 8298141810100436216, guid: e26bcd981cdb91642851febc189d3e2f, type: 3}
+  - name: Xmas_Snowman_Col
+    mesh: {fileID: 8066343082227259623, guid: 7760889de9052094db352e8b8397b154, type: 3}
   - name: Xmas_Tree
     mesh: {fileID: -5570951721586977093, guid: 157a66e1f067fe94b9a3affd16fffb38, type: 3}
   - name: Xmas_Tree_Col

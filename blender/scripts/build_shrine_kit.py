@@ -380,14 +380,16 @@ def _clip_rect(h, hx, hy):
     return h
 
 
-def sliced_hull(mb, src, col, step=0.2, n=32, skirt=None, floor=None, clip=None, flare=None):
+def sliced_hull(mb, src, col, step=0.2, n=32, skirt=None, floor=None, clip=None, flare=None, steady=False):
     """src を、たての軸（Blender の z）に沿ってうすく切り、切り口ごとの凸包をつないだ、閉じた形を mb に足す。
     見た目の形は部品（球・チューブ）が重なり、すき間やくさびのようなくぼみがあって、しゃくとりむしが中へ入りこむ。
     この形は、どの高さでも外側をなめらかにつつむ（上下のへこみ＝首のくびれなどは、そのまま）。
     skirt（Blender の高さ）より下の切り口は、そこまでの上の切り口もいっしょにつつむ（下ほど細くならず、台との間にくさびのすき間ができない）。
     clip = (はばの半分, おくゆきの半分) なら、上からつつんだ分は、台の上の面の中だけにする（台の外へ、見えない天井がはみ出さない）。
     floor より下は作らない（台の中にうまる所）。
-    flare = (根もとの高さ, 広げる長さ) なら、根もとをすそ広がりにする（台の上の面から体へ、直角の角でつかえずに登れる）"""
+    flare = (根もとの高さ, 広げる長さ) なら、根もとをすそ広がりにする（台の上の面から体へ、直角の角でつかえずに登れる）
+    steady なら、どの輪も、skirt のまん中から決める（切り口の中にあるかぎり。上下の輪の点が同じ向きにならび、
+    上へ行くほど細くなる所に、少しのひさしもできない）"""
     tris = list(_tris(src))
     z0 = min(p.z for p in src.V) if floor is None else max(floor, min(p.z for p in src.V))
     z1 = max(p.z for p in src.V)
@@ -411,6 +413,7 @@ def sliced_hull(mb, src, col, step=0.2, n=32, skirt=None, floor=None, clip=None,
     # 輪の点は、まん中から決まった向きへ。まん中が高さごとにずれると、面が小さく波うつ（しゃくとりむしが、つまずく）ので、
     # 上からつつむ所は同じまん中にして、ほかも上下でならす（凸包の外へ出たら、その切り口のまん中）
     cs = [(sum(q[0] for q in h) / len(h), sum(q[1] for q in h) / len(h)) for h in hulls]
+    top = None
     if skirt is not None:
         top = max((i for i, z in enumerate(levels) if z <= skirt), default=None)
         if top is not None:
@@ -424,6 +427,11 @@ def sliced_hull(mb, src, col, step=0.2, n=32, skirt=None, floor=None, clip=None,
         inside = all((h[(k + 1) % len(h)][0] - h[k][0]) * (c1[1] - h[k][1]) - (h[(k + 1) % len(h)][1] - h[k][1]) * (c1[0] - h[k][0]) > 1e-4
                      for k in range(len(h)))
         cx, cy = c1 if inside else c0
+        if steady and top is not None:
+            sx, sy = cs[top]
+            if z <= skirt or all((h[(k + 1) % len(h)][0] - h[k][0]) * (sy - h[k][1]) - (h[(k + 1) % len(h)][1] - h[k][1]) * (sx - h[k][0]) > 1e-4
+                                 for k in range(len(h))):
+                cx, cy = sx, sy
         ring = []
         for j in range(n):
             a = TAU * j / n

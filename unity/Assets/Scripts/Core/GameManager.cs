@@ -450,6 +450,7 @@ namespace Shakutori
         void Update()
         {
             bool playing = State == GameState.Playing;
+            GameInput.OverlayOpen = ui != null && ui.AnyOverlayOpen;   // 地図・図鑑のスクロールで、カメラを拡大・縮小しない
             ui.TickHud(playing && !ui.AnyOverlayOpen);
             // ぬれた体から、しずくがたれる
             if (playing && worm != null && worm.IsWet && Time.time > _dripNext)

@@ -25,7 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_forest_kit as kit  # noqa: E402
 from build_forest_kit import MB, TAU, build, hexc, lathe, lerp, mixc, scalec, sstep, tube, uv_sphere  # noqa: E402
 from build_park_kit import box  # noqa: E402
-from build_shrine_kit import grid_box  # noqa: E402
+from build_shrine_kit import grid_box, sliced_hull  # noqa: E402
 
 
 def parse_args():
@@ -653,25 +653,55 @@ def make_doormat():
     return build(mb, "Hut_DoorMat", smooth=False)
 
 
-def boot(mb, x, rot):
+BOOTS = ((-3.2, 8.0), (3.4, -14.0))   # 2 本の長ぐつ（Unity の x と、まわす角度）
+
+
+def boot(mb, x, rot, part=None):
+    """長ぐつ 1 本。part は当たり判定用の部品だけ（"sole" 底・"toe" つま先・"shaft" 筒）。
+    当たり判定の部品は、床の下までとどく（底は床の下まで厚く、つま先と筒には、床の下からの細い柱を足す：つつんだ形のすそが床の下まで）"""
     tmp = MB()
     sole = hexc("#3a3230")
     upper = hexc("#7a4a2a")
-    box(tmp, Vector((0, 0, 0.6)), (4.8, 12.0, 1.2), sole)
-    uv_sphere(tmp, Vector((0, -2.6, 2.6)), 1.0, lambda n: upper, seg=14, rings=8, scale=Vector((2.5, 3.6, 2.0)))   # つま先（Unity の +z）
-    tube(tmp, [Vector((0, 2.0, 1.2)), Vector((0, 2.6, 6.0)), Vector((0, 2.8, 10.0))], [3.2, 2.7, 2.6], 14,
-         lambda t, a, p, d: upper if t < 0.9 else hexc("#b84a3a"))
-    uv_sphere(tmp, Vector((0, 2.8, 10.0)), 1.0, lambda n: SOOT, seg=12, rings=4, scale=Vector((2.2, 2.2, 0.3)))   # はき口
-    for k in range(4):
-        tube(tmp, [Vector((-1.8, 0.4, 3.0 + k * 1.6)), Vector((1.8, 0.4, 3.0 + k * 1.6))], [0.25, 0.25], 4, lambda t, a, p, d: hexc("#e8c040"))
+    if part is None:
+        box(tmp, Vector((0, 0, 0.6)), (4.8, 12.0, 1.2), sole)
+    elif part == "sole":
+        box(tmp, Vector((0, 0, 0.3)), (4.8, 12.0, 1.8), sole)
+    if part in (None, "toe"):
+        uv_sphere(tmp, Vector((0, -2.6, 2.6)), 1.0, lambda n: upper, seg=14, rings=8, scale=Vector((2.5, 3.6, 2.0)))   # つま先（Unity の +z）
+    if part in (None, "shaft"):
+        tube(tmp, [Vector((0, 2.0, 1.2)), Vector((0, 2.6, 6.0)), Vector((0, 2.8, 10.0))], [3.2, 2.7, 2.6], 14,
+             lambda t, a, p, d: upper if t < 0.9 else hexc("#b84a3a"))
+        uv_sphere(tmp, Vector((0, 2.8, 10.0)), 1.0, lambda n: SOOT, seg=12, rings=4, scale=Vector((2.2, 2.2, 0.3)))   # はき口
+        for k in range(4):
+            tube(tmp, [Vector((-1.8, 0.4, 3.0 + k * 1.6)), Vector((1.8, 0.4, 3.0 + k * 1.6))], [0.25, 0.25], 4, lambda t, a, p, d: hexc("#e8c040"))
+    if part in ("toe", "shaft"):
+        box(tmp, Vector((0, -2.6 if part == "toe" else 2.0, 0.3)), (0.5, 0.5, 1.8), sole)
     mb.add(tmp, Matrix.Translation(U(x, 0, 0)) @ Matrix.Rotation(rot, 4, "Z"))
 
 
 def make_boots():
     mb = MB()
-    boot(mb, -3.2, math.radians(8))
-    boot(mb, 3.4, math.radians(-14))
+    for x, rot in BOOTS:
+        boot(mb, x, math.radians(rot))
     return build(mb, "Hut_Boots", smooth=True, sharp_deg=50)
+
+
+BOOT_SKIRT = 2.65   # 長ぐつの当たり判定：つま先は、この高さ（いちばん太い所）から下を、まっすぐ床の下まで
+BOOT_SHAFT_SKIRT = 1.6   # 筒は、この高さ（下の口の少し上。切り口の間かくより上）から下を、まっすぐ床の下まで
+
+
+def make_boots_col():
+    """長ぐつの当たり判定（_Col）：1 本ずつ、底の箱と、つま先・筒を、うすく切った切り口の凸包でつつんだ形。
+    つま先と筒は、いちばん太い所から下を、まっすぐ床の下までのばす（見た目のとおりだと、底より外へはり出した筒の下の口から、
+    しゃくとりむしが筒の中へ入りこんだ。つま先のふくらみの下にも、もぐりこむ）。つま先の上の面は見た目と同じ（しずくがのる）"""
+    mb = MB()
+    for x, rot in BOOTS:
+        boot(mb, x, math.radians(rot), "sole")
+        for part, skirt in (("toe", BOOT_SKIRT), ("shaft", BOOT_SHAFT_SKIRT)):
+            one = MB()
+            boot(one, x, math.radians(rot), part)
+            sliced_hull(mb, one, hexc("#7a4a2a"), step=0.2, n=40, skirt=skirt, steady=True)
+    return build(mb, "Hut_Boots_Col", smooth=False)
 
 
 def make_backpack(look=True):
@@ -835,13 +865,28 @@ def make_clock():
     return build(mb, "Hut_Clock", smooth=True)
 
 
-def make_bucket():
+BUCKET_FOOT = 6.25   # バケツの当たり判定の、まっすぐな足の半径（見た目の外がわが、この太さになる高さまで）
+
+
+def make_bucket(look=True):
+    """ブリキのバケツ。look=False は当たり判定（_Col）：外がわの根もとを、床の下からのまっすぐな足にし、
+    取っ手の両はしもとじる（とじた形なら、しゃくとりむしの足もとの点が物の中かどうか、わかる：SurfaceProbe.InsideSolid）。
+    見た目のとおりだと、上ほど広がる外がわの根もとに頭がもぐって、うすい底の中へ入りこみ、登れなかった"""
     mb = MB()
     tin = hexc("#a8acb0")
     prof = [(0.0, 0.0), (6.0, 0.0), (7.2, 10.0), (6.8, 10.0), (5.6, 0.8), (0.0, 0.8)]
+    if not look:
+        foot_z = (BUCKET_FOOT - 6.0) / (7.2 - 6.0) * 10.0   # 見た目の外がわが、足と同じ太さになる高さ（そこから上は、見た目と同じ面）
+        prof = [(0.0, -0.6), (BUCKET_FOOT, -0.6), (BUCKET_FOOT, foot_z)] + prof[2:]
     lathe(mb, prof, 22, lambda t, a, p: scalec(tin, 0.8 + 0.25 * max(0.0, math.cos(a - 0.6))) if t < 0.55 else hexc("#5a5e62"))
-    tube(mb, [U(-7.0, 9.5, 0), U(-5.0, 15.0, 0), U(0, 17.0, 0), U(5.0, 15.0, 0), U(7.0, 9.5, 0)], [0.35] * 5, 5, lambda t, a, p, d: IRON)
-    return build(mb, "Hut_Bucket", smooth=True)
+    handle = [U(-7.0, 9.5, 0), U(-5.0, 15.0, 0), U(0, 17.0, 0), U(5.0, 15.0, 0), U(7.0, 9.5, 0)]
+    radii = [0.35] * 5
+    if not look:
+        handle = [U(-7.0, 9.0, 0)] + handle + [U(7.0, 9.0, 0)]   # 両はしは、かべの中で細くとじる
+        radii = [0.0] + radii + [0.0]
+    tube(mb, handle, radii, 5, lambda t, a, p, d: IRON)
+    # 当たり判定は、底と足の角を分ける（なめらかな法線のままだと、足の下の方が下を向き、床から見て「ひさし」になって登れない）
+    return build(mb, "Hut_Bucket" if look else "Hut_Bucket_Col", smooth=True, sharp_deg=None if look else 40)
 
 
 def make_broom():
@@ -1052,8 +1097,8 @@ def make_curtains():
 MAKERS = [
     make_walls, make_walls_col, make_roof, make_roof_col, make_beams, make_door, make_view,
     make_stove, make_stove_fire, make_kettle, make_firewood, make_table, make_bench, make_bunk, make_shelf,
-    make_rug, make_doormat, make_boots, make_backpack, lambda: make_backpack(False), make_mug, make_bread, make_map, make_book,
-    make_lamp, make_lamp_glow, make_clock, make_bucket, make_broom, make_herbs, make_nest, make_mouse_hole,
+    make_rug, make_doormat, make_boots, make_boots_col, make_backpack, lambda: make_backpack(False), make_mug, make_bread, make_map, make_book,
+    make_lamp, make_lamp_glow, make_clock, make_bucket, lambda: make_bucket(False), make_broom, make_herbs, make_nest, make_mouse_hole,
     make_crumb, make_seed, make_match, make_button, make_curtains, make_potted_plant, make_pitcher,
 ]
 

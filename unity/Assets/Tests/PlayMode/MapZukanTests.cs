@@ -22,6 +22,35 @@ namespace Shakutori.Tests
         public void TearDown() => ResetInput();
 
         [UnityTest]
+        public IEnumerator ScrollingTheMapOrZukan_DoesNotZoomTheCamera()
+        {
+            // 地図・図鑑を開いているあいだの、マウスのホイールや 2 本指のピンチは、画面のスクロールのため（カメラは動かない）
+            float before = Cam.distance;
+            foreach (bool map in new[] { true, false })
+            {
+                if (map) UI.ShowMap(true); else UI.ToggleCollection();
+                yield return Frames(2);
+                Assert.IsTrue(UI.AnyOverlayOpen);
+                for (int i = 0; i < 20; i++)
+                {
+                    GameInput.AddZoom(map ? 0.6f : -0.6f);
+                    yield return null;
+                }
+                Assert.AreEqual(before, Cam.distance, 1e-4f, (map ? "地図" : "図鑑") + "をスクロールしても、カメラは拡大・縮小しない");
+                if (map) UI.ShowMap(false); else UI.ToggleCollection();
+                yield return Frames(2);
+                Assert.IsFalse(UI.AnyOverlayOpen);
+            }
+            // 画面をとじると、ホイールで、カメラが近づく
+            for (int i = 0; i < 10; i++)
+            {
+                GameInput.AddZoom(0.6f);
+                yield return null;
+            }
+            Assert.Less(Cam.distance, before - 0.2f, "画面をとじたあとは、カメラを拡大できる");
+        }
+
+        [UnityTest]
         public IEnumerator AreaButtons_SwitchTheMap_AndLandmarksThereTravel()
         {
             UI.ShowMap(true);

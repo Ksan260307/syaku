@@ -81,6 +81,54 @@ class CoastKitTests(unittest.TestCase):
         whites = sum(1 for d in col.data if min(d.color[:3]) > 0.6)
         self.assertGreater(whites, 20, "白いフジツボ")
 
+    def test_float_collider_has_the_same_top_and_no_overhang(self):
+        # 浮き玉の当たり判定は、見た目の玉と同じてっぺん（しずくがのる）で、下を向いた面がない（玉の下のえぐれから、中へ入りこまない）
+        R = coast.FLOAT_R
+        col = coast.make_float(False)
+        self.assertEqual(col.name, "Coast_Float_Col")
+        lo, hi = size(col)
+        self.assertAlmostEqual(hi.z, R * 0.85 + R, delta=0.01)
+        import bmesh
+        bm = bmesh.new()
+        bm.from_mesh(col.data)
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+        self.assertEqual(sum(1 for e in bm.edges if len(e.link_faces) == 1), 0, "とじた形（SurfaceProbe.InsideSolid が、中かどうか見られる）")
+        bm.free()
+        for p in col.data.polygons:
+            if p.center.z > lo.z + 0.05:
+                self.assertGreater(p.normal.z, -1e-3, f"高さ {p.center.z:.2f} に、下を向いた面")
+        # 見た目の玉の面は、当たり判定の中か、面の上
+        for v in coast.make_float().data.vertices:
+            d = v.co - Vector((0, 0, R * 0.85))
+            if abs(d.length - R) < 1e-3 and v.co.z < R * 0.85:
+                self.assertLess(v.co.xy.length, R + 0.1 + 1e-3)
+
+    def test_cape_collider_is_closed_with_the_same_top_and_no_overhang_at_the_foot(self):
+        # 岬の大岩の当たり判定は、とじた形で、平らな上の面は見た目と同じ（しずくがのる）、岩ごとに、いちばん太い所より下に、下を向いた面がない
+        import bmesh
+        from mathutils.bvhtree import BVHTree
+        col, vis = coast.make_cape(False), coast.make_cape()
+        bm = bmesh.new()
+        bm.from_mesh(col.data)
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+        self.assertEqual(sum(1 for e in bm.edges if len(e.link_faces) == 1), 0, "とじた形")
+        bm.free()
+        dg = bpy.context.evaluated_depsgraph_get()
+        tv, tc = BVHTree.FromObject(vis, dg), BVHTree.FromObject(col, dg)
+        for x, y in ((0.0, 0.0), (1.2, -0.4), (-1.0, 1.0)):
+            a = tv.ray_cast(Vector((x, y, 20.0)), Vector((0, 0, -1)), 40.0)[0]
+            b = tc.ray_cast(Vector((x, y, 20.0)), Vector((0, 0, -1)), 40.0)[0]
+            self.assertAlmostEqual(a.z, b.z, delta=0.03, msg=f"平らな上の面 ({x}, {y})")
+        for hull, skirt in coast.cape_col_hulls():
+            for fc in hull.F:
+                ps = [hull.V[i] for i in fc]
+                if max(p.z for p in ps) > skirt + 1e-4 or min(p.z for p in ps) < min(p.z for p in hull.V) + 1e-4:
+                    continue
+                n = Vector((0, 0, 0))
+                for i in range(len(ps)):
+                    n += ps[i].cross(ps[(i + 1) % len(ps)])
+                self.assertGreater(n.normalized().z, -1e-3, f"高さ {ps[0].z:.2f} に、下を向いた面")
+
     def test_loose_shells_are_small_enough_to_push(self):
         for mk in (coast.make_clam, coast.make_scallop, coast.make_spiral_shell, coast.make_sea_glass):
             ob = mk()

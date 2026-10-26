@@ -22,6 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_forest_kit as kit  # noqa: E402
 from build_forest_kit import (MB, TAU, build, connect_rings, hexc, lathe, lerp, mixc, polar_sheet, quad_bezier,  # noqa: E402
                               ribbon, scalec, sstep, tube, uv_sphere, with_alpha)
+from build_shrine_kit import _section, _tris, hull2, sliced_hull  # noqa: E402
 
 
 def parse_args():
@@ -131,14 +132,54 @@ def make_reef(name, seed, size, flat_top=0.62, barnacles=36):
     return build(mb, name, sharp_deg=38)
 
 
-def make_cape():
-    """岬の先の大岩：上が平らで、海を見わたせる。根もとはぬれて海藻"""
+CAPE_BLOBS = [   # 岬の大岩と、手前の、足がかりの低い岩 2 つ：(まん中, 大きさ, たね, けずる数, 平らな上, 底, ぬれた所, フジツボ)
+    ((0, 0, 2.2), (6.2, 5.0, 4.6), 731, 10, 0.58, -0.5, 0.42, 70),
+    ((-4.2, -3.4, 0.7), (2.6, 2.2, 1.6), 732, 6, 0.55, -0.4, 0.5, 14),
+    ((-6.4, -0.6, 0.4), (2.0, 1.8, 1.0), 733, 6, 0.5, -0.4, 0.6, 8),
+]
+
+
+def widest_z(src, step=0.1):
+    """たての軸で切った切り口の凸包が、いちばん広い高さ"""
+    tris = list(_tris(src))
+    z0, z1 = min(p.z for p in src.V), max(p.z for p in src.V)
+    best, at = -1.0, z0
+    z = z0 + step * 0.5
+    while z < z1:
+        h = hull2(_section(tris, z))
+        if len(h) >= 3:
+            a = 0.5 * abs(sum(h[i][0] * h[(i + 1) % len(h)][1] - h[(i + 1) % len(h)][0] * h[i][1] for i in range(len(h))))
+            if a > best:
+                best, at = a, z
+        z += step
+    return at
+
+
+def cape_col_hulls():
+    """岬の当たり判定の部品：岩ごとに、切り口の凸包でつつんだ形と、まっすぐ下へのばす高さ（いちばん太い所）"""
+    out = []
+    for c, s, seed, cuts, top, floor, wet, _ in CAPE_BLOBS:
+        one = MB()
+        reef_blob(one, c, s, seed, cuts=cuts, flat_top=top, floor=floor, wet=wet, barnacles=0)
+        skirt = widest_z(one)
+        hull = MB()
+        sliced_hull(hull, one, BASALT, step=0.15, n=48, skirt=skirt, steady=True)
+        out.append((hull, skirt))
+    return out
+
+
+def make_cape(look=True):
+    """岬の先の大岩：上が平らで、海を見わたせる。根もとはぬれて海藻。
+    look=False は当たり判定（_Col）：岩ごとに、切り口の凸包でつつみ、いちばん太い所から下は、まっすぐ砂の下まで。
+    見た目のとおりだと、下ほど細い岩の根もとのえぐれと、口のあいたフジツボ（とじていない形）のせいで、岩の中へ入りこんだ"""
     mb = MB()
-    reef_blob(mb, (0, 0, 2.2), (6.2, 5.0, 4.6), 731, cuts=10, flat_top=0.58, floor=-0.5, wet=0.42, barnacles=70)
-    # 手前の、足がかりの低い岩
-    reef_blob(mb, (-4.2, -3.4, 0.7), (2.6, 2.2, 1.6), 732, cuts=6, flat_top=0.55, floor=-0.4, wet=0.5, barnacles=14)
-    reef_blob(mb, (-6.4, -0.6, 0.4), (2.0, 1.8, 1.0), 733, cuts=6, flat_top=0.5, floor=-0.4, wet=0.6, barnacles=8)
-    return build(mb, "Coast_Cape", sharp_deg=38)
+    if look:
+        for c, s, seed, cuts, top, floor, wet, bn in CAPE_BLOBS:
+            reef_blob(mb, c, s, seed, cuts=cuts, flat_top=top, floor=floor, wet=wet, barnacles=bn)
+    else:
+        for hull, _ in cape_col_hulls():
+            mb.add(hull)
+    return build(mb, "Coast_Cape" if look else "Coast_Cape_Col", sharp_deg=38)
 
 
 def make_islet():
@@ -368,13 +409,24 @@ def make_sandal():
     return build(mb, "Coast_Sandal")
 
 
-def make_float():
+FLOAT_R = 1.55   # ガラスの浮き玉の半径（玉のまん中は、底から R * 0.85 の高さ）
+
+
+def make_float(look=True):
+    """ガラスの浮き玉と、まわりの網。look=False は当たり判定（_Col）：上半分は見た目の玉と同じ面、
+    まん中から下は、少しずつ広がって砂の下へ入るすそ（見た目のとおりだと、玉の下半分のえぐれから、玉の中へ入りこんだ）"""
     mb = MB()
-    R = 1.55
+    R = FLOAT_R
 
     def gc(n):
         k = 0.5 + 0.5 * n.z
         return mixc(hexc("#3e958f"), hexc("#a9e3d4"), k * 0.7)
+    if not look:
+        zc = R * 0.85
+        prof = [(0.0, -0.6), (R + 0.1, -0.6), (R, zc)]
+        prof += [(R * math.cos(math.radians(d)), zc + R * math.sin(math.radians(d))) for d in range(10, 90, 10)]
+        lathe(mb, prof + [(0.0, zc + R)], 22, lambda t, a, p: gc(Vector((0, 0, 1))))
+        return build(mb, "Coast_Float_Col", sharp_deg=40)   # 底とすその角は分ける（すその法線が下を向かない）
     uv_sphere(mb, Vector((0, 0, R * 0.85)), R, gc, seg=22, rings=14)
     # 網（なわ）
     rope = lambda t, a, p, d: hexc("#8a6a42")
@@ -692,7 +744,7 @@ def make_wrack(name, seed):
 
 # ---------------------------------------------------------------------------
 MAKERS = [
-    make_conch, make_driftwood, make_cape, make_islet, make_sandal, make_float,
+    make_conch, make_driftwood, make_cape, lambda: make_cape(False), make_islet, make_sandal, make_float, lambda: make_float(False),
     lambda: make_reef("Coast_Reef_A", 701, (3.0, 2.4, 1.6)),
     lambda: make_reef("Coast_Reef_B", 702, (2.2, 1.8, 1.2), barnacles=24),
     lambda: make_reef("Coast_Reef_C", 703, (4.2, 3.0, 2.0), barnacles=48),

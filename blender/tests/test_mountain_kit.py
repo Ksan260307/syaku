@@ -89,6 +89,30 @@ class MountainKitTests(unittest.TestCase):
         gable = [v.co for v in ob.data.vertices if v.co.z > mtn.HUT_WALL + 1.0 and abs(abs(v.co.y) - (mtn.HUT_D / 2 - 0.1)) < 0.05]
         self.assertEqual(len(gable), 0, "屋根の坂の上に、かべの三角がない")
 
+    def test_hut_collider_is_closed_with_the_same_roof(self):
+        # 山小屋の当たり判定は、とじた形（足もとが物の中か見られる）で、かべの下にひさしがなく、屋根の上の面は見た目と同じ
+        import bmesh
+        from mathutils import Vector
+        from mathutils.bvhtree import BVHTree
+        vis, col = mtn.make_hut(), mtn.make_hut(False)
+        self.assertEqual(col.name, "Mtn_Hut_Col")
+        bm = bmesh.new()
+        bm.from_mesh(col.data)
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+        self.assertEqual(sum(1 for e in bm.edges if len(e.link_faces) == 1), 0, "とじた形")
+        bm.free()
+        walls, attic = mtn.hut_col_shells()
+        for p in col.data.polygons:
+            if -0.25 < p.center.z < walls[-1][2] - 0.01 and abs(p.center.x) < mtn.HUT_W / 2 + 0.3 and abs(p.center.y) < mtn.HUT_D / 2 + 0.3:
+                self.assertGreater(p.normal.z, -1e-3, f"かべの高さ {p.center.z:.2f} に、下を向いた面")
+        dg = bpy.context.evaluated_depsgraph_get()
+        tv, tc = BVHTree.FromObject(vis, dg), BVHTree.FromObject(col, dg)
+        for x in (-6.0, -2.0, 1.0, 5.0):
+            for y in (-5.5, -3.0, -0.5, 2.0, 4.5):
+                a = tv.ray_cast(Vector((x, y, 30.0)), Vector((0, 0, -1)), 60.0)[0]
+                b = tc.ray_cast(Vector((x, y, 30.0)), Vector((0, 0, -1)), 60.0)[0]
+                self.assertAlmostEqual(a.z, b.z, delta=1e-3, msg=f"屋根の上の面 ({x}, {y})")
+
     def test_rock_arch_can_be_walked_through(self):
         ob = mtn.make_rock_arch()
         hole = [v for v in ob.data.vertices if abs(v.co.x) < 1.6 and 0.2 < v.co.z < 4.0]

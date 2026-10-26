@@ -22,6 +22,7 @@ import build_forest_kit as kit  # noqa: E402
 from build_forest_kit import (MB, TAU, bark_color, build, connect_rings, hexc, lathe, lerp, mixc, quad_bezier,  # noqa: E402
                               ribbon, scalec, sstep, tube, uv_sphere, with_alpha)
 from build_park_kit import box  # noqa: E402
+from build_shrine_kit import rect_stack  # noqa: E402
 
 
 def parse_args():
@@ -237,25 +238,68 @@ def make_pine():
 HUT_W, HUT_D, HUT_WALL, HUT_RIDGE = 15.0, 10.0, 6.5, 11.5
 
 
-def make_hut():
+HUT_LOGS = 9
+HUT_LOG_R = (HUT_WALL - 0.8) / HUT_LOGS * 0.55   # かべの丸太の半径
+
+
+def hut_roof_under(y):
+    """屋根の板のうらの高さ（むねからの横のきょり y で）"""
+    slope = (HUT_RIDGE - HUT_WALL) / (HUT_D / 2)
+    return HUT_RIDGE - slope * abs(y) + 0.25 - 0.25 * math.sqrt(1.0 + slope * slope)
+
+
+def hut_col_shells():
+    """山小屋の当たり判定の、とじた 2 つの形（rect_stack の輪）：土台からかべの上まで・屋根うら。
+    かべの上は、のきの屋根のうらの少し下（体が入れない、すき間）。屋根うらは、その少し上から屋根のうらの少し下まで
+    （上へのレイが、中の面に当たらない：どの点からも、さいしょに当たるのは、その形のうら面）"""
+    hw, hd = HUT_W / 2, HUT_D / 2
+    slope = (HUT_RIDGE - HUT_WALL) / hd
+    ww, wd = hw + HUT_LOG_R, hd + HUT_LOG_R
+    wall_top = hut_roof_under(wd) - 0.06
+    attic_bottom = wall_top + 0.01
+    cap = HUT_RIDGE - 0.4 - 0.06   # むねの木の下
+    under0 = hut_roof_under(0.0) - 0.06
+    walls = [(hw + 0.4, hd + 0.4, -0.3), (hw + 0.4, hd + 0.4, 0.8), (ww, wd, 0.8), (ww, wd, wall_top)]
+    attic = [(ww, (under0 - attic_bottom) / slope, attic_bottom), (ww, (under0 - cap) / slope, cap)]
+    return walls, attic
+
+
+def make_hut(look=True):
+    """山小屋。look=False は当たり判定（_Col）：土台からかべの上までと、屋根うらを、それぞれひとつのとじた形にする。
+    見た目のとおりだと、丸太の筒の口があいた、とじていない形なので、足もとが物の中か見られず（SurfaceProbe.InsideSolid）、
+    土台の石の中へ入りこんだ。かべは丸太のいちばん外の平らな面、屋根・むね・えんとつ・石段は見た目と同じ。
+    とびらと窓は、かべにめりこまないよう、少し外へ（めりこむと、上へのレイが、さきにその底に当たる）"""
     mb = MB()
     hw, hd = HUT_W / 2, HUT_D / 2
-    # 土台の石
-    box(mb, (0, 0, 0.25), (HUT_W + 0.8, HUT_D + 0.8, 1.1), lambda n: scalec(GRANITE_A, 0.95 + 0.1 * n.z))
-    # 丸太のかべ：横に積んだ丸太（はしは少しつき出る）
-    logs = 9
-    for k in range(logs):
-        z = 0.8 + (HUT_WALL - 0.8) * (k + 0.5) / logs
-        r = (HUT_WALL - 0.8) / logs * 0.55
-        sh = 0.92 + 0.08 * ((k * 7) % 3) / 2
-        for (a, b) in (((-hw - 0.6, -hd, z), (hw + 0.6, -hd, z)), ((-hw - 0.6, hd, z), (hw + 0.6, hd, z)),
-                       ((-hw, -hd - 0.6, z), (-hw, hd + 0.6, z)), ((hw, -hd - 0.6, z), (hw, hd + 0.6, z))):
-            tube(mb, [Vector(a), Vector(b)], [r, r], 10,
-                 lambda t, ang, p, d, sh=sh: scalec(mixc(LOG, LOG_DARK, 0.25 + 0.25 * math.sin(p.x * 3 + p.y * 3)), sh * (0.85 + 0.15 * d.z)))
-    # かべの中身（丸太のすきまをうめる板）
-    box(mb, (0, 0, (HUT_WALL + 0.8) / 2), (HUT_W - 0.4, HUT_D - 0.4, HUT_WALL - 0.8), lambda n: scalec(LOG_DARK, 0.9))
-    # 妻かべ（むねのはしの、三角の所）：たての板
-    for sx in (-1, 1):
+    logs, r = HUT_LOGS, HUT_LOG_R
+    out = 0.0 if look else 0.08
+    if look:
+        # 土台の石
+        box(mb, (0, 0, 0.25), (HUT_W + 0.8, HUT_D + 0.8, 1.1), lambda n: scalec(GRANITE_A, 0.95 + 0.1 * n.z))
+        # 丸太のかべ：横に積んだ丸太（はしは少しつき出る）
+        for k in range(logs):
+            z = 0.8 + (HUT_WALL - 0.8) * (k + 0.5) / logs
+            sh = 0.92 + 0.08 * ((k * 7) % 3) / 2
+            for (a, b) in (((-hw - 0.6, -hd, z), (hw + 0.6, -hd, z)), ((-hw - 0.6, hd, z), (hw + 0.6, hd, z)),
+                           ((-hw, -hd - 0.6, z), (-hw, hd + 0.6, z)), ((hw, -hd - 0.6, z), (hw, hd + 0.6, z))):
+                tube(mb, [Vector(a), Vector(b)], [r, r], 10,
+                     lambda t, ang, p, d, sh=sh: scalec(mixc(LOG, LOG_DARK, 0.25 + 0.25 * math.sin(p.x * 3 + p.y * 3)), sh * (0.85 + 0.15 * d.z)))
+        # かべの中身（丸太のすきまをうめる板）
+        box(mb, (0, 0, (HUT_WALL + 0.8) / 2), (HUT_W - 0.4, HUT_D - 0.4, HUT_WALL - 0.8), lambda n: scalec(LOG_DARK, 0.9))
+    else:
+        walls, attic = hut_col_shells()
+        rect_stack(mb, walls, lambda i, n: LOG_DARK)
+        rect_stack(mb, attic, lambda i, n: LOG_DARK)
+        # 丸太のはし（かどで、となりのかべより外へつき出る所）
+        z0, z1 = 0.8, 0.8 + (HUT_WALL - 0.8) * (logs - 0.5) / logs + r
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                x0, x1 = hw + r, hw + 0.6
+                box(mb, (sx * (x0 + x1) / 2, sy * hd, (z0 + z1) / 2), (x1 - x0, 2 * r, z1 - z0), lambda n: LOG)
+                y0, y1 = hd + r, hd + 0.6
+                box(mb, (sx * hw, sy * (y0 + y1) / 2, (z0 + z1) / 2), (2 * r, y1 - y0, z1 - z0), lambda n: LOG)
+    # 妻かべ（むねのはしの、三角の所）：たての板（当たり判定は、屋根うらの形がつつむ）
+    for sx in ((-1, 1) if look else ()):
         x = sx * (hw - 0.1)
         a = mb.v((x, -hd, HUT_WALL - 0.2), LOG_DARK)
         b = mb.v((x, hd, HUT_WALL - 0.2), LOG_DARK)
@@ -300,23 +344,23 @@ def make_hut():
         j = (i + 1) % 3
         mb.f(ends_l[i], ends_l[j], ends_r[j], ends_r[i])
     # とびら（正面 -Y）と窓
-    box(mb, (-3.0, -hd - 0.45, 2.8), (2.6, 0.3, 4.0), lambda n: mixc(hexc("#6a3e22"), hexc("#8a5a34"), 0.5 + 0.5 * n.z))
-    uv_sphere(mb, Vector((-2.0, -hd - 0.65, 2.8)), 0.18, lambda n: hexc("#d8b85a"), seg=8, rings=5)
+    box(mb, (-3.0, -hd - 0.45 - out, 2.8), (2.6, 0.3, 4.0), lambda n: mixc(hexc("#6a3e22"), hexc("#8a5a34"), 0.5 + 0.5 * n.z))
+    uv_sphere(mb, Vector((-2.0, -hd - 0.65 - out, 2.8)), 0.18, lambda n: hexc("#d8b85a"), seg=8, rings=5)
     for wx in (3.2,):
-        box(mb, (wx, -hd - 0.4, 3.9), (3.0, 0.25, 2.4), lambda n: hexc("#5a3a22"))
-        box(mb, (wx, -hd - 0.52, 3.9), (2.4, 0.1, 1.8), lambda n: hexc("#a8d4ec"))
-        box(mb, (wx, -hd - 0.6, 3.9), (0.15, 0.1, 1.8), lambda n: hexc("#5a3a22"))
-        box(mb, (wx, -hd - 0.6, 3.9), (2.4, 0.1, 0.15), lambda n: hexc("#5a3a22"))
+        box(mb, (wx, -hd - 0.4 - out, 3.9), (3.0, 0.25, 2.4), lambda n: hexc("#5a3a22"))
+        box(mb, (wx, -hd - 0.52 - out, 3.9), (2.4, 0.1, 1.8), lambda n: hexc("#a8d4ec"))
+        box(mb, (wx, -hd - 0.6 - out, 3.9), (0.15, 0.1, 1.8), lambda n: hexc("#5a3a22"))
+        box(mb, (wx, -hd - 0.6 - out, 3.9), (2.4, 0.1, 0.15), lambda n: hexc("#5a3a22"))
     for wy in (-2.0, 2.0):
-        box(mb, (hw + 0.4, wy, 3.9), (0.25, 2.2, 2.0), lambda n: hexc("#5a3a22"))
-        box(mb, (hw + 0.52, wy, 3.9), (0.1, 1.7, 1.5), lambda n: hexc("#a8d4ec"))
+        box(mb, (hw + 0.4 + out, wy, 3.9), (0.25, 2.2, 2.0), lambda n: hexc("#5a3a22"))
+        box(mb, (hw + 0.52 + out, wy, 3.9), (0.1, 1.7, 1.5), lambda n: hexc("#a8d4ec"))
     # えんとつ
     box(mb, (4.5, 2.0, HUT_RIDGE - 0.6), (1.4, 1.4, 3.6), lambda n: scalec(GRANITE_A, 0.9 + 0.1 * n.z))
     box(mb, (4.5, 2.0, HUT_RIDGE + 1.25), (1.7, 1.7, 0.3), lambda n: GRANITE_DARK)
     # 入り口の石段（2 段）
     box(mb, (-3.0, -hd - 1.6, 0.35), (3.4, 1.6, 0.7), lambda n: scalec(GRANITE_B, 0.9 + 0.1 * n.z))
     box(mb, (-3.0, -hd - 2.7, 0.0), (3.6, 1.4, 0.6), lambda n: scalec(GRANITE_A, 0.9 + 0.1 * n.z))
-    return build(mb, "Mtn_Hut", smooth=False)
+    return build(mb, "Mtn_Hut" if look else "Mtn_Hut_Col", smooth=False)
 
 
 # ---------------------------------------------------------------------------
@@ -735,7 +779,7 @@ def main():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     kit.VC_MATERIAL = None
     makers = [
-        make_pine, make_hut, make_rock_arch, make_sign, make_summit_post, make_benchmark, make_spout,
+        make_pine, make_hut, lambda: make_hut(False), make_rock_arch, make_sign, make_summit_post, make_benchmark, make_spout,
         lambda: make_slab("Mtn_Slab_A", 41, (3.4, 2.8, 1.5)),
         lambda: make_slab("Mtn_Slab_B", 42, (2.8, 2.3, 1.3)),
         lambda: make_slab("Mtn_Slab_C", 43, (4.2, 3.2, 1.8)),

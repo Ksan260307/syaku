@@ -399,6 +399,55 @@ def make_snowman():
     return build(mb, "Xmas_Snowman", sharp_deg=60)
 
 
+def snowman_col_profile():
+    """雪だるまの当たり判定の輪郭 [(半径, 高さ)]（下から上へ）。見た目（土台の雪の山・3 つの雪玉・バケツのぼうし）を、すべてつつむ。
+    ある高さの半径は、それより上のどの高さの見た目の半径より小さくならない（下から上へ、太くならない：ひさしがない）。
+    てっぺんは、ぼうしの上の平らな面と同じ高さ（そこに、しずくとコマドリがのる）"""
+    head, hr = SNOWMAN_BALLS[2]
+    hat_y = head.y + hr * 0.62
+    hat = [(0.0, 0.0), (2.9, 0.0), (3.0, 0.25), (2.35, 3.8), (0.0, 3.85)]
+    mound = [(9.0, -0.6), (8.0, 0.4), (6.4, 2.0), (0.0, 2.4)]
+
+    def poly_r(pts, y):
+        for (r0, y0), (r1, y1) in zip(pts, pts[1:]):
+            if y0 <= y <= y1 and y1 > y0:
+                return r0 + (r1 - r0) * (y - y0) / (y1 - y0)
+        return 0.0
+
+    def visual_r(y):
+        r = poly_r(mound, y)
+        for c, rr in SNOWMAN_BALLS:
+            d = y - c.y
+            if abs(d) < rr:
+                r = max(r, math.sqrt(rr * rr - d * d))
+        if hat_y <= y <= hat_y + 3.8:
+            r = max(r, poly_r([(2.9, hat_y), (3.0, hat_y + 0.25), (2.35, hat_y + 3.8)], y) + 0.35)   # ぼうしは少し横にずれている
+        return r
+    top = hat_y + 3.85
+    ys = [-1.6 + 0.25 * i for i in range(int((top - 0.1 + 1.6) / 0.25) + 1)] + [top - 0.05]
+    rs = [visual_r(y) for y in ys]
+    for i in range(len(rs) - 2, -1, -1):   # 上から下へ、それより上の、いちばん大きな半径
+        rs[i] = max(rs[i], rs[i + 1])
+    rs[0] = max(rs[0], 9.3)   # 根もとは、雪の中へ広く（下の雪の山のすそ）
+    prof = [(0.0, -1.6)] + [(r + 0.05, y) for r, y in zip(rs, ys)] + [(0.0, top)]
+    # 同じ半径がつづく所は、まとめる（縦のかべは 1 まい）
+    out = [prof[0]]
+    for i in range(1, len(prof) - 1):
+        if abs(prof[i][0] - out[-1][0]) < 1e-3 and abs(prof[i][0] - prof[i + 1][0]) < 1e-3:
+            continue
+        out.append(prof[i])
+    out.append(prof[-1])
+    return out
+
+
+def make_snowman_col():
+    """雪だるまの当たり判定（見えない）：ひさしのない、1 まいのとじた形。下の雪玉のふくらみの下にもぐりこんだり、玉と玉の重なりの、
+    中の面の上に乗ったりしない（見た目の形のままでは、土台の雪の山から登れず、雪だるまの中へ入ってしまった）"""
+    mb = MB()
+    ulathe(mb, (0, 0, 0), snowman_col_profile(), 32, lambda t, a, p: SNOW)
+    return build(mb, "Xmas_Snowman_Col", sharp_deg=40)   # 縦のかべの下のかどは、かどのまま（ひさしに見えない）
+
+
 # ---------------------------------------------------------------------------
 # あかりのともる家（村のはしの、丸太の家の前の面）
 # ---------------------------------------------------------------------------
@@ -995,6 +1044,7 @@ MAKERS = [make_xmas_tree, make_xmas_tree_lights, make_xmas_tree_star,
           lambda: make_present("A"), lambda: make_present("B"), lambda: make_present("C"),
           make_snowman, make_cottage, make_cottage_window, make_mailbox, make_sled, make_mitten, make_lamp, make_lamp_glow,
           make_fence, make_fence_lights, make_candy_cane, make_fir, make_holly, make_holly_col, make_snow_drift, make_ice, make_warp_ring, make_warp_lights,
+          make_snowman_col,
           # 当たり判定（見えない）：見た目を細かくした物は、前の形のまま（登る道・しずくの場所を変えない）
           lambda: make_xmas_tree(False), lambda: make_cottage(False), lambda: make_fir(False), lambda: make_snow_drift(False), lambda: make_ice(False)]
 # 光る所（Unity で光る材質にする。部品のつながりは、のせる物の方で見る）

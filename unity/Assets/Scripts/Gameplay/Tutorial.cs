@@ -158,7 +158,7 @@ namespace Shakutori
                     if (free) _progress += GameInput.Look.magnitude;
                     return _progress >= LookAmount;
                 case Step.Zoom:
-                    if (free) _progress += Mathf.Abs(GameInput.Zoom);
+                    if (free) _progress += Mathf.Abs(GameInput.CameraZoom);
                     return _progress >= ZoomAmount;
                 case Step.Climb:
                     return DewTaken(_gm.world.TutorialStumpTop) ?? OnStumpTop(worm.HeadPosition);

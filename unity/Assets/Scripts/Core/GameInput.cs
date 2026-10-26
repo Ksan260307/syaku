@@ -13,6 +13,10 @@ namespace Shakutori
         public static Vector2 Move { get; private set; }
         public static Vector2 Look { get; private set; }
         public static float Zoom { get; private set; }
+        /// <summary>地図・図鑑・ポーズなどの画面が開いているか（GameManager が毎フレーム入れる）。開いている間のホイールやピンチは、画面のスクロールのためのもの。</summary>
+        public static bool OverlayOpen { get; set; }
+        /// <summary>カメラの拡大・縮小に使う量（画面が開いている間は 0：地図や図鑑のスクロールで、カメラが動かない）。</summary>
+        public static float CameraZoom => OverlayOpen ? 0f : Zoom;
         public static bool Sprint { get; private set; }
         public static bool SilkPressed { get; private set; }
         public static bool SilkHeld { get; private set; }

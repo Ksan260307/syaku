@@ -18,6 +18,17 @@ import build_hut_kit as hut  # noqa: E402
 from parts_check import floating_parts, open_ends  # noqa: E402
 
 
+def open_edges(ob):
+    """同じ場所の頂点をまとめてから数えた、面が 1 つしかない辺の数"""
+    import bmesh
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-4)
+    n = sum(1 for e in bm.edges if len(e.link_faces) == 1)
+    bm.free()
+    return n
+
+
 def reset():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     kit.VC_MATERIAL = None
@@ -137,6 +148,25 @@ class HutKitTests(unittest.TestCase):
             lo, hi = ub(mk())
             self.assertLess((hi - lo).length, 2.5, "小さな物は、押して動かせる大きさ（本物の大きさ）")
             self.assertAlmostEqual(lo.y, 0.0, delta=0.03, msg="床にのる")
+
+    def test_bucket_and_boots_colliders_have_no_overhang_at_the_floor(self):
+        # バケツと長ぐつの当たり判定は、床から少しの高さまで、下を向いた面（ひさし）がない
+        # （見た目のとおりだと、根もとのえぐれや、底より外へはり出した筒の口から、しゃくとりむしが中へ入りこんだ）
+        foot_z = (hut.BUCKET_FOOT - 6.0) / (7.2 - 6.0) * 10.0
+        for ob, top in ((hut.make_bucket(False), foot_z), (hut.make_boots_col(), hut.BOOT_SKIRT)):
+            self.assertTrue(ob.name.endswith("_Col"), ob.name)
+            lo = min(v.co.z for v in ob.data.vertices)
+            self.assertLess(lo, -0.2, f"{ob.name} のすそは、床の下まで（床とのあいだに、すき間がない）")
+            for p in ob.data.polygons:
+                if p.center.z > lo + 0.05 and max(ob.data.vertices[i].co.z for i in p.vertices) <= top + 1e-4:
+                    # （長ぐつの筒は、うしろへ 1 度ほどかたむくだけ。えぐれは、バケツで 7 度、つま先で 27 度あった）
+                    self.assertGreater(p.normal.z, -0.03, f"{ob.name} の高さ {p.center.z:.2f} に、下を向いた面")
+            # とじた形（あいた辺がない）：足もとの点が物の中か、わかる（SurfaceProbe.InsideSolid は、とじた形だけを見る）
+            self.assertEqual(open_edges(ob), 0, f"{ob.name} に、あいた辺")
+        # バケツの見た目の外がわは、足より下では、当たり判定の足の中
+        for v in hut.make_bucket().data.vertices:
+            if v.co.z < foot_z:
+                self.assertLess(v.co.xy.length, hut.BUCKET_FOOT + 1e-3)
 
 
 if __name__ == "__main__":

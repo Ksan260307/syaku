@@ -237,6 +237,24 @@ class XmasKitTests(unittest.TestCase):
                     worst = max(worst, abs(normals[li].z))
             self.assertLess(worst, 0.35, f"{name} のかべの法線が、上下にかたむいている（{worst:.2f}）")
 
+    def test_snowman_collider_covers_it_without_undercuts(self):
+        # 雪だるまの当たり判定は、見た目をつつみ（体が雪玉の中へ入らない）、下から上へ太くならない（ひさしがない）
+        prof = xmas.snowman_col_profile()
+        rs = [r for r, y in prof[1:-1]]
+        self.assertTrue(all(rs[i + 1] <= rs[i] + 1e-6 for i in range(len(rs) - 1)), "上へ行くほど、細くなるだけ")
+        col = xmas.make_snowman_col()
+        clo, chi = size(col)
+        self.assertAlmostEqual(chi.z, xmas.SNOWMAN_BALLS[2][0].y + xmas.SNOWMAN_BALLS[2][1] * 0.62 + 3.85, delta=0.05, msg="てっぺんは、ぼうしの上と同じ高さ")
+        tree = bvh(col)
+        # 雪玉と、ぼうしの表面の点は、当たり判定の中（または面の上）
+        for c, r in xmas.SNOWMAN_BALLS:
+            for k in range(12):
+                import math
+                a = k / 12 * math.tau
+                p = U(c.x + math.cos(a) * r * 0.98, c.y, c.z + math.sin(a) * r * 0.98)
+                hit = tree.ray_cast(p, (p - U(c.x, c.y, c.z)).normalized(), 50.0)
+                self.assertIsNotNone(hit[0], f"雪玉 {c} の表面 {k} は、当たり判定の中")
+
     def test_roof_snow_faces_up(self):
         # 屋根の雪（見た目の、うねる雪）の上の面は、上を向く
         ob = xmas.make_cottage()
