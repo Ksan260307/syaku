@@ -218,6 +218,24 @@ namespace Shakutori
         readonly List<VisualElement> _miniGates = new List<VisualElement>();
         readonly List<VisualElement> _miniDots = new List<VisualElement>();
         readonly List<(VisualElement el, Vector2 uv, Vector2 offset)> _bigItems = new List<(VisualElement, Vector2, Vector2)>();
+
+        // 大きな地図の拡大（1 = ぜんぶ見える）と、見えている所の左上（地図の uv）
+        float _mapZoom = 1f;
+        Vector2 _mapOrigin;
+        public const float MapZoomMax = 3f;
+        readonly Dictionary<int, Vector2> _mapPointers = new Dictionary<int, Vector2>();
+        Vector2 _mapDragStart, _mapOriginStart;
+        float _pinchStart, _pinchZoomStart;
+        bool _mapDragged;
+        VisualElement _mapTools, _mapHereButton, _bigmapView;
+        /// <summary>大きな地図の、集めたしずくの点の数（テスト用）。</summary>
+        public int MapTakenCount => _bigmap != null ? _bigmap.Query(className: "map-taken").ToList().Count : 0;
+        /// <summary>地図のエリアのボタンの、達成の棒の数（テスト用）。</summary>
+        public int AreaChipBarCount => _mapAreas != null ? _mapAreas.Query(className: "area-chip-bar").ToList().Count : 0;
+        /// <summary>大きな地図の拡大（1 = ぜんぶ）。</summary>
+        public float MapZoom => _mapZoom;
+        /// <summary>大きな地図の、見えている所の左上（地図の uv）。</summary>
+        public Vector2 MapOrigin => _mapOrigin;
         readonly Dictionary<int, Vector2> _lookPointers = new Dictionary<int, Vector2>();
         readonly Dictionary<string, Button> _tabs = new Dictionary<string, Button>();
         readonly Dictionary<string, VisualElement> _pages = new Dictionary<string, VisualElement>();
@@ -631,15 +649,72 @@ namespace Shakutori
                 ApplySettings();
             });
 
-            _bigmap.RegisterCallback<GeometryChangedEvent>(e => LayoutBigMap());
+            _bigmap.RegisterCallback<GeometryChangedEvent>(e => ApplyMapView());
             _bigmap.parent.RegisterCallback<GeometryChangedEvent>(e => FitBigMap());
-            // 地図をタップすると、見つけた名所・行ったことのあるエリアへすぐ移動
+            BuildMapTools();
+            // 地図をタップすると、見つけた名所・行ったことのあるエリアへすぐ移動（ドラッグで地図を動かしたときは、のぞく）
             _bigmap.RegisterCallback<ClickEvent>(e =>
             {
+                if (_mapDragged) { _mapDragged = false; return; }
                 float size = Size(_bigmap, 614f);
-                Vector2 local = _bigmap.WorldToLocal(e.position);
-                TapBigMap(new Vector2(local.x / size, local.y / size));
+                TapBigMap(ScreenToMap(_bigmap.WorldToLocal(e.position), size));
             });
+            // ホイール・2 本指のピンチで拡大・縮小、ドラッグで動かす
+            _bigmap.RegisterCallback<WheelEvent>(e =>
+            {
+                SetMapZoom(_mapZoom * (e.delta.y < 0f ? 1.25f : 0.8f), _bigmap.WorldToLocal(e.mousePosition));
+                e.StopPropagation();
+            });
+            _bigmap.RegisterCallback<PointerDownEvent>(e =>
+            {
+                if (e.target != _bigmap) return;   // ＋・－ボタンなど
+                Vector2 p = _bigmap.WorldToLocal(e.position);
+                _mapPointers[e.pointerId] = p;
+                if (_mapPointers.Count == 1)
+                {
+                    _mapDragStart = p;
+                    _mapOriginStart = _mapOrigin;
+                    _mapDragged = false;
+                }
+                else if (_mapPointers.Count == 2)
+                {
+                    _pinchStart = MapPointerSpread();
+                    _pinchZoomStart = _mapZoom;
+                    _mapDragged = true;
+                }
+                _bigmap.CapturePointer(e.pointerId);
+            });
+            _bigmap.RegisterCallback<PointerMoveEvent>(e =>
+            {
+                if (!_mapPointers.ContainsKey(e.pointerId)) return;
+                Vector2 p = _bigmap.WorldToLocal(e.position);
+                _mapPointers[e.pointerId] = p;
+                if (_mapPointers.Count >= 2)
+                {
+                    if (_pinchStart > 1f) SetMapZoom(_pinchZoomStart * MapPointerSpread() / _pinchStart, MapPointerMid());
+                    return;
+                }
+                Vector2 d = p - _mapDragStart;
+                if (d.magnitude > 8f) _mapDragged = true;
+                if (_mapDragged && _mapZoom > 1.001f)
+                {
+                    _mapOrigin = _mapOriginStart - d / (_mapZoom * Size(_bigmap, 614f));
+                    ApplyMapView();
+                }
+            });
+            void EndMapPointer(int id)
+            {
+                _mapPointers.Remove(id);
+                if (_bigmap.HasPointerCapture(id)) _bigmap.ReleasePointer(id);
+                if (_mapPointers.Count == 1)
+                {
+                    // ピンチから 1 本にもどった：その指で、つづけて動かせる
+                    foreach (var v in _mapPointers.Values) _mapDragStart = v;
+                    _mapOriginStart = _mapOrigin;
+                }
+            }
+            _bigmap.RegisterCallback<PointerUpEvent>(e => EndMapPointer(e.pointerId));
+            _bigmap.RegisterCallback<PointerCancelEvent>(e => EndMapPointer(e.pointerId));
             _root.RegisterCallback<GeometryChangedEvent>(e => UpdateLayoutClasses());
 
             SetupLookArea();
@@ -885,10 +960,14 @@ namespace Shakutori
             _mapOverlay.EnableInClassList("hidden", !show);
             if (show)
             {
-                // 開いたときは、いまいるエリアの地図から
+                // 開いたときは、いまいるエリアの地図から（拡大はもどす）
                 _viewArea = null;
                 _bigmap.style.backgroundImage = new StyleBackground(_mapTexture);
+                _mapPointers.Clear();
+                _mapZoom = 1f;
+                _mapOrigin = Vector2.zero;
                 RefreshBigMap();
+                ApplyMapView();
                 Q<Button>("map-close").Focus();
             }
             OverlayChanged?.Invoke();
@@ -2042,7 +2121,10 @@ namespace Shakutori
             _viewArea = here ? null : area;
             Texture2D tex = here ? _mapTexture : MapProvider?.Invoke(area);
             if (tex != null) _bigmap.style.backgroundImage = new StyleBackground(tex);
+            _mapZoom = 1f;
+            _mapOrigin = Vector2.zero;
             RefreshBigMap();
+            ApplyMapView();
             return true;
         }
 
@@ -2208,7 +2290,17 @@ namespace Shakutori
             _spreadDirty = true;
             var area = ViewArea;
             bool here = area == MapArea;
-            _mapTitle.text = area.DisplayName + "の地図";
+            // しずくと名所をぜんぶ見つけたエリアは、題に★
+            _mapTitle.text = area.DisplayName + "の地図" + (Collectibles.IsAreaComplete(area) ? "　★" : "");
+            // 集めたしずくの場所に、小さな点（いまいるエリア）
+            if (_collect != null && here)
+                for (int i = 0; i < _collect.TotalDrops; i++)
+                {
+                    if (!_collect.IsDropTaken(i)) continue;
+                    var dot = new VisualElement { pickingMode = PickingMode.Ignore };
+                    dot.AddToClassList("map-taken");
+                    AddBigItem(dot, WorldToMap(_collect.DropPosition(i)), new Vector2(-4f, -4f));
+                }
             foreach (var lm in area.Landmarks)
             {
                 bool known = PlaceKnown(lm);
@@ -2262,15 +2354,20 @@ namespace Shakutori
                 _bigmapHere.style.position = Position.Absolute;
                 _bigmap.Add(_bigmapHere);
             }
+            _bigmapView?.BringToFront();
             _bigmapHere.BringToFront();
             _bigmapPlayer.BringToFront();
+            _mapTools?.BringToFront();
             // ほかのエリアの地図には、しゃくとりむし（いまここ）は出さない
             _bigmapHere.style.display = here ? DisplayStyle.Flex : DisplayStyle.None;
             _bigmapPlayer.style.display = here ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_bigmapView != null) _bigmapView.style.display = here && _worm != null ? DisplayStyle.Flex : DisplayStyle.None;
+            if (_mapHereButton != null) _mapHereButton.style.display = here && _worm != null ? DisplayStyle.Flex : DisplayStyle.None;
             LayoutBigMap();
 
             _legend.Clear();
-            foreach (var lm in area.Landmarks)
+            // 見つけた名所を上に（すぐ「ここへ」を押せる）
+            foreach (var lm in area.Landmarks.OrderBy(l => PlaceKnown(l) ? 0 : 1))
             {
                 bool known = PlaceKnown(lm);
                 var row = new VisualElement();
@@ -2311,12 +2408,12 @@ namespace Shakutori
             if (_collect != null && here)
             {
                 int rest = _collect.TotalDrops - _collect.CollectedDrops;
-                _mapSummary.text = $"{area.DropName} {_collect.CollectedDrops} / {_collect.TotalDrops}　　名所 {_collect.DiscoveredPlaces} / {_collect.TotalPlaces}" +
+                _mapSummary.text = $"{area.DropName} {_collect.CollectedDrops} / {_collect.TotalDrops}　　名所 {_collect.DiscoveredPlaces} / {_collect.TotalPlaces}　　{CreatureSummary(area)}" +
                                    (rest > 0 && rest <= 5 ? $"\nのこり {rest} 個：青い丸のあたりをさがしてみよう" : "\n見つけた名所やトンネルをタップすると、すぐに移動できます");
             }
             else if (!here)
             {
-                _mapSummary.text = $"{area.DropName} {Collectibles.CollectedIn(area)} / {area.DropCount}　　名所 {Collectibles.DiscoveredIn(area)} / {area.Landmarks.Count}" +
+                _mapSummary.text = $"{area.DropName} {Collectibles.CollectedIn(area)} / {area.DropCount}　　名所 {Collectibles.DiscoveredIn(area)} / {area.Landmarks.Count}　　{CreatureSummary(area)}" +
                                    "\n見つけた名所をタップすると、そこへ移動できます";
             }
             BuildAreaChips();
@@ -2349,7 +2446,8 @@ namespace Shakutori
                 var l = (Label)it.el;
                 l.style.fontSize = font;
                 float w = Mathf.Min(200f, l.text.Length * font) + 4f, h = font * 1.4f;
-                float cx = it.uv.x * size, cy = it.uv.y * size;
+                Vector2 sc = MapToScreen(it.uv, size);
+                float cx = sc.x, cy = sc.y;
                 float below = cy + it.offset.y, above = cy - it.offset.y - h;
                 tries[0] = below; tries[1] = above; tries[2] = below + h; tries[3] = above - h;
                 Rect pick = new Rect(cx - w * 0.5f, below, w, h);
@@ -2396,26 +2494,155 @@ namespace Shakutori
         void LayoutBigMap()
         {
             float size = Size(_bigmap, 614f);
-            Vector2 here = _worm != null && ViewArea == MapArea && _bigmapHere != null ? WorldToMap(_worm.CenterPosition) * size : new Vector2(-999f, -999f);
+            Vector2 here = _worm != null && ViewArea == MapArea && _bigmapHere != null ? MapToScreen(WorldToMap(_worm.CenterPosition), size) : new Vector2(-999f, -999f);
             if (_spreadDirty || Mathf.Abs(size - _spreadSize) > 0.5f || (here - _spreadHere).sqrMagnitude > 16f) SpreadBigMapLabels(size, here);
             foreach (var it in _bigItems)
             {
-                it.el.style.left = it.uv.x * size + it.offset.x;
-                it.el.style.top = _labelTop.TryGetValue(it.el, out float top) ? top : it.uv.y * size + it.offset.y;
+                Vector2 sc = MapToScreen(it.uv, size);
+                it.el.style.left = sc.x + it.offset.x;
+                it.el.style.top = _labelTop.TryGetValue(it.el, out float top) ? top : sc.y + it.offset.y;
             }
             if (_worm != null && ViewArea == MapArea)
             {
-                Vector2 uv = WorldToMap(_worm.CenterPosition);
-                _bigmapPlayer.style.left = uv.x * size - 18f;
-                _bigmapPlayer.style.top = uv.y * size - 18f;
+                Vector2 sc = MapToScreen(WorldToMap(_worm.CenterPosition), size);
+                _bigmapPlayer.style.left = sc.x - 18f;
+                _bigmapPlayer.style.top = sc.y - 18f;
                 Vector3 h = _worm.Heading;
                 _bigmapPlayer.style.rotate = new Rotate(new Angle(Mathf.Atan2(h.x, h.z) * Mathf.Rad2Deg, AngleUnit.Degree));
                 if (_bigmapHere != null)
                 {
-                    _bigmapHere.style.left = uv.x * size - 34f;
-                    _bigmapHere.style.top = uv.y * size - 46f;
+                    _bigmapHere.style.left = sc.x - 34f;
+                    _bigmapHere.style.top = sc.y - 46f;
+                }
+                if (_bigmapView != null && _cam != null)
+                {
+                    // カメラの向いている方（見ている所）を、うすい扇形で
+                    Vector3 f = _cam.forward;
+                    _bigmapView.style.left = sc.x - 60f;
+                    _bigmapView.style.top = sc.y - 60f;
+                    _bigmapView.style.rotate = new Rotate(new Angle(Mathf.Atan2(f.x, f.z) * Mathf.Rad2Deg, AngleUnit.Degree));
                 }
             }
+        }
+
+        Vector2 MapToScreen(Vector2 uv, float size) => (uv - _mapOrigin) * (_mapZoom * size);
+        Vector2 ScreenToMap(Vector2 local, float size) => _mapOrigin + local / (_mapZoom * size);
+
+        /// <summary>大きな地図を拡大・縮小する（pivot：地図の上の、動かさない点。null ならまん中）。</summary>
+        public void SetMapZoom(float zoom, Vector2? pivot = null)
+        {
+            float size = Size(_bigmap, 614f);
+            Vector2 pv = pivot ?? new Vector2(size, size) * 0.5f;
+            Vector2 at = ScreenToMap(pv, size);
+            _mapZoom = Mathf.Clamp(zoom, 1f, MapZoomMax);
+            _mapOrigin = at - pv / (_mapZoom * size);
+            ApplyMapView();
+        }
+
+        /// <summary>拡大した地図を動かす（見えている所の左上を、地図の uv で）。</summary>
+        public void PanMap(Vector2 origin)
+        {
+            _mapOrigin = origin;
+            ApplyMapView();
+        }
+
+        /// <summary>いまいる所を、地図のまん中に（拡大していなければ 2 倍にして）。</summary>
+        public void CenterMapOnWorm()
+        {
+            if (_worm == null || ViewArea != MapArea) return;
+            if (_mapZoom < 1.5f) _mapZoom = 2f;
+            _mapOrigin = WorldToMap(_worm.CenterPosition) - Vector2.one * (0.5f / _mapZoom);
+            ApplyMapView();
+        }
+
+        /// <summary>拡大と、見えている所を、地図の絵と印に入れる。</summary>
+        void ApplyMapView()
+        {
+            if (_bigmap == null) return;
+            float m = 1f - 1f / _mapZoom;
+            _mapOrigin = new Vector2(Mathf.Clamp(_mapOrigin.x, 0f, m), Mathf.Clamp(_mapOrigin.y, 0f, m));
+            float size = Size(_bigmap, 614f);
+            float full = size * _mapZoom;
+            _bigmap.style.backgroundRepeat = new BackgroundRepeat(Repeat.NoRepeat, Repeat.NoRepeat);
+            _bigmap.style.backgroundSize = new BackgroundSize(new Length(full), new Length(full));
+            _bigmap.style.backgroundPositionX = new BackgroundPosition(BackgroundPositionKeyword.Left, new Length(-_mapOrigin.x * full));
+            _bigmap.style.backgroundPositionY = new BackgroundPosition(BackgroundPositionKeyword.Top, new Length(-_mapOrigin.y * full));
+            _spreadDirty = true;
+            if (_mapTools != null)
+            {
+                _mapTools.Q<Button>("map-zoom-in")?.SetEnabled(_mapZoom < MapZoomMax - 0.01f);
+                _mapTools.Q<Button>("map-zoom-out")?.SetEnabled(_mapZoom > 1.01f);
+            }
+            LayoutBigMap();
+        }
+
+        float MapPointerSpread()
+        {
+            var ps = _mapPointers.Values.Take(2).ToArray();
+            return ps.Length < 2 ? 0f : Vector2.Distance(ps[0], ps[1]);
+        }
+
+        Vector2 MapPointerMid()
+        {
+            var ps = _mapPointers.Values.Take(2).ToArray();
+            return ps.Length < 2 ? Vector2.zero : (ps[0] + ps[1]) * 0.5f;
+        }
+
+        /// <summary>地図の右上の、＋（拡大）・－（縮小）・いまここ のボタンと、カメラの向きの扇形。</summary>
+        void BuildMapTools()
+        {
+            _mapTools = new VisualElement { name = "map-tools" };
+            _mapTools.AddToClassList("map-tools");
+            Button Tool(string text, string name, Action a)
+            {
+                var b = new Button { text = text, name = name };
+                b.AddToClassList("map-tool");
+                b.clicked += () =>
+                {
+                    AudioManager.Instance?.Click();
+                    a();
+                };
+                b.RegisterCallback<ClickEvent>(e => e.StopPropagation());   // 地図のタップ（移動）にしない
+                _mapTools.Add(b);
+                return b;
+            }
+            Tool("＋", "map-zoom-in", () => SetMapZoom(_mapZoom * 1.5f));
+            Tool("－", "map-zoom-out", () => SetMapZoom(_mapZoom / 1.5f));
+            _mapHereButton = Tool("◎", "map-here", CenterMapOnWorm);
+            _bigmap.Add(_mapTools);
+            _bigmapView = new VisualElement { pickingMode = PickingMode.Ignore };
+            _bigmapView.AddToClassList("bigmap-view");
+            _bigmapView.generateVisualContent += ctx =>
+            {
+                var p = ctx.painter2D;
+                Vector2 c = new Vector2(60f, 60f);
+                p.fillColor = new Color(1f, 0.97f, 0.72f, 0.34f);
+                p.BeginPath();
+                p.MoveTo(c);
+                p.Arc(c, 58f, Angle.Degrees(-125f), Angle.Degrees(-55f));
+                p.ClosePath();
+                p.Fill();
+            };
+            _bigmap.Add(_bigmapView);
+        }
+
+        /// <summary>そのエリアにすむいきもののうち、見つけた数（地図の上の字）。</summary>
+        static string CreatureSummary(AreaLayout area)
+        {
+            var list = SpeciesCatalog.Regular.Where(s => LivesIn(s, area.DisplayName)).ToList();
+            return $"いきもの {list.Count(s => Creatures.IsDiscovered(s.id))} / {list.Count}";
+        }
+
+        /// <summary>地図で、前／次の行ったことのあるエリアの地図へ（PageUp・PageDown・LB・RB）。</summary>
+        public bool CycleAreaMap(int step)
+        {
+            if (MapArea == Areas.Tutorial) return false;
+            var list = Areas.All.Where(a => a == MapArea || SaveSystem.Data.visited.Contains(a.Id)).ToList();
+            if (list.Count < 2) return false;
+            int i = Mathf.Max(0, list.IndexOf(ViewArea));
+            var next = list[(i + step + list.Count) % list.Count];
+            AudioManager.Instance?.Click();
+            return ShowAreaMap(next.Id);
         }
 
         /// <summary>地図をタップしたときに、届く範囲（地図の上のピクセル）。</summary>
@@ -2430,7 +2657,7 @@ namespace Shakutori
         {
             var area = ViewArea;
             bool here = area == MapArea;
-            float size = Size(_bigmap, 614f);
+            float size = Size(_bigmap, 614f) * _mapZoom;   // 拡大しているときは、印どうしもはなれる
             float best = MapTapReach;
             LandmarkDef place = null, unknown = null;
             GateDef gate = null;
@@ -2505,6 +2732,16 @@ namespace Shakutori
                 chip.EnableInClassList("area-chip--here", isHere);
                 chip.EnableInClassList("area-chip--shown", area == shown);
                 chip.EnableInClassList("area-chip--locked", !visited);
+                if (visited)
+                {
+                    // そのエリアで集めた・見つけた割合を、ボタンの下のふちの細い棒で（字をふやすと、はみ出る）
+                    int got = Collectibles.CollectedIn(area) + Collectibles.DiscoveredIn(area);
+                    int all = Mathf.Max(1, area.DropCount + area.Landmarks.Count);
+                    var bar = new VisualElement { pickingMode = PickingMode.Ignore };
+                    bar.AddToClassList("area-chip-bar");
+                    bar.style.width = Length.Percent(Mathf.Clamp01((float)got / all) * 100f);
+                    chip.Add(bar);
+                }
                 if (isHere)
                 {
                     // いまいるエリアは、緑の色と、名前の左の小さな丸い印で（「（ここ）」を名前に足すと、長い名前（山小屋など）がボタンからはみ出た）
@@ -2916,6 +3153,7 @@ namespace Shakutori
             UpdateSleepLabel(playing);
             UpdatePendingTap();
             _toasts.EnableInClassList("toasts--overlay", AnyOverlayOpen);   // 画面が開いている間は、遊んでいる所のおしらせをかくす
+            if (IsMapOpen && (GameInput.PrevTabPressed || GameInput.NextTabPressed)) CycleAreaMap(GameInput.NextTabPressed ? 1 : -1);
 
             // 縦向きのスマホでは、横向きをすすめる（数秒だけ）
             bool phonePortrait = _touchMode && IsPortrait && ScreenSize.x < ScreenSize.y * 0.75f;

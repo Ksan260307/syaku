@@ -23,6 +23,9 @@ namespace Shakutori
         public static bool StandHeld { get; private set; }
         public static bool PausePressed { get; private set; }
         public static bool MapPressed { get; private set; }
+        /// <summary>地図・図鑑で、前／次のページ（エリアの地図・図鑑のタブ）へ（PageUp / PageDown・LB / RB）。</summary>
+        public static bool PrevTabPressed { get; private set; }
+        public static bool NextTabPressed { get; private set; }
         public static bool HelpPressed { get; private set; }
         public static bool ConfirmPressed { get; private set; }
         public static bool AnyKeyPressed { get; private set; }
@@ -100,6 +103,7 @@ namespace Shakutori
 
             Vector2 move = Vector2.zero;
             bool sprint = false, silkP = false, silkH = false, stand = false, pause = false, map = false, help = false, confirm = false, any = false, book = false, aim = false, recenter = false, photo = false, slow = false;
+            bool prevTab = false, nextTab = false;
             if (kb != null)
             {
                 if (kb.wKey.isPressed || kb.upArrowKey.isPressed) move.y += 1f;
@@ -121,6 +125,8 @@ namespace Shakutori
                 photo |= kb.f2Key.wasPressedThisFrame;
                 pause |= kb.escapeKey.wasPressedThisFrame || kb.pKey.wasPressedThisFrame;
                 map |= kb.mKey.wasPressedThisFrame || kb.tabKey.wasPressedThisFrame;
+                prevTab |= kb.pageUpKey.wasPressedThisFrame;
+                nextTab |= kb.pageDownKey.wasPressedThisFrame;
                 help |= kb.hKey.wasPressedThisFrame;
                 book |= kb.bKey.wasPressedThisFrame || kb.cKey.wasPressedThisFrame;
                 confirm |= kb.enterKey.wasPressedThisFrame;
@@ -161,6 +167,8 @@ namespace Shakutori
                 if (pad.leftStickButton.wasPressedThisFrame) _slowLatch = !_slowLatch;   // L3 で、ゆっくり歩きを切りかえ
                 pause |= pad.startButton.wasPressedThisFrame;
                 map |= pad.selectButton.wasPressedThisFrame;
+                prevTab |= pad.leftShoulder.wasPressedThisFrame;
+                nextTab |= pad.rightShoulder.wasPressedThisFrame;
                 book |= pad.buttonWest.wasPressedThisFrame;
                 confirm |= pad.buttonSouth.wasPressedThisFrame;
                 any |= pad.buttonSouth.wasPressedThisFrame || pad.startButton.wasPressedThisFrame;
@@ -205,6 +213,8 @@ namespace Shakutori
             PhotoPressed = photo;
             PausePressed = pause;
             MapPressed = map;
+            PrevTabPressed = prevTab;
+            NextTabPressed = nextTab;
             HelpPressed = help;
             CollectionPressed = book;
             ConfirmPressed = confirm;

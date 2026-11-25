@@ -2886,3 +2886,63 @@
     -unity-text-align: middle-center;
     letter-spacing: 4px;
 }
+
+/* ===== 地図の拡大・集めたしずく・カメラの向き ===== */
+.map-tools {
+    position: absolute;
+    right: 8px;
+    top: 8px;
+    flex-direction: column;
+}
+
+.map-tool {
+    width: 40px;
+    height: 40px;
+    margin: 0 0 6px 0;
+    padding: 0;
+    border-radius: 999px;
+    border-width: 2px;
+    border-color: rgb(214, 186, 128);
+    background-color: rgba(250, 244, 230, 0.92);
+    color: rgb(90, 70, 50);
+    font-size: 20px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.map-tool:hover {
+    background-color: rgb(255, 250, 238);
+}
+
+.map-tool:disabled {
+    opacity: 0.4;
+}
+
+.map-taken {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background-color: rgba(170, 230, 255, 0.9);
+    border-width: 1px;
+    border-color: rgba(40, 90, 120, 0.8);
+}
+
+.bigmap-view {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+}
+
+/* エリアのボタンの下のふち：そのエリアで集めた・見つけた割合 */
+.area-chip {
+    overflow: hidden;
+}
+
+.area-chip-bar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 4px;
+    background-color: rgba(110, 175, 70, 0.85);
+}

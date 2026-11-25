@@ -51,6 +51,49 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
+        public IEnumerator Map_ZoomsPansCentersAndShowsProgress()
+        {
+            var col = GM.collectibles;
+            for (int i = 0; i < 4; i++) SaveSystem.Data.drops.Add(col.DropSaveId(i));
+            col.ApplySave();
+            UI.ShowMap(true);
+            yield return Frames(3);
+            Assert.AreEqual(1f, UI.MapZoom, 1e-4f, "開いたときは、ぜんぶ見える");
+            Assert.AreEqual(4, UI.MapTakenCount, "集めたしずくの場所に点");
+            StringAssert.Contains("いきもの", UI.Root.Q<Label>("map-summary").text, "このエリアのいきものの数");
+            Assert.AreEqual(1, UI.AreaChipBarCount, "行ったことのあるエリアのボタンに、達成の棒");
+            // 拡大すると、まん中が動かずに大きくなり、ドラッグのかわりに動かせる。拡大は 3 倍まで
+            UI.SetMapZoom(2f);
+            Assert.AreEqual(2f, UI.MapZoom, 1e-4f);
+            Assert.AreEqual(0.25f, UI.MapOrigin.x, 1e-3f, "まん中を中心に拡大");
+            UI.PanMap(new Vector2(0.9f, -1f));
+            Assert.AreEqual(0.5f, UI.MapOrigin.x, 1e-3f, "地図のはしより外へは動かない");
+            Assert.AreEqual(0f, UI.MapOrigin.y, 1e-3f);
+            UI.SetMapZoom(10f);
+            Assert.AreEqual(GameUI.MapZoomMax, UI.MapZoom, 1e-4f);
+            UI.SetMapZoom(0.2f);
+            Assert.AreEqual(1f, UI.MapZoom, 1e-4f);
+            // いまここ：しゃくとりむしが、まん中に
+            UI.CenterMapOnWorm();
+            Vector2 me = GameUI.MapPoint(new Vector2(Worm.CenterPosition.x, Worm.CenterPosition.z));
+            Vector2 mid = UI.MapOrigin + Vector2.one * (0.5f / UI.MapZoom);
+            Assert.Greater(UI.MapZoom, 1.5f);
+            Assert.Less(Vector2.Distance(Vector2.Max(Vector2.Min(me, Vector2.one - Vector2.one * (0.5f / UI.MapZoom)), Vector2.one * (0.5f / UI.MapZoom)), mid), 1e-3f, "いまいる所がまん中（地図のはしでなければ）");
+            // 拡大していても、見つけた名所をタップすると移動できる（印の場所で）
+            UI.ShowMap(false);
+            yield return Frames(2);
+            // PageDown・RB で、行ったことのあるエリアの地図へ
+            SaveSystem.Data.visited.Add("river");
+            UI.ShowMap(true);
+            yield return Frames(2);
+            Assert.IsTrue(UI.CycleAreaMap(1));
+            Assert.AreEqual("river", UI.MapShowing);
+            Assert.IsTrue(UI.CycleAreaMap(1));
+            Assert.AreEqual("forest", UI.MapShowing, "まわって、もどる");
+            UI.ShowMap(false);
+        }
+
+        [UnityTest]
         public IEnumerator WorldNotices_DoNotCoverTheOpenMap()
         {
             // 遊んでいる所のおしらせ（観察など）は、地図を開いている間はかくれて、地図にかぶさらない。地図でした操作への返事は出る
