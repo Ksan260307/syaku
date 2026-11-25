@@ -97,6 +97,9 @@ Unity 側で毎フレームこの曲線に沿って曲げています（`Inchwor
   山のいきものは、似たくらしのなかまの動き方をまねる（`behavesLike`：ライチョウはハト、リスはトカゲ、オコジョはモグラ…）うえに、種ごとの鳴き声やしぐさを足してある
 - `Creatures.cs`: 群れごとの動き（うろうろ・行列・ひらひら・ぴょん・鳥の飛び立ち・水面すべり・ホバリング・待ちぶせ）と、体・脚・羽・光をまとめてインスタンス描画。
   大きないきものには当たり判定（レイヤー `Creature`）があり、しゃくとりむしが乗れる
+- `Creatures.Motion2.cs`: 見た目だけの動き 200（[CREATURE_MOTIONS.md](CREATURE_MOTIONS.md)）。`MotionPose` のおわりの `MoreMotion`（体のかたむき・のびちぢみ・上下）、
+  脚の `LegMotion`（坂・その場のふみかえ・警戒）、何もしなかった虫の新しいひとりの動き（`PickActMore`）。
+  止まっている時間・息切れ・警戒・着地・しゃくとりむしへの興味は `UpdateMotion2` が持つ小さな状態で、乱数は使わない（`Noise01`）ので、ほかの動きの乱数の順番は変わらない
 - `CreatureRig.cs` / `CreatureRig.g.cs`: 脚の付け根の位置と、ひざで曲がる手足の関節の位置（Blender のスクリプトが書き出す）、
   手足の IK（`SolveLimb`）と歩く足の行き先（`StepTarget`）、Blender→Unity の座標変換。
   Blender では `legs()`（細い脚）・`leg_part()`（形を自由にかく脚）・`limb()`（ひざで曲がる手足）でかいた手足を、`split_legs()` が右側だけ別のメッシュにする

@@ -225,6 +225,14 @@ namespace Shakutori
             public float peekUntil;                    // ミノムシが、顔を出してみせる（なかよしのしぐさ）
             public Mob leader;                         // ウリボウがついていく、おかあさん
             public int followSlot;                     // ウリボウが、おかあさんのうしろの何番目を歩くか
+            // ---- モーション 200（Creatures.Motion2.cs） ----
+            public float idleFor, runFor, pant;        // 止まっている時間・動きつづけた時間・息の上がりぐあい
+            public float wary;                         // びくっとしたあとの警戒（1→0）
+            public float landK, prevFallVel;           // 段から落ちて着地した直後（1→0）
+            public float shakeOff;                     // 乗せていたしゃくとりむしが下りたあと、体をぶるっ（1→0）
+            public bool carriedPrev;
+            public float curious;                      // しゃくとりむしの方へ体を向ける度合い
+            public float tick, twitch;                 // 小さなぴくっ（つぎの時刻・1→0）
         }
 
         public struct MobInfo
@@ -989,6 +997,7 @@ namespace Shakutori
                 m.rock = Mathf.MoveTowards(m.rock, 0f, sdt * 0.8f);
                 m.flinch = Mathf.MoveTowards(m.flinch, 0f, sdt * 3f);
                 UpdateAct(m, sdt);
+                UpdateMotion2(m, sdt);
                 // 近くのスズメはときどきさえずり、カエルはけろけろ鳴く（音の大きさは、聞こえる位置＝カメラからの距離）
                 float d2 = (m.pos - camPos).sqrMagnitude;
                 if (near && Application.isPlaying && d2 < 25f * 25f)
@@ -1555,6 +1564,8 @@ namespace Shakutori
         int PickAct(Mob m, float dw2)
         {
             float r = Ra(0f, 1f);
+            int more = PickActMore(m, r);   // モーション 200 で足した動き
+            if (more >= 0) return more;
             switch (m.bid)
             {
                 case "ant": return m.sp.IsRare && r < 0.5f ? ActSpecial : ActGroom;
@@ -1611,6 +1622,8 @@ namespace Shakutori
         /// <summary>ひとりでする動きの長さ（秒）。</summary>
         static float ActLength(Mob m, int act)
         {
+            float more = ActLengthMore(m, act);
+            if (more > 0f) return more;
             switch (act)
             {
                 case ActGroom: return m.sp.kind == MobKind.Bird ? 1.4f : 1.2f;
@@ -4771,6 +4784,7 @@ namespace Shakutori
                     if (m.dig < 0.3f) rot = Quaternion.AngleAxis(Mathf.Sin(m.anim * 7f) * 6f * (1f - m.dig / 0.3f), m.up) * rot;
                     break;
             }
+            MoreMotion(m, f, right, s, moving, walker, ref rot, ref scale3, ref bob);   // モーション 200（Creatures.Motion2.cs）
         }
 
         void Draw(Vector3 camPos)
@@ -4840,6 +4854,7 @@ namespace Shakutori
                     else if (m.deadUntil > 0f && m.anim - m.deadUntil < 0.6f) { swing = 14f; lift = 14f; gait = m.anim * 22f; }   // 起きるときは、脚をもぞもぞ動かしてから
                     // だんごむしは、まるくなりかけると、脚をおなかにたたむ
                     if (m.bid == "pillbug" && m.curled > 0f) { swing = 0f; lift = 40f * Mathf.Clamp01(Mathf.Max(m.curlK, m.curled / 0.35f)); gait = 0f; }
+                    LegMotion(m, moving, ref swing, ref lift, ref gait);   // 坂・ふみかえ・警戒（モーション 200）
                     if (m.bid == "mogura")
                     {
                         // モグラは、もぐるときも出てくるときも、シャベルの前足で左右かわりばんこに土をかく。
@@ -4854,7 +4869,7 @@ namespace Shakutori
                     if (m.bid == "gengorou") { swing = m.sp.legSwing; lift = m.sp.legLift; gait = m.gait + Mathf.PI; }
                     var kind = m.sp.gait;
                     // 前脚で顔や触角の手入れ（アリ・てんとうむし）・ヘルメットをかぶりなおす（ヘルメットアリ）・脚をふみかえる（カブトムシ）
-                    bool frontGroom = (m.bid == "ant" || m.bid == "ladybug" || m.bid == "pillbug") && m.act == ActGroom;
+                    bool frontGroom = (m.bid == "ant" || m.bid == "ladybug" || m.bid == "pillbug" || MoreFrontGroom(m)) && m.act == ActGroom;
                     float groomK = frontGroom ? ActEnvelope(m, ActGroom, out _) : 0f;
                     float helmetK = m.bid == "ant" && m.sp.IsRare ? ActEnvelope(m, ActSpecial, out _) : 0f;
                     float shiftK = 0f, shiftT = 0f;
@@ -4989,6 +5004,7 @@ namespace Shakutori
                         // ハサミムシ：おどすときは、はさみを高く持ち上げる。はねをたたむときは、腹をせなかの上へそらせる。歩くときは、少し左右にゆれる
                         float fold = ActEnvelope(m, ActGroom, out float fk);
                         float raise = 48f * m.display + 80f * fold + 4f * Mathf.Sin(m.anim * 1.7f + m.phase);
+                        raise += 6f * moving;   // [M] ハサミムシ：歩くときは、はさみを少し持ち上げる
                         float sway = Mathf.Sin(m.gait * 0.5f) * 6f * moving + 8f * fold * Mathf.Sin(fk * Mathf.PI * 6f);
                         Add(pm, assets.creature, body * Matrix4x4.TRS(part.offset, Quaternion.Euler(0f, sway, 0f) * Quaternion.Euler(-raise, 0f, 0f), Vector3.one));
                         continue;
@@ -5012,6 +5028,8 @@ namespace Shakutori
                     {
                         // 跳ぶときは後ろ足をけり出す。かがむときは、たたむ
                         float kick = m.airborne ? -38f : 12f * m.crouch;
+                        // [M] バッタ：着地の瞬間は、後ろ足をのばして、いきおいを受けとめる
+                        if (!m.airborne && m.launchAt < 0f && m.crouch > 0f && !s_NoMoreMotion) kick -= 15f * m.crouch;
                         // 休んでいるときは、後ろ足をこすり合わせて鳴く
                         if (!m.airborne && m.crouch < 0.05f && m.moveSpeed < 0.02f && Mathf.Sin(m.anim * 0.6f + m.phase) > 0.6f)
                             kick += 8f * Mathf.Sin(m.anim * 14f);
@@ -5086,6 +5104,8 @@ namespace Shakutori
                             {
                                 // モンシロチョウは、とまると羽をとじて立て、開くことは少ない
                                 if (m.bid == "monshiro") roll = 80f + 6f * Mathf.Sin(m.anim * 2f) - 20f * m.openWings;
+                                // 日なたぼっこ：羽を大きく開いたまま、しばらくじっと（モーション 200）
+                                roll = Mathf.Lerp(roll, 18f, ActEnvelope(m, ActStretch, out _));
                                 // 風が強いときにとまっていると、羽をとじて風をうけないようにする
                                 float gust = Wind.Gust(Time.time);
                                 if (gust > 0.6f) roll = Mathf.Lerp(roll, 86f, (gust - 0.6f) / 0.4f);
