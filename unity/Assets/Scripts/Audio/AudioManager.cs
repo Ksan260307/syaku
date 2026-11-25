@@ -194,8 +194,20 @@ namespace Shakutori
             _musicTarget = s.music * 0.55f;
             _ambTarget = Mathf.Clamp01(s.ambience) * 0.5f;
             float k = ShakuMath.DampFactor(1.2f, Time.unscaledDeltaTime);
-            // ファンファーレの間は BGM を少し下げる
+            // ファンファーレの間は BGM を少し下げる。メニューや図鑑を開いている間も、少し小さく
             float duck = Time.unscaledTime < _duckUntil ? 0.35f : 1f;
+            if (MenuOpen) duck *= 0.55f;
+            // タブにもどったときは、0.8 秒で少しずつ
+            float back = Mathf.Clamp01((Time.unscaledTime - _resumeAt) / 0.8f);
+            duck *= back;
+            _ambTarget *= back;
+            // 水の中では、こもった音に
+            if (_lp == null && _music != null) _lp = _music.gameObject.GetComponent<AudioLowPassFilter>() ?? _music.gameObject.AddComponent<AudioLowPassFilter>();
+            if (_lp != null)
+            {
+                float want = Muffled ? 900f : 22000f;
+                _lp.cutoffFrequency = Mathf.Lerp(_lp.cutoffFrequency, want, ShakuMath.DampFactor(4f, Time.unscaledDeltaTime));
+            }
             _music.volume = Mathf.Lerp(_music.volume, _started ? _musicTarget * duck : 0f, k);
             if (_musicOut.isPlaying)
             {
@@ -327,16 +339,54 @@ namespace Shakutori
         /// <summary>しばらく BGM を下げる。</summary>
         public void Duck(float seconds) => _duckUntil = Mathf.Max(_duckUntil, Time.unscaledTime + seconds);
 
-        public void Chirp(float volume) => Play(chirp, volume, Random.Range(0.92f, 1.12f));
-        public void Croak(float volume) => Play(croak, volume, Random.Range(0.9f, 1.08f));
+        /// <summary>いきものの声が聞こえた（字幕の文と、聞こえた大きさ）。設定の「字幕」で、画面に出す。</summary>
+        public static event System.Action<string, float> Heard;
+        /// <summary>メニュー・図鑑を開いている（BGM を少し小さくする。GameManager が毎フレーム入れる）。</summary>
+        public static bool MenuOpen { get; set; }
+        /// <summary>水の中・泳いでいる（BGM を、こもった音にする。GameManager が毎フレーム入れる）。</summary>
+        public static bool Muffled { get; set; }
+        float _resumeAt = -99f;          // タブにもどった時刻（音を、少しずつもどす）
+        AudioLowPassFilter _lp, _lpOut;
+
+        /// <summary>地図・図鑑を開く・とじる音（紙をめくるような、軽い音）。</summary>
+        public void Page(bool open) => Play(click, 0.42f, open ? 1.28f : 0.92f);
+        /// <summary>写真のシャッター音。</summary>
+        public void Shutter()
+        {
+            Play(click, 0.75f, 1.7f);
+            Play(land, 0.25f, 1.9f);
+        }
+        /// <summary>タブにもどったとき：BGM と環境音を、少しずつもどす。</summary>
+        public void FadeInFromPause() => _resumeAt = Time.unscaledTime;
+
+        /// <summary>図鑑でえらんだいきものの声（鳴くいきものだけ）。鳴いたら true。</summary>
+        public bool CallOf(string id, float volume)
+        {
+            switch (id)
+            {
+                case "sparrow": case "robin": case "shimaenaga": case "raichou": Chirp(volume); return true;
+                case "frog": Croak(volume); return true;
+                case "crow": case "flamingo": Caw(volume); return true;
+                case "kamome": Gull(volume); return true;
+                case "nakiusagi": Pika(volume); return true;
+                case "tsubame": Swallow(volume); return true;
+                case "nezumi": Squeak(volume); return true;
+                case "higurashi": Higurashi(volume); return true;
+            }
+            return false;
+        }
+        static void Hear(string text, float volume) => Heard?.Invoke(text, volume);
+
+        public void Chirp(float volume) { Play(chirp, volume, Random.Range(0.92f, 1.12f)); Hear("小鳥のさえずり", volume); }
+        public void Croak(float volume) { Play(croak, volume, Random.Range(0.9f, 1.08f)); Hear("カエル「ケロケロ」", volume); }
         /// <summary>ナキウサギの「ピチッ」。</summary>
-        public void Pika(float volume) => Play(AreaClip("pika"), volume, Random.Range(0.95f, 1.08f));
+        public void Pika(float volume) { Play(AreaClip("pika"), volume, Random.Range(0.95f, 1.08f)); Hear("ナキウサギ「ピチッ」", volume); }
         /// <summary>ツバメの「チュビチュビ…」。</summary>
-        public void Swallow(float volume) => Play(AreaClip("swallow"), volume, Random.Range(0.95f, 1.08f));
+        public void Swallow(float volume) { Play(AreaClip("swallow"), volume, Random.Range(0.95f, 1.08f)); Hear("ツバメ「チュピッ」", volume); }
         /// <summary>ネズミの「チュッ」。</summary>
-        public void Squeak(float volume) => Play(AreaClip("squeak"), volume, Random.Range(0.92f, 1.1f));
+        public void Squeak(float volume) { Play(AreaClip("squeak"), volume, Random.Range(0.92f, 1.1f)); Hear("ネズミ「チュッ」", volume); }
         /// <summary>ヒグラシの「カナカナカナ…」。</summary>
-        public void Higurashi(float volume) => Play(AreaClip("higurashi"), volume, Random.Range(0.96f, 1.04f));
+        public void Higurashi(float volume) { Play(AreaClip("higurashi"), volume, Random.Range(0.96f, 1.04f)); Hear("ヒグラシ「カナカナ」", volume); }
 
         public void Collect(int count) => Play(collect, 0.8f, 1f + Mathf.Min(count % 8, 7) * 0.025f);
         public void Discover() => Play(discover, 0.9f);
@@ -363,9 +413,9 @@ namespace Shakutori
         public void Stamp() => Play(discover, 0.22f, 1.6f);
         public void Travel() => Play(travel, 0.8f);
         public void Unlock() => Play(unlock, 0.8f);
-        public void Caw(float volume) => Play(caw, volume, Random.Range(0.92f, 1.05f));
+        public void Caw(float volume) { Play(caw, volume, Random.Range(0.92f, 1.05f)); Hear("カラス「カー」", volume); }
         /// <summary>カモメの「ミャーオ」。</summary>
-        public void Gull(float volume) => Play(AreaClip("gull"), volume, Random.Range(0.94f, 1.08f));
+        public void Gull(float volume) { Play(AreaClip("gull"), volume, Random.Range(0.94f, 1.08f)); Hear("カモメ「ミャーオ」", volume); }
         public void Fall() => Play(fall, 0.55f, Random.Range(0.95f, 1.08f));
         public void Splash() => Play(splash, 0.85f);
         /// <summary>葉からたれたしずくが当たる、小さな「ぴちょん」。</summary>

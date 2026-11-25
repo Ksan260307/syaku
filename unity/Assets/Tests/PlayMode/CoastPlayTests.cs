@@ -183,8 +183,8 @@ namespace Shakutori.Tests
             UI.ShowCollection(true, "zukan");
             yield return Frames(4);
             var chips = UI.Root.Query<Button>(className: "zukan-filter").ToList();
-            Assert.AreEqual(10, chips.Count, "すべて・森・川辺・公園・山・山小屋・海岸・神社・夜の森・クリスマス村");
-            Assert.AreEqual("海岸", chips[6].text);
+            Assert.AreEqual(11, chips.Count, "すべて・まだ・森・川辺・公園・山・山小屋・海岸・神社・夜の森・クリスマス村");
+            StringAssert.StartsWith("海岸 ", chips[7].text);
             UI.ShowCollection(false);
         }
     }

@@ -44,6 +44,11 @@ namespace Shakutori
         public event Action RescueRequested;             // 動けなくなったら
         public event Action SaveRequested;               // いますぐセーブ
         public event Action PhotoRequested;              // 写真モードの切りかえ
+        public event Action ExportSaveRequested;         // きろく：記録をファイルに書き出す
+        public event Action ImportSaveRequested;         // きろく：記録をファイルから読みこむ
+        public event Action PhotoShotRequested;          // 写真モード：とる
+        public event Action PhotoFilterRequested;        // 写真モード：いろ（フィルター）をかえる
+        public event Action PhotoWormRequested;          // 写真モード：しゃくとりむしをかくす・出す
 
 #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")] static extern float ShakuSafeInset(int side);
@@ -69,7 +74,47 @@ namespace Shakutori
         Texture2D _mapTexture;
         ScrollView _legend, _zukanGrid;
         Button _continue, _qLow, _qHigh, _tNormal, _tLarge;
-        Slider _sens, _music, _sfx, _ambience, _fov;
+        Slider _sens, _music, _sfx, _ambience, _fov, _master, _bright;
+        Toggle _invertZoom, _leftHand, _tapToWalk, _captions, _pauseBlur, _longNotice;
+        bool _pauseFromTitle;   // タイトルの「せってい」から開いたメニュー（設定だけを見せる）
+        Label _caption;          // いきものの声の字幕
+        float _sfxPreviewAt = -9f;
+        float _touchActiveAt;
+        string _modesCache = "";
+        int _modesKey = -1;
+        VisualElement _photoBar;
+        Label _modes;
+        /// <summary>おまかせ歩きの途中か（GameManager が毎フレーム入れる。画面に印を出す）。</summary>
+        public bool AutoWalking { get; set; }
+        /// <summary>おまかせ歩きの行き先（地図に印）。</summary>
+        public Vector3? AutoWalkTarget { get; set; }
+
+        /// <summary>「あたらしくなったこと」の版（ふえたら、タイトルで一度だけ見せる）。</summary>
+        public const int NewsVersion = 1;
+        public const string NewsText =
+            "・地図をホイールや 2 本指で拡大・ドラッグで移動。◎ で、いまいる所がまん中に\n" +
+            "・地図に、集めたしずくの点と、カメラの向き。エリアのボタンに、めぐった割合\n" +
+            "・図鑑に「まだ」のしぼりこみと、見つけた数。しぐさの観察の点（●●○）\n" +
+            "・設定：全体の音量・明るさ・ミニマップの大きさ・いきものの声の字幕・左きき・タッチボタンの大きさ\n" +
+            "・タイトルの「せってい」・PlayStation／Switch のボタンの名前\n" +
+            "・写真モードで写真をとって保存・セピアやモノクロのいろ・しゃくとりむしをかくす\n" +
+            "・背伸びをつづけると、近くのしずくの目じるし。名所で、まわりのしずくの数\n" +
+            "・きろくに、泳いだ回数・遊んだ日・さいきんのおしらせ。記録のファイルの書き出し・読みこみ";
+
+        /// <summary>タイトルで、まだ見ていなければ「あたらしくなったこと」を一度だけ見せる。見せたら true。</summary>
+        public bool ShowNewsOnce()
+        {
+            if (Application.isBatchMode || !SaveSystem.HasSave || SaveSystem.Settings.newsSeen >= NewsVersion) return false;
+            SaveSystem.Settings.newsSeen = NewsVersion;
+            SaveSystem.SaveSettingsSoon();
+            ShowComplete(true, "あたらしくなったこと", NewsText);
+            return true;
+        }
+        float _captionUntil;
+        /// <summary>カメラの距離を、はじめにもどしてほしい（設定のボタン）。</summary>
+        public event Action CameraResetRequested;
+        /// <summary>設定を変えた（明るさなど、ゲームの方で入れなおすもの）。</summary>
+        public event Action SettingsApplied;
         Toggle _invert, _invertX, _autoCam, _minimapRot, _autosave, _motion, _vibrate, _observe;
         VisualElement _reticle, _saveIndicator, _minimapNorth;
         Label _reticleText, _creatureCardSub, _silkLabel, _silkTop;
@@ -117,6 +162,14 @@ namespace Shakutori
             "カタツムリやカブトムシの背中に乗ると、いっしょに運んでもらえます。",
             "写真モード（F2）で、景色をゆっくりながめられます。メニューからも使えます。",
             "設定で、文字の大きさや、カメラの動き方を変えられます。",
+            "地図は、ホイールや 2 本指で拡大できます。◎ で、いまいる所がまん中に。",
+            "地図や図鑑では、PageUp・PageDown（ゲームパッドは LB・RB）で、となりのページへ。",
+            "背伸びをしばらくつづけると、近くの、まだ取っていないしずくの上に、光の目じるしが出ます。",
+            "写真モードでは、写真をとって保存したり、いろをセピアやモノクロにしたりできます。",
+            "図鑑の「まだ」で、まだ会っていないいきものだけを見られます。ヒントをたよりに、さがしてみよう。",
+            "設定の「いきものの声を字幕で出す」で、聞こえた声が画面に出ます。",
+            "名所を見つけると、そのあたりに、まだしずくがいくつあるか教えてくれます。",
+            "タイトルの「せってい」から、遊ぶ前に音や明るさを変えられます。",
         };
 
         /// <summary>行き先のエリアのヒント（読み込み画面に、ふつうのヒントとまぜて出す）。</summary>
@@ -378,6 +431,7 @@ namespace Shakutori
         void OnDestroy()
         {
             SaveSystem.Saved -= OnSaved;
+            AudioManager.Heard -= OnHeard;
             if (_panel != null && _baseResolution.x > 0) _panel.referenceResolution = _baseResolution;
             if (_fakeTarget != null) EmulateScreen(null);
         }
@@ -448,6 +502,16 @@ namespace Shakutori
             _placeCount = Q<Label>("place-count");
             _creatureCount = Q<Label>("creature-count");
             _areaName = Q<Label>("area-name");
+            // 左上の数をタップすると「きろく」、場所の名前・ミニマップをタップすると地図
+            var objectives = Q<VisualElement>("objectives");
+            if (objectives != null)
+            {
+                objectives.pickingMode = PickingMode.Position;
+                objectives.RegisterCallback<ClickEvent>(e => { if (!AnyOverlayOpen && !_photoMode) { AudioManager.Instance?.Click(); ShowCollection(true, "record"); } });
+            }
+            _areaName.pickingMode = PickingMode.Position;
+            _areaName.RegisterCallback<ClickEvent>(e => { if (!AnyOverlayOpen && !_photoMode) ShowMap(true); });
+            Q<VisualElement>("minimap")?.RegisterCallback<ClickEvent>(e => { if (!AnyOverlayOpen && !_photoMode) ShowMap(true); });
             _minimapMask = Q<VisualElement>("minimap-mask");
             _minimapImage = Q<VisualElement>("minimap-image");
             _minimapPlayer = Q<VisualElement>("minimap-player");
@@ -459,6 +523,10 @@ namespace Shakutori
             _legend = Q<ScrollView>("map-legend");
             _zukanGrid = Q<ScrollView>("zukan-grid");
             _zukanImg = Q<VisualElement>("zukan-img");
+            _zukanFilter = SaveSystem.Settings.zukanFilter ?? "";
+            // 図鑑の絵をタップすると、大きく（もう一度で、もとの大きさ）
+            _zukanImg.pickingMode = PickingMode.Position;
+            _zukanImg.RegisterCallback<ClickEvent>(e => _zukanImg.ToggleInClassList("zukan-img--big"));
             _zukanName = Q<Label>("zukan-name");
             _zukanArea = Q<Label>("zukan-area");
             _zukanGo = Q<VisualElement>("zukan-go");
@@ -486,6 +554,14 @@ namespace Shakutori
             _motion = Q<Toggle>("set-motion");
             _vibrate = Q<Toggle>("set-vibrate");
             _observe = Q<Toggle>("set-observe");
+            _master = Q<Slider>("set-master");
+            _bright = Q<Slider>("set-bright");
+            _invertZoom = Q<Toggle>("set-invertzoom");
+            _leftHand = Q<Toggle>("set-lefthand");
+            _tapToWalk = Q<Toggle>("set-taptowalk");
+            _captions = Q<Toggle>("set-captions");
+            _pauseBlur = Q<Toggle>("set-pauseblur");
+            _longNotice = Q<Toggle>("set-longnotice");
             _ambience = Q<Slider>("set-ambience");
             _fov = Q<Slider>("set-fov");
             _tNormal = Q<Button>("t-normal");
@@ -515,6 +591,7 @@ namespace Shakutori
             _tutorialArrow = Q<Label>("tutorial-arrow");
             _wormZzz = Q<Label>("worm-zzz");
             _photoHint = Q<VisualElement>("photo-hint");
+            _photoBar = Q<VisualElement>("photo-bar");
             _titleProgress = Q<Label>("title-progress");
             _version = Q<Label>("version");
             _loadingTip = Q<Label>("loading-tip");
@@ -594,7 +671,7 @@ namespace Shakutori
             Click("credits-close", () => ShowCredits(false));
             // 窓の外（うす暗い所）をタップすると、閉じる
             CloseOnBackdrop(_mapOverlay, () => ShowMap(false));
-            CloseOnBackdrop(_pauseOverlay, () => ResumePressed?.Invoke());
+            CloseOnBackdrop(_pauseOverlay, () => { if (_pauseFromTitle) ShowSettingsFromTitle(false); else ResumePressed?.Invoke(); });
             CloseOnBackdrop(_collectionOverlay, () => ShowCollection(false));
             CloseOnBackdrop(_howtoOverlay, () => ShowHowto(false));
             CloseOnBackdrop(_confirmOverlay, () => ShowConfirm(false));
@@ -602,27 +679,37 @@ namespace Shakutori
             CloseOnBackdrop(_tutorialOverlay, () => ShowTutorialChoice(false));
             CloseOnBackdrop(_completeOverlay, () => ShowComplete(false, ""));
             Click("photo", () => PhotoRequested?.Invoke());
-            Click("reset-settings", () =>
+            Click("reset-settings", () => Confirm("設定を、ぜんぶ最初の状態にもどしますか？（セーブした記録は消えません）", () =>
             {
                 SaveSystem.ResetSettings();
                 RefreshSettingsUI();
                 ApplySettings();
                 QualityChanged?.Invoke(SaveSystem.Settings.quality);
                 UiToast("設定を最初の状態にもどしました", "icon-menu");
-            });
+            }));
             // いきもののカードをタップすると、図鑑のそのいきもののページを開く
             _creatureCard.RegisterCallback<ClickEvent>(e =>
             {
                 if (!IsCreatureCardVisible || _cardSpecies == null) return;
                 ShowCollection(true, "zukan");
-                SelectSpecies(_cardSpecies);
+                ShowSpecies(_cardSpecies);
             });
             SaveSystem.Saved += OnSaved;
 
             RefreshSettingsUI();
             _sens.RegisterValueChangedCallback(e => { SaveSystem.Settings.sensitivity = e.newValue; ApplySettings(); });
             _music.RegisterValueChangedCallback(e => { SaveSystem.Settings.music = e.newValue; ApplySettings(); });
-            _sfx.RegisterValueChangedCallback(e => { SaveSystem.Settings.sfx = e.newValue; ApplySettings(); });
+            _sfx.RegisterValueChangedCallback(e =>
+            {
+                SaveSystem.Settings.sfx = e.newValue;
+                ApplySettings();
+                // 動かすと、その大きさの音を少し鳴らす（0.15 秒に 1 回まで）
+                if (Time.unscaledTime - _sfxPreviewAt > 0.15f)
+                {
+                    _sfxPreviewAt = Time.unscaledTime;
+                    AudioManager.Instance?.Click();
+                }
+            });
             _ambience.RegisterValueChangedCallback(e => { SaveSystem.Settings.ambience = e.newValue; ApplySettings(); });
             _fov.RegisterValueChangedCallback(e => { SaveSystem.Settings.fov = e.newValue; ApplySettings(); });
             _invert.RegisterValueChangedCallback(e => { SaveSystem.Settings.invertY = e.newValue; ApplySettings(); });
@@ -633,6 +720,32 @@ namespace Shakutori
             _motion.RegisterValueChangedCallback(e => { SaveSystem.Settings.reduceMotion = e.newValue; ApplySettings(); });
             _vibrate.RegisterValueChangedCallback(e => { SaveSystem.Settings.vibration = e.newValue; ApplySettings(); });
             _observe?.RegisterValueChangedCallback(e => { SaveSystem.Settings.observeNotice = e.newValue; ApplySettings(); });
+            _master?.RegisterValueChangedCallback(e => { SaveSystem.Settings.master = e.newValue; ApplySettings(); });
+            _bright?.RegisterValueChangedCallback(e => { SaveSystem.Settings.brightness = e.newValue; ApplySettings(); });
+            _invertZoom?.RegisterValueChangedCallback(e => { SaveSystem.Settings.invertZoom = e.newValue; ApplySettings(); });
+            _leftHand?.RegisterValueChangedCallback(e => { SaveSystem.Settings.leftHanded = e.newValue; EndJoystick(); ApplySettings(); });
+            _tapToWalk?.RegisterValueChangedCallback(e => { SaveSystem.Settings.tapToWalk = e.newValue; ApplySettings(); });
+            _captions?.RegisterValueChangedCallback(e => { SaveSystem.Settings.captions = e.newValue; ApplySettings(); });
+            _pauseBlur?.RegisterValueChangedCallback(e => { SaveSystem.Settings.pauseOnBlur = e.newValue; ApplySettings(); });
+            _longNotice?.RegisterValueChangedCallback(e => { SaveSystem.Settings.longNotices = e.newValue; ApplySettings(); });
+            Click("mm-small", () => { SaveSystem.Settings.minimapSize = 0; ApplySettings(); });
+            Click("mm-normal", () => { SaveSystem.Settings.minimapSize = 1; ApplySettings(); });
+            Click("mm-large", () => { SaveSystem.Settings.minimapSize = 2; ApplySettings(); });
+            Click("ts-normal", () => { SaveSystem.Settings.touchSize = 0; ApplySettings(); });
+            Click("ts-large", () => { SaveSystem.Settings.touchSize = 1; ApplySettings(); });
+            Click("camera-reset", () =>
+            {
+                CameraResetRequested?.Invoke();
+                UiToast("カメラの距離を、はじめにもどしました", "icon-menu");
+            });
+            Click("btn-settings", () => ShowSettingsFromTitle(true));
+            Click("photo-shot", () => PhotoShotRequested?.Invoke());
+            Click("photo-filter", () => PhotoFilterRequested?.Invoke());
+            Click("photo-worm", () => PhotoWormRequested?.Invoke());
+            // 写真モードのボタンを押しても、写真モードからもどらない（画面のタップは、もどる）
+            _photoBar?.RegisterCallback<PointerDownEvent>(e => e.StopPropagation());
+            _photoBar?.RegisterCallback<PointerUpEvent>(e => e.StopPropagation());
+            Click("settings-close", () => ShowSettingsFromTitle(false));
             _sprintToggle?.RegisterValueChangedCallback(e =>
             {
                 SaveSystem.Settings.sprintToggle = e.newValue;
@@ -719,9 +832,66 @@ namespace Shakutori
 
             SetupLookArea();
             SetupTouch();
+            _root.RegisterCallback<PointerDownEvent>(e => _touchActiveAt = Time.unscaledTime, TrickleDown.TrickleDown);
             BuildHowtoGrid();
+            // いきものの声の字幕（設定でオン）
+            // 切りかえで入れている動き（はやく・ねらう・ゆっくり歩き）と、おまかせ歩きの印
+            _modes = new Label { name = "modes", pickingMode = PickingMode.Ignore };
+            _modes.AddToClassList("modes");
+            _hud.Add(_modes);
+            _caption = new Label { name = "caption", pickingMode = PickingMode.Ignore };
+            _caption.AddToClassList("caption");
+            _hud.Add(_caption);
+            AudioManager.Heard -= OnHeard;
+            AudioManager.Heard += OnHeard;
             ApplySettings(false);
         }
+
+        /// <summary>いきものの声：設定の「字幕」がオンで、ある大きさ以上で聞こえたら、画面の下に出す（同じ声がつづいたら、1 つのまま）。</summary>
+        void OnHeard(string text, float volume)
+        {
+            if (_caption == null || !SaveSystem.Settings.captions || volume < 0.12f || _photoMode) return;
+            _caption.text = "♪ " + text;
+            _caption.AddToClassList("caption--show");
+            _captionUntil = Time.unscaledTime + 2.6f;
+        }
+
+        public static readonly string[] PhotoFilters = { "ふつう", "セピア", "モノクロ", "あざやか" };
+
+        /// <summary>写真モードのボタンの字（いまのいろと、しゃくとりむしをかくしているか）。</summary>
+        public void SetPhotoLabels(int filter, bool wormHidden)
+        {
+            var f = Q<Button>("photo-filter");
+            if (f != null) f.text = "いろ：" + PhotoFilters[Mathf.Clamp(filter, 0, PhotoFilters.Length - 1)];
+            var w = Q<Button>("photo-worm");
+            if (w != null) w.text = wormHidden ? "むしを出す" : "むしをかくす";
+            if (_photoHint is Label hint)
+                hint.text = Device == "pad" ? $"写真モード（{GameInput.PadLabel("A")} とる・{GameInput.PadLabel("X")} いろ・{GameInput.PadLabel("Y")} むしをかくす・{GameInput.PadLabel("Menu")} もどる）"
+                          : Device == "touch" ? "写真モード（画面をタップでもどる）"
+                          : "写真モード（Enter とる・B いろ・E むしをかくす・F2 もどる）";
+        }
+
+        /// <summary>切りかえで入れている動きと、おまかせ歩き（画面の左下の小さな字）。</summary>
+        public string ModesText
+        {
+            get
+            {
+                // 毎フレーム文字を作らない（入っているものが、かわったときだけ）
+                int key = (AutoWalking ? 1 : 0) | (GameInput.SprintLatched ? 2 : 0) | (GameInput.SlowLatched ? 4 : 0) | (GameInput.AimLatched ? 8 : 0);
+                if (key == _modesKey) return _modesCache;
+                _modesKey = key;
+                var list = new List<string>();
+                if (AutoWalking) list.Add("おまかせ歩き中（スティックでやめる）");
+                if (GameInput.SprintLatched) list.Add("はやく：オン");
+                if (GameInput.SlowLatched) list.Add("ゆっくり歩き：オン");
+                if (GameInput.AimLatched) list.Add("ねらう：オン");
+                _modesCache = string.Join("　", list);
+                return _modesCache;
+            }
+        }
+
+        /// <summary>いま出ている字幕（出ていなければ空。テスト用）。</summary>
+        public string CaptionText => _caption != null && _caption.ClassListContains("caption--show") ? _caption.text : "";
 
         /// <summary>保存されている設定を、メニューの見た目にそろえる（値を変えたイベントは出さない）。</summary>
         public void RefreshSettingsUI()
@@ -745,7 +915,40 @@ namespace Shakutori
             _aimToggle?.SetValueWithoutNotify(s.aimToggle);
             _wallUpToggle?.SetValueWithoutNotify(s.wallStickUp);
             _helpToggle?.SetValueWithoutNotify(s.showHelp);
+            _master?.SetValueWithoutNotify(s.master);
+            _bright?.SetValueWithoutNotify(s.brightness);
+            _invertZoom?.SetValueWithoutNotify(s.invertZoom);
+            _leftHand?.SetValueWithoutNotify(s.leftHanded);
+            _tapToWalk?.SetValueWithoutNotify(s.tapToWalk);
+            _captions?.SetValueWithoutNotify(s.captions);
+            _pauseBlur?.SetValueWithoutNotify(s.pauseOnBlur);
+            _longNotice?.SetValueWithoutNotify(s.longNotices);
             ApplySettings(false);
+        }
+
+        /// <summary>タイトルの「せってい」：メニューを、設定だけで開く（つづける・タイトルへ などは出さない）。</summary>
+        public void ShowSettingsFromTitle(bool show)
+        {
+            _pauseFromTitle = show;
+            _pauseOverlay.EnableInClassList("pause--title", show);
+            if (show)
+            {
+                RefreshSettingsUI();
+                // メニューの上に出すので、タイトルより前面に
+                _pauseOverlay.BringToFront();
+                Q<Button>("settings-close")?.Focus();
+            }
+            _pauseOverlay.EnableInClassList("hidden", !show);
+            OverlayChanged?.Invoke();
+        }
+
+        /// <summary>タイトルの「せってい」から開いた設定か。</summary>
+        public bool IsTitleSettingsOpen => _pauseFromTitle && IsPauseOpen;
+
+        /// <summary>スライダーの名前のうしろに、いまの値（「BGM の音量（55%）」）。</summary>
+        static void ShowSliderValue(Slider s, string name, string value)
+        {
+            if (s != null) s.label = $"{name}（{value}）";
         }
 
         void OnSaved()
@@ -791,6 +994,31 @@ namespace Shakutori
             _qHigh.EnableInClassList("chip--on", s.quality != 0);
             _tNormal.EnableInClassList("chip--on", s.textSize == 0);
             _tLarge.EnableInClassList("chip--on", s.textSize != 0);
+            AudioListener.volume = Mathf.Clamp01(s.master);
+            Q<Button>("mm-small")?.EnableInClassList("chip--on", s.minimapSize == 0);
+            Q<Button>("mm-normal")?.EnableInClassList("chip--on", s.minimapSize == 1);
+            Q<Button>("mm-large")?.EnableInClassList("chip--on", s.minimapSize == 2);
+            Q<Button>("ts-normal")?.EnableInClassList("chip--on", s.touchSize == 0);
+            Q<Button>("ts-large")?.EnableInClassList("chip--on", s.touchSize != 0);
+            var mm = Q<VisualElement>("minimap");
+            if (mm != null)
+            {
+                // 右上をそのままに、大きく・小さく（右どなりのボタンに重ならない）
+                float k = s.minimapSize == 0 ? 0.78f : s.minimapSize == 2 ? 1.25f : 1f;
+                mm.style.transformOrigin = new TransformOrigin(Length.Percent(100f), Length.Percent(0f));
+                mm.style.scale = new Scale(new Vector2(k, k));
+            }
+            _touch?.EnableInClassList("touch--large", s.touchSize != 0);
+            _touch?.EnableInClassList("touch--left", s.leftHanded);
+            // スライダーの、いまの値
+            ShowSliderValue(_master, "全体の音量", $"{Mathf.RoundToInt(s.master * 100f)}%");
+            ShowSliderValue(_music, "BGM の音量", $"{Mathf.RoundToInt(s.music * 100f)}%");
+            ShowSliderValue(_sfx, "効果音の音量", $"{Mathf.RoundToInt(s.sfx * 100f)}%");
+            ShowSliderValue(_ambience, "環境音の音量", $"{Mathf.RoundToInt(s.ambience * 100f)}%");
+            ShowSliderValue(_sens, "カメラ感度", $"{s.sensitivity:0.0}");
+            ShowSliderValue(_fov, "見える広さ", $"{Mathf.RoundToInt(s.fov)}°");
+            ShowSliderValue(_bright, "明るさ", Mathf.Abs(s.brightness) < 0.05f ? "ふつう" : s.brightness > 0f ? $"+{Mathf.RoundToInt(s.brightness * 10f)}" : $"{Mathf.RoundToInt(s.brightness * 10f)}");
+            SettingsApplied?.Invoke();
             // スライダーを動かしている間に何度も書きこまないよう、少しあとでまとめて保存する
             if (save) SaveSystem.SaveSettingsSoon();
         }
@@ -905,7 +1133,8 @@ namespace Shakutori
             var area = Areas.Get(d.area) ?? Areas.Forest;
             _continue.text = $"{_continueBase}（{area.DisplayName}）";
             _titleProgress.text = $"しずく {Collectibles.AllCollectedDrops} / {Areas.TotalDrops}　名所 {Collectibles.AllDiscoveredPlaces} / {Areas.TotalLandmarks}　" +
-                                  $"いきもの {Creatures.DiscoveredCount} / {SpeciesCatalog.Count}　（{PlayTimeText(d.playTime)}）";
+                                  $"いきもの {Creatures.DiscoveredCount} / {SpeciesCatalog.Count}　（{PlayTimeText(d.playTime)}" +
+                                  (string.IsNullOrEmpty(d.lastDay) ? "" : $"・さいごに遊んだ日 {d.lastDay.Substring(5).Replace('-', '/')}") + "）";
         }
 
         /// <summary>あそんだ時間を「1時間 5分」「12分」のように書く。</summary>
@@ -939,6 +1168,9 @@ namespace Shakutori
                 {
                     var area = MapArea;
                     string place = _collect != null ? $"{area.DropName} {_collect.CollectedDrops} / {_collect.TotalDrops}　名所 {_collect.DiscoveredPlaces} / {_collect.TotalPlaces}" : "";
+                    // いま、見つけた名所の中にいれば、その名前も
+                    var at = _worm != null && _collect != null ? area.Landmarks.Find(l => _collect.IsDiscovered(l.id) && Collectibles.IsInside(l, _worm.HeadPosition)) : null;
+                    if (at != null) place = $"いま：{at.name}　" + place;
                     _pauseSummary.text = $"{area.Subtitle}　{place}\n全体の達成度 {CompletionPercent()}%　あそんだ時間 {PlayTimeText(SaveSystem.Data.playTime)}";
                 }
                 Q<Button>("tutorial-end")?.EnableInClassList("hidden", MapArea != Areas.Tutorial);   // 練習の森だけ
@@ -957,6 +1189,7 @@ namespace Shakutori
 
         public void ShowMap(bool show)
         {
+            if (show != IsMapOpen) AudioManager.Instance?.Page(show);
             _mapOverlay.EnableInClassList("hidden", !show);
             if (show)
             {
@@ -998,6 +1231,8 @@ namespace Shakutori
             _photoMode = on;
             _hud.style.display = on ? DisplayStyle.None : DisplayStyle.Flex;
             _photoHint?.EnableInClassList("hidden", !on);
+            _photoBar?.EnableInClassList("hidden", !on);
+            if (on) SetPhotoLabels(0, false);
             if (on) EndJoystick();
         }
 
@@ -1064,6 +1299,7 @@ namespace Shakutori
 
         public bool Back()
         {
+            if (IsTitleSettingsOpen) { ShowSettingsFromTitle(false); return true; }
             if (IsTutorialChoiceOpen) { ShowTutorialChoice(false); return true; }
             if (IsConfirmOpen) { ShowConfirm(false); return true; }
             if (IsCreditsOpen) { ShowCredits(false); return true; }
@@ -1107,9 +1343,12 @@ namespace Shakutori
             e.schedule.Execute(() => e.RemoveFromClassList("obj-count--pop")).StartingIn(260);
         }
 
-        public void ShowBanner(LandmarkDef lm)
+        public void ShowBanner(LandmarkDef lm) => ShowBanner(lm, 0);
+
+        /// <summary>名所を見つけたときの見出し（nearDrops：まわりの、まだ取っていないしずくの数）。</summary>
+        public void ShowBanner(LandmarkDef lm, int nearDrops)
         {
-            ShowBannerText("新たな場所を発見", lm.name, lm.description);
+            ShowBannerText("新たな場所を発見", lm.name, lm.description + (nearDrops > 0 ? $"\nこのあたりに、しずくが あと {nearDrops} こ" : ""));
             RefreshMarkers();
             RefreshCounts();
         }
@@ -1123,7 +1362,7 @@ namespace Shakutori
             if (drops + places > 0)
                 desc += SaveSystem.Data.completedAreas.Contains(area.Id)
                     ? "\n★ このエリアはめぐり終えました"
-                    : $"\n{area.DropName} {drops} / {area.DropCount}　名所 {places} / {area.Landmarks.Count}";
+                    : $"\n{area.DropName} {drops} / {area.DropCount}　名所 {places} / {area.Landmarks.Count}　{CreatureSummary(area)}";
             _bannerQueue.Clear();   // 前のエリアの見出しは出さない
             ShowBannerText(area == Areas.Tutorial ? "チュートリアル" : area.DisplayName, area.Subtitle, desc);
         }
@@ -1146,6 +1385,11 @@ namespace Shakutori
 
         public void Toast(string text, string iconClass) => Toast(text, iconClass, 2.6f);
 
+        string _lastToastText;
+        float _lastToastAt = -9f;
+        /// <summary>このプレイで出たおしらせ（あそんだ時間・文。新しい順）。</summary>
+        public readonly List<(string when, string text)> ToastHistory = new List<(string, string)>();
+
         /// <summary>地図・図鑑・メニューでした操作への返事のおしらせ（開いている画面の上にも出す）。</summary>
         public void UiToast(string text, string iconClass) => Toast(text, iconClass, 2.6f, true);
 
@@ -1166,6 +1410,14 @@ namespace Shakutori
         /// </summary>
         public void Toast(string text, string iconClass, float seconds, bool overOverlays = false)
         {
+            // 同じおしらせが、すぐにまた来たら、ふやさない（出ているものを、そのまま）
+            if (text == _lastToastText && Time.unscaledTime - _lastToastAt < 2f) return;
+            _lastToastText = text;
+            _lastToastAt = Time.unscaledTime;
+            if (SaveSystem.Settings.longNotices) seconds *= 1.7f;   // ゆっくり読めるように
+            // 「きろく」で、あとから見られるように（新しい順に 20 こまで）
+            ToastHistory.Insert(0, (PlayTimeText(SaveSystem.Data.playTime), text));
+            if (ToastHistory.Count > 20) ToastHistory.RemoveAt(ToastHistory.Count - 1);
             var t = new VisualElement();
             t.AddToClassList("toast");
             if (!overOverlays) t.AddToClassList("toast--world");
@@ -1217,6 +1469,7 @@ namespace Shakutori
         public void ShowCreature(SpeciesDef sp)
         {
             if (!EnsureBound() || sp == null) return;
+            AddBookBadge(1);   // 図鑑ボタンに、新しく見つけた数も
             var tex = _assets != null ? _assets.Portrait(sp.id) : null;
             _creatureCardImg.style.backgroundImage = tex != null ? new StyleBackground(tex) : new StyleBackground(StyleKeyword.None);
             // つづけて見つけたときは、カードを最新のいきものにして「ほかに n 種」と書く
@@ -1261,10 +1514,10 @@ namespace Shakutori
             }
             switch (action)
             {
-                case "silk": return pad ? "A" : "Space";
-                case "sprint": return pad ? "RT" : "Shift";
-                case "stand": return pad ? "Y" : "E";
-                case "aim": return pad ? "LT" : "F（右クリック）";
+                case "silk": return pad ? GameInput.PadLabel("A") : "Space";
+                case "sprint": return pad ? GameInput.PadLabel("RT") : "Shift";
+                case "stand": return pad ? GameInput.PadLabel("Y") : "E";
+                case "aim": return pad ? GameInput.PadLabel("LT") : "F（右クリック）";
             }
             return "";
         }
@@ -1286,6 +1539,8 @@ namespace Shakutori
         }
 
         string Device => GameInput.UsingGamepad ? "pad" : (_touchMode ? "touch" : "kb");
+        /// <summary>操作説明を作りなおすかどうかの目印（ゲームパッドの種類がかわったときも）。</summary>
+        string HelpKey => Device == "pad" ? "pad-" + GameInput.PadStyle : Device;
 
         /// <summary>いまの操作のしかた（"kb"・"pad"・"touch"）。</summary>
         public string InputDevice => Device;
@@ -1480,8 +1735,8 @@ namespace Shakutori
         void BuildHelp()
         {
             string device = Device;
-            if (device == _lastHelpDevice) return;
-            _lastHelpDevice = device;
+            if (HelpKey == _lastHelpDevice) return;
+            _lastHelpDevice = HelpKey;
             _help.Clear();
             (string[] keys, string text)[] rows;
             if (device == "pad")
@@ -1530,7 +1785,7 @@ namespace Shakutori
                 keys.AddToClassList("help-key");
                 foreach (var k in r.keys)
                 {
-                    var kc = new Label(k) { pickingMode = PickingMode.Ignore };
+                    var kc = new Label(device == "pad" ? GameInput.PadLabel(k) : k) { pickingMode = PickingMode.Ignore };
                     kc.AddToClassList("keycap");
                     keys.Add(kc);
                 }
@@ -1545,8 +1800,8 @@ namespace Shakutori
         void BuildHowtoGrid()
         {
             string device = Device;
-            if (device == _howtoDevice) return;
-            _howtoDevice = device;
+            if (HelpKey == _howtoDevice) return;
+            _howtoDevice = HelpKey;
             var grid = Q<VisualElement>("howto-grid");
             grid.Clear();
             (string key, string text)[] items;
@@ -1596,14 +1851,16 @@ namespace Shakutori
                     ("B", "いきもの図鑑・きせかえ"),
                     ("M", "地図・エリア移動"),
                     ("H", "操作説明の表示切り替え"),
-                    ("F2", "写真モード（表示を消して景色を見る）"),
+                    ("F2", "写真モード（表示を消して景色を見る）。Enter でとる・B でいろ・E でむしをかくす"),
+                    ("PageUp / PageDown", "地図：となりのエリアの地図へ　図鑑：となりのタブへ"),
+                    ("＋ / －", "地図の拡大・縮小（ホイールや、ドラッグでも）"),
                     ("Esc", "メニュー（設定）"),
                 };
             foreach (var it in items)
             {
                 var row = new VisualElement { pickingMode = PickingMode.Ignore };
                 row.AddToClassList("howto-item");
-                var k = new Label(it.key) { pickingMode = PickingMode.Ignore };
+                var k = new Label(device == "pad" ? GameInput.PadLabel(it.key) : it.key) { pickingMode = PickingMode.Ignore };
                 k.AddToClassList("keycap");
                 var t = new Label(it.text) { pickingMode = PickingMode.Ignore };
                 t.AddToClassList("howto-item-text");
@@ -1618,6 +1875,7 @@ namespace Shakutori
         // ------------------------------------------------------------------
         public void ShowCollection(bool show, string tab = null)
         {
+            if (show != IsCollectionOpen) AudioManager.Instance?.Page(show);
             if (show)
             {
                 // 図鑑を開いたら、図鑑ボタンの数を消す
@@ -1625,6 +1883,17 @@ namespace Shakutori
                 if (_bookBadge != null) _bookBadge.style.display = DisplayStyle.None;
                 SelectTab(tab ?? _tab);
                 _tabs[_tab].Focus();
+                // まだ図鑑で見ていない（NEW の）いきものがいれば、いちばんあとに見つけたものを先に見せる
+                if (_tab == "zukan")
+                {
+                    var found = SaveSystem.Data.creatures;
+                    for (int i = found.Count - 1; i >= 0; i--)
+                        if (_zukanCards.ContainsKey(found[i]) && !SaveSystem.Data.seenCreatures.Contains(found[i]))
+                        {
+                            SelectSpecies(found[i]);
+                            break;
+                        }
+                }
                 // メニューから開いたときは、メニューの前面に出す
                 if (_collectionOverlay.parent == _pauseOverlay.parent
                     && _collectionOverlay.parent.IndexOf(_collectionOverlay) < _collectionOverlay.parent.IndexOf(_pauseOverlay))
@@ -1635,6 +1904,20 @@ namespace Shakutori
         }
 
         public void ToggleCollection() => ShowCollection(!IsCollectionOpen);
+
+        static readonly string[] TabOrder = { "zukan", "skin", "record" };
+
+        /// <summary>図鑑・きせかえ・きろくのタブを、となりへ（PageUp・PageDown・LB・RB）。</summary>
+        public void CycleCollectionTab(int step)
+        {
+            int i = Mathf.Max(0, Array.IndexOf(TabOrder, _tab));
+            AudioManager.Instance?.Click();
+            SelectTab(TabOrder[(i + step + TabOrder.Length) % TabOrder.Length]);
+            if (_tabs.TryGetValue(_tab, out var b)) b.Focus();
+        }
+
+        /// <summary>いまの図鑑のタブ（"zukan"・"skin"・"record"）。</summary>
+        public string CollectionTab => _tab;
 
         public void SelectTab(string tab)
         {
@@ -1656,12 +1939,16 @@ namespace Shakutori
             // すみかでしぼりこむ
             var filters = new VisualElement();
             filters.AddToClassList("zukan-filters");
-            if (!string.IsNullOrEmpty(_zukanFilter) && !AreaNames.Known(AreaNames.ByName(_zukanFilter))) _zukanFilter = "";
-            foreach (var (label, key) in new[] { ("すべて", ""), ("森", "森"), ("川辺", "川辺"), ("公園", "公園"), ("山", "山"), ("山小屋", "山小屋"), ("海岸", "海岸"), ("神社", "神社"), ("夜の森", "夜の森"), ("クリスマス村", "クリスマス村") })
+            if (!string.IsNullOrEmpty(_zukanFilter) && _zukanFilter != Unfound && !AreaNames.Known(AreaNames.ByName(_zukanFilter))) _zukanFilter = "";
+            foreach (var (label, key) in new[] { ("すべて", ""), ("まだ", Unfound), ("森", "森"), ("川辺", "川辺"), ("公園", "公園"), ("山", "山"), ("山小屋", "山小屋"), ("海岸", "海岸"), ("神社", "神社"), ("夜の森", "夜の森"), ("クリスマス村", "クリスマス村") })
             {
                 // まだ行ったことがないエリアは、名前を出さず、えらべない
-                bool locked = key != "" && !AreaNames.Known(AreaNames.ByName(key));
-                var chip = new Button { text = locked ? AreaNames.Unknown : label };
+                bool locked = key != "" && key != Unfound && !AreaNames.Known(AreaNames.ByName(key));
+                // そのしぼりこみの、見つけた数 / いる数（「まだ」は、のこりの数）
+                var inKey = SpeciesCatalog.Regular.Where(s => key == "" || key == Unfound || LivesIn(s, key)).ToList();
+                int found = inKey.Count(s => Creatures.IsDiscovered(s.id));
+                string count = key == Unfound ? $" {inKey.Count - found}" : $" {found}/{inKey.Count}";
+                var chip = new Button { text = locked ? AreaNames.Unknown : label + count };
                 chip.AddToClassList("chip");
                 chip.AddToClassList("zukan-filter");
                 chip.EnableInClassList("zukan-filter--locked", locked);
@@ -1676,10 +1963,18 @@ namespace Shakutori
                 filters.Add(chip);
             }
             _zukanGrid.Add(filters);
+            int left = SpeciesCatalog.Count - Creatures.DiscoveredCount;
+            if (left > 0 && left <= 5)
+            {
+                var near = new Label($"あと {left} 種で、図鑑がうまります！") { pickingMode = PickingMode.Ignore };
+                near.AddToClassList("zukan-section");
+                _zukanGrid.Add(near);
+            }
             void AddCard(SpeciesDef sp)
             {
-                if (!string.IsNullOrEmpty(_zukanFilter) && !LivesIn(sp, _zukanFilter)) return;
                 bool known = Creatures.IsDiscovered(sp.id);
+                if (_zukanFilter == Unfound) { if (known) return; }
+                else if (!string.IsNullOrEmpty(_zukanFilter) && !LivesIn(sp, _zukanFilter)) return;
                 var card = new Button();
                 card.AddToClassList("zukan-card");
                 card.EnableInClassList("zukan-card--rare", sp.IsRare);
@@ -1703,6 +1998,14 @@ namespace Shakutori
                         card.Add(fb);
                     }
                     card.EnableInClassList("zukan-card--master", Friends.FullyObserved(sp.id));
+                    // しぐさの観察：見た数を、小さな点で（●●○。NEW の印が出ている間は、同じ場所なので出さない）
+                    int all = Friends.BehaviorsOf(sp.id).Length, seen = Friends.SeenCount(sp.id);
+                    if (all > 0 && SaveSystem.Data.seenCreatures.Contains(sp.id))
+                    {
+                        var st = new Label(new string('●', seen) + new string('○', all - seen)) { pickingMode = PickingMode.Ignore };
+                        st.AddToClassList("zukan-card-stamps");
+                        card.Add(st);
+                    }
                 }
                 if (known && !SaveSystem.Data.seenCreatures.Contains(sp.id))
                 {
@@ -1713,9 +2016,12 @@ namespace Shakutori
                 string id = sp.id;
                 card.clicked += () =>
                 {
-                    AudioManager.Instance?.Click();
+                    // 見つけたいきものをえらぶと、その声（鳴くいきもの）。鳴かないいきものは、いつもの音
+                    if (!(Creatures.IsDiscovered(id) && AudioManager.Instance != null && AudioManager.Instance.CallOf(id, 0.5f))) AudioManager.Instance?.Click();
                     SelectSpecies(id);
                 };
+                // キーボードの矢印・ゲームパッドの十字キーで動かしたときも、そのいきものを見せる
+                card.RegisterCallback<FocusInEvent>(e => { if (_selectedSpecies != id) SelectSpecies(id); });
                 _zukanGrid.Add(card);
                 _zukanCards[sp.id] = card;
             }
@@ -1733,10 +2039,18 @@ namespace Shakutori
             SelectSpecies(_selectedSpecies);
         }
 
-        /// <summary>図鑑をすみかでしぼりこむ（"" = すべて）。</summary>
+        /// <summary>図鑑にならんでいるカードのいきもの（テスト用）。</summary>
+        public List<string> ZukanCardIds => _zukanCards.Keys.ToList();
+
+        /// <summary>図鑑の「まだ」しぼりこみ（まだ見つけていないいきものだけ）。</summary>
+        public const string Unfound = "?";
+
+        /// <summary>図鑑をすみかでしぼりこむ（"" = すべて、Unfound = まだ見つけていない）。</summary>
         public void SetZukanFilter(string key)
         {
             _zukanFilter = key ?? "";
+            SaveSystem.Settings.zukanFilter = _zukanFilter;   // つぎに開いたときも、同じしぼりこみ
+            SaveSystem.SaveSettingsSoon();
             BuildZukan();
         }
 
@@ -1803,10 +2117,23 @@ namespace Shakutori
 
         public bool HasNewBadge(string id) => _zukanCards.TryGetValue(id, out var c) && c.Q<Label>(className: "zukan-new") != null;
 
+        /// <summary>図鑑で、そのいきものを見せる（覚えているしぼりこみでカードが出ていなければ、「すべて」にもどしてから）。</summary>
+        public void ShowSpecies(string id)
+        {
+            if (!_zukanCards.ContainsKey(id) && !string.IsNullOrEmpty(_zukanFilter))
+            {
+                _selectedSpecies = id;
+                SetZukanFilter("");
+                return;
+            }
+            SelectSpecies(id);
+        }
+
         public void SelectSpecies(string id)
         {
             var sp = SpeciesCatalog.Get(id);
             if (sp == null) return;
+
             _selectedSpecies = id;
             foreach (var kv in _zukanCards) kv.Value.EnableInClassList("zukan-card--selected", kv.Key == id);
             bool known = Creatures.IsDiscovered(id);
@@ -1953,6 +2280,14 @@ namespace Shakutori
         {
             _skinGrid.Clear();
             var st = ProgressStats.FromSave();
+            // いちばん上に、つぎに使えるようになりそうなきせかえ
+            string next = NextSkinText().Trim('\n');
+            if (next.Length > 0)
+            {
+                var nl = new Label(next) { name = "skin-next", pickingMode = PickingMode.Ignore };
+                nl.AddToClassList("skin-next");
+                _skinGrid.Add(nl);
+            }
             foreach (var (kind, title) in new[] { (WearKind.Color, "いろ"), (WearKind.Hat, "ぼうし"), (WearKind.Glasses, "めがね") })
             {
                 var head = new Label(title) { pickingMode = PickingMode.Ignore };
@@ -1960,6 +2295,36 @@ namespace Shakutori
                 _skinGrid.Add(head);
                 foreach (var skin in Skins.OfKind(kind)) _skinGrid.Add(SkinCard(skin, st));
             }
+        }
+
+        /// <summary>メニューに出す、つぎに使えるようになりそうなきせかえ（足りない割合がいちばん小さいもの）。</summary>
+        public static string NextSkinText()
+        {
+            var st = ProgressStats.FromSave();
+            SkinDef best = null;
+            float bestK = -1f;
+            foreach (var s in Skins.All)
+            {
+                if (s.needAll || Skins.IsUnlocked(s, st)) continue;
+                float k = 1f;
+                foreach (var (have, need) in new[] { (st.drops, s.needDrops), (st.places, s.needPlaces), (st.species, s.needSpecies), (st.observed, s.needObserved), (st.bestFriends, s.needFriends) })
+                    if (need > 0) k = Mathf.Min(k, (float)have / need);
+                if (k > bestK) { bestK = k; best = s; }
+            }
+            return best == null ? "" : $"\nつぎのきせかえ：{best.condition}{SkinProgress(best, st)}";
+        }
+
+        /// <summary>まだ使えないきせかえの、いまの数（「（いま 12 / 30）」。足りないものの 1 つめ）。</summary>
+        public static string SkinProgress(SkinDef s, ProgressStats st)
+        {
+            if (s.needAll)
+            {
+                int got = st.drops + st.places + st.species, all = Areas.TotalDrops + Areas.TotalLandmarks + SpeciesCatalog.Count;
+                return $"（いま {100 * Mathf.Min(got, all) / Mathf.Max(1, all)}%）";
+            }
+            foreach (var (have, need) in new[] { (st.drops, s.needDrops), (st.places, s.needPlaces), (st.species, s.needSpecies), (st.observed, s.needObserved), (st.bestFriends, s.needFriends) })
+                if (have < need) return $"（いま {have} / {need}）";
+            return "";
         }
 
         /// <summary>そのきせかえを、いま身につけているか。</summary>
@@ -2003,7 +2368,7 @@ namespace Shakutori
             string how = skin.kind == WearKind.Hat ? (on ? "かぶっている（タップではずす）" : "タップしてかぶる")
                 : skin.kind == WearKind.Glasses ? (on ? "かけている（タップではずす）" : "タップしてかける")
                 : on ? "きがえ中" : "タップしてきがえる";
-            var cond = new Label(open ? how : skin.condition) { pickingMode = PickingMode.Ignore };
+            var cond = new Label(open ? how : skin.condition + SkinProgress(skin, st)) { pickingMode = PickingMode.Ignore };
             cond.AddToClassList("skin-cond");
             text.Add(nm);
             text.Add(cond);
@@ -2060,19 +2425,63 @@ namespace Shakutori
                 AddRecord(name + "の達成度", $"{(all > 0 ? 100 * got / all : 0)}%" + (d.completedAreas.Contains(area.Id) ? " ★" : ""));
                 AddRecord(AreaNames.Known(area) ? area.DropName : AreaNames.Unknown + "のしずく", $"{Collectibles.CollectedIn(area)} / {area.DropCount}");
                 AddRecord(name + "の名所", $"{Collectibles.DiscoveredIn(area)} / {area.Landmarks.Count}");
+                var lives = SpeciesCatalog.Regular.Where(s => LivesIn(s, area.DisplayName)).ToList();
+                if (lives.Count > 0) AddRecord(name + "のいきもの", $"{lives.Count(s => Creatures.IsDiscovered(s.id))} / {lives.Count}");
             }
             AddRecord("見つけたいきもの", $"{Creatures.DiscoveredCount} / {SpeciesCatalog.Count}");
+            if (d.creatures.Count > 0)
+            {
+                var latest = SpeciesCatalog.Get(d.creatures[d.creatures.Count - 1]);
+                if (latest != null) AddRecord("さいごに見つけたいきもの", latest.name);
+                var best = d.creatures.Select(SpeciesCatalog.Get).Where(s => s != null).OrderByDescending(s => Friends.Level(s.id)).FirstOrDefault();
+                if (best != null && Friends.Level(best.id) > 0) AddRecord("いちばんなかよしのいきもの", $"{best.name}（{Friends.Stars(Friends.Level(best.id))}）");
+            }
             AddRecord("レアないきもの", $"{Creatures.RareDiscoveredCount} / {SpeciesCatalog.RareCount}");
             AddRecord("観察したしぐさ", $"{Friends.TotalObserved} / {SpeciesCatalog.All.Sum(s => Friends.BehaviorsOf(s.id).Length)}");
             AddRecord("なかよし ★5 のいきもの", $"{Friends.BestFriendCount} しゅ");
             AddRecord("歩いた歩数", $"{d.steps:N0} 歩");
+            // 1 歩で、だいたい体長の半分（1 体長 = 2.5 cm）
+            float meters = d.steps * ShakuConst.BodyLength * 0.5f * 0.025f;
+            AddRecord("歩いたきょり", meters >= 1f ? $"約 {meters:0.0} m" : $"約 {meters * 100f:0} cm");
             AddRecord("糸を使った回数", $"{d.silkUses} 回");
             AddRecord("落ちた回数", $"{d.falls} 回");
+            AddRecord("泳いだ回数", $"{d.swims} 回");
+            AddRecord("とった写真", $"{d.photos} まい");
+            AddRecord("地図や図鑑で移動した回数", $"{d.travels} 回");
+            AddRecord("「動けなくなったら」を使った回数", $"{d.rescues} 回");
+            if (!string.IsNullOrEmpty(d.firstDay)) AddRecord("はじめて遊んだ日", d.firstDay.Replace('-', '/'));
+            if (d.playDays > 0) AddRecord("遊んだ日", $"{d.playDays} 日");
             AddRecord("いちばん高く登った", d.highest > 0f ? $"{d.highest:F1} 体長（約 {d.highest * 2.5f:F0} cm）" : "まだ");
             var st = ProgressStats.FromSave();
             AddRecord("きせかえ", $"{Skins.All.Count(s => Skins.IsUnlocked(s, st))} / {Skins.All.Count}");
             string done = string.Join("・", Areas.All.Where(a => d.completedAreas.Contains(a.Id)).Select(a => a.DisplayName));
             AddRecord("めぐり終えたエリア", string.IsNullOrEmpty(done) ? "まだ" : done);
+            // さいきんのおしらせ（見のがしたものも、あとで読める）
+            if (ToastHistory.Count > 0)
+            {
+                var head = new Label("さいきんのおしらせ") { pickingMode = PickingMode.Ignore };
+                head.AddToClassList("record-head");
+                _recordList.Add(head);
+                foreach (var (when, text) in ToastHistory.Take(10)) AddRecord(text, when);
+            }
+            // 記録のひかえ：ファイルに書き出す・読みこむ（ブラウザを変えたり、データが消えたりしても、つづけられる）
+            var io = new VisualElement { name = "record-io" };
+            io.AddToClassList("record-io");
+            var ex = new Button { text = "記録をファイルに書き出す", name = "save-export" };
+            ex.AddToClassList("btn");
+            ex.AddToClassList("btn-small");
+            ex.clicked += () => { AudioManager.Instance?.Click(); ExportSaveRequested?.Invoke(); };
+            var im = new Button { text = "ファイルから読みこむ", name = "save-import" };
+            im.AddToClassList("btn");
+            im.AddToClassList("btn-small");
+            im.clicked += () =>
+            {
+                AudioManager.Instance?.Click();
+                Confirm("記録のファイルを読みこむと、いまの記録とおきかわります。読みこみますか？", () => ImportSaveRequested?.Invoke());
+            };
+            io.Add(ex);
+            io.Add(im);
+            _recordList.Add(io);
         }
 
         void AddRecord(string label, string value)
@@ -2329,6 +2738,13 @@ namespace Shakutori
                 lbl.AddToClassList("bigmap-label");
                 AddBigItem(lbl, uv, new Vector2(-100f, 17f));
             }
+            // おまかせ歩きの行き先
+            if (here && AutoWalking && AutoWalkTarget is Vector3 aw)
+            {
+                var goal = new VisualElement { pickingMode = PickingMode.Ignore };
+                goal.AddToClassList("map-walk-goal");
+                AddBigItem(goal, WorldToMap(aw), new Vector2(-12f, -12f));
+            }
             // のこりが少ないときは、だいたいの場所を丸で教える（ぴったりではなく、少しずらす。いまいるエリアだけ）
             if (_collect != null && here)
             {
@@ -2366,6 +2782,13 @@ namespace Shakutori
             LayoutBigMap();
 
             _legend.Clear();
+            // いちばん上に、このエリアのいきものの数（字がふえても、ここはスクロールするので、はみ出さない）
+            if (area != Areas.Tutorial)
+            {
+                var info = new Label(CreatureSummary(area)) { name = "map-creatures", pickingMode = PickingMode.Ignore };
+                info.AddToClassList("legend-info");
+                _legend.Add(info);
+            }
             // 見つけた名所を上に（すぐ「ここへ」を押せる）
             foreach (var lm in area.Landmarks.OrderBy(l => PlaceKnown(l) ? 0 : 1))
             {
@@ -2376,7 +2799,9 @@ namespace Shakutori
                 icon.AddToClassList("icon");
                 icon.AddToClassList(known ? "icon-place" : "map-marker--unknown");
                 var col = new VisualElement { style = { flexShrink = 1, flexGrow = 1 } };
-                var name = new Label(known ? lm.name : "まだ見つけていない場所");
+                // いま、その名所の中にいるなら「（いまここ）」
+                bool inside = here && known && _worm != null && Collectibles.IsInside(lm, _worm.HeadPosition);
+                var name = new Label(known ? lm.name + (inside ? "（いまここ）" : "") : "まだ見つけていない場所");
                 name.AddToClassList("legend-name");
                 if (!known) name.AddToClassList("legend-name--unknown");
                 col.Add(name);
@@ -2408,12 +2833,12 @@ namespace Shakutori
             if (_collect != null && here)
             {
                 int rest = _collect.TotalDrops - _collect.CollectedDrops;
-                _mapSummary.text = $"{area.DropName} {_collect.CollectedDrops} / {_collect.TotalDrops}　　名所 {_collect.DiscoveredPlaces} / {_collect.TotalPlaces}　　{CreatureSummary(area)}" +
+                _mapSummary.text = $"{area.DropName} {_collect.CollectedDrops} / {_collect.TotalDrops}　　名所 {_collect.DiscoveredPlaces} / {_collect.TotalPlaces}" +
                                    (rest > 0 && rest <= 5 ? $"\nのこり {rest} 個：青い丸のあたりをさがしてみよう" : "\n見つけた名所やトンネルをタップすると、すぐに移動できます");
             }
             else if (!here)
             {
-                _mapSummary.text = $"{area.DropName} {Collectibles.CollectedIn(area)} / {area.DropCount}　　名所 {Collectibles.DiscoveredIn(area)} / {area.Landmarks.Count}　　{CreatureSummary(area)}" +
+                _mapSummary.text = $"{area.DropName} {Collectibles.CollectedIn(area)} / {area.DropCount}　　名所 {Collectibles.DiscoveredIn(area)} / {area.Landmarks.Count}" +
                                    "\n見つけた名所をタップすると、そこへ移動できます";
             }
             BuildAreaChips();
@@ -2732,6 +3157,7 @@ namespace Shakutori
                 chip.EnableInClassList("area-chip--here", isHere);
                 chip.EnableInClassList("area-chip--shown", area == shown);
                 chip.EnableInClassList("area-chip--locked", !visited);
+                chip.EnableInClassList("area-chip--done", visited && Collectibles.IsAreaComplete(area));   // めぐり終えたエリアは金色のふち
                 if (visited)
                 {
                     // そのエリアで集めた・見つけた割合を、ボタンの下のふちの細い棒で（字をふやすと、はみ出る）
@@ -2885,7 +3311,7 @@ namespace Shakutori
         {
             if (!_tapPending || Time.unscaledTime - _lastTapTime < 0.36f) return;
             _tapPending = false;
-            if (_root?.panel == null || AnyOverlayOpen || IsPhotoMode) return;
+            if (_root?.panel == null || AnyOverlayOpen || IsPhotoMode || !SaveSystem.Settings.tapToWalk) return;   // 設定で、タップで歩かないようにできる
             Rect r = _root.worldBound;
             if (r.width < 1f || r.height < 1f) return;
             Vector2 screen = new Vector2(_lastTapPos.x / r.width * Screen.width, Screen.height - _lastTapPos.y / r.height * Screen.height);
@@ -2994,6 +3420,7 @@ namespace Shakutori
             _joystick.style.left = local.x - JoyRadius;
             _joystick.style.top = local.y - JoyRadius;
             _joystick.style.bottom = StyleKeyword.Auto;
+            _joystick.style.right = StyleKeyword.Auto;   // 左ききの配置（右からの位置）でも、指の下に
             _joystick.AddToClassList("joystick--active");
             DragJoystick(local);
         }
@@ -3037,6 +3464,7 @@ namespace Shakutori
             _joystick.style.left = StyleKeyword.Null;
             _joystick.style.top = StyleKeyword.Null;
             _joystick.style.bottom = StyleKeyword.Null;
+            _joystick.style.right = StyleKeyword.Null;
             _joystick.RemoveFromClassList("joystick--active");
         }
 
@@ -3149,11 +3577,29 @@ namespace Shakutori
                 if (_tipTimer > 4.5f) NextTip();
             }
             _touch.style.display = _touchMode && playing ? DisplayStyle.Flex : DisplayStyle.None;
+            // タッチのボタンは、しばらくさわらないと、うすく（景色のじゃまをしない）
+            if (_joyPointer != -1 || GameInput.Move.sqrMagnitude > 0.01f) _touchActiveAt = Time.unscaledTime;
+            _touch.EnableInClassList("touch--idle", Time.unscaledTime - _touchActiveAt > 6f);
             UpdateTutorialGuide(playing);
             UpdateSleepLabel(playing);
             UpdatePendingTap();
+            if (_caption != null && Time.unscaledTime > _captionUntil) _caption.RemoveFromClassList("caption--show");
+            if (_modes != null)
+            {
+                string m = ModesText;
+                if (_modes.text != m) _modes.text = m;
+                _modes.EnableInClassList("modes--show", playing && m.Length > 0);
+            }
             _toasts.EnableInClassList("toasts--overlay", AnyOverlayOpen);   // 画面が開いている間は、遊んでいる所のおしらせをかくす
             if (IsMapOpen && (GameInput.PrevTabPressed || GameInput.NextTabPressed)) CycleAreaMap(GameInput.NextTabPressed ? 1 : -1);
+            else if (IsMapOpen && GameInput.MapZoomStep != 0) SetMapZoom(_mapZoom * (GameInput.MapZoomStep > 0 ? 1.5f : 1f / 1.5f));
+            else if (IsMapOpen && _mapZoom > 1.001f && GameInput.Look.sqrMagnitude > 1e-4f)
+            {
+                // 拡大した地図は、右スティック（Q・R・右ドラッグ）でも動かせる
+                Vector2 lk = GameInput.Look;
+                PanMap(_mapOrigin + new Vector2(lk.x, -lk.y) * (0.004f / _mapZoom));
+            }
+            else if (IsCollectionOpen && (GameInput.PrevTabPressed || GameInput.NextTabPressed)) CycleCollectionTab(GameInput.NextTabPressed ? 1 : -1);
 
             // 縦向きのスマホでは、横向きをすすめる（数秒だけ）
             bool phonePortrait = _touchMode && IsPortrait && ScreenSize.x < ScreenSize.y * 0.75f;

@@ -56,6 +56,9 @@ namespace Shakutori
 #if UNITY_WEBGL && !UNITY_EDITOR
         [DllImport("__Internal")] static extern void ShakuRegisterPageEvents();
         [DllImport("__Internal")] static extern void ShakuVibrate(int ms);
+        [DllImport("__Internal")] static extern void ShakuDownloadPng(byte[] data, int len, string name);
+        [DllImport("__Internal")] static extern void ShakuDownloadText(string text, string name);
+        [DllImport("__Internal")] static extern void ShakuPickTextFile();
 #else
         static void ShakuRegisterPageEvents() { }
         static void ShakuVibrate(int ms) { }
@@ -162,6 +165,12 @@ namespace Shakutori
             };
             ui.CreatureSource = creatures;
             ui.PhotoRequested += TogglePhoto;
+            ui.ExportSaveRequested += ExportSave;
+            ui.ImportSaveRequested += ImportSave;
+            SaveSystem.SaveFailed += () => ui.UiToast("ブラウザに保存できませんでした（空きがないのかもしれません）", "icon-menu");
+            ui.PhotoShotRequested += () => TakePhoto();
+            ui.PhotoFilterRequested += CyclePhotoFilter;
+            ui.PhotoWormRequested += TogglePhotoWorm;
             worm.SilkStarted += () =>
             {
                 AudioManager.Instance?.Silk();
@@ -246,6 +255,13 @@ namespace Shakutori
             ui.ToTitlePressed += GoToTitle;
             ui.ResetPressed += () => StartGame(false);
             ui.QualityChanged += ApplyQuality;
+            ui.SettingsApplied += ApplyGrade;   // 明るさ
+            ui.CameraResetRequested += () =>
+            {
+                SaveSystem.Settings.cameraDistance = 0f;
+                SaveSystem.SaveSettingsSoon();
+                followCamera.distance = 3.1f;
+            };
             ui.TravelRequested += id => TravelTo(id);
             ui.SkinSelected += id =>
             {
@@ -263,6 +279,7 @@ namespace Shakutori
             yield return new WaitForSecondsRealtime(0.3f);
             ui.HideLoading();
             ui.ShowTitle(true);
+            ui.ShowNewsOnce();   // 新しくなったことを、一度だけ
             _demo.Show(true);
             State = GameState.Title;
         }
@@ -451,6 +468,18 @@ namespace Shakutori
         {
             bool playing = State == GameState.Playing;
             GameInput.OverlayOpen = ui != null && ui.AnyOverlayOpen;   // 地図・図鑑のスクロールで、カメラを拡大・縮小しない
+            if (ui != null)
+            {
+                ui.AutoWalking = _autoWalk != null && _autoWalk.Active;
+                ui.AutoWalkTarget = ui.AutoWalking ? _autoWalk.Target : (Vector3?)null;
+            }
+            AudioManager.Muffled = worm != null && State == GameState.Playing && worm.IsSwimming;   // 泳いでいる間は、BGM がこもる
+            AudioManager.MenuOpen = ui != null && (ui.IsPauseOpen || ui.IsCollectionOpen) && State != GameState.Title;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // メニュー・図鑑・地図を開いている間は、画面の書きかえを少なく（電池と熱をへらす）
+            int fps = ui != null && ui.AnyOverlayOpen && State != GameState.Title ? 30 : -1;
+            if (Application.targetFrameRate != fps) Application.targetFrameRate = fps;
+#endif
             ui.TickHud(playing && !ui.AnyOverlayOpen);
             // ぬれた体から、しずくがたれる
             if (playing && worm != null && worm.IsWet && Time.time > _dripNext)
@@ -474,11 +503,22 @@ namespace Shakutori
                     break;
                 case GameState.Playing:
                     SaveSystem.Data.playTime += Time.deltaTime;
+                    if (!_dayMarked)
+                    {
+                        _dayMarked = true;
+                        string last = SaveSystem.Data.lastDay;
+                        SaveSystem.Data.MarkPlayDay(System.DateTime.Now);   // 遊んだ日数（きろく）
+                        string welcome = WelcomeBack(last, System.DateTime.Now, collectibles != null ? collectibles.Area : Areas.Current);
+                        if (welcome != null && !InTutorial) ui.Toast(welcome, "icon-place", 4.5f);
+                    }
                     _playingFor += Time.deltaTime;
                     if (ui.IsPhotoMode)
                     {
-                        // 写真モード：Esc・F2 でもどる（カメラは動かせる）
+                        // 写真モード：Esc・F2 でもどる（カメラは動かせる）。Enter・A でとる、B・X でいろ、E・Y でしゃくとりむしをかくす
                         if (GameInput.PausePressed || GameInput.PhotoPressed) TogglePhoto();
+                        else if (GameInput.ConfirmPressed) TakePhoto();
+                        else if (GameInput.CollectionPressed) CyclePhotoFilter();
+                        else if (GameInput.StandPressed) TogglePhotoWorm();
                         worm.InputEnabled = false;
                         break;
                     }
@@ -487,6 +527,7 @@ namespace Shakutori
                     {
                         if (!ui.Back()) Pause();
                     }
+                    else if (GameInput.BackPressed && ui.AnyOverlayOpen && !ui.IsPauseOpen) ui.Back();   // B・もどるボタンで、地図や図鑑をとじる
                     else if (GameInput.MapPressed) ui.ToggleMap();
                     else if (GameInput.CollectionPressed) ui.ToggleCollection();
                     else if (GameInput.HelpPressed) ui.ToggleHelp();
@@ -494,6 +535,7 @@ namespace Shakutori
                     worm.InputEnabled = !ui.AnyOverlayOpen;
                     UpdateGates();
                     UpdateStats();
+                    UpdateStandHint();
                     UpdateStuck();
                     UpdateAssists();
                     UpdateRenderScale();
@@ -642,7 +684,11 @@ namespace Shakutori
             collectibles.Active = true;
             if (creatures != null) creatures.Active = true;
             ui.ShowAreaBanner(to);
-            if (target != null) ui.Toast($"「{target.name}」へ移動しました", "icon-place");
+            if (target != null)
+            {
+                ui.Toast($"「{target.name}」へ移動しました", "icon-place");
+                SaveSystem.Data.travels++;
+            }
             AudioManager.Instance?.Discover();
             worm.Survey(1f);   // 新しいエリアに着いたら、まわりを見わたす
             AnnounceRare();
@@ -654,6 +700,17 @@ namespace Shakutori
         // ------------------------------------------------------------------
         // メニュー
         // ------------------------------------------------------------------
+        bool _dayMarked;
+
+        /// <summary>3 日より長くあいだがあいたら「おかえりなさい」（あいだが短ければ null）。</summary>
+        public static string WelcomeBack(string lastDay, System.DateTime now, AreaLayout area)
+        {
+            if (string.IsNullOrEmpty(lastDay) || !System.DateTime.TryParse(lastDay, out var last)) return null;
+            int days = (now.Date - last.Date).Days;
+            if (days < 3) return null;
+            return $"おかえりなさい！ {days} 日ぶりの{(area != null ? area.DisplayName : "森")}です";
+        }
+
         public void Pause()
         {
             if (State != GameState.Playing) return;
@@ -684,7 +741,130 @@ namespace Shakutori
             if (on && ui.AnyOverlayOpen) ui.CloseAllOverlays();
             ui.SetPhotoMode(on);
             worm.InputEnabled = !on;
+            if (!on)
+            {
+                // 写真モードをおえたら、いろとしゃくとりむしを、もとにもどす
+                PhotoFilter = 0;
+                SetWormVisible(true);
+                ApplyGrade();
+            }
             AudioManager.Instance?.Click();
+        }
+
+        /// <summary>さいごに記録を書き出したファイル（エディタ・PC。ブラウザではダウンロード）。</summary>
+        public string LastExportPath { get; private set; }
+
+        /// <summary>記録をファイルに書き出す（ブラウザではダウンロード、PC・エディタでは保存のフォルダへ）。</summary>
+        public void ExportSave()
+        {
+            if (InTutorial) { ui.UiToast("練習の森の記録は、書き出せません", "icon-lock"); return; }
+            SaveProgress();
+            string text = SaveSystem.Export();
+            string name = $"shakutori_save_{System.DateTime.Now:yyyyMMdd_HHmm}.json";
+#if UNITY_WEBGL && !UNITY_EDITOR
+            ShakuDownloadText(text, name);
+            LastExportPath = name;
+#else
+            LastExportPath = System.IO.Path.Combine(Application.persistentDataPath, name);
+            System.IO.File.WriteAllText(LastExportPath, text);
+#endif
+            ui.UiToast("記録をファイルに書き出しました", "icon-book");
+        }
+
+        /// <summary>書き出した記録のファイルを読みこむ（ブラウザではファイルをえらぶ。PC・エディタでは、さいごに書き出したファイル）。</summary>
+        public void ImportSave()
+        {
+            if (InTutorial) { ui.UiToast("練習の森では、読みこめません", "icon-lock"); return; }
+#if UNITY_WEBGL && !UNITY_EDITOR
+            ShakuPickTextFile();
+#else
+            string path = LastExportPath;
+            if (string.IsNullOrEmpty(path) || !System.IO.File.Exists(path)) { ui.UiToast("読みこむファイルがありません", "icon-lock"); return; }
+            OnSaveFile(System.IO.File.ReadAllText(path));
+#endif
+        }
+
+        /// <summary>えらんだ記録のファイルの中身（ブラウザから SendMessage で呼ばれる）：読みこんだら、タイトルへもどって、そこから続ける。</summary>
+        public void OnSaveFile(string text)
+        {
+            if (!SaveSystem.Import(text, out string error))
+            {
+                ui.UiToast(error, "icon-lock");
+                return;
+            }
+            ui.UiToast("記録を読みこみました。タイトルの「つづきから」で続けられます", "icon-book");
+            _stats = ProgressStats.FromSave();
+            ui.CloseAllOverlays();
+            if (State == GameState.Playing || State == GameState.Paused) GoToTitle();
+            else ui.RefreshTitleProgress();
+        }
+
+        /// <summary>写真モードの、いろ（0 ふつう・1 セピア・2 モノクロ・3 あざやか）。</summary>
+        public int PhotoFilter { get; private set; }
+        /// <summary>写真モードで、しゃくとりむしをかくしている。</summary>
+        public bool PhotoWormHidden { get; private set; }
+        /// <summary>さいごにとった写真の場所（エディタ・PC。ブラウザではダウンロード）。</summary>
+        public string LastPhotoPath { get; private set; }
+
+        public void CyclePhotoFilter()
+        {
+            if (!ui.IsPhotoMode) return;
+            PhotoFilter = (PhotoFilter + 1) % GameUI.PhotoFilters.Length;
+            ApplyGrade();
+            ui.SetPhotoLabels(PhotoFilter, PhotoWormHidden);
+            AudioManager.Instance?.Click();
+        }
+
+        public void TogglePhotoWorm()
+        {
+            if (!ui.IsPhotoMode) return;
+            SetWormVisible(PhotoWormHidden);
+            ui.SetPhotoLabels(PhotoFilter, PhotoWormHidden);
+            AudioManager.Instance?.Click();
+        }
+
+        void SetWormVisible(bool visible)
+        {
+            PhotoWormHidden = !visible;
+            if (worm == null) return;
+            foreach (var r in worm.GetComponentsInChildren<Renderer>(true)) r.forceRenderingOff = !visible;
+        }
+
+        /// <summary>写真をとる：画面（UI はのぞく）を PNG にして、ブラウザではダウンロード、PC・エディタでは photos フォルダへ。</summary>
+        public bool TakePhoto()
+        {
+            if (!ui.IsPhotoMode) return false;
+            var cam = followCamera != null ? followCamera.GetComponent<Camera>() : Camera.main;
+            if (cam == null) return false;
+            int w = Mathf.Clamp(Screen.width, 64, 3840), h = Mathf.Clamp(Screen.height, 64, 2160);
+            var rt = RenderTexture.GetTemporary(w, h, 24);
+            var prevTarget = cam.targetTexture;
+            var prevActive = RenderTexture.active;
+            cam.targetTexture = rt;
+            cam.Render();
+            RenderTexture.active = rt;
+            var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
+            tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
+            tex.Apply(false);
+            cam.targetTexture = prevTarget;
+            RenderTexture.active = prevActive;
+            RenderTexture.ReleaseTemporary(rt);
+            byte[] png = tex.EncodeToPNG();
+            Destroy(tex);
+            string name = $"shakutori_{System.DateTime.Now:yyyyMMdd_HHmmss}.png";
+#if UNITY_WEBGL && !UNITY_EDITOR
+            ShakuDownloadPng(png, png.Length, name);
+            LastPhotoPath = name;
+#else
+            string dir = System.IO.Path.Combine(Application.persistentDataPath, "photos");
+            System.IO.Directory.CreateDirectory(dir);
+            LastPhotoPath = System.IO.Path.Combine(dir, name);
+            System.IO.File.WriteAllBytes(LastPhotoPath, png);
+#endif
+            AudioManager.Instance?.Shutter();
+            SaveSystem.Data.photos++;
+            ui.UiToast("写真をとりました", "icon-book");
+            return true;
         }
 
         /// <summary>タイトルのひみつの操作：ファストトラベルを、ぜんぶ使えるようにする（どのエリアへも・どの名所へも、地図から行ける）。</summary>
@@ -745,6 +925,8 @@ namespace Shakutori
         void OnApplicationFocus(bool focus)
         {
             if (!focus && State == GameState.Playing && SaveSystem.Settings.autosave) SaveProgress();
+            // ほかのアプリを見ているあいだは、止めておく（設定でかえられる。写真モードのときはそのまま）
+            if (!focus && State == GameState.Playing && SaveSystem.Settings.pauseOnBlur && !ui.IsPhotoMode && !Application.isBatchMode) Pause();
         }
 
         /// <summary>ブラウザのタブが隠れたとき（jslib から SendMessage で呼ばれる）：保存して音を止める。</summary>
@@ -760,6 +942,7 @@ namespace Shakutori
         public void OnPageVisible()
         {
             AudioListener.pause = false;
+            AudioManager.Instance?.FadeInFromPause();   // 音は、少しずつもどす
         }
 
         // ------------------------------------------------------------------
@@ -975,7 +1158,36 @@ namespace Shakutori
             fx.Burst(worm.CenterPosition, 24 + ShakuMath.RoundToIntSafe(32f * k));
             if (creatures != null) creatures.Disturb(worm.CenterPosition, 3f + 4f * k);
             ui.Toast("ぽちゃん！ 岸まで泳ごう", "icon-drop");
+            SaveSystem.Data.swims++;
         }
+
+        float _standFor, _standHintUntil;
+        bool _standHintShown;
+
+        /// <summary>
+        /// 背伸びをつづけると（1.2 秒）、いちばん近い、まだ取っていないしずく（30 体長まで）の上に、少しのあいだ光の目じるしを出す。
+        /// 高い所から見わたして、つぎのしずくをさがせる（練習の森では、練習の目じるしを使うので出さない）。
+        /// </summary>
+        void UpdateStandHint()
+        {
+            if (InTutorial || collectibles == null) return;
+            _standFor = worm.IsStanding ? _standFor + Time.deltaTime : 0f;
+            if (_standFor > 1.2f && !_standHintShown && collectibles.NearestRemaining(worm.HeadPosition, out var pos, out float dist) && dist < 30f)
+            {
+                fx.SetBeacon(pos);
+                _standHintShown = true;
+                _standHintUntil = Time.time + 3f;
+                StandHintShown = true;
+            }
+            if (_standHintShown && Time.time > _standHintUntil)
+            {
+                fx.SetBeacon(null);
+                if (_standFor <= 0f) _standHintShown = false;   // 背伸びをやめたら、また出せる
+            }
+        }
+
+        /// <summary>背伸びで、しずくの目じるしを出したことがある（テスト用）。</summary>
+        public bool StandHintShown { get; private set; }
 
         void UpdateStats()
         {
@@ -1009,6 +1221,7 @@ namespace Shakutori
             followCamera.Recenter();
             followCamera.SnapToTarget();
             ui.Toast("安全な場所にもどりました", "icon-place");
+            SaveSystem.Data.rescues++;
             SaveProgress();
         }
 
@@ -1056,6 +1269,7 @@ namespace Shakutori
             State = GameState.Playing;
             worm.InputEnabled = true;
             ui.Toast($"「{lm.name}」へ移動しました", "icon-place");
+            SaveSystem.Data.travels++;
             SaveProgress();
         }
 
@@ -1068,11 +1282,14 @@ namespace Shakutori
             _combo = Time.time - _lastDropTime < 4f ? _combo + 1 : 1;
             _lastDropTime = Time.time;
             AudioManager.Instance?.Collect(count + _combo - 1);
+            if (SaveSystem.Settings.vibration && GameInput.TouchDetected) ShakuVibrate(15);   // スマホでは、しずくを取ると、ぷるっと
             fx.Burst(pos, 40, AreaAtmosphere.DropTint(collectibles.Area.Id));   // エリアの色がまじる
             // 続けて取ると、もっと大きくよろこぶ（2 つ目は、ぴょん。3 つ目からは、くるりと見まわして、ふりふり）
             worm.Cheer(_combo >= 3 ? 1.4f : 1f, _combo >= 3 ? 2 : _combo == 2 ? 1 : 0);
             string text = $"{collectibles.Area.DropName}  {count} / {collectibles.TotalDrops}";
             if (_combo >= 3) text += $"　れんぞく ×{_combo}！";
+            int rest = collectibles.TotalDrops - count;
+            if (rest > 0 && rest <= 3) text += $"　のこり {rest} こ（地図に青い丸）";   // のこりが少ないときは、地図でさがせることを教える
             ui.Toast(text);
             if (count == collectibles.TotalDrops)
             {
@@ -1085,10 +1302,22 @@ namespace Shakutori
             CheckProgress();
         }
 
+        /// <summary>名所のまわりの、まだ取っていないしずくの数（見出しで、さがすめあてに）。</summary>
+        public int NearbyDrops(LandmarkDef lm)
+        {
+            int n = 0;
+            float r = Mathf.Max(8f, lm.radius * 2.5f);
+            foreach (var p in collectibles.RemainingDrops())
+                if (new Vector2(p.x - lm.position.x, p.z - lm.position.y).sqrMagnitude < r * r) n++;
+            return n;
+        }
+
         void OnLandmark(LandmarkDef lm)
         {
             AudioManager.Instance?.Discover();
-            ui.ShowBanner(lm);
+            AudioManager.Instance?.Duck(1.6f);   // 名所の音が聞こえるように、BGM を少し下げる
+            if (SaveSystem.Settings.vibration && GameInput.TouchDetected) ShakuVibrate(25);   // スマホでは、名所を見つけると、ぷるっと
+            ui.ShowBanner(lm, NearbyDrops(lm));
             fx.Burst(worm.HeadPosition + Vector3.up * 0.4f, 50, AreaAtmosphere.DiscoverTint(collectibles.Area.Id));   // エリアの色のきらめき
             worm.Survey(0.3f);   // 名所を見つけると、背伸びして見わたす
             if (collectibles.DiscoveredPlaces == collectibles.TotalPlaces)
@@ -1253,6 +1482,7 @@ namespace Shakutori
             foreach (var s in Skins.NewlyUnlocked(_stats, now))
             {
                 ui.Toast($"きせかえ「{s.name}」が使えるようになった！", "icon-book");
+                ui.AddBookBadge(1);   // 図鑑（きせかえ）ボタンにも
                 AudioManager.Instance?.Unlock();
             }
             _stats = now;
@@ -1266,6 +1496,20 @@ namespace Shakutori
             if (allDone) d.completed = true;
             SaveProgress();
             StartCoroutine(ShowComplete(area, allDone));
+        }
+
+        /// <summary>めぐり終えたあと、つぎに行くとよいエリア（行ったことがあって、まだめぐり終えていない所。なければ、行ったことのない、となりのエリア）。</summary>
+        public static AreaLayout NextAreaToVisit(AreaLayout done)
+        {
+            var d = SaveSystem.Data;
+            foreach (var a in Areas.All)
+                if (a != done && d.visited.Contains(a.Id) && !d.completedAreas.Contains(a.Id) && !Collectibles.IsAreaComplete(a)) return a;
+            foreach (var g in done.Gates)
+            {
+                var a = Areas.Get(g.targetArea);
+                if (a != null && a.Id == g.targetArea && !d.visited.Contains(a.Id)) return a;
+            }
+            return null;
         }
 
         IEnumerator ShowComplete(AreaLayout area, bool all)
@@ -1284,6 +1528,8 @@ namespace Shakutori
                 string rest = Creatures.DiscoveredCount < SpeciesCatalog.Count || Collectibles.AllCollectedDrops < Areas.TotalDrops
                     ? "\nまだ見ぬ場所や、いきものたちが待っています。"
                     : "";
+                var next = NextAreaToVisit(area);
+                if (next != null) rest += $"\nつぎは「{AreaNames.Name(next)}」をめぐってみよう。";
                 ui.ShowComplete(true, area.DisplayName + "をめぐり終えました！",
                     $"{area.DropCount} 個の{area.DropName}と、{area.Landmarks.Count} か所の名所をすべて見つけました。\n探検した時間：約 {min} 分{rest}");
             }
@@ -1303,6 +1549,11 @@ namespace Shakutori
 
         float _gradeExposure = float.NaN, _gradeContrast, _gradeSaturation, _gradeTemperature;
 
+        /// <summary>いまの画面の色のこさ（ポストエフェクト。テスト用）。</summary>
+        public float PostSaturation => postVolume != null && postVolume.profile != null && postVolume.profile.TryGet<ColorAdjustments>(out var ca) ? ca.saturation.value : 0f;
+        /// <summary>いまの画面の明るさの足し分（ポストエフェクト。テスト用）。</summary>
+        public float PostExposure => postVolume != null && postVolume.profile != null && postVolume.profile.TryGet<ColorAdjustments>(out var ca) ? ca.postExposure.value : 0f;
+
         /// <summary>エリアごとの、画面ぜんたいの色の調整（もとのポストエフェクトの値に、エリアの分を足す）。</summary>
         void ApplyGrade()
         {
@@ -1321,9 +1572,12 @@ namespace Shakutori
             Vector4 g = AreaAtmosphere.CurrentGrade;
             if (ca != null)
             {
-                ca.postExposure.Override(_gradeExposure + g.x);
-                ca.contrast.Override(_gradeContrast + g.y);
-                ca.saturation.Override(_gradeSaturation + g.z);
+                ca.postExposure.Override(_gradeExposure + g.x + SaveSystem.Settings.brightness * 0.6f);   // 設定の明るさ
+                // 写真モードのいろ：セピア・モノクロは色をぬき（セピアは茶色にそめる）、あざやかは色を強く
+                int pf = ui != null && ui.IsPhotoMode ? PhotoFilter : 0;
+                ca.contrast.Override(_gradeContrast + g.y + (pf == 3 ? 12f : pf != 0 ? 6f : 0f));
+                ca.saturation.Override(pf == 1 || pf == 2 ? -100f : _gradeSaturation + g.z + (pf == 3 ? 35f : 0f));
+                ca.colorFilter.Override(pf == 1 ? new Color(1f, 0.86f, 0.66f) : Color.white);
             }
             if (wb != null) wb.temperature.Override(_gradeTemperature + g.w);
         }

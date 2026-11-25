@@ -396,9 +396,9 @@ namespace Shakutori.Tests
             UI.ShowCollection(true, "zukan");
             yield return Frames(3);
             var chips = UI.Root.Query<Button>(className: "zukan-filter").ToList();
-            Assert.AreEqual(10, chips.Count, "すべて・森・（9 エリア）");
-            Assert.AreEqual("森", chips[1].text);
-            for (int i = 2; i < chips.Count; i++)
+            Assert.AreEqual(11, chips.Count, "すべて・まだ・森・（9 エリア）");
+            StringAssert.StartsWith("森 ", chips[2].text, "名前と、見つけた数");
+            for (int i = 3; i < chips.Count; i++)
             {
                 Assert.AreEqual("？？？", chips[i].text, $"{i} 番めのエリアの名前は出さない");
                 Assert.IsFalse(chips[i].enabledSelf, "えらべない");
@@ -425,8 +425,8 @@ namespace Shakutori.Tests
             UI.SelectTab("zukan");
             yield return Frames(2);
             chips = UI.Root.Query<Button>(className: "zukan-filter").ToList();
-            Assert.AreEqual("公園", chips[3].text);
-            Assert.IsTrue(chips[3].enabledSelf);
+            StringAssert.StartsWith("公園 ", chips[4].text);
+            Assert.IsTrue(chips[4].enabledSelf);
             UI.SelectSpecies("crow");
             Assert.AreEqual("すみか：森・公園・？？？", UI.ZukanHabitatText);
             UI.ShowCollection(false);

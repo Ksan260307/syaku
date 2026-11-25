@@ -16,15 +16,84 @@ namespace Shakutori
         /// <summary>地図・図鑑・ポーズなどの画面が開いているか（GameManager が毎フレーム入れる）。開いている間のホイールやピンチは、画面のスクロールのためのもの。</summary>
         public static bool OverlayOpen { get; set; }
         /// <summary>カメラの拡大・縮小に使う量（画面が開いている間は 0：地図や図鑑のスクロールで、カメラが動かない）。</summary>
-        public static float CameraZoom => OverlayOpen ? 0f : Zoom;
+        public static float CameraZoom => OverlayOpen ? 0f : SaveSystem.Settings.invertZoom ? -Zoom : Zoom;   // 設定で、ズームの向きを逆に
         public static bool Sprint { get; private set; }
         public static bool SilkPressed { get; private set; }
         public static bool SilkHeld { get; private set; }
         public static bool StandHeld { get; private set; }
         public static bool PausePressed { get; private set; }
         public static bool MapPressed { get; private set; }
+
+        /// <summary>つないでいるゲームパッドの種類（ボタンの名前の出し方）："xbox"・"ps"・"switch"。</summary>
+        public static string PadStyle { get; private set; } = "xbox";
+
+        /// <summary>ゲームパッドの名前から、ボタンの名前の出し方を決める（PlayStation・Switch・そのほか）。</summary>
+        public static string StyleOf(string typeName, string displayName)
+        {
+            string n = ((typeName ?? "") + " " + (displayName ?? "")).ToLowerInvariant();
+            if (n.Contains("dualshock") || n.Contains("dualsense") || n.Contains("playstation") || n.Contains("wireless controller") || n.Contains("sony")) return "ps";
+            if (n.Contains("switch") || n.Contains("pro controller") || n.Contains("joy-con") || n.Contains("nintendo")) return "switch";
+            return "xbox";
+        }
+
+        static readonly System.Text.RegularExpressions.Regex PadToken = new System.Text.RegularExpressions.Regex(@"\b(LB|RB|LT|RT|View|Menu|A|B|X|Y)\b");
+
+        /// <summary>
+        /// Xbox の名前で書いたボタンを、いまのゲームパッドの名前にする（PlayStation は ×○□△・L1/R1/L2/R2、
+        /// Switch は B/A/Y/X・L/R/ZL/ZR。ボタンの場所は同じ）。
+        /// </summary>
+        public static string PadLabel(string xbox) => PadLabel(xbox, PadStyle);
+
+        public static string PadLabel(string xbox, string style)
+        {
+            if (string.IsNullOrEmpty(xbox) || style == "xbox") return xbox;
+            return PadToken.Replace(xbox, m =>
+            {
+                string k = m.Value;
+                if (style == "ps")
+                    switch (k)
+                    {
+                        case "A": return "×";
+                        case "B": return "○";
+                        case "X": return "□";
+                        case "Y": return "△";
+                        case "LB": return "L1";
+                        case "RB": return "R1";
+                        case "LT": return "L2";
+                        case "RT": return "R2";
+                        case "View": return "SHARE";
+                        case "Menu": return "OPTIONS";
+                    }
+                else
+                    switch (k)
+                    {
+                        case "A": return "B";
+                        case "B": return "A";
+                        case "X": return "Y";
+                        case "Y": return "X";
+                        case "LB": return "L";
+                        case "RB": return "R";
+                        case "LT": return "ZL";
+                        case "RT": return "ZR";
+                        case "View": return "－";
+                        case "Menu": return "＋";
+                    }
+                return k;
+            });
+        }
         /// <summary>地図・図鑑で、前／次のページ（エリアの地図・図鑑のタブ）へ（PageUp / PageDown・LB / RB）。</summary>
         public static bool PrevTabPressed { get; private set; }
+        /// <summary>背伸びのボタンを押した瞬間（写真モードで、しゃくとりむしをかくすのに使う）。</summary>
+        public static bool StandPressed { get; private set; }
+        /// <summary>地図の拡大（＋）・縮小（－）のキーを押した（+1・-1。押していなければ 0）。</summary>
+        public static int MapZoomStep { get; private set; }
+        /// <summary>もどる（ゲームパッドの B・マウスの「もどる」ボタン・Backspace）：開いている画面をとじる。</summary>
+        public static bool BackPressed { get; private set; }
+        /// <summary>「はやく」「ねらう」を切りかえで入れている・ゆっくり歩きを L3 で入れている（画面に印を出す）。</summary>
+        public static bool SprintLatched => _sprintLatch && SaveSystem.Settings.sprintToggle;
+        public static bool AimLatched => _aimLatch && SaveSystem.Settings.aimToggle;
+        public static bool SlowLatched => _slowLatch;
+        static Gamepad _stylePad;
         public static bool NextTabPressed { get; private set; }
         public static bool HelpPressed { get; private set; }
         public static bool ConfirmPressed { get; private set; }
@@ -103,7 +172,9 @@ namespace Shakutori
 
             Vector2 move = Vector2.zero;
             bool sprint = false, silkP = false, silkH = false, stand = false, pause = false, map = false, help = false, confirm = false, any = false, book = false, aim = false, recenter = false, photo = false, slow = false;
-            bool prevTab = false, nextTab = false;
+            bool prevTab = false, nextTab = false, standP = false;
+            int zoomStep = 0;
+            bool back = false;
             if (kb != null)
             {
                 if (kb.wKey.isPressed || kb.upArrowKey.isPressed) move.y += 1f;
@@ -120,12 +191,16 @@ namespace Shakutori
                 silkP |= kb.spaceKey.wasPressedThisFrame;
                 silkH |= kb.spaceKey.isPressed;
                 stand |= kb.eKey.isPressed;
+                standP |= kb.eKey.wasPressedThisFrame;
                 aim |= kb.fKey.isPressed;
                 recenter |= kb.xKey.wasPressedThisFrame;
                 photo |= kb.f2Key.wasPressedThisFrame;
                 pause |= kb.escapeKey.wasPressedThisFrame || kb.pKey.wasPressedThisFrame;
                 map |= kb.mKey.wasPressedThisFrame || kb.tabKey.wasPressedThisFrame;
                 prevTab |= kb.pageUpKey.wasPressedThisFrame;
+                back |= kb.backspaceKey.wasPressedThisFrame;
+                if (kb.equalsKey.wasPressedThisFrame || kb.numpadPlusKey.wasPressedThisFrame || kb.semicolonKey.wasPressedThisFrame) zoomStep = 1;
+                if (kb.minusKey.wasPressedThisFrame || kb.numpadMinusKey.wasPressedThisFrame) zoomStep = -1;
                 nextTab |= kb.pageDownKey.wasPressedThisFrame;
                 help |= kb.hKey.wasPressedThisFrame;
                 book |= kb.bKey.wasPressedThisFrame || kb.cKey.wasPressedThisFrame;
@@ -142,6 +217,7 @@ namespace Shakutori
                 if (Mathf.Abs(wheel) > 0.01f) _zoomAccum += Mathf.Sign(wheel) * 0.6f;
                 // 右ボタンを押している間は、ねらいながらマウスで見まわせる
                 recenter |= mouse.middleButton.wasPressedThisFrame;
+                back |= mouse.backButton.wasPressedThisFrame;
                 if (mouse.rightButton.isPressed)
                 {
                     aim = true;
@@ -151,6 +227,11 @@ namespace Shakutori
             Vector2 padLook = Vector2.zero;
             if (pad != null)
             {
+                if (pad != _stylePad)
+                {
+                    _stylePad = pad;
+                    PadStyle = StyleOf(pad.GetType().Name, pad.displayName + " " + pad.description.product + " " + pad.description.manufacturer);
+                }
                 Vector2 ls = pad.leftStick.ReadValue();
                 if (ls.magnitude > 0.18f) { move += ls; UsingGamepad = true; }
                 // 十字キーでも進める
@@ -162,12 +243,14 @@ namespace Shakutori
                 silkP |= pad.buttonSouth.wasPressedThisFrame;
                 silkH |= pad.buttonSouth.isPressed;
                 stand |= pad.buttonNorth.isPressed;
+                standP |= pad.buttonNorth.wasPressedThisFrame;
                 aim |= pad.leftTrigger.isPressed;
                 recenter |= pad.rightStickButton.wasPressedThisFrame;
                 if (pad.leftStickButton.wasPressedThisFrame) _slowLatch = !_slowLatch;   // L3 で、ゆっくり歩きを切りかえ
                 pause |= pad.startButton.wasPressedThisFrame;
                 map |= pad.selectButton.wasPressedThisFrame;
                 prevTab |= pad.leftShoulder.wasPressedThisFrame;
+                back |= pad.buttonEast.wasPressedThisFrame;
                 nextTab |= pad.rightShoulder.wasPressedThisFrame;
                 book |= pad.buttonWest.wasPressedThisFrame;
                 confirm |= pad.buttonSouth.wasPressedThisFrame;
@@ -214,6 +297,9 @@ namespace Shakutori
             PausePressed = pause;
             MapPressed = map;
             PrevTabPressed = prevTab;
+            StandPressed = standP;
+            MapZoomStep = zoomStep;
+            BackPressed = back;
             NextTabPressed = nextTab;
             HelpPressed = help;
             CollectionPressed = book;

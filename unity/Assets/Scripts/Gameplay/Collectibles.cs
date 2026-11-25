@@ -233,7 +233,9 @@ namespace Shakutori
                 if (!float.IsFinite(d.squash) || !float.IsFinite(d.squashVel)) d.squash = d.squashVel = 0f;
                 float jiggle = d.squash;
                 float glint = Mathf.Pow(Mathf.Max(0f, Mathf.Sin(t * 0.7f + d.phase * 3.7f)), 40f) * 0.25f;
-                float pulse = 1f + Mathf.Sin(t * 3.1f + d.phase) * 0.06f + glint;
+                // カメラから少しはなれたしずくは、少し大きく（遠くからでも見つけやすい。近くでは、いつもの大きさ）
+                float far = camOk ? Mathf.InverseLerp(10f, 35f, (d.basePos - camPos).magnitude) : 0f;
+                float pulse = (1f + Mathf.Sin(t * 3.1f + d.phase) * 0.06f + glint) * (1f + 0.35f * far);
                 d.tr.localScale = new Vector3(1f + jiggle, 1f - jiggle, 1f + jiggle) * dropScale * pulse;
             }
             if (!Active) return;

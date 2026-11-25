@@ -32,6 +32,7 @@ namespace Shakutori
         float _restPitch = 20f, _restDistance = 3.6f, _movedFor;
         public bool ShowingView => _viewHold || _viewEase;
         float _currentDist;
+        float _zoomDist = -1f;   // ズームを、なめらかに（distance へ少しずつ近づく）
         float _sinceManual = 10f;
         bool _init;
         Camera _cam;
@@ -146,8 +147,9 @@ namespace Shakutori
             }
             else if (Time.timeScale > 0f)
             {
-                if (GameInput.RecenterPressed) Recenter();
-                Vector2 look = GameInput.Look;
+                if (GameInput.RecenterPressed && !GameInput.OverlayOpen) Recenter();
+                // 地図・図鑑・メニューを開いている間は、うしろのカメラは回さない（右スティックは、地図を動かすのに使う）
+                Vector2 look = GameInput.OverlayOpen ? Vector2.zero : GameInput.Look;
                 if (look.sqrMagnitude > 0.0001f)
                 {
                     yaw += look.x * 0.25f;
@@ -249,7 +251,10 @@ namespace Shakutori
             Quaternion rot = Quaternion.Euler(pitch, yaw, 0f);
             Vector3 back = rot * Vector3.back;
 
-            float baseDist = Mathf.Lerp(distance, Mathf.Min(distance, 2.2f), _aimBlend);
+            // ホイール・ピンチのズームは、少しずつ（いきなり近づかない）
+            if (snap || _zoomDist < 0f) _zoomDist = distance;
+            else _zoomDist = Mathf.Lerp(_zoomDist, distance, ShakuMath.DampFactor(10f, dt));
+            float baseDist = Mathf.Lerp(_zoomDist, Mathf.Min(_zoomDist, 2.2f), _aimBlend);
             float d = baseDist;
             if (Physics.SphereCast(_focus, 0.1f, back, out var hit, baseDist, ShakuConst.SurfaceMask, QueryTriggerInteraction.Ignore))
                 d = Mathf.Max(0.35f, hit.distance - 0.05f);

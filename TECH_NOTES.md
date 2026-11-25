@@ -180,6 +180,18 @@ Unity 側で毎フレームこの曲線に沿って曲げています（`Inchwor
 映像にかくれて見えないのに毎フレーム描いていたので、映像がかくかくしていました（ヘッドレスの Chrome で、タイトルの間 22〜30 fps → 100 fps 以上）。
 ゲームを始めるときは、画面が暗いあいだに映像を止めて、エリアをまた描きます（エリアを作りなおす前に）。
 
+## 遊びやすさのしくみ（`GameUI`・`GameInput`・`SaveSystem`）
+
+- 大きな地図の拡大は、地図の要素を大きくするのではなく、地図の絵の `background-size`・`background-position` と、印の場所（`MapToScreen`：地図の uv →（uv − 左上）× 拡大 × 大きさ）で表します（印の字の大きさはかわらない）。
+  タップは `ScreenToMap` でもどし、ドラッグしたあとのクリックは移動にしません（`_mapDragged`）。地図・図鑑・メニューを開いている間は、`FollowCamera` は `GameInput.Look` を使わず、地図を動かすのに使います。
+- おしらせは、遊んでいる所のできごと（`toast--world`）と、画面でした操作への返事（`UiToast`）に分け、画面が開いている間は前のものだけかくします。同じ文が 2 秒以内に来たら、ふやしません。出た文は `ToastHistory`（きろく）に。
+- ゲームパッドのボタンの名前は、Xbox の名前で書いておき、`GameInput.PadLabel` で、つないでいるゲームパッド（`StyleOf`：型と名前から PlayStation・Switch・そのほか）の名前にかえます（操作説明・チュートリアルのカード・ヒント）。
+- 明るさ（設定）と写真モードのいろは、`GameManager.ApplyGrade` で、エリアの色の調整にたして、ポストエフェクトのコピーに入れます（`ui.SettingsApplied` で入れなおす）。
+- 写真は `Camera.Render` で RenderTexture にかいて PNG にし（UI は入らない）、ブラウザでは `ShakuDownloadPng`（jslib）でダウンロード、エディタ・PC では `persistentDataPath/photos` へ。
+- 記録のファイル：`SaveSystem.Export`（`app = "shakutori-save"` の目じるしつき JSON）と `Import`（目じるしがない・新しすぎる版は読みこまない）。ブラウザでは `ShakuDownloadText`・`ShakuPickTextFile`（えらんだファイルの中身を `Game.OnSaveFile` へ）。
+  読みこむときと、ふつうに読みこむときは `SanitizeData`（重複・マイナスの数・知らないエリア・NaN の場所を直す）。`JsonUtility` は入れ子のクラスを null にせず作るので、目じるしは初めは空にしてあります。
+- いきものの声の字幕は、`AudioManager.Heard`（声を鳴らすときの文と大きさ）を `GameUI` が受けて出します。`AudioManager.MenuOpen`（BGM を小さく）・`Muffled`（泳いでいる間の LowPass）は `GameManager` が毎フレーム入れます。
+
 ## スマホ・タブレット
 - タッチされたら画面のボタンとフローティングスティックを表示（`GameUI.cs`）。スマホでは UI の基準解像度を下げて大きく表示
 - 縦長・横長の画面に合わせてレイアウトを切り替え（USS の `.portrait` / `.short` / `.compact`）

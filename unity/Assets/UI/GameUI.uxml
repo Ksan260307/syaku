@@ -151,6 +151,7 @@
                     <ui:Button name="btn-continue" text="つづきから" class="btn btn-primary btn-large" />
                     <ui:Button name="btn-new" text="はじめから" class="btn btn-large" />
                     <ui:Button name="btn-howto" text="あそびかた" class="btn" />
+                    <ui:Button name="btn-settings" text="せってい" class="btn btn-small-title" />
                     <ui:Button name="btn-credits" text="クレジット" class="btn btn-small-title" />
                 </ui:VisualElement>
                 <ui:Label name="title-progress" text="" class="title-progress" picking-mode="Ignore" />
@@ -202,16 +203,35 @@
                     <ui:Toggle name="set-sprinttoggle" label="「はやく」を押すたびに切りかえる" />
                     <ui:Toggle name="set-aimtoggle" label="「ねらう」を押すたびに切りかえる" />
                     <ui:Toggle name="set-wallup" label="壁では、スティックの上で登る" />
+                    <ui:Toggle name="set-invertzoom" label="ホイール・ピンチのズームを逆にする" />
+                    <ui:Button name="camera-reset" text="カメラの距離を、はじめにもどす" class="btn btn-small" />
+                    <ui:Label text="タッチ" class="settings-head" picking-mode="Ignore" />
+                    <ui:VisualElement class="quality-row">
+                        <ui:Label text="ボタン" class="quality-label" picking-mode="Ignore" />
+                        <ui:Button name="ts-normal" text="ふつう" class="chip" />
+                        <ui:Button name="ts-large" text="大きい" class="chip" />
+                    </ui:VisualElement>
+                    <ui:Toggle name="set-lefthand" label="左きき（スティックを右に）" />
+                    <ui:Toggle name="set-taptowalk" label="地面をタップして歩く" />
                     <ui:Toggle name="set-help" label="操作説明を表示する" />
                     <ui:Label text="音" class="settings-head" picking-mode="Ignore" />
+                    <ui:Slider name="set-master" label="全体の音量" low-value="0" high-value="1" value="1" />
                     <ui:Slider name="set-music" label="BGM の音量" low-value="0" high-value="1" value="0.55" />
                     <ui:Slider name="set-sfx" label="効果音の音量" low-value="0" high-value="1" value="0.8" />
                     <ui:Slider name="set-ambience" label="環境音の音量" low-value="0" high-value="1" value="0.8" />
+                    <ui:Toggle name="set-captions" label="いきものの声を字幕で出す" />
                     <ui:Label text="表示と保存" class="settings-head" picking-mode="Ignore" />
                     <ui:VisualElement class="quality-row">
                         <ui:Label text="画質" class="quality-label" picking-mode="Ignore" />
                         <ui:Button name="q-low" text="かるい" class="chip" />
                         <ui:Button name="q-high" text="きれい" class="chip" />
+                    </ui:VisualElement>
+                    <ui:Slider name="set-bright" label="明るさ" low-value="-1" high-value="1" value="0" />
+                    <ui:VisualElement class="quality-row mm-row">
+                        <ui:Label text="ミニマップ" class="quality-label" picking-mode="Ignore" />
+                        <ui:Button name="mm-small" text="小" class="chip" />
+                        <ui:Button name="mm-normal" text="ふつう" class="chip" />
+                        <ui:Button name="mm-large" text="大" class="chip" />
                     </ui:VisualElement>
                     <ui:VisualElement class="quality-row">
                         <ui:Label text="文字の大きさ" class="quality-label" picking-mode="Ignore" />
@@ -222,8 +242,11 @@
                     <ui:Toggle name="set-motion" label="画面のゆれをへらす" />
                     <ui:Toggle name="set-vibrate" label="スマホをふるわせる" />
                     <ui:Toggle name="set-observe" label="しぐさの観察を知らせる" />
+                    <ui:Toggle name="set-pauseblur" label="ほかのアプリを見ているときは止める" />
+                    <ui:Toggle name="set-longnotice" label="おしらせを長めに出す" />
                     <ui:Button name="reset-settings" text="設定を最初にもどす" class="btn btn-small" />
                 </ui:ScrollView>
+                <ui:Button name="settings-close" text="とじる" class="btn btn-primary settings-close" />
                 <ui:VisualElement class="row-buttons">
                     <ui:Button name="rescue" text="動けなくなったら" class="btn btn-small" />
                     <ui:Button name="photo" text="写真モード" class="btn btn-small" />
@@ -316,6 +339,11 @@
         </ui:VisualElement>
 
         <ui:Label name="photo-hint" text="写真モード（F2 / 画面をタップでもどる）" class="photo-hint hidden" picking-mode="Ignore" />
+        <ui:VisualElement name="photo-bar" class="photo-bar hidden">
+            <ui:Button name="photo-shot" text="とる" class="btn photo-btn photo-btn-main" />
+            <ui:Button name="photo-filter" text="いろ：ふつう" class="btn photo-btn" />
+            <ui:Button name="photo-worm" text="むしをかくす" class="btn photo-btn" />
+        </ui:VisualElement>
 
         <!-- ===== クリア ===== -->
         <ui:VisualElement name="complete-overlay" class="overlay hidden">

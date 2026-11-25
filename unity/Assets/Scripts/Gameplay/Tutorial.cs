@@ -263,6 +263,13 @@ namespace Shakutori
         /// <summary>押すボタン（キーの形で、カードにならべる）と、押すとどうなるか（device は "kb"・"pad"・"touch"）。</summary>
         public static (string[] keys, string action) Keys(Step s, string device)
         {
+            var (keys, action) = KeysXbox(s, device);
+            if (device == "pad") keys = System.Array.ConvertAll(keys, GameInput.PadLabel);   // PlayStation・Switch のボタンの名前に
+            return (keys, action);
+        }
+
+        static (string[] keys, string action) KeysXbox(Step s, string device)
+        {
             bool pad = device == "pad", touch = device == "touch";
             string[] move = pad ? new[] { "L スティック" } : touch ? new[] { "左がわをドラッグ" } : new[] { "W", "A", "S", "D" };
             switch (s)

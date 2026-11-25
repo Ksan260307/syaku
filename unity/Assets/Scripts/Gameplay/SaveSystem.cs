@@ -32,6 +32,24 @@ namespace Shakutori
         public int silkUses;
         public int falls;
         public float highest = -999f;
+        public int swims;                                          // 水に落ちて泳いだ回数
+        public int travels;                                        // 地図・図鑑から名所へ移動した回数
+        public int rescues;                                        // 「動けなくなったら」でもどった回数
+        public int photos;                                         // 写真モードでとった写真の数
+        public string firstDay = "";                               // はじめて遊んだ日（yyyy-MM-dd）
+        public string lastDay = "";                                // さいごに遊んだ日
+        public int playDays;                                       // 遊んだ日数
+
+        /// <summary>今日も遊んだことを記録する（遊んだ日数・はじめて遊んだ日）。新しい日なら true。</summary>
+        public bool MarkPlayDay(DateTime now)
+        {
+            string today = now.ToString("yyyy-MM-dd");
+            if (string.IsNullOrEmpty(firstDay)) firstDay = today;
+            if (lastDay == today) return false;
+            lastDay = today;
+            playDays++;
+            return true;
+        }
     }
 
     [Serializable]
@@ -57,6 +75,18 @@ namespace Shakutori
         public bool wallStickUp;      // 壁では、カメラの向きに関係なく、スティックの上で登る
         public float cameraDistance;  // 0 = 最初の距離
         public bool observeNotice = true;   // しぐさを観察したことを、画面の上に知らせる（つづけて見つけたときは、まとめて 1 回）
+        public float master = 1f;           // 全体の音量
+        public float brightness;            // 画面の明るさ（-1〜1。0 = ふつう）
+        public int minimapSize = 1;         // ミニマップの大きさ（0 = 小さい, 1 = ふつう, 2 = 大きい）
+        public bool captions;               // いきものの声を、字幕で出す
+        public bool invertZoom;             // ホイール・ピンチのズームの向きを逆に
+        public int touchSize;               // タッチのボタンの大きさ（0 = ふつう, 1 = 大きい）
+        public bool leftHanded;             // 左きき：タッチのスティックを右、ボタンを左に
+        public bool tapToWalk = true;       // 地面をタップすると、そこまで歩く（タッチ）
+        public bool pauseOnBlur = true;     // ほかのアプリを見ているときは、止める
+        public string zukanFilter = "";     // 図鑑のしぼりこみ（つぎに開いたときも同じ）
+        public bool longNotices;            // おしらせを長めに出す（ゆっくり読める）
+        public int newsSeen;                // 「あたらしくなったこと」を見た版
     }
 
     /// <summary>
@@ -104,6 +134,7 @@ namespace Shakutori
                 if (!TryRead(SaveKey, out var data) && !TryRead(BackupKey, out data)) data = null;
                 _data = data ?? new SaveData();
                 Migrate(_data);
+                SanitizeData(_data);
                 HasSave = data != null && (_data.hasPosition || _data.drops.Count > 0 || _data.places.Count > 0 || _data.creatures.Count > 0);
                 if (PlayerPrefs.HasKey(SettingsKey))
                     _settings = JsonUtility.FromJson<SettingsData>(PlayerPrefs.GetString(SettingsKey)) ?? new SettingsData();
@@ -209,9 +240,104 @@ namespace Shakutori
             s.cameraDistance = float.IsFinite(s.cameraDistance) && s.cameraDistance > 0f ? Mathf.Min(s.cameraDistance, 50f) : 0f;
             if (s.quality < -1 || s.quality > 1) s.quality = -1;
             if (s.textSize < 0 || s.textSize > 1) s.textSize = 0;
+            s.master = Fix(s.master, 0f, 1f, d.master);
+            s.brightness = Fix(s.brightness, -1f, 1f, d.brightness);
+            if (s.minimapSize < 0 || s.minimapSize > 2) s.minimapSize = 1;
+            if (s.touchSize < 0 || s.touchSize > 1) s.touchSize = 0;
         }
 
         static float Fix(float v, float lo, float hi, float def) => float.IsFinite(v) ? Mathf.Clamp(v, lo, hi) : def;
+
+        /// <summary>
+        /// 読みこんだ記録をととのえる：同じものが 2 回入っていたら 1 つに、数はマイナスにしない、いまいるエリアが分からなければ森、
+        /// しゃくとりむしの場所がこわれていたら（NaN）、場所はわすれて、エリアのはじまりから。
+        /// </summary>
+        public static void SanitizeData(SaveData d)
+        {
+            void Dedupe<T>(List<T> list)
+            {
+                if (list == null) return;
+                var seen = new HashSet<T>();
+                list.RemoveAll(x => !seen.Add(x));
+            }
+            d.drops ??= new List<int>();
+            d.places ??= new List<int>();
+            d.creatures ??= new List<string>();
+            d.seenCreatures ??= new List<string>();
+            d.visited ??= new List<string>();
+            d.completedAreas ??= new List<string>();
+            d.tipsShown ??= new List<string>();
+            d.habitats ??= new List<string>();
+            d.notes ??= new List<CreatureNote>();
+            Dedupe(d.drops);
+            Dedupe(d.places);
+            Dedupe(d.creatures);
+            Dedupe(d.seenCreatures);
+            Dedupe(d.visited);
+            Dedupe(d.completedAreas);
+            d.steps = Mathf.Max(0, d.steps);
+            d.silkUses = Mathf.Max(0, d.silkUses);
+            d.falls = Mathf.Max(0, d.falls);
+            d.swims = Mathf.Max(0, d.swims);
+            d.travels = Mathf.Max(0, d.travels);
+            d.rescues = Mathf.Max(0, d.rescues);
+            d.photos = Mathf.Max(0, d.photos);
+            d.playDays = Mathf.Max(0, d.playDays);
+            d.legacyDrops = Mathf.Max(0, d.legacyDrops);
+            if (!float.IsFinite(d.playTime) || d.playTime < 0f) d.playTime = 0f;
+            if (!float.IsFinite(d.highest)) d.highest = -999f;
+            if (string.IsNullOrEmpty(d.area) || Areas.Get(d.area) == null || Areas.Get(d.area).Id != d.area) d.area = "forest";
+            bool Ok(Vector3 v) => float.IsFinite(v.x) && float.IsFinite(v.y) && float.IsFinite(v.z);
+            if (d.hasPosition && !(Ok(d.tail) && Ok(d.head) && Ok(d.tailNormal) && Ok(d.headNormal))) d.hasPosition = false;
+        }
+
+        /// <summary>記録のファイルの目じるし（ほかのファイルを読みこまないように）。</summary>
+        const string ExportMark = "shakutori-save";
+
+        [Serializable]
+        class ExportFile
+        {
+            public string app = "";   // 書き出すときに ExportMark を入れる（ほかの JSON を読みこまないように、初めは空）
+            public int version = SaveData.CurrentVersion;
+            public string saved = "";
+            public SaveData data;
+        }
+
+        /// <summary>いまの記録を、ファイルに書き出す文字にする（JSON）。</summary>
+        public static string Export() => JsonUtility.ToJson(new ExportFile { app = ExportMark, data = Data, saved = DateTime.Now.ToString("yyyy-MM-dd HH:mm") }, true);
+
+        /// <summary>
+        /// 書き出したファイルの文字から、記録を読みこむ。しゃくとりの森の記録でなければ、読みこまずに false（いまの記録は、そのまま）。
+        /// </summary>
+        public static bool Import(string text, out string error)
+        {
+            error = null;
+            ExportFile f = null;
+            try { f = string.IsNullOrEmpty(text) ? null : JsonUtility.FromJson<ExportFile>(text); }
+            catch (Exception) { f = null; }
+            if (f == null || f.app != ExportMark || f.data == null)
+            {
+                error = "しゃくとりの森の記録のファイルではありません";
+                return false;
+            }
+            if (f.version > SaveData.CurrentVersion)
+            {
+                error = "新しいバージョンの記録なので、読みこめません";
+                return false;
+            }
+            EnsureLoaded();
+            Migrate(f.data);
+            SanitizeData(f.data);
+            _data = f.data;
+            Practice = false;
+            Save();
+            HasSave = true;
+            return true;
+        }
+
+        /// <summary>ブラウザへの保存に失敗した（容量がいっぱい など）。1 回のプレイで 1 度だけ知らせる。</summary>
+        public static event Action SaveFailed;
+        static bool _failNotified;
 
         /// <summary>
         /// 練習中（チュートリアルの練習の森）：進み具合は、ブラウザに書かない（メモリの中だけ。練習が終わったら消す）。設定は、いつもどおり書く。
@@ -261,6 +387,11 @@ namespace Shakutori
             catch (Exception e)
             {
                 Debug.LogWarning("[Save] 保存に失敗しました: " + e.Message);
+                if (!_failNotified)
+                {
+                    _failNotified = true;
+                    SaveFailed?.Invoke();
+                }
             }
         }
 

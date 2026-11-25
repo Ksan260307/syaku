@@ -2946,3 +2946,218 @@
     height: 4px;
     background-color: rgba(110, 175, 70, 0.85);
 }
+
+/* 図鑑のカード：しぐさの観察の数（●●○） */
+.zukan-card-stamps {
+    position: absolute;
+    right: 4px;
+    top: 2px;
+    font-size: 10px;
+    color: rgb(200, 150, 60);
+    letter-spacing: -1px;
+}
+
+/* ===== タイトルの「せってい」：メニューを、設定だけで ===== */
+.settings-close {
+    display: none;
+}
+
+.pause--title .settings-close {
+    display: flex;
+    margin-top: 8px;
+}
+
+.pause--title #pause-summary,
+.pause--title #resume,
+.pause--title #tutorial-end,
+.pause--title .row-buttons {
+    display: none;
+}
+
+/* ===== タッチ：大きなボタン・左きき ===== */
+.touch--large .touch-buttons {
+    scale: 1.22 1.22;
+    transform-origin: right bottom;
+}
+
+.touch--left .move-zone {
+    left: auto;
+    right: 0;
+}
+
+.touch--left .joystick {
+    left: auto;
+    right: 70px;
+}
+
+.touch--left .touch-buttons {
+    right: auto;
+    left: 60px;
+    flex-direction: row-reverse;
+}
+
+.touch--left.touch--large .touch-buttons {
+    transform-origin: left bottom;
+}
+
+.touch--left .touch-button {
+    margin-left: 0;
+    margin-right: 18px;
+}
+
+.legend-info {
+    font-size: 15px;
+    color: rgb(110, 90, 60);
+    -unity-font-style: bold;
+    margin: 2px 4px 6px 4px;
+}
+
+/* いきものの声の字幕（画面の下のまん中、操作のヒントより上） */
+.caption {
+    position: absolute;
+    bottom: 176px;
+    left: 20%;
+    right: 20%;
+    -unity-text-align: middle-center;
+    font-size: 18px;
+    color: rgb(255, 250, 235);
+    -unity-font-style: bold;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    white-space: normal;
+    opacity: 0;
+    transition-property: opacity;
+    transition-duration: 0.3s;
+}
+
+.caption--show {
+    opacity: 1;
+}
+
+/* ===== 写真モードのボタン ===== */
+.photo-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 52px;
+    flex-direction: row;
+    justify-content: center;
+}
+
+.photo-btn {
+    width: auto;
+    min-width: 120px;
+    height: 46px;
+    margin: 0 6px;
+    padding: 0 14px;
+    font-size: 17px;
+    opacity: 0.88;
+}
+
+.photo-btn-main {
+    min-width: 140px;
+    background-color: rgb(244, 205, 110);
+}
+
+/* 切りかえで入れている動き・おまかせ歩きの印（上のまん中。左下の操作説明に重ならない） */
+.modes {
+    position: absolute;
+    top: 10px;
+    align-self: center;
+    font-size: 15px;
+    color: rgb(255, 245, 215);
+    -unity-font-style: bold;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+    background-color: rgba(28, 40, 34, 0.45);
+    border-radius: 10px;
+    padding: 3px 10px;
+    display: none;
+}
+
+.modes--show {
+    display: flex;
+}
+
+/* 図鑑の絵：タップで大きく */
+.zukan-img--big {
+    width: 360px;
+    height: 360px;
+    max-width: 100%;
+}
+
+/* タッチのボタン：しばらくさわらないと、うすく */
+.touch-buttons {
+    transition-property: opacity;
+    transition-duration: 0.6s;
+}
+
+.touch--idle .touch-buttons {
+    opacity: 0.45;
+}
+
+/* ミニマップの大きさ：3 つのボタンが、せまい画面でもはみ出さない */
+.mm-row .chip {
+    min-width: 64px;
+}
+
+/* きろく：記録のファイル（書き出す・読みこむ） */
+.record-io {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.record-io .btn {
+    margin: 4px 6px;
+}
+
+.record-head {
+    width: 100%;
+    font-size: 19px;
+    -unity-font-style: bold;
+    color: rgb(110, 90, 60);
+    margin: 10px 4px 4px 4px;
+}
+
+/* めぐり終えたエリアのボタン：金色のふち */
+.area-chip--done {
+    border-color: rgb(232, 182, 60);
+}
+
+/* おまかせ歩きの行き先 */
+.map-walk-goal {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    border-width: 3px;
+    border-color: rgba(255, 220, 110, 0.95);
+    background-color: rgba(255, 220, 110, 0.25);
+}
+
+.mm-row {
+    flex-wrap: wrap;
+}
+
+.photo-bar {
+    flex-wrap: wrap;
+    padding: 0 8px;
+}
+
+.portrait .photo-btn,
+.compact .photo-btn {
+    min-width: 84px;
+    padding: 0 8px;
+    margin: 3px 4px;
+    font-size: 15px;
+}
+
+.skin-next {
+    width: 100%;
+    font-size: 16px;
+    color: rgb(110, 90, 60);
+    -unity-font-style: bold;
+    white-space: normal;
+    margin: 4px 0 8px 0;
+    padding: 0 6px;
+}

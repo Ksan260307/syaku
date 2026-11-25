@@ -36,4 +36,52 @@ mergeInto(LibraryManager.library, {
   ShakuVibrate: function (ms) {
     try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { }
   },
+
+  // 記録をファイルに書き出す（テキスト）
+  ShakuDownloadText: function (textPtr, namePtr) {
+    try {
+      var blob = new Blob([UTF8ToString(textPtr)], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = UTF8ToString(namePtr);
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
+    } catch (e) { }
+  },
+
+  // 記録のファイルをえらんで読みこむ（読めたら Game.OnSaveFile に中身を送る）
+  ShakuPickTextFile: function () {
+    try {
+      var input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".json,application/json,text/plain";
+      input.style.display = "none";
+      input.onchange = function () {
+        var f = input.files && input.files[0];
+        if (!f) { input.remove(); return; }
+        var r = new FileReader();
+        r.onload = function () { try { SendMessage("Game", "OnSaveFile", String(r.result)); } catch (e) { } input.remove(); };
+        r.readAsText(f);
+      };
+      document.body.appendChild(input);
+      input.click();
+    } catch (e) { }
+  },
+
+  // 写真モードでとった絵を、ブラウザのダウンロードで保存する（PNG）
+  ShakuDownloadPng: function (ptr, len, namePtr) {
+    try {
+      var bytes = HEAPU8.slice(ptr, ptr + len);
+      var blob = new Blob([bytes], { type: "image/png" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = UTF8ToString(namePtr);
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
+    } catch (e) { }
+  },
 });

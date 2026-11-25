@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -60,7 +61,7 @@ namespace Shakutori.Tests
             yield return Frames(3);
             Assert.AreEqual(1f, UI.MapZoom, 1e-4f, "開いたときは、ぜんぶ見える");
             Assert.AreEqual(4, UI.MapTakenCount, "集めたしずくの場所に点");
-            StringAssert.Contains("いきもの", UI.Root.Q<Label>("map-summary").text, "このエリアのいきものの数");
+            StringAssert.StartsWith("いきもの ", UI.Root.Q<Label>("map-creatures").text, "このエリアのいきものの数");
             Assert.AreEqual(1, UI.AreaChipBarCount, "行ったことのあるエリアのボタンに、達成の棒");
             // 拡大すると、まん中が動かずに大きくなり、ドラッグのかわりに動かせる。拡大は 3 倍まで
             UI.SetMapZoom(2f);
@@ -91,6 +92,51 @@ namespace Shakutori.Tests
             Assert.IsTrue(UI.CycleAreaMap(1));
             Assert.AreEqual("forest", UI.MapShowing, "まわって、もどる");
             UI.ShowMap(false);
+        }
+
+        [UnityTest]
+        public IEnumerator Zukan_CountsUnfoundFilterStampsNewFirstSkinProgressRecordsAndTabs()
+        {
+            var ant = SpeciesCatalog.Get("ant");
+            GM.creatures.Discover(ant);
+            var unseen = SaveSystem.Data.creatures.Where(id => !SaveSystem.Data.seenCreatures.Contains(id)).ToList();
+            UI.ShowCollection(true, "zukan");
+            yield return Frames(3);
+            CollectionAssert.Contains(unseen, UI.SelectedSpecies, "NEW のいきものを先に見せる");
+            var chips = UI.Root.Query<Button>(className: "zukan-filter").ToList();
+            StringAssert.StartsWith("すべて ", chips[0].text);
+            StringAssert.Contains("/", chips[0].text, "見つけた数 / いる数");
+            StringAssert.StartsWith("まだ ", chips[1].text);
+            UI.SetZukanFilter(GameUI.Unfound);
+            yield return Frames(2);
+            Assert.IsFalse(UI.ZukanCardIds.Contains("ant"), "「まだ」には、見つけたいきものは出ない");
+            Assert.Greater(UI.ZukanCardIds.Count, 10);
+            UI.SetZukanFilter("");
+            yield return Frames(2);
+            Assert.IsNotNull(UI.Root.Q(className: "zukan-card-stamps"), "見つけたいきものに、しぐさの点");
+            // きせかえ：まだ使えないものには、いまの数
+            var locked = Skins.All.First(sk => !Skins.IsUnlocked(sk, ProgressStats.FromSave()) && !sk.needAll);
+            StringAssert.StartsWith("（いま ", GameUI.SkinProgress(locked, ProgressStats.FromSave()));
+            // きろく：あたらしい数
+            SaveSystem.Data.swims = 2;
+            Assert.IsTrue(SaveSystem.Data.MarkPlayDay(new System.DateTime(2026, 11, 1)) || SaveSystem.Data.playDays > 0);
+            Assert.IsFalse(SaveSystem.Data.MarkPlayDay(new System.DateTime(2026, 11, 1, 20, 0, 0)), "同じ日は数えない");
+            int days = SaveSystem.Data.playDays;
+            Assert.IsTrue(SaveSystem.Data.MarkPlayDay(new System.DateTime(2026, 11, 2)));
+            Assert.AreEqual(days + 1, SaveSystem.Data.playDays);
+            // PageDown・RB で、きせかえ → きろく
+            UI.CycleCollectionTab(1);
+            Assert.AreEqual("skin", UI.CollectionTab);
+            UI.CycleCollectionTab(1);
+            Assert.AreEqual("record", UI.CollectionTab);
+            yield return Frames(2);
+            string records = string.Join("|", UI.Root.Q("record-list").Query<Label>().ToList().Select(l => l.text));
+            StringAssert.Contains("泳いだ回数|2 回", records);
+            StringAssert.Contains("森のいきもの", records);
+            StringAssert.Contains("遊んだ日", records);
+            UI.CycleCollectionTab(1);
+            Assert.AreEqual("zukan", UI.CollectionTab, "まわって、もどる");
+            UI.ShowCollection(false);
         }
 
         [UnityTest]
