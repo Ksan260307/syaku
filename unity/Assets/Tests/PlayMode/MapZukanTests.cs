@@ -51,6 +51,37 @@ namespace Shakutori.Tests
         }
 
         [UnityTest]
+        public IEnumerator WorldNotices_DoNotCoverTheOpenMap()
+        {
+            // 遊んでいる所のおしらせ（観察など）は、地図を開いている間はかくれて、地図にかぶさらない。地図でした操作への返事は出る
+            UI.ShowMap(true);
+            yield return Frames(2);
+            UI.Toast("かんさつ：テスト", "icon-book", 3f);
+            UI.UiToast("地図の返事", "icon-lock");
+            yield return Frames(3);
+            CollectionAssert.DoesNotContain(UI.VisibleToastTexts, "かんさつ：テスト", "地図の上に、観察のおしらせが出ない");
+            CollectionAssert.Contains(UI.VisibleToastTexts, "地図の返事", "地図の操作への返事は出る");
+            UI.ShowMap(false);
+            yield return Frames(3);
+            CollectionAssert.Contains(UI.VisibleToastTexts, "かんさつ：テスト", "地図をとじると、おしらせが見える");
+        }
+
+        [UnityTest]
+        public IEnumerator HidingThePage_WithTheMapOpen_ShowsOnlyTheMenu()
+        {
+            // 地図を開いたままタブを切りかえると、地図をとじてからメニューを出す（地図とメニューが重ならない）
+            UI.ShowMap(true);
+            yield return Frames(2);
+            GM.OnPageHidden();
+            yield return Frames(2);
+            Assert.IsTrue(UI.IsPauseOpen, "メニューが開く");
+            Assert.IsFalse(UI.IsMapOpen, "地図はとじる");
+            GM.OnPageVisible();
+            GM.Resume();
+            yield return Frames(2);
+        }
+
+        [UnityTest]
         public IEnumerator AreaButtons_SwitchTheMap_AndLandmarksThereTravel()
         {
             UI.ShowMap(true);

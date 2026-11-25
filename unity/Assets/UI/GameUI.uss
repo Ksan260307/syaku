@@ -331,6 +331,11 @@
     translate: 0 0;
 }
 
+/* 地図・図鑑・メニューが開いている間は、遊んでいる所のおしらせをかくす（開いた画面にかぶさらない） */
+.toasts--overlay .toast--world {
+    display: none;
+}
+
 .toast-label {
     margin-left: 8px;
     font-size: 21px;

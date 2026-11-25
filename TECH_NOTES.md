@@ -21,6 +21,7 @@ Unity 側で毎フレームこの曲線に沿って曲げています（`Inchwor
 砂・雪の足あと（`FX/Footprints.cs`）は、うすいかげ（`Shaders/Footprint.shader`：アルファ合成・頂点の色）をまとめた 1 つのメッシュです（加算の光の描き方では、地面を暗くできないため）。
 おまかせ歩き（`Gameplay/AutoWalk.cs`）は、行き先の向きを、カメラから見たスティックの向きにして `GameInput.AutoMove` に入れるだけで、ふつうの歩き方そのままで歩きます（自分でスティックを倒すと `GameInput.PlayerMove` でわかって、やめる）。
 地図・図鑑・ポーズの画面が開いている間は `GameInput.OverlayOpen` が立ち、ホイールやピンチは画面のスクロールにだけ使います（カメラは `GameInput.CameraZoom` を読むので、拡大・縮小しない）。
+おしらせ（`GameUI.Toast`）の置き場所は、地図などの画面より上にあるので、遊んでいる所のできごとのおしらせ（`toast--world`）は、画面が開いている間かくします（`toasts--overlay`）。地図・メニューでした操作への返事は `UiToast` で、画面の上にも出します。
 
 ## 絵づくり（`unity/Assets/Shaders`）
 - `ToonLit`: 2階調 + 柔らかい境界のトゥーン、青紫がかった影色、リムライト、アニメ風ハイライト、裏面法の輪郭線

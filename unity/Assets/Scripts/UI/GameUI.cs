@@ -267,6 +267,18 @@ namespace Shakutori
         public bool IsBannerVisible => _banner != null && _banner.ClassListContains("banner--show");
         public string BannerTitle => _bannerTitle != null ? _bannerTitle.text : "";
         public int ToastCount => _toasts != null ? _toasts.childCount : 0;
+        /// <summary>いま画面に見えているおしらせの文（地図などのうしろでかくれているものは、のぞく）。</summary>
+        public List<string> VisibleToastTexts
+        {
+            get
+            {
+                var list = new List<string>();
+                if (_toasts != null)
+                    foreach (var t in _toasts.Children())
+                        if (t.resolvedStyle.display != DisplayStyle.None) list.Add(t.Q<Label>(className: "toast-label")?.text ?? "");
+                return list;
+            }
+        }
         /// <summary>出ているおしらせの文（テスト用）。</summary>
         public List<string> ToastTexts
         {
@@ -578,7 +590,7 @@ namespace Shakutori
                 RefreshSettingsUI();
                 ApplySettings();
                 QualityChanged?.Invoke(SaveSystem.Settings.quality);
-                Toast("設定を最初の状態にもどしました", "icon-menu");
+                UiToast("設定を最初の状態にもどしました", "icon-menu");
             });
             // いきもののカードをタップすると、図鑑のそのいきもののページを開く
             _creatureCard.RegisterCallback<ClickEvent>(e =>
@@ -1055,6 +1067,9 @@ namespace Shakutori
 
         public void Toast(string text, string iconClass) => Toast(text, iconClass, 2.6f);
 
+        /// <summary>地図・図鑑・メニューでした操作への返事のおしらせ（開いている画面の上にも出す）。</summary>
+        public void UiToast(string text, string iconClass) => Toast(text, iconClass, 2.6f, true);
+
         /// <summary>一度だけ出すヒント（保存して、二度目は出さない）。出したら true。</summary>
         public bool Tip(string id, string text)
         {
@@ -1066,10 +1081,15 @@ namespace Shakutori
             return true;
         }
 
-        public void Toast(string text, string iconClass, float seconds)
+        /// <summary>
+        /// おしらせ。overOverlays でなければ、遊んでいる所のできごとのおしらせ（観察・なかよし など）で、
+        /// 地図・図鑑・メニューが開いている間はかくす（おしらせの場所は、開いた画面より上にあるので、画面にかぶさってしまう）。
+        /// </summary>
+        public void Toast(string text, string iconClass, float seconds, bool overOverlays = false)
         {
             var t = new VisualElement();
             t.AddToClassList("toast");
+            if (!overOverlays) t.AddToClassList("toast--world");
             t.pickingMode = PickingMode.Ignore;
             var icon = new VisualElement();
             icon.AddToClassList("icon");
@@ -2016,7 +2036,7 @@ namespace Shakutori
             bool here = area == MapArea;
             if (!here && !SaveSystem.Data.visited.Contains(areaId))
             {
-                Toast("まだ行ったことがない場所。木の根のトンネルを探そう", "icon-lock");
+                UiToast("まだ行ったことがない場所。木の根のトンネルを探そう", "icon-lock");
                 return false;
             }
             _viewArea = here ? null : area;
@@ -2456,7 +2476,7 @@ namespace Shakutori
                 }
                 _walkAsk = unknown;
                 _walkAskAt = Time.unscaledTime;
-                Toast(here ? "まだ見つけていない場所。もう一度タップすると、歩いて行くよ" : "まだ見つけていない場所。まずは歩いて行ってみよう", "icon-lock");
+                UiToast(here ? "まだ見つけていない場所。もう一度タップすると、歩いて行くよ" : "まだ見つけていない場所。まずは歩いて行ってみよう", "icon-lock");
             }
             return false;
         }
@@ -2549,7 +2569,7 @@ namespace Shakutori
             if (area == null || area.Id != areaId || area == MapArea) return false;
             if (!SaveSystem.Data.visited.Contains(areaId))
             {
-                Toast("まだ行ったことがない場所。木の根のトンネルを探そう", "icon-lock");
+                UiToast("まだ行ったことがない場所。木の根のトンネルを探そう", "icon-lock");
                 return false;
             }
             ShowMap(false);
@@ -2895,6 +2915,7 @@ namespace Shakutori
             UpdateTutorialGuide(playing);
             UpdateSleepLabel(playing);
             UpdatePendingTap();
+            _toasts.EnableInClassList("toasts--overlay", AnyOverlayOpen);   // 画面が開いている間は、遊んでいる所のおしらせをかくす
 
             // 縦向きのスマホでは、横向きをすすめる（数秒だけ）
             bool phonePortrait = _touchMode && IsPortrait && ScreenSize.x < ScreenSize.y * 0.75f;

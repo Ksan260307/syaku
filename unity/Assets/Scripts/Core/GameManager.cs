@@ -230,7 +230,7 @@ namespace Shakutori
             ui.SaveRequested += () =>
             {
                 SaveProgress();
-                ui.Toast("セーブしました", "icon-book");
+                ui.UiToast("セーブしました", "icon-book");
             };
             ShakuRegisterPageEvents();
             ui.ContinuePressed += () => StartGame(true);
@@ -660,6 +660,8 @@ namespace Shakutori
             State = GameState.Paused;
             worm.InputEnabled = false;
             ui.SetPhotoMode(false);
+            // 地図や図鑑が開いていたら、とじてからメニューを出す（タブを切りかえたときなど。画面が重なって、地図がきちんと見えない）
+            while (!ui.IsPauseOpen && ui.Back()) { }
             if (!ui.IsPauseOpen) ui.ShowPause(true);
             Time.timeScale = 0f;
             SaveProgress();
