@@ -52,9 +52,11 @@ namespace Shakutori.Tests
             Assert.AreEqual("", UI.CaptionText);
             AudioManager.Instance.Croak(0.6f);
             StringAssert.Contains("カエル", UI.CaptionText);
+            // 字幕を切ると、新しい声は出さない（森のカラスなどが鳴いても、かわらない）
             SaveSystem.Settings.captions = false;
-            yield return Seconds(2.8f);
-            Assert.AreEqual("", UI.CaptionText, "しばらくすると消える");
+            AudioManager.Instance.Squeak(0.8f);
+            StringAssert.DoesNotContain("ネズミ", UI.CaptionText);
+            yield return null;
             // ズームの向き
             s.invertZoom = true;
             GameInput.AddZoom(0.6f);
@@ -96,7 +98,10 @@ namespace Shakutori.Tests
             GM.CyclePhotoFilter();   // セピア
             yield return null;
             Assert.AreEqual(1, GM.PhotoFilter);
-            Assert.AreEqual(-100f, GM.PostSaturation, 1e-3f, "セピアは色をぬく");
+            Assert.IsTrue(GM.SepiaOn, "セピアは、茶色にそめる");
+            GM.CyclePhotoFilter();   // モノクロ
+            Assert.AreEqual(-100f, GM.PostSaturation, 1e-3f, "モノクロは色をぬく");
+            Assert.IsFalse(GM.SepiaOn);
             GM.TogglePhotoWorm();
             Assert.IsTrue(GM.PhotoWormHidden);
             foreach (var r in Worm.GetComponentsInChildren<Renderer>(true)) Assert.IsTrue(r.forceRenderingOff, "しゃくとりむしをかくす");
@@ -110,6 +115,7 @@ namespace Shakutori.Tests
             Assert.IsFalse(UI.IsPhotoMode);
             Assert.AreEqual(0, GM.PhotoFilter);
             Assert.AreEqual(sat, GM.PostSaturation, 1e-3f);
+            Assert.IsFalse(GM.SepiaOn);
             foreach (var r in Worm.GetComponentsInChildren<Renderer>(true)) Assert.IsFalse(r.forceRenderingOff);
         }
 

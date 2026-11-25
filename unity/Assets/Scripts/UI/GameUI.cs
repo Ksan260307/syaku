@@ -281,6 +281,7 @@ namespace Shakutori
         float _pinchStart, _pinchZoomStart;
         bool _mapDragged;
         VisualElement _mapTools, _mapHereButton, _bigmapView;
+        Button _mapZoomIn, _mapZoomOut;
         /// <summary>大きな地図の、集めたしずくの点の数（テスト用）。</summary>
         public int MapTakenCount => _bigmap != null ? _bigmap.Query(className: "map-taken").ToList().Count : 0;
         /// <summary>地図のエリアのボタンの、達成の棒の数（テスト用）。</summary>
@@ -1816,8 +1817,9 @@ namespace Shakutori
                     ("背伸び", "背伸びして見わたす"),
                     ("糸", "ボタンの字が、いま押すとできることに変わります。がけのふちで「糸でぶら下がる」・ぶら下がり中は「長押しでのぼる」・落ちている間は「糸でつかまる」・壁では「はなれる」（平らな所では、うすくなって使えません）"),
                     ("糸でねらう", "画面のまん中に糸を発射してたぐる"),
-                    ("地図ボタン", "地図・エリア移動"),
+                    ("地図ボタン", "地図・エリア移動（地図は 2 本指で拡大・ドラッグで移動・◎ でいまいる所へ）"),
                     ("本のボタン", "いきもの図鑑・きせかえ"),
+                    ("左上の数・場所の名前", "タップで「きろく」・地図"),
                 };
             else if (device == "pad")
                 items = new[]
@@ -1833,6 +1835,8 @@ namespace Shakutori
                     ("R スティック押しこみ", "カメラを後ろへもどす"),
                     ("X", "いきもの図鑑・きせかえ"),
                     ("View", "地図・エリア移動"),
+                    ("LB / RB（地図・図鑑）", "となりのエリアの地図・となりのタブへ"),
+                    ("B（地図・図鑑）", "とじる"),
                     ("Menu", "メニュー（設定）"),
                 };
             else
@@ -1883,14 +1887,17 @@ namespace Shakutori
                 if (_bookBadge != null) _bookBadge.style.display = DisplayStyle.None;
                 SelectTab(tab ?? _tab);
                 _tabs[_tab].Focus();
-                // まだ図鑑で見ていない（NEW の）いきものがいれば、いちばんあとに見つけたものを先に見せる
+                // まだ図鑑で見ていない（NEW の）いきものがいれば、いちばんあとに見つけたもののカードまでスクロールする
+                // （えらぶと「見た」ことになるので、えらぶのは、カードを押したとき）
                 if (_tab == "zukan")
                 {
                     var found = SaveSystem.Data.creatures;
                     for (int i = found.Count - 1; i >= 0; i--)
-                        if (_zukanCards.ContainsKey(found[i]) && !SaveSystem.Data.seenCreatures.Contains(found[i]))
+                        if (_zukanCards.TryGetValue(found[i], out var nc) && !SaveSystem.Data.seenCreatures.Contains(found[i]))
                         {
-                            SelectSpecies(found[i]);
+                            ZukanScrolledTo = found[i];
+                            var sv = _zukanGrid as ScrollView;
+                            sv?.schedule.Execute(() => { if (nc.panel != null) sv.ScrollTo(nc); }).StartingIn(30);
                             break;
                         }
                 }
@@ -2038,6 +2045,9 @@ namespace Shakutori
             }
             SelectSpecies(_selectedSpecies);
         }
+
+        /// <summary>図鑑を開いたときに、スクロールして見せた NEW のいきもの（テスト用）。</summary>
+        public string ZukanScrolledTo { get; private set; }
 
         /// <summary>図鑑にならんでいるカードのいきもの（テスト用）。</summary>
         public List<string> ZukanCardIds => _zukanCards.Keys.ToList();
@@ -2995,8 +3005,8 @@ namespace Shakutori
             _spreadDirty = true;
             if (_mapTools != null)
             {
-                _mapTools.Q<Button>("map-zoom-in")?.SetEnabled(_mapZoom < MapZoomMax - 0.01f);
-                _mapTools.Q<Button>("map-zoom-out")?.SetEnabled(_mapZoom > 1.01f);
+                _mapZoomIn?.SetEnabled(_mapZoom < MapZoomMax - 0.01f);
+                _mapZoomOut?.SetEnabled(_mapZoom > 1.01f);
             }
             LayoutBigMap();
         }
@@ -3031,8 +3041,8 @@ namespace Shakutori
                 _mapTools.Add(b);
                 return b;
             }
-            Tool("＋", "map-zoom-in", () => SetMapZoom(_mapZoom * 1.5f));
-            Tool("－", "map-zoom-out", () => SetMapZoom(_mapZoom / 1.5f));
+            _mapZoomIn = Tool("＋", "map-zoom-in", () => SetMapZoom(_mapZoom * 1.5f));
+            _mapZoomOut = Tool("－", "map-zoom-out", () => SetMapZoom(_mapZoom / 1.5f));
             _mapHereButton = Tool("◎", "map-here", CenterMapOnWorm);
             _bigmap.Add(_mapTools);
             _bigmapView = new VisualElement { pickingMode = PickingMode.Ignore };

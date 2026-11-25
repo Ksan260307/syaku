@@ -104,12 +104,14 @@
     }
 
     const buildUrl = "Build";
-    const loaderUrl = buildUrl + "/WebGLBuild.loader.js";
+    // ビルドごとにかわる印（ブラウザが、古いファイルと新しいファイルをまぜて読みこまない。build_webgl.ps1 が入れる）
+    const buildId = "?v=de1284d201a2";
+    const loaderUrl = buildUrl + "/WebGLBuild.loader.js" + buildId;
     const config = {
       arguments: [],
-      dataUrl: buildUrl + "/WebGLBuild.data.unityweb",
-      frameworkUrl: buildUrl + "/WebGLBuild.framework.js.unityweb",
-      codeUrl: buildUrl + "/WebGLBuild.wasm.unityweb",
+      dataUrl: buildUrl + "/WebGLBuild.data.unityweb" + buildId,
+      frameworkUrl: buildUrl + "/WebGLBuild.framework.js.unityweb" + buildId,
+      codeUrl: buildUrl + "/WebGLBuild.wasm.unityweb" + buildId,
       streamingAssetsUrl: "StreamingAssets",
       companyName: "Ksan",
       productName: "Shakutori no Mori",

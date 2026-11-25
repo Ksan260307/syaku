@@ -56,6 +56,13 @@ if (Test-Path $docs) { Remove-Item -Recurse -Force $docs }
 Copy-Item -Recurse $out $docs
 Get-ChildItem $docs -Directory | Where-Object { $_.Name -like "*DoNotShip" } | Remove-Item -Recurse -Force
 New-Item -ItemType File -Force (Join-Path $docs ".nojekyll") | Out-Null
+# ビルドごとの印を index.html に入れる（ブラウザのキャッシュで、古いファイルとまざって読みこみに失敗しないように）
+# プログラム（wasm）と、絵や音（data）のどちらがかわっても、印がかわる
+$ids = Get-ChildItem (Join-Path $docs "Build") | Where-Object { $_.Name -like "*.wasm*" -or $_.Name -like "*.data*" } | Sort-Object Name | ForEach-Object { (Get-FileHash $_.FullName -Algorithm SHA256).Hash }
+$buildId = (Get-FileHash -InputStream ([System.IO.MemoryStream]::new([System.Text.Encoding]::ASCII.GetBytes(($ids -join ""))))).Hash.Substring(0, 12).ToLower()
+$indexPath = Join-Path $docs "index.html"
+$html = [System.IO.File]::ReadAllText($indexPath)
+[System.IO.File]::WriteAllText($indexPath, $html.Replace("__BUILD_ID__", $buildId), (New-Object System.Text.UTF8Encoding($false)))
 python (Join-Path $root "tools/check_build.py") $docs
 if ($LASTEXITCODE -ne 0) { throw "ビルドの検査に失敗しました" }
 $size = (Get-ChildItem -Recurse $docs | Measure-Object -Property Length -Sum).Sum / 1MB

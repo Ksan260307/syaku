@@ -1549,6 +1549,8 @@ namespace Shakutori
 
         float _gradeExposure = float.NaN, _gradeContrast, _gradeSaturation, _gradeTemperature;
 
+        /// <summary>写真のセピア（チャンネルミキサー）が入っているか（テスト用）。</summary>
+        public bool SepiaOn => postVolume != null && postVolume.profile != null && postVolume.profile.TryGet<ChannelMixer>(out var m) && m.active;
         /// <summary>いまの画面の色のこさ（ポストエフェクト。テスト用）。</summary>
         public float PostSaturation => postVolume != null && postVolume.profile != null && postVolume.profile.TryGet<ColorAdjustments>(out var ca) ? ca.saturation.value : 0f;
         /// <summary>いまの画面の明るさの足し分（ポストエフェクト。テスト用）。</summary>
@@ -1576,8 +1578,17 @@ namespace Shakutori
                 // 写真モードのいろ：セピア・モノクロは色をぬき（セピアは茶色にそめる）、あざやかは色を強く
                 int pf = ui != null && ui.IsPhotoMode ? PhotoFilter : 0;
                 ca.contrast.Override(_gradeContrast + g.y + (pf == 3 ? 12f : pf != 0 ? 6f : 0f));
-                ca.saturation.Override(pf == 1 || pf == 2 ? -100f : _gradeSaturation + g.z + (pf == 3 ? 35f : 0f));
-                ca.colorFilter.Override(pf == 1 ? new Color(1f, 0.86f, 0.66f) : Color.white);
+                ca.saturation.Override(pf == 2 ? -100f : _gradeSaturation + g.z + (pf == 3 ? 35f : 0f));
+                ca.colorFilter.Override(Color.white);
+                // セピア：チャンネルミキサーで、昔の写真の茶色に（色のこさは、そのあとで決まるので、ここでは色をぬかない）
+                if (!profile.TryGet<ChannelMixer>(out var mix) && pf == 1) mix = profile.Add<ChannelMixer>(true);
+                if (mix != null)
+                {
+                    mix.active = pf == 1;
+                    mix.redOutRedIn.Override(39.3f); mix.redOutGreenIn.Override(76.9f); mix.redOutBlueIn.Override(18.9f);
+                    mix.greenOutRedIn.Override(34.9f); mix.greenOutGreenIn.Override(68.6f); mix.greenOutBlueIn.Override(16.8f);
+                    mix.blueOutRedIn.Override(27.2f); mix.blueOutGreenIn.Override(53.4f); mix.blueOutBlueIn.Override(13.1f);
+                }
             }
             if (wb != null) wb.temperature.Override(_gradeTemperature + g.w);
         }

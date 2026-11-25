@@ -99,10 +99,12 @@ namespace Shakutori.Tests
         {
             var ant = SpeciesCatalog.Get("ant");
             GM.creatures.Discover(ant);
-            var unseen = SaveSystem.Data.creatures.Where(id => !SaveSystem.Data.seenCreatures.Contains(id)).ToList();
             UI.ShowCollection(true, "zukan");
             yield return Frames(3);
-            CollectionAssert.Contains(unseen, UI.SelectedSpecies, "NEW のいきものを先に見せる");
+            string latestNew = SaveSystem.Data.creatures.Last(id => !SaveSystem.Data.seenCreatures.Contains(id));
+            Assert.AreEqual(latestNew, UI.ZukanScrolledTo, "さいごに見つけた NEW のいきもののカードまでスクロール");
+            Assert.IsTrue(UI.HasNewBadge(latestNew), "えらぶまでは NEW のまま");
+            UI.SelectSpecies("ant");
             var chips = UI.Root.Query<Button>(className: "zukan-filter").ToList();
             StringAssert.StartsWith("すべて ", chips[0].text);
             StringAssert.Contains("/", chips[0].text, "見つけた数 / いる数");

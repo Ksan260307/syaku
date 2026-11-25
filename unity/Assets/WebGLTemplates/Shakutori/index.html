@@ -104,16 +104,18 @@
     }
 
     const buildUrl = "Build";
-    const loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
+    // ビルドごとにかわる印（ブラウザが、古いファイルと新しいファイルをまぜて読みこまない。build_webgl.ps1 が入れる）
+    const buildId = "?v=__BUILD_ID__";
+    const loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}" + buildId;
     const config = {
       arguments: [],
-      dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
-      frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+      dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}" + buildId,
+      frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}" + buildId,
 #if USE_THREADS
       workerUrl: buildUrl + "/{{{ WORKER_FILENAME }}}",
 #endif
 #if USE_WASM
-      codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+      codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}" + buildId,
 #endif
 #if MEMORY_FILENAME
       memoryUrl: buildUrl + "/{{{ MEMORY_FILENAME }}}",
