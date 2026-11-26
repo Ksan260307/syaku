@@ -233,6 +233,8 @@ namespace Shakutori
             public bool carriedPrev;
             public float curious;                      // しゃくとりむしの方へ体を向ける度合い
             public float tick, twitch;                 // 小さなぴくっ（つぎの時刻・1→0）
+            public bool airPrev;                       // モーション 300：前のフレームで飛んでいた
+            public float takeoffK, settleK, wakeK;     // 飛び立った・止まった・休みから歩きだした直後（1→0）
         }
 
         public struct MobInfo

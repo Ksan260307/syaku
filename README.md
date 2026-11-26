@@ -172,7 +172,7 @@ powershell -ExecutionPolicy Bypass -File tools/run_tests.ps1 -Only PlayMode
 | [AREA_FIXES.md](AREA_FIXES.md) | 形や物の置き方の違和感の直し 300 |
 | [MOUNTAIN_FIXES.md](MOUNTAIN_FIXES.md) | 山の遊びやすさの直し 100 |
 | [CREATURE_FIXES.md](CREATURE_FIXES.md) | いきものの居場所の見なおし |
-| [CREATURE_MOTIONS.md](CREATURE_MOTIONS.md) | いきものの動きの改善 200（しぐさ・脚・体のゆれ） |
+| [CREATURE_MOTIONS.md](CREATURE_MOTIONS.md) | いきものの動きの改善 300（しぐさ・脚・体のゆれ） |
 
 ## クレジット
 

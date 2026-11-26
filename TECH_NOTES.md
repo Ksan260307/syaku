@@ -100,6 +100,9 @@ Unity 側で毎フレームこの曲線に沿って曲げています（`Inchwor
 - `Creatures.Motion2.cs`: 見た目だけの動き 200（[CREATURE_MOTIONS.md](CREATURE_MOTIONS.md)）。`MotionPose` のおわりの `MoreMotion`（体のかたむき・のびちぢみ・上下）、
   脚の `LegMotion`（坂・その場のふみかえ・警戒）、何もしなかった虫の新しいひとりの動き（`PickActMore`）。
   止まっている時間・息切れ・警戒・着地・しゃくとりむしへの興味は `UpdateMotion2` が持つ小さな状態で、乱数は使わない（`Noise01`）ので、ほかの動きの乱数の順番は変わらない
+- `Creatures.Motion3.cs`: 第 4 弾の動き 100（201〜300）。`MoreMotion` のおわりの `MoreMotion3`、`LegMotion` の中の `FallLegs`（落ちるあいだ）と `LegMotion3`、
+  `PickActMore` で決めない種の `PickActMore3`。飛び立ち・止まった直後・休みからの歩きだしは `UpdateMotion3` の小さな状態（1→0）。
+  体のかたむきを細かく見るテストがある種（`KeepPose`：タヌキ・トカゲ・モグラ・オコジョ・だんごむし）には、体をかたむける共通の動きを足さない
 - `CreatureRig.cs` / `CreatureRig.g.cs`: 脚の付け根の位置と、ひざで曲がる手足の関節の位置（Blender のスクリプトが書き出す）、
   手足の IK（`SolveLimb`）と歩く足の行き先（`StepTarget`）、Blender→Unity の座標変換。
   Blender では `legs()`（細い脚）・`leg_part()`（形を自由にかく脚）・`limb()`（ひざで曲がる手足）でかいた手足を、`split_legs()` が右側だけ別のメッシュにする

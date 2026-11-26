@@ -48,7 +48,7 @@ namespace Shakutori
             switch (m.sp.id)
             {
                 case "otoshibumi": case "kamikiri": case "higurashi": case "kamemushi": case "okera":
-                case "kanabun": case "suzumushi": case "korogi": case "kirigirisu":
+                case "kanabun": case "suzumushi": case "korogi": case "kirigirisu": case "hae":
                     return true;
                 default:
                     return false;
@@ -60,6 +60,7 @@ namespace Shakutori
         // ------------------------------------------------------------------
         void UpdateMotion2(Mob m, float dt)
         {
+            UpdateMotion3(m, dt);   // モーション 300（Creatures.Motion3.cs）：idleFor などを変える前に
             bool still = !m.airborne && m.moveSpeed < 0.03f;
             if (still)
             {
@@ -111,7 +112,7 @@ namespace Shakutori
                 case "maruhanabachi": return r < 0.5f ? ActGroom : 0;                      // [M] マルハナバチ：とまって、前脚で顔の花粉をはらう
                 case "suzumushi": case "korogi": return r < 0.35f ? ActGroom : 0;          // [M] スズムシ・コオロギ：鳴いていないとき、触角の手入れ
                 case "ga": case "fuyushaku": return r < 0.4f ? ActShake : 0;               // [M] ガ：とまって、体をふるわせて温める
-                default: return -1;
+                default: return PickActMore3(m, r);
             }
         }
 
@@ -125,7 +126,7 @@ namespace Shakutori
                 case "nanafushi": return act == ActSpecial ? 2.4f : -1f;
                 case "maimaikaburi": return act == ActStretch ? 1.6f : -1f;
                 case "ga": case "fuyushaku": return act == ActShake ? 1.8f : -1f;
-                default: return -1f;
+                default: return ActLengthMore3(m, act);
             }
         }
 
@@ -134,9 +135,12 @@ namespace Shakutori
         // ------------------------------------------------------------------
         void LegMotion(Mob m, float moving, ref float swing, ref float lift, ref float gait)
         {
-            if (s_NoMoreMotion || m.airborne || m.fallVel > 0.05f || m.anim < m.deadUntil) return;
+            if (s_NoMoreMotion || m.anim < m.deadUntil) return;
             if (m.bid == "pillbug" && m.curled > 0f) return;                       // 丸まっているあいだは脚をしまったまま
             if (m.sp.legSuffix == "_Sneaker" && m.act == ActSpecial) return;       // 足ぶみ（ドン）の脚はそのまま
+            if (FallLegs(m, ref swing, ref lift, ref gait)) return;                 // モーション 300：落ちているあいだ
+            if (m.airborne || m.fallVel > 0.05f) return;
+            LegMotion3(m, moving, ref swing, ref lift, ref gait);                   // モーション 300
             if (m.moveSpeed < 0.02f && Mathf.Abs(m.turnRate) > 20f)
             {
                 // [M] その場で向きを変えるときは、脚を小きざみにふみかえる
@@ -900,6 +904,7 @@ namespace Shakutori
                     if (m.act == 0) rot = AA(2f * m.twitch, right) * rot;
                     break;
             }
+            MoreMotion3(m, f, right, s, moving, walker, ref rot, ref scale3, ref bob);   // モーション 300（Creatures.Motion3.cs）
         }
 
         /// <summary>
